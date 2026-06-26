@@ -465,6 +465,15 @@ async function chargerDonnees(forcedEnvSlug) {
         if (_ob && _on) _ob.textContent = _on.toUpperCase();
         document.title = (_on || 'Iconik') + ' — Settings';
         _populateEnvSwitcher();
+        // Timestamp depuis le cache
+        const _tsCached = document.getElementById('snapshot-ts');
+        if (_tsCached && _cached._snapshotTs) {
+          const _d = new Date(_cached._snapshotTs);
+          const _fmt = _d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit' })
+            + ' ' + _d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
+          _tsCached.textContent = 'Snapshot : ' + _fmt;
+          _tsCached.title = _cached._snapshotTs;
+        }
         return;
       } else {
         sessionStorage.removeItem(_ck);
@@ -549,6 +558,15 @@ async function chargerDonnees(forcedEnvSlug) {
   const snapCheck = await fetch('/api/ikon/snapshot/' + window._apsActiveEnvSlug)
     .then(r => r.ok ? r.json() : null).catch(() => null);
   if (!snapCheck) { console.warn('[APS] Aucun snapshot pour', window._apsActiveEnvSlug); return; }
+  // Afficher le timestamp du snapshot dans la barre org
+  const _tsEl = document.getElementById('snapshot-ts');
+  if (_tsEl && snapCheck.capturedAt) {
+    const _d = new Date(snapCheck.capturedAt);
+    const _fmt = _d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit' })
+      + ' ' + _d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
+    _tsEl.textContent = 'Snapshot : ' + _fmt;
+    _tsEl.title = snapCheck.capturedAt;
+  }
   console.log('[APS] Chargement snapshot :', window._apsActiveEnvSlug, '—', snapCheck.capturedAt);
 
   // 4) syncIconik scope par scope via proxy DB
@@ -604,6 +622,7 @@ async function chargerDonnees(forcedEnvSlug) {
         relationTypesData, systemSettingsData, rolesData, itemsAdvancedData,
         appsData, appTokensData, exportLocationsData, orgName,
         _envSlug: window._apsActiveEnvSlug,
+        _snapshotTs: snapCheck.capturedAt || null,
       }));
       console.log('[APS] Cache sessionStorage sauvegardé —', _saveKey, '| teams:', (teamsData.teams||[]).length, ', cols:', (collectionsData.collections||[]).length);
       _populateEnvSwitcher();
