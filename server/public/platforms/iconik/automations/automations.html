@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Automations — Iconik</title>
+  <link rel="stylesheet" href="automations.css" />
+</head>
+
+<body>
+  <!-- ── Header ── -->
+  <header>
+    <div class="hdr-logo">
+      <img src="../_images/logo.svg?v=1772619673" alt="Logo" style="height:26px;width:auto;display:block;">
+      <span id="orgBadge" class="hdr-org" aria-label="Organisation"></span>
+    </div>
+
+    <nav aria-label="Navigation principale">
+      <button type="button" class="nav-btn" onclick="location.href='../dashboard/dashboard.html'">DASHBOARD</button>
+      <button type="button" class="nav-btn" onclick="location.href='../settings/settings.html'">SETTINGS</button>
+      <button type="button" class="nav-btn active" aria-current="page">AUTOMATIONS</button>
+      <button type="button" class="nav-btn" onclick="location.href='../workflow/workflow.html'">WORKFLOW</button>
+      <button type="button" class="nav-btn" onclick="location.href='../viewer/viewer.html'">VIEWER</button>
+      <button type="button" class="nav-btn" onclick="location.href='../monitoring/monitoring.html'">MONITORING</button>
+    </nav>
+  </header>
+
+  <!-- BANDEAU STATS -->
+<div class="aut-stats" id="aut-stats">
+  <!-- Automations -->
+  <div class="aut-stat">
+    <div>
+      <div class="aut-stat-val aut-stat-split">
+        <span id="statAutomationsActive">0</span>
+        <span class="aut-stat-sep">·</span>
+        <span id="statAutomationsInactive">0</span>
+      </div>
+      <div class="aut-stat-lbl">AUTOMATIONS</div>
+    </div>
+  </div>
+
+  <!-- Webhooks -->
+  <div class="aut-stat">
+    <div>
+      <div class="aut-stat-val aut-stat-split">
+        <span id="statWebhooksActive">0</span>
+        <span class="aut-stat-sep">·</span>
+        <span id="statWebhooksInactive">0</span>
+      </div>
+      <div class="aut-stat-lbl">WEBHOOKS</div>
+    </div>
+  </div>
+
+  <!-- Custom actions -->
+  <div class="aut-stat">
+    <div>
+      <div class="aut-stat-val aut-stat-split">
+        <span id="statCustomActionsActive">0</span>
+        <span class="aut-stat-sep">·</span>
+        <span id="statCustomActionsInactive">0</span>
+      </div>
+      <div class="aut-stat-lbl">CUSTOM ACTIONS</div>
+    </div>
+  </div>
+</div>
+
+  <!-- ========== LAYOUT 3 COLONNES (comme Settings) ========== -->
+  <div class="automations-layout">
+
+    <!-- COLONNE 1 : SIDEBAR ÉTROITE (navigation) -->
+    <aside class="aut-sidebar" aria-label="Navigation Automations">
+    
+  <!-- Filtre global (All / Active / Inactive / Draft) -->
+  <div class="sidebar-filter" role="group" aria-label="Filtre global sidebar">
+    <button type="button" id="filterAll" class="sf-btn active">ALL</button>
+    <button type="button" id="filterActive" class="sf-btn">ACTIVE</button>
+    <button type="button" id="filterInactive" class="sf-btn">INACTIVE</button>
+    <button type="button" id="filterDraft" class="sf-btn">DRAFT</button>
+ </div>
+ 
+     <div class="sidebar-section">
+        <div class="sidebar-header">
+          <span>⚙️ AUTOMATIONS</span>
+          <button type="button" class="btn-add" onclick="creerAutomation()">+ Créer</button>
+        </div>
+        <div id="automations-list" class="sidebar-list"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-header orange">
+          <span>🔔 WEBHOOKS</span>
+          <button type="button" class="btn-add orange" onclick="creerWebhook()">+ Créer</button>
+        </div>
+        <div id="webhooks-list" class="sidebar-list"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-header purple">
+          <span>⚡ CUSTOM ACTIONS</span>
+          <button type="button" class="btn-add purple" onclick="creerCustomAction()">+ Créer</button>
+        </div>
+        <div id="custom-actions-list" class="sidebar-list"></div>
+      </div>
+    </aside>
+
+    <!-- COLONNE 2 : CANVAS CENTRAL (liste + édition) -->
+    <main class="aut-canvas" aria-label="Canvas édition">
+      <!-- État vide -->
+      <div id="canvas-empty" class="canvas-empty">
+        <div class="canvas-icon">⚙️</div>
+        <h3>Canvas vide</h3>
+        <p>Sélectionnez une automation, webhook ou custom action depuis le panneau gauche</p>
+      </div>
+
+      <!-- Éditeur (affiché quand un élément est sélectionné) -->
+      <div id="canvas-editor" class="canvas-editor" style="display:none;">
+        <!-- Contenu généré par JS -->
+      </div>
+    </main>
+
+    <!-- COLONNE 3 : API CALLS (droite) -->
+<aside class="aut-preview" aria-label="Prévisualisation API">
+  <div class="preview-header">
+    <div class="preview-title">
+      <span>🔌 API CALLS GÉNÉRÉS</span>
+      <span class="preview-status">Mis à jour en temps réel</span>
+    </div>
+
+    <div class="preview-mode" role="group" aria-label="Mode de prévisualisation">
+      <button type="button" id="btnPreviewEasy" class="pm-btn active">EASY</button>
+      <button type="button" id="btnPreviewTech" class="pm-btn">ENGINEER</button>
+    </div>
+  </div>
+
+  <div id="api-preview-content" class="preview-content">
+    <div class="preview-empty">
+      <p>Ajoutez des triggers et des actions pour voir les API calls correspondants</p>
+    </div>
+
+    <div id="api-calls-container" style="display:none;"></div>
+  </div>
+</aside>
+       
+  </div>
+
+  <!-- Scripts (déférés pour s’exécuter après le DOM) -->
+  <script src="script-automations.js" defer></script>
+  <script src="../_shared/wfd-bus.js" defer></script>
+  <script src="../_shared/wfd-sync-client-automations.js" defer></script>
+  <script src="script-automations-word.js" defer></script>
+</body>
+</html>

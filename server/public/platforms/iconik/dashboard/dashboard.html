@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Iconik — Matrice Permissions</title>
+  <link rel="stylesheet" href="dashboard-canvas.css">
+</head>
+<body class="dashboard-canvas-page">
+
+  <header class="dbc-header">
+    <div class="dbc-logo">
+      <img src="../_images/logo.svg?v=1772619673" alt="Logo" style="height:26px;width:auto;display:block;">
+      <span id="orgBadge" class="dbc-org-badge"></span>
+    </div>
+    <nav class="dbc-nav">
+      <button class="dbc-nav-btn active">DASHBOARD</button>
+      <button class="dbc-nav-btn" onclick="window.location.href='../settings/settings.html'">SETTINGS</button>
+      <button class="dbc-nav-btn" onclick="window.location.href='../automations/automations.html'">AUTOMATIONS</button>
+      <button class="dbc-nav-btn" onclick="window.location.href='../workflow/workflow.html'">WORKFLOW</button>
+      <button class="dbc-nav-btn" onclick="window.location.href='../viewer/viewer.html'">VIEWER</button>
+	  <button class="dbc-nav-btn" onclick="window.location.href='../monitoring/monitoring.html'">MONITORING</button>
+    </nav>
+    <div class="dbc-toolbar">
+      <button class="dbc-tb-btn" id="btn-load-all" onclick="chargerToutesDonnees()">⟳ Charger données</button>
+      <div class="dbc-sep"></div>
+      <button class="dbc-tb-btn" onclick="autoDeployerTout()" title="Déployer / Replier tout">⊞ Déployer tout</button>
+      <button class="dbc-tb-btn" onclick="toutAuStore()" title="Ajouter toutes les cassettes au store">⊕ Tout au store</button>
+      <button class="dbc-tb-btn" onclick="dbcRealigner()" title="Réaligner automatiquement les nœuds">⊟ Réaligner</button>
+      <button class="dbc-tb-btn" onclick="viderCanvas()" title="Vider le canvas">✕ Vider canvas</button>
+      <div class="dbc-sep"></div>
+      <button class="dbc-tb-btn accent-word" onclick="_dbcExportWord()">📝 Export Word</button>
+      <button class="dbc-tb-btn accent-excel" onclick="_dbcExportExcel()">📊 Export Excel</button>
+    </div>
+  </header>
+
+  <div class="dbc-layout">
+
+    <!-- PANEL GAUCHE -->
+    <aside class="dbc-panel-left" id="dbc-panel-left">
+      <div class="dbc-panel-resize" id="dbc-panel-resize"></div>
+      <div class="dbc-panel-title">SOURCES ICONIK</div>
+
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('teams')">
+          <span class="dbc-src-dot" style="background:#e84393"></span>
+          <span>Teams</span>
+          <span class="dbc-src-count" id="count-teams">0</span>
+          <span class="dbc-src-chevron" id="chev-teams">▶</span>
+        </div>
+        <div class="dbc-source-items collapsed" id="items-teams"></div>
+      </div>
+
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('roleGroups')">
+          <span class="dbc-src-dot" style="background:#9b59b6"></span>
+          <span>Role Groups</span>
+          <span class="dbc-src-count" id="count-roleGroups">0</span>
+          <span class="dbc-src-chevron" id="chev-roleGroups">▶</span>
+        </div>
+        <div class="dbc-source-items collapsed" id="items-roleGroups"></div>
+      </div>
+
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('collections')">
+          <span class="dbc-src-dot" style="background:#3498db"></span>
+          <span>Collections</span>
+          <span class="dbc-src-count" id="count-collections">0</span>
+          <span class="dbc-src-chevron" id="chev-collections">▶</span>
+        </div>
+        <div class="dbc-source-items collapsed" id="items-collections"></div>
+      </div>
+
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('metadataViews')">
+          <span class="dbc-src-dot" style="background:#f39c12"></span>
+          <span>Metadata Views</span>
+          <span class="dbc-src-count" id="count-metadataViews">0</span>
+          <span class="dbc-src-chevron" id="chev-metadataViews">▶</span>
+        </div>
+        <div class="dbc-source-items collapsed" id="items-metadataViews"></div>
+      </div>
+
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('metadonnees')">
+          <span class="dbc-src-dot" style="background:#e67e22"></span>
+          <span>Métadonnées</span>
+          <span class="dbc-src-count" id="count-metadonnees">0</span>
+          <span class="dbc-src-chevron" id="chev-metadonnees">▶</span>
+        </div>
+        <div class="dbc-source-items collapsed" id="items-metadonnees"></div>
+      </div>
+
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('savedSearches')">
+          <span class="dbc-src-dot" style="background:#1abc9c"></span>
+          <span>Saved Searches</span>
+          <span class="dbc-src-count" id="count-savedSearches">0</span>
+          <span class="dbc-src-chevron" id="chev-savedSearches">▶</span>
+        </div>
+        <div class="dbc-source-items collapsed" id="items-savedSearches"></div>
+      </div>
+
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('storages')">
+          <span class="dbc-src-dot" style="background:#27ae60"></span>
+          <span>Storages</span>
+          <span class="dbc-src-count" id="count-storages">0</span>
+          <span class="dbc-src-chevron" id="chev-storages">▶</span>
+        </div>
+        <div class="dbc-source-items collapsed" id="items-storages"></div>
+      </div>
+
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('roles')">
+          <span class="dbc-src-dot" style="background:#2ecc71"></span>
+          <span>Roles</span>
+          <span class="dbc-src-count" id="count-roles">0</span>
+          <span class="dbc-src-chevron" id="chev-roles">▶</span>
+        </div>
+        <div class="dbc-source-items collapsed" id="items-roles"></div>
+      </div>
+
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('automations')">
+          <span class="dbc-src-dot" style="background:#00d4aa"></span>
+          <span>Automations</span>
+          <span class="dbc-src-count" id="count-automations">0</span>
+          <span class="dbc-src-chevron" id="chev-automations">▶</span>
+        </div>
+        <div class="dbc-source-items collapsed" id="items-automations"></div>
+      </div>
+
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('webhooks')">
+        <span class="dbc-src-dot" style="background:#7f8fa4"></span>
+        <span>Webhooks</span>
+        <span class="dbc-src-count" id="count-webhooks">0</span>
+        <span class="dbc-src-chevron" id="chev-webhooks"></span>
+      </div>
+      <div class="dbc-source-items collapsed" id="items-webhooks"></div>
+     </div>
+
+     
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('customActions')">
+        <span class="dbc-src-dot" style="background:#e74c3c"></span>
+        <span>Custom Actions</span>
+        <span class="dbc-src-count" id="count-customActions">0</span>
+        <span class="dbc-src-chevron" id="chev-customActions"></span>
+      </div>
+      <div class="dbc-source-items collapsed" id="items-customActions"></div>
+     </div>
+
+      <div class="dbc-source-group">
+        <div class="dbc-source-header" onclick="toggleSourceGroup('categories')">
+          <span class="dbc-src-dot" style="background:#c0392b"></span>
+          <span>Catégories</span>
+          <span class="dbc-src-count" id="count-categories">0</span>
+          <span class="dbc-src-chevron" id="chev-categories">▶</span>
+        </div>
+        <div class="dbc-source-items collapsed" id="items-categories"></div>
+      </div>
+      <!-- Footer panel : Retour AFS -->
+      <div class="dbc-panel-footer">
+  <button id="btn-return-afs" class="dbc-panel-action" type="button">
+    <span class="dbc-panel-action-ico" aria-hidden="true">↩</span>
+    <span>Retour AFS</span>
+  </button>
+ </div>
+    </aside>
+
+    <!-- CANVAS -->
+    <div class="dbc-canvas-wrap" id="dbc-canvas-wrap">
+      <div class="dbc-empty" id="dbc-empty">
+        <div class="dbc-empty-icon">⬡</div>
+        <div class="dbc-empty-title">Canvas vide</div>
+        <div class="dbc-empty-sub">Glissez des Teams / Role Groups depuis le panel gauche<br>ou utilisez <strong>Déployer tout</strong></div>
+      </div>
+      <div id="dbc-cassettes-wrap"></div>
+      <div class="dbc-status-bar">
+        <span class="dbc-status" id="dbc-status"></span>
+      </div>
+    </div>
+
+    <!-- PANEL DROIT — Store -->
+    <aside class="dbc-panel-right" id="dbc-panel-right">
+      <div class="dbc-panel-title">
+        EXPORT STORE
+        <button class="dbc-store-clear" onclick="viderStore()" title="Vider le store">✕</button>
+      </div>
+      <div class="dbc-store-hint" id="dbc-store-hint">
+        Clic droit sur un nœud<br>→ <em>Ajouter au store</em>
+      </div>
+      <div id="dbc-store-list"></div>
+      <div class="dbc-store-footer" id="dbc-store-footer" style="display:none;">
+        <div class="dbc-store-count" id="dbc-store-count">0 nœud(s)</div>
+        <button class="dbc-tb-btn accent-word" onclick="_dbcExportWord()" style="width:100%;margin-bottom:6px;">📝 Word</button>
+        <button class="dbc-tb-btn accent-excel" onclick="_dbcExportExcel()" style="width:100%;">📊 Excel</button>
+      </div>
+    </aside>
+
+  </div>
+
+  <div id="dbc-ctx-menu"></div>
+
+<!-- <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script> -->
+  <script src="../_vendor/docx/index.umd.js"></script>
+  <script src="../_vendor/exceljs/exceljs.min.js"></script>
+  <script type="module" src="../_vendor/exceljs/export-exceljs.browser.js"></script>
+  <script src="../_debug/logo-loader.js?v=1772619673"></script>
+  <script src="script-dashboard-shared.js?v=1772619673"></script>
+  <script src="script-dashboard-main.js?v=1772619673"></script>
+  <script src="script-dashboard-canvas.js?v=1772619673"></script>
+  <script src="script-dashboard-excel.js?v=1772619673"></script>
+  <script src="script-dashboard-word.js?v=1772619673"></script>
+
+<script>
+/* === DASHBOARD bootstrap : créer l’org locale si manquante (depuis l’index) === */
+(() => {
+  const readJSON  = (k, f=null) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } };
+  const writeJSON = (k, v)      => localStorage.setItem(k, JSON.stringify(v));
+  const delKey    = (k)         => localStorage.removeItem(k);
+  const eq = (a,b) => String(a||'').trim().localeCompare(String(b||'').trim(), 'fr', {sensitivity:'accent'}) === 0;
+
+  const params   = new URLSearchParams(location.search);
+  const orgQP    = (params.get('org') || '').trim();
+  const intentQP = params.get('intent'); // attendu: 'create-if-missing'
+  const intent   = readJSON('askida:intent', null);
+
+  if (!orgQP || intentQP !== 'create-if-missing' || !intent || intent.platform !== 'iconik' || !eq(intent.org, orgQP)) return;
+
+  const currentOrg = (localStorage.getItem('organisationName') || '').trim();
+  const exists = eq(currentOrg, orgQP);
+
+  if (!exists) {
+    if (typeof mettreAJourOrganisation === 'function') {
+      // logique Settings : écrit organisationName + badge + title
+      mettreAJourOrganisation(orgQP);
+    } else {
+      // fallback léger si la fonction n'est pas chargée dans ce contexte
+      localStorage.setItem('organisationName', orgQP);
+      const badge = document.getElementById('orgBadge');
+      if (badge) badge.textContent = orgQP.toUpperCase();
+      // (On ne touche pas document.title ici, on reste sur "Iconik — Matrice Permissions")
+    }
+    // Alimente la liste d'orgs pour l'accueil (utile pour l'index)
+    const list = readJSON('askida:orgs:iconik', []);
+    if (!list.some(o => eq(o, orgQP))) writeJSON('askida:orgs:iconik', [...list, orgQP]);
+  }
+
+  // Nettoyage : évite de rejouer au prochain rechargement
+  delKey('askida:intent');
+})();
+</script>
+
+</body>
+</html>

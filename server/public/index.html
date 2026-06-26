@@ -1,0 +1,184 @@
+<!-- APS — index.html — 2026-06-23 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Askida Platform Studio</title>
+  <link rel="stylesheet" href="index.css" />
+  <link rel="stylesheet" href="_shared/css/navbar.css" />
+</head>
+<body>
+
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar" aria-label="Navigation APS">
+        <a class="aps-nav-link active" href="index.html">Home</a>
+        <a class="aps-nav-link" href="studio/studio.html">Studio</a>
+        <a class="aps-nav-link" href="scenario/overview/overview.html">Scénarios</a>
+        <a class="aps-nav-link" href="viewer/aps/aps.html">Viewer</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero">
+    <h1>Askida Platform Studio</h1>
+    <p>Concevez, orchestrez et documentez vos plateformes</p>
+  </div>
+
+  <main class="aps-main">
+
+    <!-- ── WORKSPACES ── -->
+    <div class="section-label">Workspaces</div>
+    <div class="row">
+      <div class="card card-full">
+        <div class="corner-tr"></div><div class="corner-bl"></div>
+        <div class="card-hd">
+          <div class="plat-ico" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+              <path d="M12 3 20 7 20 17 12 21 4 17 4 7Z"/>
+              <path d="M12 3 12 13 20 17"/>
+              <path d="M12 13 4 17"/>
+            </svg>
+          </div>
+          <div class="card-tt">Workspaces</div>
+        </div>
+        <div class="card-bd"><p>Accédez à vos espaces de travail. Les connexions et environnements sont configurés dans Administration.</p></div>
+        <div class="cta-row">
+          <button class="btn" id="btn-open-workspace" type="button">OUVRIR</button>
+        </div>
+        <div class="expand" id="panel-workspace">
+          <div class="field">
+            <label>Plateforme</label>
+            <select id="platform-select">
+              <option value="iconik">Iconik</option>
+              <option value="avid" disabled>Avid (à venir)</option>
+              <option value="mimir" disabled>Mimir (à venir)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Organisation</label>
+            <select id="org-select"></select>
+          </div>
+          <div class="field">
+            <label>Environnement</label>
+            <select id="env-select">
+              <option value="prod">Production</option>
+              <option value="dev">Développement</option>
+              <option value="qa">QA</option>
+            </select>
+          </div>
+          <div class="cta-row" style="padding:0">
+            <button class="btn" id="btn-continue" type="button">✓ OUVRIR</button>
+            <button class="btn ghost" id="btn-close-workspace" type="button">ANNULER</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ── BUILDERS ── -->
+    <div class="section-label">Builders</div>
+    <div class="row">
+
+      <div class="card card-builder">
+        <div class="corner-tr"></div><div class="corner-bl"></div>
+        <div class="card-hd"><div class="card-tt">Platform Builder</div></div>
+        <div class="card-bd"><p class="muted">Structures, ACL, metadata, mapping.</p></div>
+        <div class="cta-row"><a class="btn ghost" href="builders/platform/platform.html">OUVRIR</a></div>
+      </div>
+
+      <div class="card card-builder">
+        <div class="corner-tr"></div><div class="corner-bl"></div>
+        <div class="card-hd"><div class="card-tt">Workflow Builder</div></div>
+        <div class="card-bd"><p class="muted">Workflows abstraits et exports.</p></div>
+        <div class="cta-row"><a class="btn ghost" href="builders/workflow/workflow.html">OUVRIR</a></div>
+      </div>
+
+      <div class="card card-builder">
+        <div class="corner-tr"></div><div class="corner-bl"></div>
+        <div class="card-hd"><div class="card-tt">Documentation Builder</div></div>
+        <div class="card-bd"><p class="muted">Kits métiers, templates, imports, exports.</p></div>
+        <div class="cta-row"><a class="btn ghost" href="builders/doc/doc.html">OUVRIR</a></div>
+      </div>
+
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ── ADMINISTRATION ── -->
+    <div class="section-label">Administration</div>
+    <div class="row">
+
+      <div class="card card-admin">
+        <div class="corner-tr"></div><div class="corner-bl"></div>
+        <div class="card-hd"><div class="admin-ico">⚙️</div><div class="card-tt">Plateformes</div></div>
+        <div class="card-bd"><p class="muted">Déclarer et configurer les plateformes.</p></div>
+        <div class="cta-row"><a class="btn ghost" href="admin/platforms/platforms.html">GÉRER</a></div>
+      </div>
+
+      <div class="card card-admin">
+        <div class="corner-tr"></div><div class="corner-bl"></div>
+        <div class="card-hd"><div class="admin-ico">🔌</div><div class="card-tt">Connexions</div></div>
+        <div class="card-bd"><p class="muted">Tokens, credentials et URLs.</p></div>
+        <div class="cta-row"><a class="btn ghost" href="admin/connexions/connexions.html">GÉRER</a></div>
+      </div>
+
+      <div class="card card-admin">
+        <div class="corner-tr"></div><div class="corner-bl"></div>
+        <div class="card-hd"><div class="admin-ico">🌐</div><div class="card-tt">Environnements</div></div>
+        <div class="card-bd"><p class="muted">Instances QA, Production, Dev.</p></div>
+        <div class="cta-row"><a class="btn ghost" href="admin/environments/environments.html">GÉRER</a></div>
+      </div>
+
+      <div class="card card-admin">
+        <div class="corner-tr"></div><div class="corner-bl"></div>
+        <div class="card-hd"><div class="admin-ico">👤</div><div class="card-tt">Utilisateurs</div></div>
+        <div class="card-bd"><p class="muted">Rôles et accès APS.</p></div>
+        <div class="cta-row"><button class="btn ghost" disabled>BIENTÔT</button></div>
+      </div>
+
+      <div class="card card-admin">
+        <div class="corner-tr"></div><div class="corner-bl"></div>
+        <div class="card-hd"><div class="admin-ico">🖥</div><div class="card-tt">Infrastructure</div></div>
+        <div class="card-bd"><p class="muted">Node-RED, Docker, tunnel Cloudflare.</p></div>
+        <div class="cta-row"><a class="btn ghost" href="admin/infrastructure/infrastructure.html">OUVRIR</a></div>
+      </div>
+
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ── DÉCOUVRIR ── -->
+    <div class="section-label">Découvrir</div>
+    <div class="row">
+      <div class="card card-full">
+        <div class="corner-tr"></div><div class="corner-bl"></div>
+        <div class="card-hd">
+          <div class="plat-ico" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 8v5"/>
+              <circle cx="12" cy="16" r="1"/>
+            </svg>
+          </div>
+          <div class="card-tt">Découvrir</div>
+        </div>
+        <div class="card-bd"><p class="muted">Cas d'usage, workflows validés, philosophie et exemples.</p></div>
+        <div class="cta-row"><button class="btn ghost" id="btn-docs" type="button">DOCUMENTATION</button></div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="aps-footer">
+    Askida Managed Services · Engineering · Broadcast · Creative · Synergies
+  </footer>
+
+  <script src="index.js" defer></script>
+</body>
+</html>

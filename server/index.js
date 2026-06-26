@@ -12,9 +12,9 @@ const path        = require('path');
 const app  = express();
 const PORT = process.env.APS_PORT || 3000;
 
-// ── Chemin vers le frontend Electron ─────────────────────────────────────────
+// ── Chemin vers le frontend ──────────────────────────────────────────────────
 const FRONTEND_PATH = process.env.APS_FRONTEND_PATH
-  || path.join(process.env.HOME, 'Desktop/MAM/app/frontend/public');
+  || path.join(__dirname, 'public');
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 

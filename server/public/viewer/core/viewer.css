@@ -1,0 +1,66 @@
+/* APS Snapshot badge (lecture seule) */
+.aps-snapshot {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #333);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted, #aaa);
+  white-space: nowrap;
+}
+/* ===== APS navbar integration (Viewer Core only) ===== */
+
+header{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:nowrap;
+}
+
+/* laisse respirer le snapshot au milieu */
+.aps-snap{
+  flex: 1 1 auto;
+  min-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+/* navbar à droite, jamais en recouvrement */
+.aps-navbar{
+  margin-left:auto;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex: 0 0 auto;
+}
+
+/* boutons compacts dans Viewer Core (sinon trop gros) */
+.aps-nav-link{
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+/* APS: header alignment */
+header{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.aps-context-bar{
+  display:flex;
+  justify-content:flex-end;
+  padding:6px 18px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+}
+
+.aps-context-item{
+  font-size:11px;
+  opacity:.85;
+  white-space:nowrap;
+}

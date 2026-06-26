@@ -1,0 +1,461 @@
+/* builders/doc/doc.css — AFS Dark + layout WFD-like
+   Objectif: garder le layout WFD (gauche/canvas/droite) avec le style AFS (dark).
+   Ce fichier force le thème, même si theme.css est light ou partiellement appliqué.
+*/
+
+:root{
+  /* fallback si les variables ne sont pas définies par theme.css */
+  --accent:#d6d233;
+  --bg:#0f1011;
+  --bg2:#151718;
+  --bg3:#1a1d1f;
+  --text:#eef0f1;
+  --text-dim:#a6b0b8;
+  --border:#262a2e;
+}
+
+html, body{
+  margin:0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Logo stable (au cas où navbar.css ne gagne pas) */
+.aps-logo{
+  max-height: 42px;
+  height:auto;
+  width:auto;
+  display:block;
+}
+
+/* ===== Layout WFD-like ===== */
+.wfd-layout{
+  display: grid;
+  grid-template-columns: 320px 1fr 340px;
+  gap: 14px;
+  padding: 14px 18px 18px 18px;
+  min-height: calc(100vh - 84px);
+}
+
+.wfd-left, .wfd-right{
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  box-shadow: 0 12px 28px rgba(0,0,0,.22);
+}
+
+.wfd-canvas{
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 12px 28px rgba(0,0,0,.22);
+}
+
+/* Titres / blocs */
+.wfd-panel-title{
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 10px;
+}
+
+.wfd-block{
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.wfd-block-title{
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.wfd-kv{
+  display:flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  padding: 4px 0;
+  color: rgba(238,240,241,0.90);
+}
+.wfd-kv span:first-child{ color: rgba(255,255,255,0.60); }
+.wfd-kv span:last-child{ color: rgba(255,255,255,0.92); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.wfd-hint{
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Checkboxes */
+.wfd-check{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(238,240,241,0.92);
+  padding: 4px 0;
+}
+.wfd-check input{ accent-color: var(--accent); }
+
+/* Inputs / selects / buttons */
+.wfd-row{
+  display:flex;
+  gap: 8px;
+  align-items:center;
+  margin-top: 8px;
+}
+
+.wfd-left select,
+.wfd-right select,
+.wfd-left input[type="text"],
+.wfd-right input[type="text"],
+.wfd-right input[type="file"]{
+  width: 100%;
+  background: #0f1113;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 10px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.wfd-row button,
+#btnExportTxt{
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(214,210,51,0.18);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button.ghost{
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* Canvas */
+.wfd-canvas-toolbar{
+  display:flex;
+  justify-content: space-between;
+  align-items:center;
+  padding: 12px 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.18);
+}
+
+.wfd-canvas-title{
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.wfd-canvas-sub{
+  margin-top: 2px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.60);
+}
+
+.wfd-canvas-body{
+  padding: 12px;
+  overflow: auto;
+  height: 100%;
+}
+
+.wfd-preview{
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px;
+  white-space: pre-wrap;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(238,240,241,0.92);
+}
+
+/* Responsive */
+@media (max-width: 1100px){
+  .wfd-layout{ grid-template-columns: 1fr; }
+}
+/* =========================
+   AFS Doc Builder – Cosmetic pass
+   ========================= */
+
+/* 1) Masquer le badge ORG dans le header (info déjà dans la carte Projet) */
+#orgBadge{ display:none !important; }
+
+/* 2) Boutons “Configurer…” et “Réinitialiser kit” lisibles */
+#btnOpenConfig,
+#btnResetKit,
+#btnBackToPreview{
+  background: rgba(214,210,51,0.18) !important;
+  border: 1px solid rgba(214,210,51,0.35) !important;
+  color: rgba(238,240,241,0.95) !important;
+}
+
+#btnOpenConfig:hover,
+#btnResetKit:hover,
+#btnBackToPreview:hover{
+  background: rgba(214,210,51,0.26) !important;
+  border-color: rgba(214,210,51,0.55) !important;
+}
+
+/* Les "ghost" restent discrets mais lisibles */
+button.ghost{
+  color: rgba(238,240,241,0.90) !important;
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+}
+button.ghost:hover{
+  background: rgba(255,255,255,0.07) !important;
+  border-color: rgba(255,255,255,0.24) !important;
+}
+
+/* 3) Selects / inputs : look cohérent (évite le rendu “default”) */
+.wfd-left select,
+.wfd-right select,
+.wfd-canvas select,
+.wfd-left input[type="text"],
+.wfd-right input[type="text"]{
+  background: rgba(15,16,17,0.70) !important;
+  border: 1px solid rgba(255,255,255,0.14) !important;
+  border-radius: 10px !important;
+  color: rgba(238,240,241,0.95) !important;
+  padding: 9px 10px !important;
+}
+
+/* 4) File input : bouton stylé + masque “Aucun fichier choisi” */
+#tplFile{
+  width: 100%;
+  color: transparent;               /* masque le “no file chosen” */
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+/* Chrome/Edge/Electron */
+#tplFile::-webkit-file-upload-button{
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: rgba(238,240,241,0.95);
+  cursor: pointer;
+}
+
+/* Standard moderne */
+#tplFile::file-selector-button{
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: rgba(238,240,241,0.95);
+  cursor: pointer;
+}
+#tplFile::file-selector-button:hover{
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.24);
+}
+
+/* Placeholder texte du fichier (on l’affiche dans un span à côté) */
+.wfd-file-name{
+  font-size: 11px;
+  color: rgba(255,255,255,0.60);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 5) Scrollbars : pas de scroll => pas de barre (overflow:auto déjà),
+      et quand il y en a une : fine et moderne */
+.wfd-left, .wfd-right, .wfd-canvas-body{
+  overflow: auto; /* assure le comportement “no scroll => no bar” */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(255,255,255,0.25) rgba(0,0,0,0.12);
+}
+
+/* WebKit (Chromium/Electron) */
+.wfd-left::-webkit-scrollbar,
+.wfd-right::-webkit-scrollbar,
+.wfd-canvas-body::-webkit-scrollbar{
+  width: 10px;
+  height: 10px;
+}
+.wfd-left::-webkit-scrollbar-track,
+.wfd-right::-webkit-scrollbar-track,
+.wfd-canvas-body::-webkit-scrollbar-track{
+  background: rgba(0,0,0,0.12);
+  border-radius: 999px;
+}
+.wfd-left::-webkit-scrollbar-thumb,
+.wfd-right::-webkit-scrollbar-thumb,
+.wfd-canvas-body::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.22);
+  border-radius: 999px;
+  border: 2px solid rgba(0,0,0,0.12);
+}
+.wfd-left::-webkit-scrollbar-thumb:hover,
+.wfd-right::-webkit-scrollbar-thumb:hover,
+.wfd-canvas-body::-webkit-scrollbar-thumb:hover{
+  background: rgba(255,255,255,0.32);
+}
+
+/* 6) Petit polish sur la “title row” du panel scope */
+.wfd-title-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+/* ======== Scrollbars: pas de scroll global, scroll interne seulement ======== */
+html, body{
+  height: 100%;
+  overflow: hidden; /* supprime la scrollbar globale */
+}
+
+/* la grille ne scroll pas non plus */
+.wfd-layout{
+  height: calc(100vh - 84px); /* header ≈ 84px */
+  overflow: hidden;
+}
+
+/* seuls les panneaux/canvas scrollent si nécessaire */
+.wfd-left, .wfd-right{ overflow: auto; }
+.wfd-canvas-body{ overflow: auto; }
+
+/* ======== File input: éviter "Aucun fichier choisi" + alignement propre ======== */
+.wfd-file-row{
+  align-items: center;
+  gap: 10px;
+}
+
+#tplFile{
+  width: 100%;
+  max-width: 190px;    /* évite que ça mange tout l’espace */
+  color: transparent;  /* masque le texte natif "Aucun fichier choisi" */
+}
+
+/* Chromium / Electron */
+#tplFile::-webkit-file-upload-button{
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: rgba(238,240,241,0.95);
+  cursor: pointer;
+}
+#tplFile::-webkit-file-upload-button:hover{
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.24);
+}
+
+/* Standard moderne */
+#tplFile::file-selector-button{
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: rgba(238,240,241,0.95);
+  cursor: pointer;
+}
+#tplFile::file-selector-button:hover{
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.24);
+}
+
+/* nom du fichier affiché proprement */
+.wfd-file-name{
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: rgba(255,255,255,0.60);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ======== Scrollbars stylées (quand elles apparaissent) ======== */
+.wfd-left, .wfd-right, .wfd-canvas-body{
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(255,255,255,0.25) rgba(0,0,0,0.12);
+}
+
+.wfd-left::-webkit-scrollbar,
+.wfd-right::-webkit-scrollbar,
+.wfd-canvas-body::-webkit-scrollbar{
+  width: 10px;
+  height: 10px;
+}
+.wfd-left::-webkit-scrollbar-track,
+.wfd-right::-webkit-scrollbar-track,
+.wfd-canvas-body::-webkit-scrollbar-track{
+  background: rgba(0,0,0,0.12);
+  border-radius: 999px;
+}
+.wfd-left::-webkit-scrollbar-thumb,
+.wfd-right::-webkit-scrollbar-thumb,
+.wfd-canvas-body::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.22);
+  border-radius: 999px;
+  border: 2px solid rgba(0,0,0,0.12);
+}
+.wfd-left::-webkit-scrollbar-thumb:hover,
+.wfd-right::-webkit-scrollbar-thumb:hover,
+.wfd-canvas-body::-webkit-scrollbar-thumb:hover{
+  background: rgba(255,255,255,0.32);
+}
+
+/* Cache complètement le vrai input file (supprime tout “Aucun fichier choisi”) */
+.wfd-file-hidden{
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Label stylé comme bouton */
+.wfd-file-btn{
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: rgba(238,240,241,0.95);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.wfd-file-btn:hover{
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.24);
+}
+
+/* Nom du fichier (propre) */
+.wfd-file-name{
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: rgba(255,255,255,0.60);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,0 +1,1687 @@
+/* ═════════════════════════════════════════════════════════════
+   WFD — AUTOMATIONS (Canvas like Settings) — CSS CLEAN
+   - No modals
+   - Sidebar cassettes like Settings
+   - Dot status: green (active), red (inactive), orange (local)
+   ═════════════════════════════════════════════════════════════ */
+
+/* ========== Variables ========== */
+:root{
+  --bg: #0d0d0d;
+  --bg2:#111;
+  --bg3:#161616;
+  --bg4:#1a1a1a;
+  --border:#222;
+  --border2:#2a2a2a;
+
+  --text:#d0d0d0;
+  --text-mid:#999;
+  --text-dim:#666;
+
+  --accent:#00d4aa;
+  --c-webhook:#e67e22;
+  --c-custom:#9b59b6;
+  --c-lookup:#3498db;
+  --c-danger:#e74c3c;
+
+  --font:'Courier New', monospace;
+  --font-ui:'DM Sans', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+
+  color-scheme: dark;
+}
+
+/* ========== Reset ========== */
+*{ box-sizing:border-box; margin:0; padding:0; }
+html, body{ height:100dvh; }
+body{
+  font-family:var(--font-ui);
+  background:var(--bg);
+  color:var(--text);
+  overflow-x:hidden;
+  overflow-y:auto;
+}
+
+/* ========== Header ========== */
+header{
+  height:48px;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border2);
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding:0 16px;
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+.hdr-logo{ display:flex; align-items:center; gap:8px; }
+.hdr-logo img{ max-height:26px; }
+.hdr-org{
+  font-size:9px;
+  letter-spacing:1.5px;
+  color:var(--accent);
+  font-weight:700;
+  border:1px solid #00d4aa33;
+  padding:2px 7px;
+  border-radius:10px;
+  font-family:var(--font);
+}
+nav{ display:flex; gap:2px; }
+.nav-btn{
+  background:none;
+  border:none;
+  color:#fff;
+  font-family:var(--font);
+  font-size:11px;
+  letter-spacing:.8px;
+  padding:6px 12px;
+  border-radius:4px;
+  cursor:pointer;
+  transition:color .15s, background .15s;
+}
+.nav-btn:hover{ color:#fff; background:var(--bg3); }
+.nav-btn.active{
+  color:var(--accent);
+  border-bottom:2px solid var(--accent);
+  border-radius:0;
+}
+
+/* ========== Stats band ========== */
+.aut-stats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:1px;
+  background:var(--border);
+  border:1px solid var(--border);
+  overflow:hidden;
+  width:100%;
+}
+.aut-stat{
+  background:var(--bg2);
+  padding:12px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+}
+.aut-stat-val{
+  font-size:22px;
+  font-weight:700;
+  font-family:var(--font);
+  line-height:1;
+  color:var(--accent);
+}
+.aut-stat-lbl{
+  margin-top:4px;
+  font-size:10px;
+  color:var(--text-dim);
+  letter-spacing:.5px;
+  text-transform:uppercase;
+}
+
+/* ========== Main layout (3 columns) ========== */
+.automations-layout{
+  display:grid;
+  grid-template-columns:280px 1fr 380px;
+  height:calc(100vh - 48px - 1px - 1px - 60px); /* header + borders + stats approx */
+  min-height:520px;
+  gap:1px;
+  background:var(--border);
+  overflow:hidden;
+}
+
+/* ========== Sidebar (left) ========== */
+.aut-sidebar{
+  background:var(--bg2);
+  overflow-y:auto;
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+}
+.aut-sidebar::-webkit-scrollbar{ width:4px; }
+.aut-sidebar::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:2px; }
+.aut-sidebar::-webkit-scrollbar-track{ background:transparent; }
+
+.sidebar-section{ border-bottom:1px solid var(--border); }
+
+.sidebar-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:9px 12px;
+  background:var(--bg3);
+  font-size:9px;                 /* align Settings */
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  font-family:var(--font);
+  color:var(--accent);
+}
+.sidebar-header.orange{ color:var(--c-webhook); }
+.sidebar-header.purple{ color:var(--c-custom); }
+
+.btn-add{
+  background:none;
+  border:1px solid var(--border2);
+  color:currentColor;
+  padding:3px 8px;
+  border-radius:3px;
+  cursor:pointer;
+  font-size:10px;
+  font-family:var(--font);
+  opacity:.95;
+}
+.btn-add:hover{
+  background:rgba(0,212,170,0.10);
+  border-color:var(--accent);
+}
+.btn-add.orange:hover{
+  background:rgba(230,126,34,0.10);
+  border-color:var(--c-webhook);
+}
+.btn-add.purple:hover{
+  background:rgba(155,89,182,0.10);
+  border-color:var(--c-custom);
+}
+
+.sidebar-list{
+  padding:8px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-height:80px;
+}
+
+/* ========== Cassettes (Settings-like) ========== */
+.set-cassette{
+  background:var(--bg3);
+  border:1px solid var(--border2);
+  border-left:3px solid var(--accent);
+  border-radius:4px;
+  padding:8px 10px;              /* align Settings */
+  cursor:pointer;
+  transition:all .15s;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.set-cassette:hover{
+  background:var(--bg4);
+  border-color:var(--accent);
+}
+.set-cassette.active{
+  background:rgba(0,212,170,0.10);
+  border-color:var(--accent);
+}
+.set-cassette.inactive{ opacity:.65; }
+
+.set-cassette.webhook{ border-left-color:var(--c-webhook); }
+.set-cassette.custom{ border-left-color:var(--c-custom); }
+
+.set-cassette-name{
+  font-size:11px;                /* ↓ from 12 */
+  font-weight:600;
+  color:#fff;
+  flex:1;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  display:flex;
+  align-items:center;
+  min-width:0;
+}
+.set-cassette-cnt{
+  font-size:9px;
+  color:var(--text-dim);
+  background:var(--bg4);
+  padding:2px 6px;
+  border-radius:10px;
+  flex-shrink:0;
+}
+
+/* Dot status: green active / red inactive / orange local */
+.cassette-dot{
+  display:inline-block;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  margin-right:8px;
+  border:1px solid var(--border2);
+  flex-shrink:0;
+}
+.cassette-dot.on{
+  background:var(--accent);
+  border-color:#00d4aa66;
+}
+.cassette-dot.off{
+  background:var(--c-danger);
+  border-color:rgba(231,76,60,.55);
+}
+.cassette-dot.local{
+  background:#f39c12;
+  border-color:rgba(243,156,18,.55);
+}
+
+/* ========== Canvas (center) ========== */
+.aut-canvas{
+  background:var(--bg);
+  overflow-y:auto;
+  padding:18px 18px 24px;
+  border-right:1px solid var(--border);
+}
+.aut-canvas::-webkit-scrollbar{ width:4px; }
+.aut-canvas::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:2px; }
+.aut-canvas::-webkit-scrollbar-track{ background:transparent; }
+
+.canvas-empty{
+  text-align:center;
+  padding:70px 16px;
+  color:var(--text-dim);
+}
+.canvas-icon{
+  font-size:44px;
+  margin-bottom:14px;
+  opacity:.30;
+}
+.canvas-empty h3{
+  font-size:16px;
+  color:var(--text);
+  margin-bottom:8px;
+  font-weight:700;
+}
+.canvas-empty p{
+  font-size:12px;
+  color:var(--text-dim);
+}
+
+.canvas-editor{
+  max-width:980px;
+  margin:0 auto;
+}
+
+/* Editor header */
+.editor-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:16px;
+  padding-bottom:12px;
+  border-bottom:1px solid var(--border);
+}
+.editor-header h2{
+  font-size:16px;
+  color:#fff;
+  margin:0;
+  font-weight:700;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.editor-actions{
+  display:flex;
+  gap:8px;
+  flex-shrink:0;
+}
+.btn-save{
+  background:var(--accent);
+  color:#000;
+  border:none;
+  padding:7px 14px;
+  border-radius:4px;
+  font-weight:700;
+  cursor:pointer;
+}
+.btn-save:hover{ background:#00f5c4; }
+.btn-close{
+  background:var(--bg3);
+  color:var(--text);
+  border:1px solid var(--border2);
+  padding:7px 14px;
+  border-radius:4px;
+  cursor:pointer;
+}
+.btn-close:hover{ border-color:#444; color:#fff; }
+
+/* Sections (Settings-like cards, compact) */
+.editor-section{
+  background:var(--bg2);
+  border:1px solid var(--border2);
+  border-radius:6px;
+  overflow:hidden;
+  margin-bottom:12px;
+}
+.section-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:9px 12px;
+  background:var(--bg3);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.6px;
+  text-transform:uppercase;
+  color:var(--text);
+  font-family:var(--font);
+}
+.btn-add-small{
+  background:none;
+  border:1px solid var(--border2);
+  color:var(--text-dim);
+  padding:3px 8px;
+  border-radius:3px;
+  cursor:pointer;
+  font-size:10px;
+  font-family:var(--font);
+}
+.btn-add-small:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+  background:rgba(0,212,170,0.08);
+}
+.section-body{
+  padding:12px;
+}
+.section-hint{
+  font-size:11px;
+  color:var(--text-dim);
+  font-style:italic;
+}
+
+/* Blocks for triggers/actions */
+.action-block{
+  background:var(--bg4);
+  border:1px solid var(--border2);
+  border-left:3px solid var(--c-lookup);
+  border-radius:4px;
+  padding:10px 10px 12px 26px;
+  position:relative;
+  margin-bottom:10px;
+}
+.action-number{
+  position:absolute;
+  top:8px;
+  left:-13px;
+  width:24px;
+  height:24px;
+  background:var(--c-lookup);
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  color:#000;
+  font-size:10px;
+  font-family:var(--font);
+}
+
+/* Forms */
+.form-group{ display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.field-label{
+  font-size:10px;
+  color:var(--text-dim);
+  text-transform:uppercase;
+  letter-spacing:.7px;
+  font-weight:700;
+  font-family:var(--font);
+}
+.field-input, .field-select{
+  width:100%;
+  padding:7px 10px;
+  background:#0d0d0d;
+  color:var(--text);
+  border:1px solid var(--border2);
+  border-radius:4px;
+  font-size:12px;
+  font-family:var(--font-ui);
+  outline:none;
+  transition:border-color .15s;
+}
+.field-input:focus, .field-select:focus{ border-color:var(--accent); }
+textarea.field-input{
+  resize:vertical;
+  min-height:70px;
+  line-height:1.5;
+}
+
+.field-select, .field-select option, .field-select optgroup{
+  background-color:var(--bg3);
+  color:var(--text);
+}
+
+/* Checkbox line */
+.field-checkbox{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:11px;
+  color:var(--text);
+  margin:6px 0;
+}
+
+/* Small “delete” button used in blocks */
+.aut-btn{
+  padding:4px 10px;
+  border-radius:3px;
+  font-size:10px;
+  font-family:var(--font);
+  cursor:pointer;
+  border:1px solid var(--border2);
+  background:var(--bg4);
+  color:var(--text-mid);
+  transition:all .12s;
+  letter-spacing:.3px;
+}
+.aut-btn:hover{ color:#fff; border-color:#444; }
+.aut-btn.del:hover{
+  color:var(--c-danger);
+  border-color:rgba(231,76,60,0.40);
+  background:rgba(231,76,60,0.10);
+}
+
+/* ========== Preview panel (right) ========== */
+.aut-preview{
+  background:var(--bg2);
+  border-left:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.preview-header{
+  padding:12px 14px;
+  background:var(--bg3);
+  border-bottom:1px solid var(--border);
+}
+.preview-header span:first-child{
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  font-family:var(--font);
+  color:var(--text);
+  display:block;
+  margin-bottom:4px;
+}
+.preview-status{
+  font-size:9px;
+  color:var(--accent);
+}
+.preview-content{
+  flex:1;
+  overflow-y:auto;
+  padding:14px;
+}
+.preview-content::-webkit-scrollbar{ width:4px; }
+.preview-content::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:2px; }
+.preview-content::-webkit-scrollbar-track{ background:transparent; }
+
+.preview-empty{
+  text-align:center;
+  color:var(--text-dim);
+  font-size:12px;
+  padding:40px 16px;
+}
+
+/* API call blocks */
+.api-call-block{
+  background:var(--bg3);
+  border:1px solid var(--border2);
+  border-radius:6px;
+  overflow:hidden;
+  margin-bottom:12px;
+}
+.api-method{
+  background:var(--accent);
+  color:#000;
+  padding:8px 10px;
+  font-weight:900;
+  font-size:11px;
+  font-family:var(--font);
+}
+.api-method.warn{ background:#f39c12; }
+.api-method.danger{ background:var(--c-danger); color:#fff; }
+
+.api-url{
+  padding:8px 10px;
+  background:var(--bg4);
+  font-size:11px;
+  font-family:var(--font);
+  color:var(--accent);
+  border-bottom:1px solid var(--border);
+  word-break:break-all;
+}
+.api-headers{
+  padding:10px 10px;
+  font-size:11px;
+  font-family:var(--font);
+  line-height:1.6;
+}
+.header-line .lbl{ color:var(--text-dim); }
+.header-line .val{ color:#f39c12; }
+.api-body{ border-top:1px solid var(--border); }
+.api-body summary{
+  padding:9px 10px;
+  cursor:pointer;
+  font-size:11px;
+  font-weight:700;
+  color:var(--text);
+  background:var(--bg4);
+}
+.api-body pre{
+  margin:0;
+  padding:10px;
+  background:#0a0a0a;
+  font-size:11px;
+  font-family:var(--font);
+  color:#a0a0a0;
+  overflow-x:auto;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 1200px){
+  .automations-layout{ grid-template-columns:260px 1fr 320px; }
+}
+@media (max-width: 980px){
+  .automations-layout{
+    grid-template-columns:1fr;
+    grid-template-rows:auto 1fr auto;
+  }
+  .aut-preview{ display:none; }
+}
+@media (max-width: 760px){
+  .aut-stats{ grid-template-columns:1fr; }
+  nav{ overflow-x:auto; }
+}
+
+/* Conditions: couleur dédiée (sans inline style JS) */
+.cond-block { border-left-color: var(--c-custom) !important; }
+.cond-num { background: var(--c-custom) !important; }
+
+/* ── Stats : deux compteurs (actifs / inactifs) ─────────────────────────── */
+.aut-stat-split{
+  display:flex;
+  justify-content:space-between;   /* actif à gauche, inactif à droite */
+  align-items:baseline;
+  gap:8px;
+  min-width:120px;                 /* évite les sauts visuels */
+}
+.aut-stat-sep{
+  color: var(--text-dim);
+  opacity: .6;
+  margin: 0 6px;
+}
+
+/* Couleurs des compteurs */
+#statAutomationsActive,
+#statWebhooksActive,
+#statCustomActionsActive{
+  color: var(--accent);            /* vert WFD */
+}
+#statAutomationsInactive,
+#statWebhooksInactive,
+#statCustomActionsInactive{
+  color: var(--c-danger);          /* rouge WFD */
+}
+
+/* Dot état inconnu (avant synchro Iconik) */
+.cassette-dot.unknown{
+  background:#5f6b77;            /* gris lisible */
+  border-color:rgba(95,107,119,.55);
+}
+
+/* ═════════════════════════════════════════════════════════════
+   Collections Tree Picker (Arbo + Search + Tags) — WFD
+   - Use with type: select-collections-multi
+   - Supports selecting parents + leaves (mode B)
+   ═════════════════════════════════════════════════════════════ */
+
+/* Container */
+.tree-picker{
+  background: #0d0d0d;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Search input */
+.tree-picker-search{
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--bg4);
+  color: var(--text);
+  border: none;
+  border-bottom: 1px solid var(--border2);
+  font-size: 11px;
+  outline: none;
+  font-family: var(--font-ui);
+}
+
+/* Selected tags area */
+.tree-picker-tags{
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border2);
+  min-height: 34px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: #0b0b0b;
+}
+
+/* Tag chip */
+.tree-tag{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 10px;
+  font-family: var(--font);
+  font-weight: 700;
+  letter-spacing: .02em;
+  background: rgba(0, 212, 170, 0.12);
+  border: 1px solid rgba(0, 212, 170, 0.30);
+  color: var(--accent);
+  max-width: 100%;
+}
+.tree-tag .tree-tag-text{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 420px;
+}
+.tree-tag .tree-tag-del{
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+}
+.tree-tag .tree-tag-del:hover{ color: #fff; }
+
+/* Optional: unresolved tag (if ID/path is unknown later) */
+.tree-tag.unresolved{
+  background: rgba(231, 76, 60, 0.10);
+  border-color: rgba(231, 76, 60, 0.35);
+  color: var(--c-danger);
+}
+.tree-tag.unresolved .tree-tag-del{ color: var(--c-danger); }
+
+/* Tree scroll area */
+.tree-picker-scroll{
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.tree-picker-scroll::-webkit-scrollbar{ width: 4px; }
+.tree-picker-scroll::-webkit-scrollbar-thumb{ background: var(--border2); border-radius: 2px; }
+.tree-picker-scroll::-webkit-scrollbar-track{ background: transparent; }
+
+/* Tree list */
+.tree-list{
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Row */
+.tree-row{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.tree-row:hover{
+  background: rgba(0, 212, 170, 0.06);
+}
+
+/* Indentation */
+.tree-indent{
+  display: inline-block;
+  width: 0;
+  flex-shrink: 0;
+}
+.tree-depth-0 .tree-indent{ width: 0px; }
+.tree-depth-1 .tree-indent{ width: 14px; }
+.tree-depth-2 .tree-indent{ width: 28px; }
+.tree-depth-3 .tree-indent{ width: 42px; }
+.tree-depth-4 .tree-indent{ width: 56px; }
+.tree-depth-5 .tree-indent{ width: 70px; }
+
+/* Expand/collapse caret */
+.tree-caret{
+  width: 14px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tree-caret:hover{ color: #fff; }
+
+/* Folder/file icon */
+.tree-icon{
+  width: 16px;
+  text-align: center;
+  font-size: 12px;
+  opacity: .95;
+  flex-shrink: 0;
+}
+
+/* Node label */
+.tree-label{
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: #e6e6e6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Selected highlight */
+.tree-row.selected{
+  background: rgba(0, 212, 170, 0.12);
+}
+.tree-row.selected .tree-label{
+  color: #fff;
+}
+
+/* Parent selected (mode B): visually same as selected, but keep as folder */
+.tree-row.selected-parent{
+  background: rgba(0, 212, 170, 0.10);
+}
+
+/* Hidden (filter) */
+.tree-row.hidden{ display: none; }
+
+/* Small helper text under picker (optional) */
+.tree-picker-hint{
+  padding: 8px 10px;
+  font-size: 10px;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border2);
+  background: #0b0b0b;
+}
+
+/* ═════════════════════════════════════════════════════════════
+   Chips Picker (dropdown + tags) — WFD
+   For Set ACL on asset: Users / Teams / Permissions
+   - No inline styles needed in JS
+   - Method color: GET/POST/PUT/DELETE can be added later (preview)
+   ═════════════════════════════════════════════════════════════ */
+
+/* Wrapper */
+.chips-picker{
+  background:#0d0d0d;
+  border:1px solid var(--border2);
+  border-radius:4px;
+  overflow:hidden;
+}
+
+/* Top row: select + optional "Add" button */
+.chips-picker-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  background:var(--bg4);
+  border-bottom:1px solid var(--border2);
+}
+
+/* Dropdown (looks like Iconik compact select) */
+.chips-picker-select{
+  flex:1;
+  min-width:0;
+  padding:7px 10px;
+  background:var(--bg3);
+  color:var(--text);
+  border:1px solid var(--border2);
+  border-radius:4px;
+  font-size:12px;
+  font-family:var(--font-ui);
+  outline:none;
+}
+.chips-picker-select:focus{
+  border-color:var(--accent);
+}
+
+/* Optional right-side action button (e.g. "ADD") */
+.chips-picker-add{
+  background:var(--bg3);
+  color:var(--text);
+  border:1px solid var(--border2);
+  border-radius:4px;
+  padding:7px 12px;
+  font-size:11px;
+  font-family:var(--font);
+  font-weight:800;
+  letter-spacing:.4px;
+  cursor:pointer;
+}
+.chips-picker-add:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+  background:rgba(0,212,170,0.08);
+}
+
+/* Tags area */
+.chips-tags{
+  padding:8px 10px;
+  min-height:34px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  background:#0b0b0b;
+}
+
+/* Individual chip */
+.chips-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  border-radius:999px;
+  padding:3px 9px;
+  font-size:10px;
+  font-family:var(--font);
+  font-weight:800;
+  letter-spacing:.02em;
+  max-width:100%;
+  background:rgba(0,212,170,0.12);
+  border:1px solid rgba(0,212,170,0.30);
+  color:var(--accent);
+}
+
+/* Chip variants (for Users / Teams / Permissions) */
+.chips-tag.user{
+  background:rgba(52,152,219,0.12);
+  border-color:rgba(52,152,219,0.30);
+  color:#7fbaff;
+}
+.chips-tag.team{
+  background:rgba(155,89,182,0.12);
+  border-color:rgba(155,89,182,0.30);
+  color:#d6b3ff;
+}
+.chips-tag.perm{
+  background:rgba(0,212,170,0.12);
+  border-color:rgba(0,212,170,0.30);
+  color:var(--accent);
+}
+
+/* Chip label */
+.chips-tag-text{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  max-width:520px;
+}
+
+/* Remove "×" */
+.chips-tag-del{
+  background:none;
+  border:none;
+  cursor:pointer;
+  padding:0 2px;
+  font-size:14px;
+  line-height:1;
+  color:inherit;
+  opacity:.9;
+}
+.chips-tag-del:hover{
+  color:#fff;
+  opacity:1;
+}
+
+/* Help / hint under chips */
+.chips-hint{
+  padding:8px 10px;
+  font-size:10px;
+  color:var(--text-dim);
+  border-top:1px solid var(--border2);
+  background:#0b0b0b;
+}
+
+/* Small radio group row (for Apply mode: Append / Overwrite) */
+.radio-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px;
+  padding:6px 0;
+}
+.radio-row .field-checkbox{
+  margin:0;
+}
+
+/* ═════════════════════════════════════════════════════════════
+   Update Metadata (Iconik v2) — Canvas UI (Mode A: targets[])
+   - Category -> Metadata View -> Fields list
+   - Only marked fields toggle
+   - Tag Cloud mode: Append / Overwrite / Remove
+   ═════════════════════════════════════════════════════════════ */
+
+/* Container for "Update Metadata" editor inside an action-block */
+.um-editor{
+  background: #0d0d0d;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Top context rows (Category / Metadata View / Only marked) */
+.um-context{
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--border2);
+  background: var(--bg4);
+}
+.um-row{
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.um-row:last-child{ margin-bottom: 0; }
+
+.um-row .um-lbl{
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  font-weight: 700;
+  font-family: var(--font);
+}
+
+.um-row .um-ctrl{
+  min-width: 0;
+}
+
+.um-row .um-ctrl .field-select,
+.um-row .um-ctrl .field-input{
+  width: 100%;
+}
+
+/* Only marked hint */
+.um-onlymarked{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+.um-onlymarked .section-hint{
+  margin: 0;
+}
+
+/* Targets bar (tabs/chips for multiple targets) */
+.um-targets{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border2);
+  background: #0b0b0b;
+}
+.um-target-chip{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text-mid);
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  cursor: pointer;
+  user-select: none;
+  max-width: 100%;
+}
+.um-target-chip:hover{
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,212,170,0.08);
+}
+.um-target-chip.active{
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,212,170,0.10);
+}
+.um-target-chip .um-target-name{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+.um-target-chip .um-target-del{
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+  opacity: .85;
+}
+.um-target-chip .um-target-del:hover{ color:#fff; opacity: 1; }
+
+/* Fields list */
+.um-fields{
+  padding: 10px;
+  background: #0d0d0d;
+}
+.um-fields-title{
+  font-size: 10px;
+  font-family: var(--font);
+  font-weight: 900;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  color: var(--text);
+  padding: 2px 0 8px;
+}
+
+/* One field row */
+.um-field{
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  background: var(--bg3);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.um-field:last-child{ margin-bottom: 0; }
+
+/* Field header line: checkbox + name + optional mode */
+.um-field-hdr{
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--bg4);
+  border-bottom: 1px solid var(--border2);
+}
+.um-field-check{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.um-field-name{
+  font-size: 11px;
+  font-weight: 700;
+  color: #e6e6e6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tag Cloud mode select (Append/Overwrite/Remove) */
+.um-field-mode{
+  display:flex;
+  align-items:center;
+  gap: 6px;
+}
+.um-mode-select{
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: var(--font-ui);
+  outline: none;
+}
+.um-mode-select:focus{ border-color: var(--accent); }
+
+/* Field body: value control area */
+.um-field-body{
+  padding: 10px;
+  background: #0d0d0d;
+}
+
+/* Make controls compact inside metadata update */
+.um-field-body .field-input,
+.um-field-body .field-select{
+  background: #0d0d0d;
+}
+
+/* For chips/tag editors inside field body (reuse existing tag styles) */
+.um-field-body .tree-picker-tags,
+.um-field-body .chips-tags{
+  background: #0b0b0b;
+  border: 1px dashed var(--border2);
+  border-radius: 4px;
+}
+.um-field-body .tree-picker-search,
+.um-field-body .chips-picker-select{
+  background: var(--bg3);
+}
+
+/* Disabled visual when field not checked */
+.um-field.disabled{
+  opacity: .55;
+}
+.um-field.disabled .um-field-body{
+  pointer-events: none;
+  filter: grayscale(0.1);
+}
+
+/* Small helper hint line under a specific field */
+.um-field-hint{
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+/* Responsive tweak */
+@media (max-width: 760px){
+  .um-row{ grid-template-columns: 1fr; }
+  .um-row .um-lbl{ margin-bottom: -4px; }
+  .um-field-hdr{ grid-template-columns: 26px 1fr; }
+  .um-field-mode{ grid-column: 1 / -1; }
+}
+
+/* Inline validation message (discret, texte rouge uniquement) */
+#aut-name-error{
+  margin-top: 6px;
+  padding: 0;                 /* pas de bloc */
+  border: none;               /* pas de contour */
+  background: transparent;    /* pas de fond */
+  color: var(--c-danger);     /* rouge */
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* ── Preview header: toggle EASY / ENGINEER ─────────────────────────────── */
+.preview-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.preview-title{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.preview-mode{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pm-btn{
+  background: var(--bg4);
+  color: var(--text-mid);
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 10px;
+  font-family: var(--font);
+  font-weight: 800;
+  letter-spacing: .6px;
+  cursor: pointer;
+  transition: all .12s;
+  line-height: 1;
+}
+
+.pm-btn:hover{
+  color: #fff;
+  border-color: #444;
+}
+
+.pm-btn.active{
+  background: rgba(0, 212, 170, 0.18);
+  border-color: rgba(0, 212, 170, 0.45);
+  color: var(--accent);
+}
+
+/* Fix placement preview header (title left, toggle right) */
+.preview-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  width:100%;
+  box-sizing:border-box;
+}
+
+.preview-title{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  flex:1;              /* <-- important: takes remaining space */
+  min-width:0;
+}
+
+/* Re-apply "header first line" styling without span:first-child dependency */
+.preview-title > span:first-child{
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  font-family:var(--font);
+  color:var(--text);
+  display:block;
+}
+
+.preview-mode{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  flex-shrink:0;
+}
+
+/* ═════════════════════════════════════════════════════════════
+   API Calls — EASY mode "Node-like" capsules
+   (activated when #api-calls-container has [data-mode="easy"])
+   ═════════════════════════════════════════════════════════════ */
+
+#api-calls-container[data-mode="easy"]{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Node container */
+#api-calls-container[data-mode="easy"] .api-call-block{
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 0 rgba(0,0,0,0);
+  transition: border-color .12s, background .12s;
+}
+
+#api-calls-container[data-mode="easy"] .api-call-block:hover{
+  border-color: #3a3a3a;
+  background: var(--bg4);
+}
+
+/* Header line: badge + title */
+#api-calls-container[data-mode="easy"] .api-method{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-family: var(--font);
+  font-weight: 900;
+  font-size: 10px;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  background: #0b0b0b;
+  border-bottom: 1px solid var(--border2);
+  color: var(--text);
+}
+
+/* Badge (method or kind) – JS will add these classes */
+#api-calls-container[data-mode="easy"] .api-method .step-badge{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  background: var(--bg4);
+  color: var(--text-mid);
+  font-weight: 900;
+  letter-spacing: .8px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+#api-calls-container[data-mode="easy"] .api-method .step-title{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* URL row (optional) */
+#api-calls-container[data-mode="easy"] .api-url{
+  padding: 8px 12px;
+  background: #0d0d0d;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-family: var(--font);
+  color: var(--accent);
+  word-break: break-all;
+}
+
+/* Small “sub info” area (used for NOTE/LOOKUP/JOB/COMPUTE hint) */
+#api-calls-container[data-mode="easy"] .api-headers{
+  padding: 10px 12px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-mid);
+  line-height: 1.45;
+}
+
+/* ── Color system: method badges ───────────────────────────────────────── */
+#api-calls-container[data-mode="easy"] .step-badge.badge-get{
+  border-color: rgba(52,152,219,.45);
+  background: rgba(52,152,219,.14);
+  color: #7fbaff;
+}
+#api-calls-container[data-mode="easy"] .step-badge.badge-post{
+  border-color: rgba(0,212,170,.45);
+  background: rgba(0,212,170,.16);
+  color: var(--accent);
+}
+#api-calls-container[data-mode="easy"] .step-badge.badge-put,
+#api-calls-container[data-mode="easy"] .step-badge.badge-patch{
+  border-color: rgba(243,156,18,.45);
+  background: rgba(243,156,18,.14);
+  color: #f39c12;
+}
+#api-calls-container[data-mode="easy"] .step-badge.badge-delete{
+  border-color: rgba(231,76,60,.50);
+  background: rgba(231,76,60,.14);
+  color: var(--c-danger);
+}
+
+/* ── Color system: logical step kinds ─────────────────────────────────── */
+#api-calls-container[data-mode="easy"] .step-badge.badge-note{
+  border-color: rgba(95,107,119,.55);
+  background: rgba(95,107,119,.16);
+  color: #b7c0c9;
+}
+#api-calls-container[data-mode="easy"] .step-badge.badge-lookup{
+  border-color: rgba(52,152,219,.45);
+  background: rgba(52,152,219,.10);
+  color: #7fbaff;
+}
+#api-calls-container[data-mode="easy"] .step-badge.badge-compute{
+  border-color: rgba(155,89,182,.45);
+  background: rgba(155,89,182,.10);
+  color: #d6b3ff;
+}
+#api-calls-container[data-mode="easy"] .step-badge.badge-job{
+  border-color: rgba(0,212,170,.35);
+  background: rgba(0,212,170,.10);
+  color: var(--accent);
+}
+
+/* Optional: group separators (Action / Target headings) */
+#api-calls-container[data-mode="easy"] .step-group{
+  padding: 8px 12px;
+  margin-top: 6px;
+  border-radius: 8px;
+  border: 1px dashed var(--border2);
+  color: var(--text);
+  background: rgba(255,255,255,.03);
+  font-family: var(--font);
+  font-weight: 900;
+  font-size: 10px;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+}
+
+/* Keep ENGINEER view untouched (it does not set data-mode="easy") */
+
+/* ─────────────────────────────────────────────────────────────
+   EASY grouping separators: make them stand out (light outline)
+   ───────────────────────────────────────────────────────────── */
+
+#api-calls-container[data-mode="easy"] .step-group{
+  border: 1px solid rgba(255,255,255,.22);  /* contour clair */
+  background: rgba(255,255,255,.04);        /* fond très léger */
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.35) inset;
+}
+
+/* Optional: slightly stronger when hovering near */
+#api-calls-container[data-mode="easy"] .step-group:hover{
+  border-color: rgba(255,255,255,.30);
+  background: rgba(255,255,255,.06);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Method color convention (Swagger-like):
+   - PUT orange (already)
+   - PATCH teal (more distinct)
+   ───────────────────────────────────────────────────────────── */
+
+#api-calls-container[data-mode="easy"] .step-badge.badge-patch{
+  border-color: rgba(26, 188, 156, .55);  /* teal */
+  background: rgba(26, 188, 156, .16);
+  color: #1abc9c;
+}
+
+/* Keep PUT orange (ensure it stays orange) */
+#api-calls-container[data-mode="easy"] .step-badge.badge-put{
+  border-color: rgba(243,156,18,.45);
+  background: rgba(243,156,18,.14);
+  color: #f39c12;
+}
+
+/* ── Sidebar: filtre global (1 ligne, compact) ─────────────────────────── */
+
+.sidebar-filter{
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 8px 7px;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  flex-wrap: nowrap;          /* ✅ 1 ligne */
+  overflow-x: auto;           /* si jamais trop serré, scroll horizontal */
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: thin;      /* Firefox */
+}
+
+.sidebar-filter::-webkit-scrollbar{ height: 4px; }
+.sidebar-filter::-webkit-scrollbar-thumb{ background: var(--border2); border-radius: 2px; }
+.sidebar-filter::-webkit-scrollbar-track{ background: transparent; }
+
+.sf-btn{
+  background: var(--bg3);
+  color: var(--text-mid);
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+
+  padding: 4px 9px;           /* plus compact */
+  font-size: 9px;             /* plus petit */
+  font-family: var(--font);
+  font-weight: 900;
+  letter-spacing: .5px;
+  line-height: 1;
+
+  cursor: pointer;
+  transition: all .12s;
+
+  flex: 0 0 auto;             /* empêche le shrink qui casse les labels */
+}
+
+.sf-btn:hover{
+  color: #fff;
+  border-color: #444;
+}
+
+.sf-btn.active{
+  background: rgba(0, 212, 170, 0.18);
+  border-color: rgba(0, 212, 170, 0.45);
+  color: var(--accent);
+}
+
+/* Optionnel : survol sémantique (sans casser l’actif) */
+.sf-btn#filterInactive:hover{
+  border-color: rgba(231,76,60,.50);
+  color: var(--c-danger);
+}
+.sf-btn#filterDraft:hover{
+  border-color: rgba(243,156,18,.55);
+  color: #f39c12;
+}
+
+/* Mobile : on garde 1 ligne (scroll si besoin), donc pas de wrap */
+@media (max-width: 980px){
+  .sidebar-filter{
+    position: static;
+  }
+}
+
+/* ── Sidebar filter: more breathing room + safe sticky offset ───────────── */
+.sidebar-filter{
+  top: 0;                /* ou 1px si tu veux éviter la collision avec la bordure */
+  padding-top: 10px;     /* + air haut */
+  padding-bottom: 10px;  /* + air bas */
+  margin-bottom: 6px;    /* sépare visuellement de la liste */
+
+}
+
+/* Restore sidebar scrolling (do not use overflow: visible) */
+.aut-sidebar{
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Keep the filter sticky, but don't steal vertical scrolling */
+.sidebar-filter{
+  overflow-x: auto;     /* horizontal only */
+  overflow-y: hidden;   /* prevents weird vertical trapping */
+}
+
+/* ── Inline "OK saved" message (green, discreet) ───────────────────────── */
+#aut-name-ok{
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);      /* vert WFD */
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* little fade-out (optional, used by JS via class) */
+#aut-name-ok.fade-out{
+  animation: okFadeOut 1.2s ease forwards;
+}
+
+@keyframes okFadeOut{
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Canvas switch animation (subtle, attention grab) ─────────────────── */
+.canvas-switch{
+  animation: canvasSwitch 220ms ease;
+}
+
+@keyframes canvasSwitch{
+  0%   { opacity: .92; transform: translateY(2px); }
+  100% { opacity: 1;   transform: translateY(0); }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Inline message under Name: same slot for error/success
+   - No layout jump (fixed reserved height)
+   ───────────────────────────────────────────────────────────── */
+
+#aut-name-error{
+  /* on réserve de la place en permanence pour éviter que la carte “saute” */
+  min-height: 14px;          /* une ligne */
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.2;
+  /* rouge par défaut (erreur) */
+  color: var(--c-danger);
+  /* éviter les “blancs” visibles quand vide */
+  opacity: 1;
+}
+
+/* Message “OK” = même slot, juste vert */
+#aut-name-error.is-ok{
+  color: var(--accent);
+}
+
+/* Petit fondu discret sans changer la hauteur */
+#aut-name-error.fade{
+  animation: msgFade 1.2s ease forwards;
+}
+
+@keyframes msgFade{
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Canvas switch: “volet” (slide-in) au lieu d’un flash
+   ───────────────────────────────────────────────────────────── */
+
+.canvas-volet{
+  /* on évite la sensation de “bug” : mouvement + opacité douce */
+  animation: canvasVoletIn 260ms cubic-bezier(.22,.61,.36,1);
+  will-change: transform, opacity;
+}
+
+@keyframes canvasVoletIn{
+  0%   { opacity: .88; transform: translateX(14px); }
+  100% { opacity: 1;   transform: translateX(0); }
+}
+
+/* Désactive l'ancien slot OK si encore présent (évite les doublons) */
+#aut-name-ok{ display: none !important; }
+
+/* ── Canvas transition: real push (no flash / no drop-frame feel) ───────── */
+
+.canvas-exit{
+  animation: canvasExitY 200ms cubic-bezier(.22,.61,.36,1) forwards;
+  will-change: transform, opacity;
+}
+
+.canvas-enter{
+  animation: canvasEnterY 320ms cubic-bezier(.22,.61,.36,1) forwards;
+  will-change: transform, opacity;
+}
+
+/* Exit: push slightly up + fade */
+@keyframes canvasExitY{
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+
+/* Enter: come from below + fade in */
+@keyframes canvasEnterY{
+  0%   { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Respect accessibility */
+@media (prefers-reduced-motion: reduce){
+  .canvas-exit, .canvas-enter{ animation: none !important; }
+}
+
+.tags-wrap { display:flex; flex-wrap:wrap; gap:6px; margin: 8px 0; }
+.tag { background:#1e2a2f; border:1px solid #2f4a52; color:#bfe7f1; padding:4px 8px; border-radius:999px; font-size:12px; }
+.advanced-block { margin-top: 8px; }
+
+
+
+
+
+

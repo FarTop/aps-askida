@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Monitoring — Iconik</title>
+  <link rel="stylesheet" href="monitoring.css">
+</head>
+<body>
+
+<header>
+  <div class="hdr-logo">
+    <img src="../_images/logo.svg?v=1772619673" alt="Logo" style="height:26px;width:auto;display:block;">
+    <span id="orgBadge" class="hdr-org"></span>
+  </div>
+  <nav>
+    <button class="nav-btn" onclick="location.href='../dashboard/dashboard.html'">DASHBOARD</button>
+    <button class="nav-btn" onclick="location.href='../settings/settings.html'">SETTINGS</button>
+    <button class="nav-btn" onclick="location.href='../automations/automations.html'">AUTOMATIONS</button>
+    <button class="nav-btn" onclick="location.href='../workflow/workflow.html'">WORKFLOW</button>
+    <button class="nav-btn" onclick="location.href='../viewer/viewer.html'">VIEWER</button>
+    <button class="nav-btn active">MONITORING</button>
+  </nav>
+</header>
+
+<!-- ── Toolbar ── -->
+<div id="mon-toolbar">
+  <div id="mon-toolbar-left">
+    <label class="tb-label">ENVIRONNEMENT</label>
+    <select id="mon-env-select" onchange="onEnvChange()"></select>
+    <span id="mon-env-badge"></span>
+  </div>
+  <div id="mon-toolbar-right">
+    <span id="mon-last-refresh"></span>
+    <button class="mon-btn" id="btn-refresh" onclick="refreshAll()">
+      <span id="refresh-icon">↻</span> Rafraîchir
+    </button>
+  </div>
+</div>
+
+<!-- ── Corps principal ── -->
+<div id="mon-main">
+
+  <!-- KPIs -->
+  <div id="mon-kpis">
+    <div class="kpi-card" id="kpi-jobs-running">
+      <div class="kpi-icon">⚙️</div>
+      <div class="kpi-val" id="kv-jobs-running">—</div>
+      <div class="kpi-label">Jobs en cours</div>
+    </div>
+    <div class="kpi-card kpi-danger" id="kpi-jobs-error">
+      <div class="kpi-icon">❌</div>
+      <div class="kpi-val" id="kv-jobs-error">—</div>
+      <div class="kpi-label">Jobs en erreur</div>
+    </div>
+    <div class="kpi-card" id="kpi-jobs-done">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-val" id="kv-jobs-done">—</div>
+      <div class="kpi-label">Jobs terminés (24h)</div>
+    </div>
+    <div class="kpi-card" id="kpi-assets-recent">
+      <div class="kpi-icon">🎬</div>
+      <div class="kpi-val" id="kv-assets-recent">—</div>
+      <div class="kpi-label">Assets récents (24h)</div>
+    </div>
+    <div class="kpi-card" id="kpi-webhooks">
+      <div class="kpi-icon">🔔</div>
+      <div class="kpi-val" id="kv-webhooks">—</div>
+      <div class="kpi-label">Webhooks actifs</div>
+    </div>
+  </div>
+
+  <!-- Grille 2 colonnes -->
+  <div id="mon-grid">
+
+    <!-- JOBS -->
+    <div class="mon-panel" id="panel-jobs">
+      <div class="mon-panel-hdr">
+        <span class="mon-panel-title">⚙️ Jobs récents</span>
+        <div class="mon-panel-filters">
+          <button class="filter-btn active" data-filter="all"    onclick="filterJobs(this)">Tous</button>
+          <button class="filter-btn"        data-filter="STARTED" onclick="filterJobs(this)">En cours</button>
+          <button class="filter-btn"        data-filter="FAILED"  onclick="filterJobs(this)">Erreurs</button>
+          <button class="filter-btn"        data-filter="FINISHED" onclick="filterJobs(this)">Terminés</button>
+        </div>
+      </div>
+      <div class="mon-panel-body" id="jobs-list">
+        <div class="mon-empty">Aucun environnement sélectionné</div>
+      </div>
+    </div>
+
+    <!-- ASSETS -->
+    <div class="mon-panel" id="panel-assets">
+      <div class="mon-panel-hdr">
+        <span class="mon-panel-title">🎬 Assets récents</span>
+        <div class="mon-panel-filters">
+          <button class="filter-btn active" data-filter="all"      onclick="filterAssets(this)">Tous</button>
+          <button class="filter-btn"        data-filter="uploaded"  onclick="filterAssets(this)">Uploadés</button>
+          <button class="filter-btn"        data-filter="modified"  onclick="filterAssets(this)">Modifiés</button>
+        </div>
+      </div>
+      <div class="mon-panel-body" id="assets-list">
+        <div class="mon-empty">Aucun environnement sélectionné</div>
+      </div>
+    </div>
+
+    <!-- WORKFLOWS -->
+    <div class="mon-panel" id="panel-workflows">
+      <div class="mon-panel-hdr">
+        <span class="mon-panel-title">🔀 Workflows déclenchés</span>
+        <div class="mon-panel-filters">
+          <button class="filter-btn active" data-filter="all"     onclick="filterWorkflows(this)">Tous</button>
+          <button class="filter-btn"        data-filter="running"  onclick="filterWorkflows(this)">En cours</button>
+          <button class="filter-btn"        data-filter="failed"   onclick="filterWorkflows(this)">Erreurs</button>
+          <button class="filter-btn"        data-filter="finished" onclick="filterWorkflows(this)">Terminés</button>
+        </div>
+      </div>
+      <div class="mon-panel-body" id="workflows-list">
+        <div class="mon-empty">Aucun environnement sélectionné</div>
+      </div>
+    </div>
+
+    <!-- WEBHOOKS -->
+    <div class="mon-panel" id="panel-webhooks">
+      <div class="mon-panel-hdr">
+        <span class="mon-panel-title">🔔 Activité Webhooks</span>
+      </div>
+      <div class="mon-panel-body" id="webhooks-list">
+        <div class="mon-empty">Aucun environnement sélectionné</div>
+      </div>
+    </div>
+
+  </div><!-- /#mon-grid -->
+</div><!-- /#mon-main -->
+
+<!-- Toast -->
+<div class="set-toast" id="mon-toast"></div>
+
+<script src="script-monitoring.js"></script>
+</body>
+</html>

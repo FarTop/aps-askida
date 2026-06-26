@@ -1,0 +1,110 @@
+/* APS — index.css — 2026-06-23 */
+
+:root{
+  --accent:#d6d233;
+  --bg:#0f1011;
+  --bg2:#151718;
+  --bg3:#1a1d1f;
+  --text:#eef0f1;
+  --text-dim:#a6b0b8;
+  --border:#262a2e;
+  --radius-major:22px;
+  --radius-minor:10px;
+}
+
+html,body{ margin:0; background:var(--bg); color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+
+/* Header */
+.aps-header{ display:flex; align-items:center; justify-content:space-between; padding:14px 24px; }
+.aps-header-left{ display:flex; align-items:center; gap:12px; }
+.aps-logo{ height:28px; width:auto; display:block; }
+.aps-header-right{ display:flex; align-items:center; }
+
+/* Hero */
+.hero{ padding:24px 24px 0; }
+.hero h1{ font-size:28px; line-height:1.2; margin:0 0 6px; }
+.hero p{ margin:0; color:var(--text-dim); }
+
+/* Conteneur principal */
+.aps-main{ padding:20px 24px 36px; display:flex; flex-direction:column; gap:10px; }
+
+/* Labels de section */
+.section-label{
+  font-size:11px; font-weight:700; letter-spacing:.10em;
+  text-transform:uppercase; color:var(--text-dim);
+  margin-bottom:0;
+}
+
+/* Dividers */
+.divider{ height:1px; background:rgba(255,255,255,.08); margin:8px 0; }
+
+/* Rangées flex */
+.row{ display:flex; flex-direction:row; gap:14px; align-items:stretch; }
+
+/* Carte de base */
+.card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--radius-minor) var(--radius-major) var(--radius-minor) var(--radius-major);
+  box-shadow:0 12px 28px rgba(0,0,0,.22);
+  position:relative; overflow:hidden;
+  display:flex; flex-direction:column;
+}
+
+/* Workspace et Discover : pleine largeur de la row */
+.card-full{ flex:1; }
+
+/* Builders : largeur fixe 220px × 3 */
+.card-builder{ flex:0 0 220px; }
+
+/* Admin : largeur fixe 160px × 5 */
+.card-admin{
+  flex:0 0 200px;
+  border-color:rgba(232,160,32,.20);
+}
+.card-admin .card-tt{ font-size:15px; }
+.card-admin .card-bd p{ font-size:12px; }
+.card-admin .corner-tr{ background:radial-gradient(180px 120px at 80% 20%,rgba(232,160,32,.18),transparent 60%); }
+.card-admin .corner-bl{ background:radial-gradient(220px 140px at 20% 80%,rgba(232,160,32,.12),transparent 60%); }
+
+/* Card internals */
+.card-hd{ display:flex; align-items:center; gap:12px; padding:18px 18px 8px; }
+.card-tt{ font-size:18px; font-weight:800; }
+.card-bd{ padding:0 18px 12px; flex:1; }
+.card-bd p{ color:var(--text-dim); margin:0; }
+.card-bd .muted{ color:var(--text-dim); font-size:13px; margin:0; }
+.cta-row{ display:flex; gap:8px; padding:0 18px 18px; align-items:center; margin-top:auto; }
+
+/* Icônes */
+.plat-ico{ display:inline-flex; align-items:center; justify-content:center; width:42px; height:42px; background:linear-gradient(135deg,rgba(214,210,51,.16),rgba(214,210,51,.04)); border:1px solid var(--border); border-radius:10px; color:var(--accent); }
+.admin-ico{ font-size:20px; width:38px; height:38px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+/* Boutons */
+.btn{ background:var(--accent); color:#111; border:none; font-weight:800; padding:10px 14px; border-radius:10px; cursor:pointer; text-decoration:none; display:inline-block; font-size:12px; }
+.btn.ghost{ background:transparent; color:var(--text); border:1px solid var(--border); }
+.btn:disabled{ opacity:.35; cursor:not-allowed; }
+
+/* Panel expand */
+.expand{ display:none; border-top:1px dashed var(--border); padding:16px 18px 18px; background:var(--bg3); }
+.card.expanded .expand{ display:block; }
+.field{ display:grid; gap:6px; margin-bottom:12px; }
+.field label{ font-size:12px; color:var(--text-dim); }
+select,input[type=text]{ background:#0f1113; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; width:100%; }
+
+/* Coins décoratifs */
+.corner-tr,.corner-bl{ position:absolute; pointer-events:none; }
+.corner-tr{ top:-10px; right:-10px; width:120px; height:120px; border-top-right-radius:40px; background:radial-gradient(180px 120px at 80% 20%,rgba(214,210,51,.20),transparent 60%); }
+.corner-bl{ bottom:-16px; left:-16px; width:140px; height:140px; border-bottom-left-radius:44px; background:radial-gradient(220px 140px at 20% 80%,rgba(214,210,51,.14),transparent 60%); }
+
+/* Footer */
+.aps-footer{ padding:20px 24px; text-align:center; color:var(--text-dim); font-size:11px; border-top:1px solid var(--border); }
+
+/* Responsive */
+@media(max-width:900px){
+  .card-builder{ flex:0 0 calc(50% - 7px); }
+  .card-admin{ flex:0 0 calc(50% - 7px); }
+  .row{ flex-wrap:wrap; }
+}
+@media(max-width:500px){
+  .card-builder,.card-admin{ flex:0 0 100%; }
+}

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Documentation Builder</title>
+
+  <link rel="stylesheet" href="../../_shared/css/base.css" />
+  <link rel="stylesheet" href="../../_shared/css/theme.css" />
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="doc.css" />
+</head>
+
+<body>
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="dbc-org-badge" id="orgBadge"></span>
+    </div>
+
+    <div class="aps-header-right">
+      <nav class="aps-navbar" aria-label="Navigation APS">
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+        <a class="aps-nav-link" href="../../studio/studio.html">Studio</a>
+        <a class="aps-nav-link" href="../../scenario/overview/overview.html">Scénarios</a>
+        <a class="aps-nav-link" href="../../viewer/aps/aps.html">Viewer</a>
+      </nav>
+    </div>
+  </header>
+ <div class="aps-divider"></div>
+  <main class="wfd-layout">
+
+    <!-- PANEL GAUCHE : Scope (minimal) -->
+    <aside class="wfd-left" aria-label="Scope">
+      <div class="wfd-panel-title wfd-title-row">
+        <span>Scope</span>
+        <button id="btnOpenConfig" type="button" class="ghost" title="Configurer owner, scope, datasets, statut…">
+          Configurer…
+        </button>
+      </div>
+
+      <div class="wfd-block">
+        <div class="wfd-block-title">Projet</div>
+        <div class="wfd-kv"><span>Plateforme</span><span id="ctx-platform">-</span></div>
+        <div class="wfd-kv"><span>Organisation</span><span id="ctx-org">-</span></div>
+        <div class="wfd-kv"><span>Domaine</span><span id="ctx-domain">-</span></div>
+        <div class="wfd-kv"><span>Owner</span><span id="ctx-owner">-</span></div>
+        <div class="wfd-kv"><span>Statut</span><span id="ctx-status">-</span></div>
+        <div class="wfd-kv"><span>Clé projet</span><span id="ctx-key">-</span></div>
+        <div class="wfd-hint">Les actions de configuration sont dans le canvas.</div>
+      </div>
+    </aside>
+
+    <!-- CANVAS : PREVIEW ou CONFIG -->
+    <section class="wfd-canvas" aria-label="Canvas documentation">
+      <div class="wfd-canvas-toolbar">
+        <div>
+          <div class="wfd-canvas-title">Canvas</div>
+          <div class="wfd-canvas-sub" id="canvas-subtitle">—</div>
+        </div>
+        <div class="wfd-toolbar-right">
+          <!-- réservé : ressources graphiques plus tard (fonts/icons/dots) -->
+        </div>
+      </div>
+
+      <div class="wfd-canvas-body">
+
+        <!-- VIEW: PREVIEW -->
+        <div id="canvas-view-preview">
+          <pre id="preview" class="wfd-preview"></pre>
+        </div>
+
+        <!-- VIEW: CONFIG (remplace la preview) -->
+        <div id="canvas-view-config" style="display:none;">
+          <div class="wfd-block">
+            <div class="wfd-block-title">Configuration</div>
+            <div class="wfd-row">
+              <button id="btnBackToPreview" type="button">Retour Preview</button>
+              <span class="wfd-hint" id="config-hint"></span>
+            </div>
+          </div>
+
+          <div class="wfd-block">
+            <div class="wfd-block-title">Owner / Département</div>
+            <select id="owner-select"></select>
+            <div class="wfd-hint" id="owner-hint"></div>
+          </div>
+
+          <div class="wfd-block">
+            <div class="wfd-block-title">Plateforme / Organisation / Domaine</div>
+
+            <div class="wfd-field">
+              <label class="wfd-label" for="scope-platform">Plateforme</label>
+              <select id="scope-platform"></select>
+            </div>
+
+            <div class="wfd-field">
+              <label class="wfd-label" for="scope-org">Organisation / Projet</label>
+              <select id="scope-org"></select>
+            </div>
+
+            <div class="wfd-field">
+              <label class="wfd-label" for="scope-domain">Domaine</label>
+              <select id="scope-domain"></select>
+            </div>
+
+            <div class="wfd-hint">Changer le scope recharge le builder (kit par projet).</div>
+          </div>
+
+          <div class="wfd-block">
+            <div class="wfd-block-title">Données à inclure</div>
+
+            <div class="wfd-row">
+              <select id="dataset-add-select"></select>
+              <button id="btnDatasetAdd" type="button">Ajouter</button>
+            </div>
+
+            <div class="wfd-hint">Liste générée automatiquement (datasets non système).</div>
+            <div id="datasets-list"></div>
+          </div>
+
+          <div class="wfd-block" id="project-status-block">
+            <div class="wfd-block-title">Statut du projet</div>
+            <div class="wfd-kv">
+              <span>Statut</span>
+              <span id="project-status-label">—</span>
+            </div>
+            <div class="wfd-hint" id="project-status-hint"></div>
+
+            <div class="wfd-row">
+              <button id="btnCloseProject" type="button">Clôturer le projet</button>
+              <button id="btnUnlockProject" type="button" class="ghost">Déverrouiller</button>
+            </div>
+          </div>
+
+          <div class="wfd-block">
+            <div class="wfd-block-title">Owners (éditables)</div>
+
+            <div class="wfd-row">
+              <input id="ownerNewLabel" type="text" placeholder="Nouveau owner (label)" />
+              <button id="btnOwnerAdd" type="button">Ajouter</button>
+            </div>
+
+            <div class="wfd-row">
+              <input id="ownerRenameLabel" type="text" placeholder="Renommer owner sélectionné" />
+              <button id="btnOwnerRename" type="button" class="ghost">Renommer</button>
+            </div>
+
+            <div class="wfd-row">
+              <button id="btnOwnerDelete" type="button" class="ghost">Supprimer owner</button>
+            </div>
+
+            <div class="wfd-hint">
+              Transverse = super‑set (tout visible) mais modifiable.
+            </div>
+          </div>
+
+          <div class="wfd-block">
+            <div class="wfd-block-title">Kit (par projet)</div>
+            <button id="btnResetKit" type="button" class="ghost">Réinitialiser kit</button>
+            <div class="wfd-hint">Auto‑save à chaque changement (owner, données, template, statut).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PANEL DROIT : Templates & Export (léger) -->
+    <aside class="wfd-right" aria-label="Templates et exports">
+      <div class="wfd-panel-title">Templates & Export</div>
+
+      <div class="wfd-block">
+        <div class="wfd-block-title">Template actif</div>
+        <select id="tplSelect"></select>
+
+      <div class="wfd-row wfd-file-row">
+        <input type="file" id="tplFile" accept=".json" class="wfd-file-hidden" />
+        <label for="tplFile" class="wfd-file-btn">Choisir un fichier</label>
+        <span id="tplFileName" class="wfd-file-name">Aucun fichier</span>
+        <button id="btnImport" type="button">Importer</button>
+      </div>
+
+
+        <div class="wfd-row">
+          <button id="btnDelete" type="button" class="ghost">Supprimer</button>
+        </div>
+
+        <div class="wfd-hint" id="tplHint"></div>
+      </div>
+
+      <div class="wfd-block">
+        <div class="wfd-block-title">Export</div>
+        <button id="btnExportTxt" type="button">Exporter TXT</button>
+        <div class="wfd-hint" id="exportHint"></div>
+      </div>
+    </aside>
+
+  </main>
+
+  <script src="../../_shared/js/providers/iconik.provider.js"></script>
+  <script src="doc.js"></script>
+</body>
+</html>

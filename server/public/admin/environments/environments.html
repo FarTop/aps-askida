@@ -1,0 +1,120 @@
+<!-- APS — admin/environments/environments.html — 2026-06-23 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Environnements — APS Administration</title>
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="../../admin/connexions/connexions.css" />
+  <style>
+    .env-card{ display:flex; align-items:center; justify-content:space-between; background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:8px; transition:border-color .15s; }
+    .env-card:hover{ border-color:#3a3f44; }
+    .env-card.default{ border-color:rgba(214,210,51,.35); }
+    .env-left{ display:flex; align-items:center; gap:12px; flex:1; min-width:0; }
+    .env-icon{ font-size:22px; flex-shrink:0; }
+    .env-name{ font-size:14px; font-weight:700; margin-bottom:4px; }
+    .env-meta{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .env-url{ font-size:11px; font-family:monospace; color:var(--text-dim); }
+    .env-right{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .badge-type{ font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; background:rgba(255,255,255,.08); color:var(--text-dim); }
+    .badge-default{ font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; background:rgba(214,210,51,.15); color:var(--accent); border:1px solid rgba(214,210,51,.25); }
+    .badge-token{ font-size:10px; padding:2px 7px; border-radius:4px; background:rgba(39,174,96,.12); color:#2ecc71; }
+    .badge-missing{ font-size:10px; padding:2px 7px; border-radius:4px; background:rgba(231,76,60,.12); color:#e74c3c; }
+  </style>
+</head>
+<body>
+
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="#">Administration</a> › Environnements</span>
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar">
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="adm-main">
+    <div class="adm-toolbar">
+      <h1 class="adm-title">🌐 Environnements</h1>
+      <button class="btn" id="btn-new" type="button">+ Nouvel environnement</button>
+    </div>
+    <div id="env-list">
+      <div class="adm-loading">Chargement…</div>
+    </div>
+  </main>
+
+  <!-- ── PANNEAU LATÉRAL ── -->
+  <aside class="side-panel" id="side-panel">
+    <div class="side-panel-header">
+      <span id="panel-title">Nouvel environnement</span>
+      <button class="side-close" id="btn-close-panel" type="button">×</button>
+    </div>
+    <div class="side-panel-body">
+
+      <div class="field">
+        <label>Nom *</label>
+        <input type="text" id="f-name" placeholder="Ex : QA | ASKIDA" />
+      </div>
+
+      <div class="field">
+        <label>Type</label>
+        <select id="f-type">
+          <option value="prod">Production</option>
+          <option value="dev">Développement</option>
+          <option value="qa">QA / Test</option>
+          <option value="poc">POC</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Organisation</label>
+        <select id="f-org"></select>
+      </div>
+
+      <div class="field">
+        <label>Plateforme</label>
+        <select id="f-platform">
+          <option value="">— Sélectionner une plateforme —</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>URL de base</label>
+        <input type="text" id="f-baseurl" placeholder="https://app.iconik.io" />
+      </div>
+
+      <div class="field">
+        <label>App ID</label>
+        <input type="text" id="f-appid" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+      </div>
+
+      <div class="field">
+        <label>Auth Token</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="password" id="f-token" placeholder="Laisser vide pour conserver l'existant" style="flex:1" />
+          <button type="button" class="btn-icon" onclick="toggleReveal()" title="Afficher/masquer">👁</button>
+        </div>
+        <small style="color:var(--text-dim);font-size:11px;">Stocké chiffré en base de données</small>
+      </div>
+
+      <div class="field field-toggle">
+        <label>Environnement par défaut</label>
+        <input type="checkbox" id="f-default" />
+      </div>
+
+    </div>
+    <div class="side-panel-footer">
+      <button class="btn ghost" id="btn-cancel" type="button">Annuler</button>
+      <button class="btn" id="btn-save" type="button">✓ Sauvegarder</button>
+    </div>
+  </aside>
+
+  <div class="overlay" id="overlay"></div>
+
+  <script src="environments.js"></script>
+</body>
+</html>

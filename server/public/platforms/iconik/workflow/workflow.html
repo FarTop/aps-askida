@@ -1,0 +1,837 @@
+<!-- WFD — workflow.html — modifié le 2026-06-23 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Workflow Designer — Iconik</title>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="workflow-designer.css">
+  <style>
+    /* ── Run Panel — nouveaux composants ───────────────── */
+    .wfd-run-asset-row { display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;cursor:pointer;border:1px solid #1a1a1a;margin-bottom:4px;background:#0d0d0d;transition:background .1s; }
+    .wfd-run-asset-row:hover,.wfd-run-asset-row.selected { background:#1a1a1a; }
+    .wfd-run-asset-check { color:#555;font-size:14px;flex-shrink:0; }
+    .wfd-run-asset-info  { flex:1;min-width:0; }
+    .wfd-run-asset-title { color:#ccc;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .wfd-run-asset-id    { color:#444;font-size:9px;font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .wfd-run-asset-btns  { display:flex;gap:4px;flex-shrink:0; }
+    .wfd-run-port-btn    { font-size:9px;padding:2px 6px;border-radius:3px;background:transparent;cursor:pointer;border-width:1px;border-style:solid; }
+    .wfd-run-bulk-btn    { font-size:10px;padding:4px 10px;border-radius:4px;background:transparent;cursor:pointer;border-width:1px;border-style:solid; }
+    /* Timeline */
+    .wfd-rp-timeline-row { display:flex;align-items:flex-start;gap:8px;padding:6px 8px;cursor:pointer;border-radius:4px;transition:background .1s; }
+    .wfd-rp-timeline-row:hover,.wfd-rp-timeline-row.active { background:#1a1a1a; }
+    .wfd-rp-tl-icon  { font-size:12px;flex-shrink:0;margin-top:1px; }
+    .wfd-rp-tl-info  { flex:1;min-width:0; }
+    .wfd-rp-tl-name  { color:#ccc;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .wfd-rp-tl-summary { color:#555;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .wfd-rp-tl-time  { color:#333;font-size:9px;flex-shrink:0;font-family:var(--font-mono); }
+    /* Détail nœud */
+    .wfd-rp-detail        { padding:8px; }
+    .wfd-rp-detail-header { display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#0d0d0d;border-radius:4px;margin-bottom:8px; }
+    .wfd-rp-detail-name   { color:#ccc;font-size:11px;font-weight:600; }
+    .wfd-rp-detail-status { font-size:10px; }
+    .wfd-rp-detail-summary{ color:#888;font-size:10px;margin-bottom:8px;padding:0 2px; }
+    .wfd-rp-section       { margin-bottom:10px; }
+    .wfd-rp-section-title { font-size:9px;font-weight:600;color:#444;letter-spacing:.08em;margin-bottom:4px;text-transform:uppercase; }
+    .wfd-rp-section-body  { background:#0d0d0d;border-radius:4px;padding:6px 8px; }
+    .wfd-rp-kv            { display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid #111;font-size:10px; }
+    .wfd-rp-kv span:first-child { color:#666;flex-shrink:0; }
+    .wfd-rp-kv span:last-child  { color:#bbb;text-align:right;word-break:break-all; }
+    .wfd-rp-kv-indent     { padding-left:12px; }
+    .wfd-rp-result-card   { margin-bottom:6px; }
+    .wfd-rp-result-title  { color:#e8c97a;font-size:11px;font-weight:600;margin-bottom:4px; }
+    .wfd-rp-error         { color:#e74c3c;font-size:10px;padding:4px; }
+    .wfd-rp-pause-msg     { text-align:center;padding:24px 16px;color:#888; }
+    .wfd-rp-error-block   { margin-top:8px;background:#1a0500;border-radius:5px;padding:8px;border-left:3px solid #e74c3c; }
+    .wfd-rp-pause-msg     { text-align:center;padding:24px 16px;color:#888; }
+    .wfd-rp-error-block   { margin-top:8px;background:#1a0500;border-radius:5px;padding:8px;border-left:3px solid #e74c3c; }
+    .wfd-rp-empty         { color:#444;font-size:10px;text-align:center;padding:8px; }
+    /* Debug */
+    .wfd-rp-dbg-section { display:block;width:100%;margin-bottom:12px; }
+    .wfd-rp-dbg-title   { display:block;color:#444;font-size:9px;letter-spacing:.1em;margin-bottom:4px;text-transform:uppercase;border-bottom:1px solid #1a1a1a;padding-bottom:3px; }
+    .wfd-rp-dbg-row     { display:flex;gap:8px;padding:2px 0;border-bottom:1px solid #0d0d0d;width:100%; }
+    .wfd-rp-dbg-key     { color:#555;min-width:80px;max-width:80px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .wfd-rp-dbg-val     { color:#888;word-break:break-all;flex:1;min-width:0; }
+    .wfd-rp-dbg-pre     { display:block;background:#080808;border-radius:3px;padding:4px 6px;color:#7ec8e3;white-space:pre-wrap;word-break:break-all;max-height:150px;overflow-y:auto;margin:3px 0;width:100%;box-sizing:border-box; }
+    .wfd-rp-dbg-error   { display:block;font-size:9px;padding:2px 0; }
+    .wfd-rp-dbg-error.fatal { color:#e74c3c; }
+    .wfd-rp-dbg-error.warn  { color:#e67e22; }
+    /* Debug pane container */
+    #wfd-rp-pane-debug  { flex-direction:column; }
+    .wfd-job-cancel-btn {
+      background: transparent;
+      border: 1px solid #c0392b;
+      color: #c0392b;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 11px;
+      cursor: pointer;
+      margin-left: 6px;
+      line-height: 1.4;
+      transition: background .15s, color .15s;
+    }
+    .wfd-job-cancel-btn:hover {
+      background: #c0392b;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hdr-logo">
+      <img src="../_images/logo.svg?v=1772619673" alt="Logo" style="height:26px;width:auto;display:block;">
+      <span id="orgBadge" class="hdr-org"></span>
+    </div>
+    <nav>
+      <button class="nav-btn" onclick="location.href='../dashboard/dashboard.html'">DASHBOARD</button>
+      <button class="nav-btn" onclick="location.href='../settings/settings.html'">SETTINGS</button>
+      <button class="nav-btn" onclick="location.href='../automations/automations.html'">AUTOMATIONS</button>
+      <button class="nav-btn active">WORKFLOW</button>
+      <button class="nav-btn" onclick="location.href='../viewer/viewer.html'">VIEWER</button>
+	  <button class="nav-btn" onclick="location.href='../monitoring/monitoring.html'">MONITORING</button>
+    </nav>
+    <div class="hdr-sep"></div>
+    <div class="hdr-engines" id="tb-engines">
+      <div class="eng-indicator" id="eng-nr">
+        <span class="eng-dot" id="dot-nr"></span>
+        <span class="eng-label">Node-RED</span>
+        <a class="eng-link" id="link-nr" href="http://192.168.1.102:1881" target="_blank" title="Ouvrir Node-RED">↗</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="wfd-main">
+
+    <!-- ── Toolbar ── -->
+    <div id="wfd-toolbar">
+      <div class="tb-group">
+        <select id="wfd-flow-select" class="tb-select" onchange="onFlowChange()">
+          <option value="">— Flux —</option>
+        </select>
+        <button class="tb-btn" onclick="nouveauFlux()">+ Flux</button>
+        <button class="tb-btn danger" id="btn-del-flux" onclick="supprimerFlux()" style="display:none;">🗑</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group" id="tb-env-group" style="display:none;">
+        <select id="wfd-env-select" class="tb-select" onchange="onEnvChange()"
+          style="min-width:160px;" title="Environnement Iconik cible pour ce flux">
+          <option value="">— Environnement —</option>
+        </select>
+        <span id="wfd-env-dot" style="width:8px;height:8px;border-radius:50%;background:#555;display:inline-block;margin-left:2px;flex-shrink:0;"></span>
+        <button class="tb-btn" id="btn-refresh-data" onclick="wfdRefreshAllData()"
+          title="Actualiser toutes les données depuis Iconik (saved searches, vues MD, collections...)"
+          style="padding:4px 7px;font-size:13px;color:#3498db;">↺</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <button class="tb-btn accent" onclick="ouvrirRessources('mappings')"
+          title="Mappings, Connexions, Contacts, Templates, Scripts, Nommage"
+          style="border-color:#00d4aa;color:#00d4aa;">📦 Ressources</button>
+        <button class="tb-btn" id="btn-vars-panel" onclick="wfdToggleVarsPanel()"
+          title="Variables du flux — Quick Access"
+          style="border-color:#1abc9c;color:#1abc9c;font-family:var(--font-mono);">{x}</button>
+      </div>
+
+      <div class="tb-group" style="margin-left:auto;">
+        <button class="tb-btn" onclick="declencherImport()"
+          style="border-color:#3498db;color:#3498db;"
+          title="Importer une configuration organisation (JSON)">⬆ Import</button>
+        <button class="tb-btn" onclick="openExportPicker('json')"
+          style="border-color:#27ae60;color:#27ae60;"
+          title="Exporter toute la configuration (Settings + Automations + Workflow)">⬇ Export</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <button class="tb-btn" onclick="wfdZoomIn()">＋</button>
+        <button class="tb-btn" onclick="wfdZoomOut()">－</button>
+        <button class="tb-btn" onclick="wfdResetView()">⌂</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <button class="tb-btn" onclick="autoLayoutFlux()"
+          title="Réorganiser et espacer automatiquement les nœuds">⬡ Tidy</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <button class="tb-btn export" onclick="openExportPicker('word')">📄 Export Word</button>
+        <button class="tb-btn" id="btn-api-ops" onclick="toggleApiOpsDrawer()" title="Opérations API du flux" style="color:#3498db;">⚡ API Ops</button>
+        <button class="tb-btn" id="wfd-logs-btn" onclick="wfdToggleLogs()" title="Journal des événements" style="color:#f39c12;">🪵 Logs</button>
+        <button class="tb-btn" id="wfd-jobs-btn" onclick="wfdToggleJobsPanel()"
+          title="Panel Jobs — Exécutions en cours et historique"
+          style="color:#9b59b6;">⚡ Jobs</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group" id="tb-engine-group">
+        <!-- Toggle activation flux -->
+        <button class="tb-btn" id="btn-flux-toggle"
+          onclick="wfdToggleFlux()"
+          style="border-color:#555;color:#555;"
+          title="Activer / désactiver ce flux">⏸ Inactif</button>
+        <!-- Bouton exécuter manuellement -->
+        <button class="tb-btn" id="btn-flux-run"
+          onclick="wfdRunManual()"
+          style="border-color:#27ae60;color:#27ae60;"
+          title="Déclencher manuellement ce flux (test)">▶ Exécuter</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <button class="tb-btn" id="btn-deploy-nr"
+          onclick="deployerSurNodeRed(getFluxCourant())"
+          style="border-color:#e74c3c;color:#e74c3c;"
+          title="Traduire et déployer le flux courant sur Node-RED">⚡ Déployer NR</button>
+      </div>
+      <div id="wfd-status" class="tb-status"></div>
+    </div>
+
+    <!-- ══ BARRE CATÉGORIES + BANDEAU NŒUDS ══════════════ -->
+    <!-- ══ BARRE CATÉGORIES ════════════════════════════════════ -->
+    <div id="wfd-cat-bar">
+      <button class="wfd-cat-btn" data-cat="inputs" style="--cat-c:#e84393"
+            onclick="wfdSelectCat(this)" title="Déclencheurs — webhook, watchfolder, schedule">
+        <span class="wfd-cat-icon">⚡</span>
+        <span class="wfd-cat-label">Déclencheurs</span>
+      </button>
+      <button class="wfd-cat-btn" data-cat="data" style="--cat-c:#3498db"
+            onclick="wfdSelectCat(this)" title="Données — récupérer, lookup, variables">
+        <span class="wfd-cat-icon">🔍</span>
+        <span class="wfd-cat-label">Données</span>
+      </button>
+      <button class="wfd-cat-btn" data-cat="logic" style="--cat-c:#f39c12"
+            onclick="wfdSelectCat(this)" title="Logique — décision, boucle, contrôle qualité">
+        <span class="wfd-cat-icon">🔀</span>
+        <span class="wfd-cat-label">Logique</span>
+      </button>
+      <button class="wfd-cat-btn" data-cat="actions" style="--cat-c:#00d4aa"
+            onclick="wfdSelectCat(this)" title="Actions — organiser, métadonnées, permissions">
+        <span class="wfd-cat-icon">⚙️</span>
+        <span class="wfd-cat-label">Actions</span>
+      </button>
+      <button class="wfd-cat-btn" data-cat="outputs" style="--cat-c:#1abc9c"
+            onclick="wfdSelectCat(this)" title="Sorties — message, export, publication">
+        <span class="wfd-cat-icon">🔔</span>
+        <span class="wfd-cat-label">Sorties</span>
+      </button>
+      <button class="wfd-cat-btn" data-cat="misc" style="--cat-c:#f1c40f"
+            onclick="wfdSelectCat(this)" title="Utilitaires — notes, annotations">
+        <span class="wfd-cat-icon">📝</span>
+        <span class="wfd-cat-label">Utilitaires</span>
+      </button>
+      <div class="wfd-cat-sep"></div>
+      <button class="wfd-cat-btn" data-cat="saved" style="--cat-c:#00d4aa"
+            onclick="wfdSelectCat(this)" title="Mes nœuds sauvegardés">
+        <span class="wfd-cat-icon">💾</span>
+        <span class="wfd-cat-label">Mes nœuds</span>
+      </button>
+    </div>
+
+    <!-- ══ BANDEAU NŒUDS (accordéon) ════════════════════════════ -->
+    <div id="wfd-node-bar">
+      <div id="wfd-node-bar-inner">
+        <!-- Chips injectés par wfdSelectCat() depuis les données pal-xxx-nodes -->
+      </div>
+    </div>
+
+    <!-- Données palette (hors flux visuel — peuplerPalette() les remplit) -->
+    <div id="wfd-pal-data" aria-hidden="true">
+      <div id="fam-trigger" data-cat="inputs">
+        <div class="pal-nodes" id="pal-trigger-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('trigger','Trigger')">+ Ajouter</button>
+      </div>
+      <div id="fam-listener" data-cat="inputs">
+        <div class="pal-nodes" id="pal-listener-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('listener','Listener')">+ Ajouter</button>
+      </div>
+      <div id="fam-watchfolder" data-cat="inputs">
+        <div class="pal-nodes" id="pal-watchfolder-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('watchfolder','Watchfolder')">+ Ajouter</button>
+      </div>
+
+      <div id="fam-fetch" data-cat="data">
+        <div class="pal-nodes" id="pal-fetch-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('fetch','Rechercher')">+ Ajouter</button>
+      </div>
+      <div id="fam-lookup" data-cat="data">
+        <div class="pal-nodes" id="pal-lookup-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('lookup','Lookup')">+ Ajouter</button>
+      </div>
+      <div id="fam-transform" data-cat="data">
+        <div class="pal-nodes" id="pal-transform-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('transform','Transform')">+ Ajouter</button>
+      </div>
+      <div id="fam-rename" data-cat="data">
+        <div class="pal-nodes" id="pal-rename-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('rename','Nommage')">+ Ajouter</button>
+      </div>
+      <div id="fam-script" data-cat="data">
+        <div class="pal-nodes" id="pal-script-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('script','Script')">+ Ajouter</button>
+      </div>
+      <div id="fam-decision" data-cat="logic">
+        <div class="pal-nodes" id="pal-decision-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('decision','Décision')">+ Ajouter</button>
+      </div>
+      <div id="fam-loop" data-cat="logic">
+        <div class="pal-nodes" id="pal-loop-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('loop','Loop')">+ Ajouter</button>
+      </div>
+      <div id="fam-qc" data-cat="logic">
+        <div class="pal-nodes" id="pal-qc-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('qc','QC')">+ Ajouter</button>
+      </div>
+      <div id="fam-subflow" data-cat="logic">
+        <div class="pal-nodes" id="pal-subflow-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('subflow','Appeler Workflow')">+ Ajouter</button>
+      </div>
+      <div id="fam-action" data-cat="actions">
+        <div class="pal-nodes" id="pal-action-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('action','Action')">+ Ajouter</button>
+      </div>
+      <div id="fam-create_asset" data-cat="actions">
+        <div class="pal-nodes" id="pal-create_asset-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('create_asset','Créer Asset')">+ Ajouter</button>
+      </div>
+      <div id="fam-create_col" data-cat="actions">
+        <div class="pal-nodes" id="pal-create_col-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('create_col','Créer Collection')">+ Ajouter</button>
+      </div>
+      <div id="fam-update_meta" data-cat="actions">
+        <div class="pal-nodes" id="pal-update_meta-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('update_meta','Màj Métadonnées')">+ Ajouter</button>
+      </div>
+      <div id="fam-acl" data-cat="actions">
+        <div class="pal-nodes" id="pal-acl-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('acl','ACL')">+ Ajouter</button>
+      </div>
+      <div id="fam-relate" data-cat="actions">
+        <div class="pal-nodes" id="pal-relate-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('relate','Créer Relation')">+ Ajouter</button>
+      </div>
+      <div id="fam-link_file" data-cat="actions">
+        <div class="pal-nodes" id="pal-link_file-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('link_file','Relier Fichier')">+ Ajouter</button>
+      </div>
+      <div id="fam-export_file" data-cat="outputs">
+        <div class="pal-nodes" id="pal-export_file-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('export_file','Export Fichier')">+ Ajouter</button>
+      </div>
+      <div id="fam-publish" data-cat="outputs">
+        <div class="pal-nodes" id="pal-publish-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('publish','Publier')">+ Ajouter</button>
+      </div>
+      <div id="fam-transcode" data-cat="outputs">
+        <div class="pal-nodes" id="pal-transcode-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('transcode','Transcoder')">+ Ajouter</button>
+      </div>
+      <div id="fam-cast" data-cat="outputs">
+        <div class="pal-nodes" id="pal-cast-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('cast','Cast')">+ Ajouter</button>
+      </div>
+      <div id="fam-notify_post" data-cat="outputs">
+        <div class="pal-nodes" id="pal-notify_post-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('notify_post','Notifier POST')">+ Ajouter</button>
+      </div>
+      <div id="fam-notification" data-cat="outputs">
+        <div class="pal-nodes" id="pal-notification-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('notification','Notification')">+ Ajouter</button>
+      </div>
+      <div id="fam-approval" data-cat="misc">
+        <div class="pal-nodes" id="pal-approval-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('approval','Approbation')">+ Ajouter</button>
+      </div>
+      <div id="fam-postit" data-cat="misc">
+        <div class="pal-nodes" id="pal-postit-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('postit','Note')">+ Ajouter</button>
+      </div>
+      <div id="fam-export" data-cat="misc" style="display:none">
+        <div class="pal-nodes" id="pal-export-nodes"></div>
+        <button class="pal-add-btn" onclick="ajouterNoeudCanvas('export','Export')">+ Ajouter</button>
+      </div>
+    </div>
+
+    <!-- ── Layout principal ── -->
+    <div id="wfd-layout">
+
+
+      <!-- Canvas -->
+      <div id="wfd-canvas-wrap">
+        <canvas id="wfd-canvas"></canvas>
+        <svg id="wfd-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="wfd-nodes-layer"></div>
+
+        <!-- ── PANEL JOBS ───────────────────────────────────────────────── -->
+        <div id="wfd-jobs-panel">
+          <div class="wfd-logs-hdr" style="border-bottom:1px solid #1e1e1e;">
+            <div class="wfd-logs-title-row">
+              <span class="wfd-logs-title" style="color:#9b59b6;">⚡ JOBS</span>
+              <span id="wfd-jobs-live-badge" style="
+                padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;
+                background:rgba(155,89,182,0.2);color:#9b59b6;border:1px solid #9b59b644;
+                display:none;margin-left:8px;">0 actif(s)</span>
+              <button class="cfg-close" onclick="wfdToggleJobsPanel()" title="Fermer">×</button>
+            </div>
+            <div style="display:flex;border-top:1px solid #1a1a1a;margin-top:8px;">
+              <button id="wfd-jobs-tab-live" onclick="wfdJobsTab('live')"
+                style="flex:1;padding:7px;font-size:11px;background:transparent;border:none;
+                  border-bottom:2px solid #9b59b6;color:#fff;cursor:pointer;">⚡ Live</button>
+              <button id="wfd-jobs-tab-history" onclick="wfdJobsTab('history')"
+                style="flex:1;padding:7px;font-size:11px;background:transparent;border:none;
+                  border-bottom:2px solid transparent;color:#555;cursor:pointer;">📋 Historique</button>
+            </div>
+          </div>
+          <div id="wfd-jobs-live" style="flex:1;overflow-y:auto;padding:8px;">
+            <div id="wfd-jobs-live-empty" style="color:#444;font-size:12px;text-align:center;padding:32px 16px;">
+              Aucun job en cours<br>
+              <span style="font-size:10px;color:#333;">Activez un flux et exécutez-le</span>
+            </div>
+            <div id="wfd-jobs-live-list"></div>
+          </div>
+          <div id="wfd-jobs-history" style="flex:1;overflow-y:auto;padding:8px;display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;
+              padding:4px 4px 8px;border-bottom:1px solid #1a1a1a;margin-bottom:8px;">
+              <span style="font-size:10px;color:#555;" id="wfd-jobs-history-count">0 run(s)</span>
+              <button onclick="wfdJobsClearHistory()"
+                style="font-size:10px;padding:3px 8px;border-radius:3px;
+                  border:1px solid #3a1a1a;background:transparent;color:#e74c3c;cursor:pointer;">
+                🗑 Vider</button>
+            </div>
+            <div id="wfd-jobs-history-list"></div>
+          </div>
+        </div>
+        <!-- ══ QUICK ACCESS VARIABLES ══════════════════════════ -->
+        <div id="wfd-vars-panel">
+          <div class="wfd-vars-hdr">
+            <span style="color:#1abc9c;font-weight:600;font-family:var(--font-mono);" id="wfd-vars-title">{x} Variables</span>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="wfd-vars-search" class="cfg-input" placeholder="Filtrer..."
+                oninput="wfdVarsFilter(this.value)"
+                style="width:110px;font-size:10px;padding:3px 7px;height:24px;">
+              <button onclick="wfdToggleVarsPanel()"
+                style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;line-height:1;padding:2px;">×</button>
+            </div>
+          </div>
+          <div class="wfd-vars-scopes" id="wfd-vars-filters">
+            <button class="wfd-var-filter active" data-scope="all"      onclick="wfdVarScope(this,'all')">Toutes</button>
+            <button class="wfd-var-filter"        data-scope="upstream" onclick="wfdVarScope(this,'upstream')">En amont</button>
+            <button class="wfd-var-filter"        data-scope="last"     onclick="wfdVarScope(this,'last')">Dernier run</button>
+          </div>
+          <div id="wfd-vars-body"></div>
+          <div class="wfd-vars-footer">
+            <button class="cfg-btn" style="width:100%;font-size:10px;" onclick="ouvrirRessources('variables')">
+              📊 Voir dans Ressources
+            </button>
+          </div>
+        </div>
+
+        <div id="wfd-empty">
+          <div class="empty-icon">⬡</div>
+          <div class="empty-title">Aucun flux sélectionné</div>
+          <div class="empty-sub">Créez un flux ou sélectionnez-en un existant, puis glissez des nœuds depuis la palette</div>
+          <button class="tb-btn accent" onclick="nouveauFlux()" style="margin-top:16px;">+ Créer un flux</button>
+          <div style="margin-top:12px;font-size:11px;color:#2a2a2a;">
+            Double-clic sur le canvas pour ajouter un nœud instantanément<br>
+            Clic droit pour le menu contextuel · Glisser les ports pour connecter
+          </div>
+        </div>
+      </div>
+
+      <!-- Panneau de configuration -->
+      <div id="wfd-config-panel">
+        <div id="wfd-panel-resizer"></div>
+        <div id="wfd-config-header">
+          <div id="wfd-config-title-wrap">
+            <span id="wfd-config-icon"></span>
+            <input id="cfg-node-name" class="cfg-name-input" value="" placeholder="Nom du nœud" autocomplete="off">
+          </div>
+          <button onclick="wfdToggleFocusMode()" id="cfg-focus-btn" title="Mode focus (canvas réduit)"
+            style="background:none;border:none;color:#555;cursor:pointer;font-size:14px;padding:4px 6px;margin-right:4px;"
+            >⤢</button>
+          <button onclick="fermerConfigPanel()" class="cfg-close">×</button>
+        </div>
+        <div id="wfd-config-body"></div>
+        <div id="wfd-config-footer">
+          <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#555;cursor:pointer;margin-right:auto;" title="Dans l'export Word, ce nœud démarrera sur une nouvelle page">
+            <input type="checkbox" id="cfg-page-break-before" onchange="sauvegarderConfig()" style="accent-color:#0F4761;">
+            Nouvelle page (export)
+          </label>
+          <button class="cfg-btn danger" id="cfg-del-btn" onclick="supprimerNoeudSelectionne()">🗑 Supprimer</button>
+          <button class="cfg-btn primary" onclick="sauvegarderConfig()">✓ Sauvegarder</button>
+        </div>
+      </div>
+
+      <!-- ── RUN PANEL (remplace config panel quand flux actif) ──────────── -->
+      <div id="wfd-run-panel">
+        <!-- Header -->
+        <div class="wfd-logs-hdr" style="border-bottom:1px solid #1e1e1e;">
+          <div class="wfd-logs-title-row">
+            <span class="wfd-logs-title" style="color:#e67e22;">⚡ RUN</span>
+            <span id="wfd-rp-header-info" style="flex:1;margin-left:8px;"></span>
+            <button onclick="wfdRunPanelClose()" style="background:transparent;border:none;color:#555;cursor:pointer;font-size:16px;">×</button>
+          </div>
+        </div>
+        <!-- État vide -->
+        <div id="wfd-run-panel-empty" style="padding:32px 16px;text-align:center;color:#444;font-size:12px;">
+          <div style="font-size:32px;margin-bottom:12px;">👆</div>
+          Double-cliquez sur un nœud<br>pour inspecter le run
+        </div>
+        <!-- Contenu -->
+        <div id="wfd-run-panel-content" style="display:none;flex:1;overflow:hidden;flex-direction:column;">
+          <!-- Timeout -->
+          <div id="wfd-rp-timeout" style="display:none;padding:6px 14px;background:#1a0f00;border-bottom:1px solid #e67e2233;font-size:10px;color:#e67e22;flex-shrink:0;"></div>
+          <!-- Onglets -->
+          <div style="display:flex;border-bottom:1px solid #1e1e1e;flex-shrink:0;">
+            <button id="wfd-rp-tab-assets" onclick="wfdRunPanelTab('assets')"
+              style="flex:1;padding:6px;font-size:10px;font-weight:600;letter-spacing:.05em;border:none;background:#111;color:#e67e22;cursor:pointer;border-bottom:2px solid #e67e22;">
+              ASSETS
+            </button>
+            <button id="wfd-rp-tab-action" onclick="wfdRunPanelTab('action')"
+              style="flex:1;padding:6px;font-size:10px;font-weight:600;letter-spacing:.05em;border:none;background:#111;color:#555;cursor:pointer;border-bottom:2px solid transparent;">
+              ACTION
+            </button>
+            <button id="wfd-rp-tab-debug" onclick="wfdRunPanelTab('debug')"
+              style="flex:1;padding:6px;font-size:10px;font-weight:600;letter-spacing:.05em;border:none;background:#111;color:#555;cursor:pointer;border-bottom:2px solid transparent;">
+              DEBUG
+            </button>
+          </div>
+          <!-- Onglet ASSETS -->
+          <div id="wfd-rp-pane-assets" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+            <div id="wfd-rp-assets-list" style="flex:1;overflow-y:auto;padding:8px;"></div>
+            <div id="wfd-rp-assets-actions" style="padding:10px 12px;border-top:1px solid #1a1a1a;background:#0a0a0a;flex-shrink:0;display:none;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:10px;color:#555;" id="wfd-rp-sel-info">Aucune sélection</span>
+                <button onclick="wfdRpSelectAll()" style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid #2a2a2a;background:transparent;color:#888;cursor:pointer;">Tout sélectionner</button>
+              </div>
+              <div id="wfd-rp-bulk-btns" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+            </div>
+          </div>
+          <!-- Onglet ACTION -->
+          <div id="wfd-rp-pane-action" style="flex:1;overflow-y:auto;display:none;flex-direction:column;">
+            <div id="wfd-rp-action-detail" style="flex:1;padding:8px;"></div>
+          </div>
+          <!-- Onglet DEBUG -->
+          <div id="wfd-rp-pane-debug" style="flex:1;overflow-y:auto;padding:8px;display:none;flex-direction:column;font-family:var(--font-mono);font-size:9px;"></div>
+        </div>
+      </div>
+
+    
+
+    <!-- ══ PANEL LOGS (overlay gauche) ════════════════════════ -->
+    <div id="wfd-logs-panel">
+      <div class="wfd-logs-hdr">
+        <div class="wfd-logs-title-row">
+          <span class="wfd-logs-title">LOGS</span>
+          <div class="wfd-logs-counters" id="wfd-logs-counters"></div>
+          <button class="cfg-close" onclick="wfdToggleLogs()" title="Fermer">×</button>
+        </div>
+      </div>
+      <div class="wfd-logs-filters" id="wfd-logs-filters">
+        <button class="wfd-log-filter active" onclick="wfdLogFilter('ALL',this)">ALL</button>
+        <button class="wfd-log-filter" onclick="wfdLogFilter('SAVE',this)">SAVE</button>
+        <button class="wfd-log-filter" onclick="wfdLogFilter('RENDER',this)">RENDER</button>
+        <button class="wfd-log-filter" onclick="wfdLogFilter('EVENT',this)">EVENT</button>
+        <button class="wfd-log-filter" onclick="wfdLogFilter('INFO',this)">INFO</button>
+        <button class="wfd-log-filter" onclick="wfdLogFilter('ERROR',this)">ERROR</button>
+        <button class="wfd-log-filter" onclick="wfdLogFilter('CONFIG',this)">CONFIG</button>
+        <button class="wfd-log-filter" onclick="wfdLogFilter('CANVAS',this)">CANVAS</button>
+      </div>
+      <div class="wfd-logs-body" id="wfd-logs-body"></div>
+      <div class="wfd-logs-footer">
+        <button class="wfd-logs-btn" onclick="WFDLog.clear?.()">✕ Effacer</button>
+        <button class="wfd-logs-btn" onclick="WFDLog.export?.()">⬇ Exporter</button>
+        <button class="wfd-logs-btn" onclick="document.getElementById('wfd-logs-body').scrollTop=0">⬆ Haut</button>
+      </div>
+    </div>
+
+    </div>
+
+  </main>
+
+  <!-- ══ TIROIR API OPS ══════════════════════════════════════ -->
+  <div id="api-ops-drawer">
+    <div id="api-ops-header">
+      <div id="api-ops-header-left">
+        <span id="api-ops-title">⚡ Opérations API</span>
+        <span id="api-ops-flux-name"></span>
+        <span id="api-ops-count"></span>
+      </div>
+      <div id="api-ops-header-right">
+        <button class="api-ops-export-btn" onclick="exportApiOpsPostman()" title="Exporter collection Postman">📦 Postman</button>
+        <button class="api-ops-export-btn" onclick="exportApiOpsHTML()" title="Exporter documentation HTML/PDF">📄 HTML/PDF</button>
+        <button class="api-ops-export-btn" onclick="exportApiOpsPython()" title="Exporter script Python">🐍 Python</button>
+        <button class="api-ops-close" onclick="toggleApiOpsDrawer()">×</button>
+      </div>
+    </div>
+    <div id="api-ops-body">
+      <div id="api-ops-global">
+        <!-- timeline horizontale -->
+      </div>
+      <div id="api-ops-vars">
+        <!-- flux de variables -->
+      </div>
+      <div id="api-ops-vars-resizer" title="Redimensionner"></div>
+      <div id="api-ops-detail">
+        <!-- détail nœud cliqué -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODALES ══════════════════════════════════════════════ -->
+
+  <!-- ══ MODALE : Export Picker ══════════════════════════════ -->
+  <div id="modal-export-picker" class="wfd-modal-overlay" style="display:none;">
+    <div class="wfd-modal" style="max-width:520px;max-height:80vh;display:flex;flex-direction:column;">
+      <div class="wfd-modal-hdr">
+        <span class="wfd-modal-title" id="expick-title">Exporter</span>
+        <button class="wfd-modal-close" onclick="closeExportPicker()">×</button>
+      </div>
+      <div style="padding:10px 14px;border-bottom:1px solid #1e1e1e;flex-shrink:0;">
+        <input type="text" id="expick-filter" class="cfg-input"
+          placeholder="🔍 Filtrer les flux…"
+          oninput="renderExportPickerList()"
+          style="width:100%;">
+      </div>
+      <div style="padding:8px 14px;border-bottom:1px solid #1e1e1e;flex-shrink:0;display:flex;gap:8px;align-items:center;">
+        <button class="cfg-btn" style="font-size:10px;padding:3px 8px;"
+          onclick="expickSelectAll()">✓ Tout</button>
+        <button class="cfg-btn" style="font-size:10px;padding:3px 8px;"
+          onclick="expickSelectNone()">✗ Aucun</button>
+        <button class="cfg-btn" style="font-size:10px;padding:3px 8px;"
+          onclick="expickSelectNotTests()">⛔ Exclure tests</button>
+        <span id="expick-count" style="font-size:10px;color:#555;margin-left:auto;"></span>
+      </div>
+      <div id="expick-list" style="flex:1;overflow-y:auto;padding:8px 14px;display:flex;flex-direction:column;gap:6px;">
+      </div>
+      <div class="wfd-modal-ftr">
+        <button class="cfg-btn" onclick="closeExportPicker()">Annuler</button>
+        <button class="cfg-btn primary" onclick="confirmExportSelected()">⬇ Exporter la sélection</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-mappings" class="wfd-modal-overlay" style="display:none;">
+    <div class="wfd-modal" style="width:620px;max-width:95vw;">
+      <div class="wfd-modal-header">
+        <span>🗂 Mappings de champs</span>
+        <button onclick="fermerModalMappings()" class="cfg-close">×</button>
+      </div>
+      <div class="wfd-modal-body" id="modal-mappings-body"></div>
+      <div class="wfd-modal-footer">
+        <button class="cfg-btn primary" onclick="creerMapping()">+ Nouveau mapping</button>
+        <button class="cfg-btn" onclick="fermerModalMappings()">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-mapping-edit" class="wfd-modal-overlay" style="display:none;">
+    <div class="wfd-modal" style="width:660px;max-width:95vw;">
+      <div class="wfd-modal-header">
+        <span id="modal-mapping-edit-title">Éditer mapping</span>
+        <button onclick="fermerModalMappingEdit()" class="cfg-close">×</button>
+      </div>
+      <div class="wfd-modal-body" id="modal-mapping-edit-body"></div>
+      <div class="wfd-modal-footer">
+        <button class="cfg-btn danger" onclick="supprimerMappingCourant()">🗑 Supprimer</button>
+        <button class="cfg-btn" onclick="fermerModalMappingEdit()">Annuler</button>
+        <button class="cfg-btn primary" onclick="sauvegarderMappingEdit()">✓ Sauvegarder</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="wfd-toast"></div>
+  <div id="wfd-conn-hint" style="display:none;">Cliquez un port d'entrée pour connecter · Échap pour annuler</div>
+
+  <div id="modal-templates" class="wfd-modal-overlay" style="display:none;">
+    <div class="wfd-modal" style="width:680px;max-width:95vw;max-height:85vh;">
+      <div class="wfd-modal-header">
+        <span>📋 Templates de flux</span>
+        <button onclick="fermerTemplates()" class="cfg-close">×</button>
+      </div>
+      <div class="wfd-modal-body" id="modal-templates-body" style="display:flex;flex-direction:column;gap:12px;"></div>
+      <div class="wfd-modal-footer">
+        <button class="cfg-btn" onclick="fermerTemplates()">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-import" class="wfd-modal-overlay" style="display:none;">
+    <div class="wfd-modal" style="width:540px;max-width:95vw;">
+      <div class="wfd-modal-header">
+        <span>⬆ Import — Configuration organisation</span>
+        <button onclick="fermerModalImport()" class="cfg-close">×</button>
+      </div>
+      <div class="wfd-modal-body">
+        <div style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:8px;padding:14px 16px;margin-bottom:16px;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12px;">
+          <span style="color:#555;">Organisation</span>
+          <span id="import-org-name" style="color:#fff;font-weight:600;"></span>
+          <span style="color:#555;">Exporté le</span>
+          <span id="import-date" style="color:#aaa;font-family:var(--font-mono);"></span>
+          <span style="color:#555;">Source</span>
+          <span id="import-from" style="color:#aaa;"></span>
+        </div>
+        <div class="cfg-label" style="margin-bottom:8px;">CONTENU DU FICHIER</div>
+        <div id="import-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;"></div>
+        <div style="background:rgba(243,156,18,0.08);border:1px solid rgba(243,156,18,0.3);border-radius:6px;padding:10px 14px;font-size:11px;color:#f39c12;margin-bottom:4px;">
+          ⚠️ <strong>Remplacer</strong> écrase toute la configuration actuelle.<br>
+          <strong>Fusionner</strong> ajoute le contenu sans supprimer l'existant (doublons renommés).
+        </div>
+      </div>
+      <div class="wfd-modal-footer" style="justify-content:space-between;">
+        <button class="cfg-btn" onclick="fermerModalImport()">Annuler</button>
+        <div style="display:flex;gap:8px;">
+          <button class="cfg-btn" onclick="confirmerImport('merge')" style="border-color:#3498db;color:#3498db;">⊕ Fusionner</button>
+          <button class="cfg-btn danger" onclick="confirmerImport('replace')">↺ Remplacer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-contacts" class="wfd-modal-overlay" style="display:none;">
+    <div class="wfd-modal" style="width:580px;max-width:95vw;">
+      <div class="wfd-modal-header">
+        <span>👥 Listes de contacts</span>
+        <button onclick="fermerContacts()" class="cfg-close">×</button>
+      </div>
+      <div class="wfd-modal-body" id="modal-contacts-body"></div>
+      <div class="wfd-modal-footer">
+        <button class="cfg-btn primary" onclick="creerListe()">+ Nouvelle liste</button>
+        <button class="cfg-btn" onclick="fermerContacts()">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-liste-edit" class="wfd-modal-overlay" style="display:none;">
+    <div class="wfd-modal" style="width:820px;max-width:96vw;max-height:90vh;">
+      <div class="wfd-modal-header">
+        <span id="modal-liste-title">Éditer liste</span>
+        <button onclick="fermerEditionListe();ouvrirContacts();" class="cfg-close">×</button>
+      </div>
+      <div class="wfd-modal-body" id="modal-liste-edit-body"></div>
+      <div class="wfd-modal-footer" style="justify-content:space-between;">
+        <button class="cfg-btn" onclick="exporterCSVContacts()" style="border-color:#3498db;color:#3498db;">⬇ Export CSV</button>
+        <div style="display:flex;gap:8px;">
+          <button class="cfg-btn" onclick="fermerEditionListe();ouvrirContacts();">Annuler</button>
+          <button class="cfg-btn primary" onclick="sauvegarderListe()">✓ Sauvegarder</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-script-editor" class="wfd-modal-overlay" style="display:none;">
+    <div class="wfd-modal" style="width:90vw;max-width:1100px;height:85vh;max-height:85vh;">
+      <div class="wfd-modal-header">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="color:#e74c3c;font-family:var(--font-mono);">&lt;/&gt;</span>
+          <span id="modal-script-title">Éditeur de script</span>
+          <select id="script-lang-sel" class="tb-select" onchange="changerLangScript(this.value)" style="min-width:130px;">
+            <option value="javascript">JavaScript</option>
+            <option value="python">Python</option>
+          </select>
+        </div>
+        <button onclick="fermerEditeurScript()" class="cfg-close">×</button>
+      </div>
+      <div id="script-lang-banner" style="display:none;align-items:center;padding:8px 14px;background:rgba(243,156,18,0.08);border-bottom:1px solid rgba(243,156,18,0.3);flex-shrink:0;gap:8px;flex-wrap:wrap;"></div>
+      <div style="flex:1;display:flex;overflow:hidden;">
+        <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+          <div style="padding:8px 14px;background:#0a0a0a;border-bottom:1px solid #222;font-size:10px;color:#444;font-family:var(--font-mono);">
+            Variables&nbsp;: <span style="color:#3498db;">asset</span>, <span style="color:#3498db;">metadata</span>, <span style="color:#3498db;">collection</span>, <span style="color:#3498db;">workflowName</span>
+            &nbsp;·&nbsp; Retourner&nbsp;: <span style="color:#00d4aa;">{ port: 'nom_sortie' }</span>
+            &nbsp;·&nbsp; <kbd style="background:#1a1a1a;border:1px solid #333;padding:1px 5px;border-radius:3px;">Tab</kbd> = 2 espaces
+          </div>
+          <textarea id="script-code-area"
+            style="flex:1;width:100%;background:#0d0d0d;color:#e0e0e0;border:none;padding:16px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;outline:none;resize:none;tab-size:2;box-sizing:border-box;"
+            spellcheck="false"
+            onkeydown="scriptTabHandler(event)"
+            oninput="effacerFeedbackScript()"></textarea>
+          <div id="script-feedback" style="display:none;padding:8px 14px;font-size:11px;font-family:var(--font-mono);border-top:1px solid;white-space:pre-wrap;max-height:80px;overflow-y:auto;flex-shrink:0;"></div>
+        </div>
+        <div style="width:220px;flex-shrink:0;background:#0a0a0a;border-left:1px solid #222;overflow-y:auto;padding:14px;">
+          <div class="cfg-label" style="margin-bottom:8px;">PORTS DISPONIBLES</div>
+          <div id="script-ports-hint" style="font-family:var(--font-mono);font-size:11px;display:flex;flex-direction:column;gap:4px;"></div>
+          <div class="cfg-label" style="margin-top:16px;margin-bottom:8px;">SNIPPETS</div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <button onclick="insererSnippet('history')"        class="pal-add-btn" style="text-align:left;">📋 Workflow History</button>
+            <button onclick="insererSnippet('metadata_write')" class="pal-add-btn" style="text-align:left;">📝 Écrire métadonnée</button>
+            <button onclick="insererSnippet('condition')"      class="pal-add-btn" style="text-align:left;">🔀 Condition</button>
+            <button onclick="insererSnippet('log')"            class="pal-add-btn" style="text-align:left;">🪵 Log</button>
+          </div>
+        </div>
+      </div>
+      <div class="wfd-modal-footer" style="justify-content:space-between;">
+        <div style="display:flex;gap:8px;">
+          <button class="cfg-btn" onclick="fermerEditeurScript()">Annuler</button>
+          <button class="cfg-btn" onclick="testerSyntaxeScript()" style="border-color:#f39c12;color:#f39c12;">⚡ Tester la syntaxe</button>
+        </div>
+        <button class="cfg-btn primary" onclick="sauvegarderScript()">✓ Sauvegarder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODALE RESSOURCES ─────────────────────────────────────────────────── -->
+  <div id="modal-ressources" class="wfd-modal-overlay" style="display:none;">
+    <div class="wfd-modal" style="width:780px;max-width:96vw;height:80vh;display:flex;flex-direction:column;">
+
+      <!-- Header -->
+      <div class="wfd-modal-header">
+        <span>📦 Ressources</span>
+        <button class="wfd-modal-close" onclick="fermerRessources()">×</button>
+      </div>
+
+      <!-- Onglets -->
+      <div style="display:flex;gap:2px;padding:0 16px;border-bottom:1px solid #1e1e1e;flex-shrink:0;">
+        <button class="res-tab" id="res-tab-mappings"   onclick="resTab('mappings')"   style="padding:8px 14px;font-size:11px;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;cursor:pointer;">🗂 Mappings</button>
+        <button class="res-tab" id="res-tab-connexions" onclick="resTab('connexions')" style="padding:8px 14px;font-size:11px;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;cursor:pointer;">🔌 Connexions</button>
+        <button class="res-tab" id="res-tab-contacts"   onclick="resTab('contacts')"   style="padding:8px 14px;font-size:11px;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;cursor:pointer;">👥 Contacts</button>
+        <button class="res-tab" id="res-tab-templates"  onclick="resTab('templates')"  style="padding:8px 14px;font-size:11px;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;cursor:pointer;">📋 Templates</button>
+        <button class="res-tab" id="res-tab-scripts"    onclick="resTab('scripts')"    style="padding:8px 14px;font-size:11px;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;cursor:pointer;">⚡ Scripts</button>
+        <button class="res-tab" id="res-tab-nommage"    onclick="resTab('nommage')"    style="padding:8px 14px;font-size:11px;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;cursor:pointer;">🏷 Nommage</button>
+        <button class="res-tab" id="res-tab-variables"  onclick="resTab('variables')"  style="padding:8px 14px;font-size:11px;background:transparent;border:none;border-bottom:2px solid transparent;color:#555;cursor:pointer;">📊 Variables</button>
+      </div>
+
+      <!-- Body -->
+      <div id="res-body" class="wfd-modal-body" style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;"></div>
+
+      <!-- Footer -->
+      <div id="res-footer" class="wfd-modal-footer" style="display:flex;gap:8px;justify-content:flex-end;"></div>
+
+    </div>
+  </div>
+
+
+  <!--script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script-->
+  <script src="../_vendor/docx/index.umd.js"></script>
+  <script src="../dashboard/script-dashboard-shared.js"></script>
+  <script src="wfd-run-panel.js" charset="UTF-8"></script>
+  <script src="script-workflow-designer.js" charset="UTF-8"></script>
+  <script src="wfd-config-panel.js" charset="UTF-8"></script>
+  <script src="script-workflow-word.js" charset="UTF-8"></script>
+  <script src="script-workflow-nodered.js" charset="UTF-8"></script>
+  <script>
+  // ── Statut moteurs ─────────────────────────────────────────────
+  // Les checks passent par le serveur APS pour éviter les problèmes CORS
+  // et centraliser le monitoring (compatible intranet Bayard)
+
+  function setDot(id, online) {
+    const dot = document.getElementById(id);
+    if (!dot) return;
+    dot.classList.toggle('online',  online);
+    dot.classList.toggle('offline', !online);
+  }
+
+  function checkNodeRed() {
+    fetch('/api/status/node-red', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => setDot('dot-nr', d.online))
+      .catch(() => setDot('dot-nr', false));
+  }
+
+  checkNodeRed();
+  setInterval(checkNodeRed, 10000);
+  </script>
+  <!-- WFD Logger -->
+  <script src="wfd-logger.js"></script>
+  <!-- WFD Instrumentation — doit être après tous les autres scripts -->
+  <script src="wfd-instrumentation.js"></script>
+  <script src="wfd-api-ops.js"></script>
+</body>
+</html>

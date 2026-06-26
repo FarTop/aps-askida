@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>APS · Viewer</title>
+  <link rel="stylesheet" href="../../index.css" />
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+
+</head>
+
+<body>
+  <div class="page">
+
+  <header class="aps-header">
+    <div class="aps-brand">
+    <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+    <span id="orgBadge" class="dbc-org-badge"></span>
+    </div>
+
+    <nav class="aps-navbar" aria-label="Navigation APS">
+    <a class="aps-nav-link" href="../../index.html">Home</a>
+    <a class="aps-nav-link" href="../../studio/studio.html">Studio</a>
+    <a class="aps-nav-link" href="../../scenario/overview/overview.html">Scénarios</a>
+    <a class="aps-nav-link active" href="../../viewer/aps/aps.html">Viewer</a>
+    </nav>
+  </header>
+  <div class="aps-divider"></div>
+
+    <div class="hero">
+      <h1>Viewer</h1>
+      <p>Lecture de l’état du scénario actif</p>
+    </div>
+
+    <main class="grid">
+      <section class="card" style="grid-column:span 12">
+        <div class="card-bd">
+		  <span id="aps-snapshot" class="muted"></span>
+          <p id="aps-snapshot-info" class="muted"></p>
+        </div>
+
+        <div class="cta-row">
+          <button id="btn-open-viewer" class="btn">
+            ▶ Ouvrir le Viewer
+          </button>
+        </div>
+      </section>
+    </main>
+
+  </div>
+
+  <script src="../../_shared/js/snapshot.js"></script>
+  <script type="module" src="aps.js"></script>
+</body>
+</html>

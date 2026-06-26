@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Settings — Iconik</title>
+  <link rel="stylesheet" href="settings.css">
+  <link rel="stylesheet" href="settings-apicheck.css">
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="hdr-logo">
+    <img src="../_images/logo.svg?v=1772619673" alt="Logo" style="height:26px;width:auto;display:block;">
+    <span id="orgBadge" class="hdr-org"></span>
+  </div>
+  <nav>
+    <button class="nav-btn" onclick="location.href='../dashboard/dashboard.html'">DASHBOARD</button>
+    <button class="nav-btn active">SETTINGS</button>
+    <button class="dbc-nav-btn" onclick="window.location.href='../automations/automations.html'">AUTOMATIONS</button>
+    <button class="dbc-nav-btn" onclick="window.location.href='../workflow/workflow.html'">WORKFLOW</button>
+    <button class="dbc-nav-btn" onclick="window.location.href='../viewer/viewer.html'">VIEWER</button>
+	<button class="dbc-nav-btn" onclick="window.location.href='../monitoring/monitoring.html'">MONITORING</button>
+  </nav>
+</header>
+
+<!-- ── Org bar ── -->
+<div id="org-bar">
+  <label>ORGANISATION :</label>
+  <input type="text" id="input-org-name" placeholder="Nom organisation (ex: BAYARD, CANAL+…)"
+    oninput="mettreAJourOrganisation(this.value)">
+  <span id="org-save-badge">✓ Sauvegardé</span>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+    <label style="font-size:9px;color:var(--text-dim);font-family:var(--font);letter-spacing:0.5px;white-space:nowrap;">ENV :</label>
+    <select id="env-switcher" onchange="switchEnv(this.value)"
+      style="background:var(--bg4);color:var(--text);border:1px solid var(--border2);border-radius:3px;font-size:11px;padding:3px 7px;font-family:var(--font);cursor:pointer;">
+      <!-- options injectées par JS -->
+    </select>
+  </div>
+</div>
+
+<!-- ── 3 zones ── -->
+<div id="set-main">
+
+  <!-- ══ SIDEBAR ══ -->
+  <div id="set-sidebar">
+    <div class="sb-group">
+      <span class="sb-group-label">Entités</span>
+      <button class="sb-btn active" id="sb-teams"         onclick="switchEntity('teams')">
+        <span class="sb-icon">👥</span> Teams
+        <span class="sb-count" id="cnt-teams">0</span>
+      </button>
+	  <button class="sb-btn active" id="sb-users"         onclick="switchEntity('users')">
+        <span class="sb-icon">👤</span> Users                                         
+        <span class="sb-count" id="cnt-users">0</span>
+      </button>
+      <button class="sb-btn" id="sb-roleGroups"   onclick="switchEntity('roleGroups')">
+        <span class="sb-icon">🎭</span> Role Groups
+        <span class="sb-count" id="cnt-roleGroups">0</span>
+      </button>
+      <button class="sb-btn" id="sb-collections"  onclick="switchEntity('collections')">
+        <span class="sb-icon">📁</span> Collections
+        <span class="sb-count" id="cnt-collections">0</span>
+      </button>
+      <button class="sb-btn" id="sb-categories"   onclick="switchEntity('categories')">
+        <span class="sb-icon">🗂️</span> Catégories
+        <span class="sb-count" id="cnt-categories">0</span>
+      </button>
+      <button class="sb-btn" id="sb-metadataViews" onclick="switchEntity('metadataViews')">
+        <span class="sb-icon">📋</span> MD Views
+        <span class="sb-count" id="cnt-metadataViews">0</span>
+      </button>
+      <button class="sb-btn" id="sb-metadonnees"  onclick="switchEntity('metadonnees')">
+        <span class="sb-icon">🏷️</span> Métadonnées
+        <span class="sb-count" id="cnt-metadonnees">0</span>
+      </button>
+      <button class="sb-btn" id="sb-roles"        onclick="switchEntity('roles')">
+        <span class="sb-icon">🔑</span> Rôles
+        <span class="sb-count" id="cnt-roles">0</span>
+      </button>
+      <button class="sb-btn" id="sb-savedSearches" onclick="switchEntity('savedSearches')">
+        <span class="sb-icon">🔍</span> Saved Searches
+        <span class="sb-count" id="cnt-savedSearches">0</span>
+      </button>
+      <button class="sb-btn" id="sb-storages"     onclick="switchEntity('storages')">
+        <span class="sb-icon">💾</span> Storages
+        <span class="sb-count" id="cnt-storages">0</span>
+      </button>
+    </div>
+
+    <div class="sb-sep"></div>
+
+    <div class="sb-group">
+      <span class="sb-group-label">Avancé</span>
+      <button class="sb-btn" id="sb-items"        onclick="switchEntity('items')">
+        <span class="sb-icon">🔧</span> Items
+        <span class="sb-count" id="cnt-items">0</span>
+      </button>
+      <button class="sb-btn" id="sb-workflows"    onclick="switchEntity('workflows')">
+        <span class="sb-icon">🔀</span> Workflows
+        <span class="sb-count" id="cnt-workflows">0</span>
+      </button>
+      <button class="sb-btn" id="sb-apps" onclick="switchEntity('apps')">
+      <span class="sb-icon">🔑</span> Application Tokens
+      <span class="sb-count" id="cnt-apps">0</span>
+      </button>
+      <button class="sb-btn" id="sb-appTokens"    onclick="switchEntity('appTokens')">
+        <span class="sb-icon">🌍</span> Environnements
+        <span class="sb-count" id="cnt-appTokens">0</span>
+      </button>
+      <button class="sb-btn" id="sb-relationTypes" onclick="switchEntity('relationTypes')">
+        <span class="sb-icon">🔗</span> Relation Types
+        <span class="sb-count" id="cnt-relationTypes">0</span>
+      </button>
+      <button class="sb-btn" id="sb-exportLocations" onclick="switchEntity('exportLocations')">
+        <span class="sb-icon">📤</span> Export Locations
+        <span class="sb-count" id="cnt-exportLocations">0</span>
+      </button>
+      <button class="sb-btn" id="sb-shareSettings" onclick="switchEntity('shareSettings')">
+        <span class="sb-icon">🔒</span> Share Settings
+      </button>
+      <button class="sb-btn" id="sb-clean"        onclick="switchEntity('clean')">
+        <span class="sb-icon">🧹</span> Clean
+      </button>
+
+      <button class="sb-btn" id="sb-jobs"         onclick="switchEntity('jobs')">
+        <span class="sb-icon">⚙️</span> Jobs
+      </button>
+
+      <button class="sb-btn" id="sb-apiCheck"     onclick="switchEntity('apiCheck')">
+        <span class="sb-icon">🔍</span> API Check
+      </button>
+
+      <button class="sb-btn" id="sb-testEndpoints" onclick="switchEntity('testEndpoints')" style="padding-left:28px;">
+        <span class="sb-icon">🧪</span> Test Endpoints
+      </button>
+
+      <button class="sb-btn" id="sb-healthCheck"   onclick="switchEntity('healthCheck')" style="padding-left:28px;">
+        <span class="sb-icon">🏥</span> Health Check
+      </button>
+    </div>
+
+    <div class="sb-sep"></div>
+
+    <div class="sb-group">
+      <span class="sb-group-label">Configuration</span>
+      <button class="sb-btn" onclick="ouvrirModalImpex()">
+        <span class="sb-icon">📦</span> Import/Export
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ LISTE CASSETTES ══ -->
+  <div id="set-list">
+    <div id="set-list-hdr">
+      <div id="set-list-title">Teams</div>
+      <input type="text" id="set-list-search" placeholder="🔍 Filtrer…" oninput="filtrerListe(this.value)">
+    </div>
+    <div id="set-list-body">
+      <!-- injecté par JS -->
+    </div>
+  </div>
+
+  <!-- ══ DÉTAIL ══ -->
+  <div id="set-detail">
+    <div id="set-detail-hdr" style="display:none;">
+      <span id="set-detail-name">—</span>
+      <button class="detail-btn rename" id="btn-rename" onclick="renommerCourant()">✏️ Renommer</button>
+      <button class="detail-btn danger" id="btn-delete" onclick="supprimerCourant()">🗑️ Supprimer</button>
+    </div>
+    <div id="set-detail-body">
+      <div id="set-detail-placeholder">
+        <div class="ph-icon">⚙️</div>
+        <p>Sélectionnez un élément dans la liste<br>pour voir et éditer ses associations.</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /#set-main -->
+
+<!-- ══ MODALE : Créer / Éditer entité simple ══ -->
+<div id="modalCreate" class="set-modal-overlay">
+  <div class="set-modal">
+    <div class="set-modal-hdr">
+      <span class="set-modal-title" id="modalCreateTitle">Créer</span>
+      <button class="set-modal-close" onclick="fermerModalCreate()">×</button>
+    </div>
+    <div class="set-modal-body" id="modalCreateBody">
+      <!-- injecté dynamiquement -->
+    </div>
+    <div class="set-modal-ftr">
+      <button class="set-btn" onclick="fermerModalCreate()">Annuler</button>
+      <button class="set-btn primary" onclick="validerModalCreate()">✓ Créer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODALE : Items avancés — permissions ══ -->
+<div id="modalPerms" class="set-modal-overlay">
+  <div class="set-modal" style="max-width:620px;">
+    <div class="set-modal-hdr">
+      <span class="set-modal-title" id="modalPermsTitle">Modifier les permissions</span>
+      <button class="set-modal-close" onclick="fermerModalPerms()">×</button>
+    </div>
+    <div class="set-modal-body" id="modalPermsBody"></div>
+    <div class="set-modal-ftr">
+      <button class="set-btn" onclick="fermerModalPerms()">Annuler</button>
+      <button class="set-btn primary" onclick="validerModalPerms()">✓ Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODALE : Import / Export ══ -->
+<div id="modalImpex" class="set-modal-overlay">
+  <div class="set-modal" style="max-width:600px;">
+    <div class="set-modal-hdr">
+      <span class="set-modal-title">📦 Import / Export Configuration</span>
+      <button class="set-modal-close" onclick="fermerModalImpex()">×</button>
+    </div>
+    <div class="set-modal-body">
+
+      <div class="impex-grid">
+        <div class="impex-card">
+          <div class="impex-card-title">📥 Exporter</div>
+          <button class="impex-btn" onclick="exporterConfigurationComplete()">📥 Config complète</button>
+          <button class="impex-btn" onclick="exporterFichierJSON('teams')">Teams</button>
+          <button class="impex-btn" onclick="exporterFichierJSON('roleGroups')">Role Groups</button>
+          <button class="impex-btn" onclick="exporterFichierJSON('collections')">Collections</button>
+          <button class="impex-btn" onclick="exporterFichierJSON('metadataViews')">MD Views</button>
+          <button class="impex-btn" onclick="exporterFichierJSON('metadonnees')">Métadonnées</button>
+          <button class="impex-btn" onclick="exporterFichierJSON('roles')">Rôles</button>
+          <button class="impex-btn" onclick="exporterFichierJSON('itemsAdvanced')" style="color:var(--c-purple);">Items avancés</button>
+          <button class="impex-btn" onclick="exporterEnvironnements()" style="color:var(--c-warn);border-color:var(--c-warn);">🌍 Environnements</button>
+        </div>
+        <div class="impex-card">
+          <div class="impex-card-title">📤 Importer</div>
+          <div class="form-row" style="margin-bottom:6px;">
+            <label>Config complète (.json)</label>
+            <input type="file" accept=".json" onchange="importerConfigurationComplete(event)" style="font-size:11px;padding:3px;">
+          </div>
+          <div class="form-row" style="margin-bottom:4px;">
+            <label>Teams</label>
+            <input type="file" accept=".json" onchange="importerFichierJSON(event,'teams')" style="font-size:11px;padding:3px;">
+          </div>
+          <div class="form-row" style="margin-bottom:4px;">
+            <label>Role Groups</label>
+            <input type="file" accept=".json" onchange="importerFichierJSON(event,'roleGroups')" style="font-size:11px;padding:3px;">
+          </div>
+          <div class="form-row" style="margin-bottom:4px;">
+            <label>Items avancés</label>
+            <input type="file" accept=".json" onchange="importerFichierJSON(event,'itemsAdvanced')" style="font-size:11px;padding:3px;">
+          </div>
+          <div class="form-row" style="margin-bottom:4px;">
+            <label style="color:var(--c-warn);">🌍 Environnements</label>
+            <input type="file" accept=".json" onchange="importerEnvironnements(event)" style="font-size:11px;padding:3px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Kit Sync DD -->
+      <div class="impex-card" style="border-color:rgba(0,212,170,0.3);background:rgba(0,212,170,0.04);margin-top:0;">
+        <div class="impex-card-title" style="color:var(--accent);">📦 Kit Sync DD — PROD → DEV</div>
+        <p style="font-size:11px;color:var(--text-mid);margin-bottom:8px;">
+          Génère les 6 fichiers du kit de synchronisation autonome (interface, moteur Node.js, proxy, lanceurs Windows &amp; Mac, documentation).
+        </p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="impex-btn" onclick="genererKit()" style="flex:1;background:rgba(0,212,170,0.1);border-color:var(--accent);color:var(--accent);">📦 Kit de synchronisation</button>
+        </div>
+        <div id="kit-status" style="font-size:10px;color:var(--text-dim);margin-top:5px;min-height:14px;"></div>
+      </div>
+
+    </div>
+    <div class="set-modal-ftr">
+      <button class="set-btn" onclick="fermerModalImpex()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div class="set-toast" id="set-toast"></div>
+
+<!-- ══ MODALE : Environnement Iconik ══ -->
+<div id="modalEnvIconik" class="set-modal-overlay">
+  <div class="set-modal" style="max-width:480px;">
+    <div class="set-modal-hdr">
+      <span class="set-modal-title" id="modalEnvTitle">Ajouter un environnement Iconik</span>
+      <button class="set-modal-close" onclick="fermerModalEnv()">&times;</button>
+    </div>
+    <div class="set-modal-body">
+      <input type="hidden" id="envEditIndex" value="-1">
+
+      <div class="form-row">
+        <label>Nom <span style="color:var(--c-danger);">*</span></label>
+        <input type="text" id="envNom" placeholder="Ex : Production, QA, Dev client USA…">
+      </div>
+
+      <div class="form-row">
+        <label>Type d&apos;environnement</label>
+        <select id="envType">
+          <option value="dev">&#128309; Dev</option>
+          <option value="qa">&#128993; QA / Staging</option>
+          <option value="prod" selected>&#128994; Production</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label>URL du domaine Iconik <span style="color:var(--c-danger);">*</span></label>
+        <input type="text" id="envUrl" placeholder="https://app.iconik.io">
+        <span class="hint">URL compl&egrave;te sans slash final</span>
+      </div>
+
+      <div class="form-row">
+        <label>App ID <span style="color:var(--c-danger);">*</span></label>
+        <input type="text" id="envAppId" placeholder="App ID Iconik">
+      </div>
+
+      <div class="form-row">
+        <label>Auth Token <span style="color:var(--c-danger);">*</span></label>
+        <input type="password" id="envToken" placeholder="Token Iconik">
+        <span class="hint">Stock&eacute; localement &mdash; ne pas partager ce fichier de config</span>
+      </div>
+
+      <div id="envTestResult" style="display:none;font-size:11px;padding:6px 0;"></div>
+    </div>
+    <div class="set-modal-ftr">
+      <button class="set-btn" onclick="testerEnv()" style="margin-right:auto;">&#128268; Tester</button>
+      <button class="set-btn" onclick="fermerModalEnv()">Annuler</button>
+      <button class="set-btn primary" onclick="validerModalEnv()">&#10003; Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script src="../_shared/sync-mappers.js"></script>
+<script src="../_shared/aps-data.js"></script>
+<script src="../_shared/wfd-bus.js"></script>
+<script src="../_shared/wfd-job-manager.js"></script>
+<script src="script-settings.js"></script>
+<script src="script-clean.js"></script>
+<script src="script-sync.js"></script>
+<script src="../_shared/wfd-sync-bridge-settings.js"></script>
+<script src="settings-apicheck.js"></script>
+<script src="settings-health.js"></script>
+<script src="script-kit.js"></script>
+<script src="../_shared/aps-mirror-engine.js"></script>
+
+</body>
+</html>

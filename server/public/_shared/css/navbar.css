@@ -1,0 +1,135 @@
+/* _shared/css/navbar.css */
+
+/* Header : logo à gauche, navbar à droite */
+.aps-header{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding: 12px 18px;
+  background: transparent; /* laisse ton thème décider */
+}
+
+/* Groupe logo */
+.aps-brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.aps-brand img{
+  max-height:35px;
+  display:block;
+}
+
+/* Navbar tout à droite */
+.aps-navbar{
+  margin-left:auto;              /* <-- clé : pousse à droite */
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+/* Boutons "pill" contrastés */
+.aps-nav-link{
+  display:inline-flex;
+  align-items:center;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 12px;
+  text-decoration:none;
+
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .2px;
+
+  /* contraste proche de ta capture : sombre + bord clair */
+  color: #eef0f1;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.18);
+
+  /* léger relief */
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06), 0 8px 18px rgba(0,0,0,0.25);
+
+  transition: background .12s ease, border-color .12s ease, transform .12s ease;
+}
+
+.aps-nav-link:hover{
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.28);
+  transform: translateY(-1px);
+}
+
+/* Actif : même contraste mais plus "plein" + désactivé */
+.aps-nav-link.active{
+  pointer-events:none;
+  cursor: default;
+
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.35);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.08), 0 10px 22px rgba(0,0,0,0.28);
+}
+
+/* Option : si tu veux que l’actif “ressorte” en jaune Askida */
+.aps-nav-link.active--accent{
+  background: rgba(214,210,51,0.18);
+  border-color: rgba(214,210,51,0.42);
+  color: #ffffff;
+}
+
+/* =========================================================
+   APS NAVBAR + HEADER (canonique, partagé)
+   - Logo gauche contraint
+   - Logo secondaire centré (plus petit)
+   - Navbar à droite (style identique partout)
+   ========================================================= */
+
+header.aps-header{
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 24px;
+}
+
+.aps-header-left{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.aps-header-right{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+}
+
+/* Navbar : pas d’uppercase forcée ici (tu choisis dans le HTML) */
+.aps-navbar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.aps-nav-link{
+  font-size: 12px;
+  padding: 6px 10px;
+  line-height: 1;
+  text-decoration:none;
+  border-radius: 10px;
+}
+
+/* Optionnel : état actif */
+.aps-nav-link.active{
+  opacity: .65;
+  pointer-events:none;
+}
+
+/* Canonique : tailles des logos (toutes pages) */
+.aps-logo{
+  max-height: 42px !important;
+  height: 42px !important;
+  width: auto;
+  display: block;
+}
+
+header.aps-header{ position: relative; }

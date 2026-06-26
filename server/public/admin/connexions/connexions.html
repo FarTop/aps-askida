@@ -1,0 +1,156 @@
+<!-- APS — admin/connexions/connexions.html — 2026-06-23 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connexions — APS Administration</title>
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="connexions.css" />
+</head>
+<body>
+
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="#">Administration</a> › Connexions</span>
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar">
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="adm-main">
+
+    <div class="adm-toolbar">
+      <h1 class="adm-title">🔌 Connexions</h1>
+      <button class="btn" id="btn-new" type="button">+ Nouvelle connexion</button>
+    </div>
+
+    <div class="adm-filters">
+      <input type="text" id="search" placeholder="Rechercher…" class="adm-search" />
+      <select id="filter-type" class="adm-select">
+        <option value="">Tous les types</option>
+        <option value="iconik">Iconik</option>
+        <option value="aws_s3">AWS S3</option>
+        <option value="http">HTTP</option>
+        <option value="listener">Listener</option>
+      </select>
+      <select id="filter-dir" class="adm-select">
+        <option value="">Toutes les directions</option>
+        <option value="outbound">Sortante</option>
+        <option value="inbound">Entrante</option>
+      </select>
+    </div>
+
+    <div id="conn-list" class="conn-list">
+      <div class="adm-loading">Chargement…</div>
+    </div>
+
+  </main>
+
+  <!-- ── PANNEAU LATÉRAL ── -->
+  <aside class="side-panel" id="side-panel">
+    <div class="side-panel-header">
+      <span id="panel-title">Nouvelle connexion</span>
+      <button class="side-close" id="btn-close-panel" type="button">×</button>
+    </div>
+    <div class="side-panel-body">
+
+      <div class="field">
+        <label>Nom *</label>
+        <input type="text" id="f-name" placeholder="Ex : Iconik PROD" />
+      </div>
+
+      <div class="field">
+        <label>Type</label>
+        <select id="f-type" onchange="onTypeChange()">
+          <option value="iconik">Iconik</option>
+          <option value="aws_s3">AWS S3</option>
+          <option value="http">HTTP</option>
+          <option value="listener">Listener</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Direction</label>
+        <select id="f-direction">
+          <option value="outbound">Sortante (APS → Service)</option>
+          <option value="inbound">Entrante (Service → APS)</option>
+        </select>
+      </div>
+
+      <div class="field" id="field-baseurl">
+        <label>URL de base</label>
+        <input type="text" id="f-baseurl" placeholder="https://app.iconik.io" />
+      </div>
+
+      <div class="field" id="field-authtype">
+        <label>Authentification</label>
+        <select id="f-authtype" onchange="onAuthChange()">
+          <option value="">Aucune</option>
+          <option value="bearer">Bearer Token</option>
+          <option value="apikey_header">API Key (header)</option>
+          <option value="aws_s3">AWS Signature V4</option>
+          <option value="iconik">Iconik App Token</option>
+        </select>
+      </div>
+
+      <div class="field" id="field-authvalue" style="display:none">
+        <label id="authvalue-label">Token</label>
+        <input type="password" id="f-authvalue" placeholder="Valeur du token…" />
+        <button type="button" class="btn-reveal" onclick="toggleReveal()">👁</button>
+      </div>
+
+      <!-- Champs spécifiques Iconik -->
+      <div id="fields-iconik" style="display:none">
+        <div class="field">
+          <label>App ID</label>
+          <input type="text" id="f-appid" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+        </div>
+      </div>
+
+      <!-- Champs spécifiques AWS -->
+      <div id="fields-aws" style="display:none">
+        <div class="field">
+          <label>AWS Region</label>
+          <input type="text" id="f-aws-region" placeholder="eu-west-1" />
+        </div>
+        <div class="field">
+          <label>Bucket</label>
+          <input type="text" id="f-aws-bucket" placeholder="mon-bucket" />
+        </div>
+        <div class="field">
+          <label>Access Key ID</label>
+          <input type="text" id="f-aws-key" placeholder="AKIA…" />
+        </div>
+        <div class="field">
+          <label>Secret Access Key</label>
+          <input type="password" id="f-aws-secret" placeholder="…" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Description</label>
+        <textarea id="f-description" rows="2" placeholder="Notes…"></textarea>
+      </div>
+
+      <div class="field field-toggle">
+        <label>Active</label>
+        <input type="checkbox" id="f-active" checked />
+      </div>
+
+    </div>
+    <div class="side-panel-footer">
+      <button class="btn ghost" id="btn-cancel" type="button">Annuler</button>
+      <button class="btn" id="btn-save" type="button">✓ Sauvegarder</button>
+    </div>
+  </aside>
+
+  <div class="overlay" id="overlay"></div>
+
+  <script src="connexions.js"></script>
+</body>
+</html>

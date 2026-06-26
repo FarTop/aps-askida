@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Iconik — Viewer</title>
+<link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+<header>
+  <img src="../_images/logo.svg?v=1772619673" alt="Logo" style="height:26px;width:auto;display:block;"><span id="orgBadge" class="hdr-org"></span></div>
+  <nav>
+    <button class="nav-btn" onclick="location.href='../dashboard/dashboard.html'">DASHBOARD</button>
+    <button class="nav-btn" onclick="location.href='../settings/settings.html'">SETTINGS</button>
+    <button class="nav-btn" onclick="location.href='../automations/automations.html'">AUTOMATIONS</button>
+	<button class="nav-btn" onclick="location.href='../workflow/workflow.html'">WORKFLOW</button>
+    <button class="nav-btn active">VIEWER</button>
+	<button class="nav-btn" onclick="location.href='../monitoring/monitoring.html'">MONITORING</button>
+  </nav>
+  <div class="mode-switcher">
+    <button class="mode-btn active" id="mbtn-image" onclick="setMode('image')">&#128444; Image</button>
+    <button class="mode-btn" id="mbtn-config" onclick="setMode('config')">&#127795; Configuration</button>
+    <button class="mode-btn" id="mbtn-designer" onclick="setMode('designer')">&#9998; Designer</button>
+  </div>
+</header>
+<div class="visu-toolbar" id="tb-image">
+  <label class="tb-btn" style="cursor:pointer">&#128194; Charger image<input type="file" id="file-input" accept="image/*" onchange="img_load(event)" style="display:none"></label>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="img_zoom(.25)">＋</button>
+  <span class="tb-zoom" id="img-zlbl">100%</span>
+  <button class="tb-btn" onclick="img_zoom(-.25)">－</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="img_reset()">&#8634; Reset</button>
+  <button class="tb-btn" onclick="img_fit()">&#10562; Ajuster</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btn-mm" onclick="img_toggleMM()">&#128506; Minimap</button>
+  <button class="tb-btn" onclick="img_fs()">&#9974; Plein ecran</button>
+  <span class="tb-hint" id="img-hint">Chargez une image PNG</span>
+</div>
+<div class="visu-toolbar" id="tb-config" style="display:none">
+  <button class="tb-btn go" onclick="cfg_load({preset:'demo'})">🎬 Démo</button>
+  <button class="tb-btn" onclick="cfg_load({global:true})">🌐 Global</button>
+  <select class="tb-btn" id="cfg-root" title="Racine">
+  <option value="">(Tous)</option>
+  </select>
+  <input class="tb-btn" id="cfg-depth" type="number" min="0" value="1" style="width:70px" title="Profondeur">
+  <button class="tb-btn" onclick="cfg_applyUI()">↻ Appliquer</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn go" onclick="cfg_load()">&#8635; Charger donnees</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btn-cards" onclick="cfg_toggleCards()">&#127183; Toutes les cartes</button>
+  <button class="tb-btn" onclick="cfg_fit()">&#10562; Ajuster</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="cfg_zoom(.2)">＋</button>
+  <span class="tb-zoom" id="cfg-zlbl">100%</span>
+  <button class="tb-btn" onclick="cfg_zoom(-.2)">－</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="cfg_exportSVG()">&#11015; SVG</button>
+  <button class="tb-btn y" onclick="cfg_exportExcel()">&#11015; Excel</button>
+  <span class="tb-hint">Clic = carte · Shift+clic = surbrillance · Molette = zoom</span>
+</div>
+<div class="visu-toolbar" id="tb-designer" style="display:none">
+  <button class="tb-btn go" onclick="dsn_addRoot()">&#128193;＋ Nouveau dossier</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="dsn_save()" title="Sauvegarder le brouillon">&#128190; Sauvegarder</button>
+  <button class="tb-btn" id="btn-dsn-load" onclick="dsn_loadDraft()" style="display:none" title="Reprendre le brouillon">&#128194; Reprendre</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="dsn_undo()">&#8617; Annuler</button>
+  <button class="tb-btn" onclick="dsn_redo()">&#8618; Retablir</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="dsn_equidist()">&#8661; Equidist.</button>
+  <button class="tb-btn" onclick="dsn_fit()">&#10562; Ajuster</button>
+  <button class="tb-btn" onclick="dsn_clear()">&#10005; Vider</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="dsn_zoom(.2)">＋</button>
+  <span class="tb-zoom" id="dsn-zlbl">100%</span>
+  <button class="tb-btn" onclick="dsn_zoom(-.2)">－</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="dsn_exportSVG()">&#11015; SVG</button>
+  <button class="tb-btn" onclick="dsn_exportExcel()">&#11015; Excel</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn y" onclick="dsn_showExport()">&#11015; Vers Collections</button>
+  <span class="tb-hint">Double-clic = renommer · Port = tirer un lien · + = enfant · Ctrl+D = dupliquer · Suppr = supprimer</span>
+</div>
+<div id="visu-main">
+  <div id="mode-image" class="active">
+    <div id="img-vp"><img id="arbo-img" src="" alt="" style="display:none"></div>
+    <div id="img-empty"><div class="ei">&#128193;</div><h3>AUCUNE IMAGE CHARGEE</h3><p>Chargez votre schema PNG pour naviguer</p><label class="btn-up">&#128194; Charger une image<input type="file" accept="image/*" onchange="img_load(event)" style="display:none"></label></div>
+    <div id="img-minimap"><img id="mm-img" src="" alt=""><div id="mm-vp"></div></div>
+  </div>
+  <div id="mode-config">
+    <div id="cfg-empty"><div class="ei">&#127795;</div><p>Cliquez sur "Charger donnees" pour afficher l'arborescence</p></div>
+    <div id="cfg-vp"><svg id="cfg-svg"></svg></div>
+  </div>
+  <div id="mode-designer">
+    <div id="dsn-vp"><svg id="dsn-svg"></svg><div id="dsn-lasso"></div></div>
+    <div id="dsn-export" style="display:none">
+      <h4>&#128203; Chemins generes</h4>
+      <div id="dsn-preview"></div>
+      <button class="tb-btn y" style="width:100%" onclick="dsn_doImport()">&#10003; Importer dans Collections</button>
+    </div>
+  </div>
+</div>
+<svg id="conn-svg"></svg>
+<div class="vtoast" id="vtoast"></div>
+  <script src="../_vendor/exceljs/exceljs.min.js"></script>
+  <script type="module" src="../_vendor/exceljs/export-exceljs.browser.js"></script>
+  <script src="script-viewer.js"></script>
+</body>
+</html>

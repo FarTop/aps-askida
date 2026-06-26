@@ -1,0 +1,1231 @@
+{
+  "timestamp": "2026-03-29T14:51:34.542Z",
+  "origin": "file://",
+  "automationsData": {
+    "automations": [
+      {
+        "id": "8b5a1f36-26bf-11f1-89d8-d6c7368ccdd3",
+        "nom": "ADD | PAD | BJ AUDIO",
+        "name": "ADD | PAD | BJ AUDIO",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPAD": {
+                    "field_values": [
+                      {
+                        "value": "PAD | BJ AUDIO"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPAD",
+              "valueChangedTo": "PAD | BJ AUDIO"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPAD": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPAD",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "7c59566c-213f-11f1-8237-c67a73cf670a",
+                "index_immediately": true
+              },
+              "collections": [
+                "7c59566c-213f-11f1-8237-c67a73cf670a"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "8ddf3dcc-26bf-11f1-8544-c67cf79171d6",
+        "nom": "ADD | PAD | BJ AUDIO",
+        "name": "ADD | PAD | BJ AUDIO",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPAD": {
+                    "field_values": [
+                      {
+                        "value": "PAD | BJ AUDIO"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPAD",
+              "valueChangedTo": "PAD | BJ AUDIO"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPAD": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPAD",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "7c59566c-213f-11f1-8237-c67a73cf670a",
+                "index_immediately": true
+              },
+              "collections": [
+                "7c59566c-213f-11f1-8237-c67a73cf670a"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "e3a75c3a-26bf-11f1-ac87-d6c7368ccdd3",
+        "nom": "ADD | PAD | BJ COMM",
+        "name": "ADD | PAD | BJ COMM",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPAD": {
+                    "field_values": [
+                      {
+                        "value": "PAD | BJ COMM"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPAD",
+              "valueChangedTo": "PAD | BJ COMM"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPAD": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPAD",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "8b9a64ae-213f-11f1-a0ae-f232950f3c87",
+                "index_immediately": true
+              },
+              "collections": [
+                "8b9a64ae-213f-11f1-a0ae-f232950f3c87"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "45614b02-26c0-11f1-ae41-0601294f6ca0",
+        "nom": "ADD | PAD | BJ PROD",
+        "name": "ADD | PAD | BJ PROD",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPAD": {
+                    "field_values": [
+                      {
+                        "value": "PAD | BJ PROD"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPAD",
+              "valueChangedTo": "PAD | BJ PROD"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPAD": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPAD",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "95dcc1d2-213f-11f1-8088-5eb9a33af78f",
+                "index_immediately": true
+              },
+              "collections": [
+                "95dcc1d2-213f-11f1-8088-5eb9a33af78f"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "9094784c-26c0-11f1-ac87-d6c7368ccdd3",
+        "nom": "ADD | PAD | BMD",
+        "name": "ADD | PAD | BMD",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPAD": {
+                    "field_values": [
+                      {
+                        "value": "PAD | BMD"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPAD",
+              "valueChangedTo": "PAD | BMD"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPAD": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPAD",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "a72544fa-213f-11f1-af78-7a0a648cd59c",
+                "index_immediately": true
+              },
+              "collections": [
+                "a72544fa-213f-11f1-af78-7a0a648cd59c"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "01dcf6a0-26c1-11f1-ac87-d6c7368ccdd3",
+        "nom": "ADD | PAD | GPR | FAMILISCOPE",
+        "name": "ADD | PAD | GPR | FAMILISCOPE",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPAD": {
+                    "field_values": [
+                      {
+                        "value": "PAD | GPR | FAMILISCOPE"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPAD",
+              "valueChangedTo": "PAD | GPR | FAMILISCOPE"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPAD": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPAD",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "230472e4-2140-11f1-92d9-f232950f3c87",
+                "index_immediately": true
+              },
+              "collections": [
+                "230472e4-2140-11f1-92d9-f232950f3c87"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "36b4f29c-26c1-11f1-89d8-d6c7368ccdd3",
+        "nom": "ADD | PAD | GPR | NOTRE TEMPS",
+        "name": "ADD | PAD | GPR | NOTRE TEMPS",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPAD": {
+                    "field_values": [
+                      {
+                        "value": "PAD | GPR | NOTRE TEMPS"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPAD",
+              "valueChangedTo": "PAD | GPR | NOTRE TEMPS"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPAD": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPAD",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "280b6630-2140-11f1-876a-d2af44b5d27b",
+                "index_immediately": true
+              },
+              "collections": [
+                "280b6630-2140-11f1-876a-d2af44b5d27b"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "5acb7d4a-26c1-11f1-ac87-d6c7368ccdd3",
+        "nom": "ADD | PAD | GPR | PELERIN",
+        "name": "ADD | PAD | GPR | PELERIN",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPAD": {
+                    "field_values": [
+                      {
+                        "value": "PAD | GPR | PELERIN"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPAD",
+              "valueChangedTo": "PAD | GPR | PELERIN"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPAD": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPAD",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "2c701f4a-2140-11f1-a0ae-f232950f3c87",
+                "index_immediately": true
+              },
+              "collections": [
+                "2c701f4a-2140-11f1-a0ae-f232950f3c87"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "8f94a09c-26c1-11f1-ac87-d6c7368ccdd3",
+        "nom": "ADD | PAD | LACROIX | COMMUNICATION",
+        "name": "ADD | PAD | LACROIX | COMMUNICATION",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPAD": {
+                    "field_values": [
+                      {
+                        "value": "PAD | LACROIX | COMMUNICATION"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPAD",
+              "valueChangedTo": "PAD | LACROIX | COMMUNICATION"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPAD": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPAD",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "020211f0-2140-11f1-a4a9-d2af44b5d27b",
+                "index_immediately": true
+              },
+              "collections": [
+                "020211f0-2140-11f1-a4a9-d2af44b5d27b"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "cf866bf4-26c1-11f1-ae41-0601294f6ca0",
+        "nom": "ADD | PAD | LACROIX | ACTUS",
+        "name": "ADD | PAD | LACROIX | ACTUS",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPAD": {
+                    "field_values": [
+                      {
+                        "value": "PAD | LaCROIX | ACTUS"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPAD",
+              "valueChangedTo": "PAD | LaCROIX | ACTUS"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPAD": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPAD",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "f44dd7f6-213f-11f1-8256-4622671a7d6d",
+                "index_immediately": true
+              },
+              "collections": [
+                "f44dd7f6-213f-11f1-8256-4622671a7d6d"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "f5b7dd3a-26c1-11f1-8544-c67cf79171d6",
+        "nom": "ADD | PAD | LACROIX | SERIES ",
+        "name": "ADD | PAD | LACROIX | SERIES ",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPAD": {
+                    "field_values": [
+                      {
+                        "value": "PAD | LACROIX | SERIES"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPAD",
+              "valueChangedTo": "PAD | LACROIX | SERIES"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPAD": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPAD",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "12264d26-2140-11f1-a11d-5eed4325a178",
+                "index_immediately": true
+              },
+              "collections": [
+                "12264d26-2140-11f1-a11d-5eed4325a178"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "4d8f2ec8-26c2-11f1-8200-0601294f6ca0",
+        "nom": "ADD | PARTAGE | BJ AUDIO ",
+        "name": "ADD | PARTAGE | BJ AUDIO ",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPartage": {
+                    "field_values": [
+                      {
+                        "value": "PARTAGE | BJ AUDIO"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPartage",
+              "valueChangedTo": "PARTAGE | BJ AUDIO"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPartage": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPartage",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "5bfd5016-2140-11f1-aa75-eef3384f9dbf",
+                "index_immediately": true
+              },
+              "collections": [
+                "5bfd5016-2140-11f1-aa75-eef3384f9dbf"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "724aa576-26c2-11f1-89d8-d6c7368ccdd3",
+        "nom": "ADD | PARTAGE | BJ COMM",
+        "name": "ADD | PARTAGE | BJ COMM",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPartage": {
+                    "field_values": [
+                      {
+                        "value": "PARTAGE | BJ COMM"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPartage",
+              "valueChangedTo": "PARTAGE | BJ COMM"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPartage": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPartage",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "7a2bd422-2140-11f1-92d9-f232950f3c87",
+                "index_immediately": true
+              },
+              "collections": [
+                "7a2bd422-2140-11f1-92d9-f232950f3c87"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "92f8d40a-26c2-11f1-89d8-d6c7368ccdd3",
+        "nom": "ADD | PARTAGE | BJ PROD",
+        "name": "ADD | PARTAGE | BJ PROD",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPartage": {
+                    "field_values": [
+                      {
+                        "value": "PARTAGE | BJ PROD"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPartage",
+              "valueChangedTo": "PARTAGE | BJ PROD"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPartage": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPartage",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "8081140e-2140-11f1-9845-f2d9b39bac68",
+                "index_immediately": true
+              },
+              "collections": [
+                "8081140e-2140-11f1-9845-f2d9b39bac68"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "d8c048ec-26c2-11f1-a17f-0601294f6ca0",
+        "nom": "ADD | PARTAGE | BMD",
+        "name": "ADD | PARTAGE | BMD",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPartage": {
+                    "field_values": [
+                      {
+                        "value": "PARTAGE | BMD"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPartage",
+              "valueChangedTo": "PARTAGE | BMD"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPartage": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPartage",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "84800b32-2140-11f1-9c6c-7a0a648cd59c",
+                "index_immediately": true
+              },
+              "collections": [
+                "84800b32-2140-11f1-9c6c-7a0a648cd59c"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "feed2364-26c2-11f1-8200-0601294f6ca0",
+        "nom": "ADD | PARTAGE | GPR",
+        "name": "ADD | PARTAGE | GPR",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPartage": {
+                    "field_values": [
+                      {
+                        "value": "PARTAGE | GPR"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPartage",
+              "valueChangedTo": "PARTAGE | GPR"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPartage": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPartage",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "8ccbecb6-2140-11f1-a272-eef3384f9dbf",
+                "index_immediately": true
+              },
+              "collections": [
+                "8ccbecb6-2140-11f1-a272-eef3384f9dbf"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "1eb9d5d4-26c3-11f1-aba2-c67cf79171d6",
+        "nom": "ADD | PARTAGE | LACROIX",
+        "name": "ADD | PARTAGE | LACROIX",
+        "active": true,
+        "triggers": [
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "DestinationPartage": {
+                    "field_values": [
+                      {
+                        "value": "PARTAGE | LACROIX"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "DestinationPartage",
+              "valueChangedTo": "PARTAGE | LACROIX"
+            }
+          },
+          {
+            "type": "metadata.changed",
+            "config": {
+              "parameters": {
+                "event_type": "ASSETS",
+                "metadata_values": {
+                  "MiseenPartage": {
+                    "field_values": [
+                      {
+                        "value": "true"
+                      }
+                    ]
+                  }
+                }
+              },
+              "metadataField": "MiseenPartage",
+              "valueChangedTo": "true"
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Add to collection",
+            "config": {
+              "parameters": {
+                "collection_id": "bb1f220e-2140-11f1-a72b-4622671a7d6d",
+                "index_immediately": true
+              },
+              "collections": [
+                "bb1f220e-2140-11f1-a72b-4622671a7d6d"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "edffbd9a-26c3-11f1-bfce-c67cf79171d6",
+        "nom": "ACL | PAD | ALL TEAMS",
+        "name": "ACL | PAD | ALL TEAMS",
+        "active": true,
+        "triggers": [
+          {
+            "type": "asset.added_to_collection",
+            "config": {
+              "parameters": {
+                "collection_ids": [
+                  "8a46569a-2125-11f1-952c-4eb40effcdf8"
+                ],
+                "include_subcollections": true,
+                "object_type": "assets"
+              },
+              "monitorSubCollections": false,
+              "collections": [
+                "8a46569a-2125-11f1-952c-4eb40effcdf8"
+              ]
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "Set ACL on asset",
+            "config": {
+              "parameters": {
+                "objects": [
+                  {
+                    "group_ids": [
+                      "6227c372-2122-11f1-b7e3-3a269cbbd1c0"
+                    ],
+                    "mode": "OVERWRITE",
+                    "permissions": [
+                      "read"
+                    ]
+                  },
+                  {
+                    "group_ids": [
+                      "dcca3cc2-2122-11f1-85a1-1e13cc0e7436"
+                    ],
+                    "mode": "OVERWRITE",
+                    "permissions": [
+                      "read"
+                    ]
+                  },
+                  {
+                    "group_ids": [
+                      "a1ac6ebc-2122-11f1-9ac0-3a269cbbd1c0"
+                    ],
+                    "mode": "OVERWRITE",
+                    "permissions": [
+                      "read"
+                    ]
+                  },
+                  {
+                    "group_ids": [
+                      "2f2f7a72-2123-11f1-bc11-068a68410708"
+                    ],
+                    "mode": "OVERWRITE",
+                    "permissions": [
+                      "read"
+                    ]
+                  },
+                  {
+                    "group_ids": [
+                      "0396174a-2123-11f1-bc11-068a68410708"
+                    ],
+                    "mode": "OVERWRITE",
+                    "permissions": [
+                      "read"
+                    ]
+                  },
+                  {
+                    "group_ids": [
+                      "93548f60-2123-11f1-85a1-1e13cc0e7436"
+                    ],
+                    "mode": "OVERWRITE",
+                    "permissions": [
+                      "read"
+                    ]
+                  },
+                  {
+                    "group_ids": [
+                      "6aad6460-2123-11f1-972c-5a86f9c40c3c"
+                    ],
+                    "mode": "OVERWRITE",
+                    "permissions": [
+                      "read"
+                    ]
+                  },
+                  {
+                    "group_ids": [
+                      "ff419648-2121-11f1-a571-5a86f9c40c3c"
+                    ],
+                    "mode": "OVERWRITE",
+                    "permissions": [
+                      "read"
+                    ]
+                  },
+                  {
+                    "group_ids": [
+                      "d8942772-2121-11f1-be3c-1e13cc0e7436"
+                    ],
+                    "mode": "OVERWRITE",
+                    "permissions": [
+                      "read"
+                    ]
+                  }
+                ]
+              },
+              "teams": [],
+              "users": [],
+              "permissions": []
+            }
+          }
+        ]
+      },
+      {
+        "id": "41c18936-2a9d-11f1-a046-ca8ba3e50cd5",
+        "nom": "ZZZ_NewVersion-Analyse",
+        "name": "ZZZ_NewVersion-Analyse",
+        "active": true,
+        "triggers": [
+          {
+            "type": "VERSION_ONLINE",
+            "config": {
+              "parameters": {
+                "only_first_version": false,
+                "wait_for_transcode": true
+              }
+            }
+          }
+        ],
+        "conditions": [],
+        "actions": [
+          {
+            "type": "ANALYZE",
+            "config": {
+              "parameters": {
+                "force": true,
+                "force_type": "OVERWRITE"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "webhooksData": {
+    "webhooks": [
+      {
+        "id": "b9f24958-29e0-11f1-8da1-c22b721ca871",
+        "name": "DESIGNER",
+        "description": "Test envoi vers WFD",
+        "url": "https://tracheidal-euna-feasibly.ngrok-free.dev/iconik",
+        "eventType": "assets",
+        "realm": "metadata",
+        "operation": "update",
+        "objectId": "",
+        "headers": [],
+        "query": "data.metadata_values.PAD.field_values.value=\"true\""
+      }
+    ]
+  },
+  "customActionsData": {
+    "customActions": [
+      {
+        "id": "0836af3c-29e1-11f1-8f8d-62d5b0ecc64a",
+        "title": "MD COLLECTION",
+        "url": "https://tracheidal-euna-feasibly.ngrok-free.dev/iconik",
+        "type": "Post",
+        "context": "COLLECTION",
+        "headers": [
+          {
+            "key": "auth",
+            "value": "bibi"
+          }
+        ],
+        "metadataView": "824b6d9a-2850-11f1-9b5a-da7448162f04",
+        "appId": "85cf6e60-1e1b-11f1-b808-72216db89ae5",
+        "appName": "",
+        "description": ""
+      }
+    ]
+  }
+}

@@ -1,0 +1,71 @@
+/* ══ API CHECK — CSS dédié ═════════════════════════════════════════════════ */
+
+/* Accordion API Check */
+.apichk-acc {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+
+.apichk-acc:hover {
+  border-color: var(--accent);
+}
+
+.apichk-acc-body {
+  display: none;
+  animation: apichkSlideDown .2s ease-out;
+}
+
+@keyframes apichkSlideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Lignes de résultats */
+.apichk-acc .mon-row {
+  transition: background .15s;
+}
+
+.apichk-acc .mon-row:hover {
+  background: rgba(0, 212, 170, 0.05) !important;
+}
+
+/* Status colors */
+.apichk-status-ok { color: var(--accent); }
+.apichk-status-warn { color: var(--c-warn); }
+.apichk-status-error { color: var(--c-danger); }
+
+/* Détails API */
+.apichk-api-details {
+  font-family: var(--font);
+  font-size: 8.5px;
+  background: var(--bg3);
+  border-top: 1px solid var(--border);
+  padding: 6px 8px;
+}
+
+.apichk-api-details code {
+  color: var(--accent);
+  word-break: break-all;
+}
+
+/* Filtre et tri */
+#apichk-filter {
+  transition: border-color .15s;
+}
+
+#apichk-filter:focus {
+  border-color: var(--accent);
+}
+
+/* Export buttons */
+#apichk-results + div button {
+  transition: all .15s;
+}
+
+#apichk-results + div button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 212, 170, 0.2);
+}
