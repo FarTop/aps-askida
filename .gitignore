@@ -28,3 +28,4 @@ scripts/aps-export-full.json
 
 # Données runtime Node-RED (config, flows, credentials)
 docker/node-red/data/
+server/public/platforms/iconik/_debug/
