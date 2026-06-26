@@ -6840,16 +6840,15 @@ function appliquerImport(data, mode) {
   }
 
   // Toujours importer Automations et Settings (pas de conflit de merge ici)
-  if (a.automationsData)   localStorage.setItem('automationsData',   JSON.stringify(a.automationsData));
-  if (a.webhooksData)      localStorage.setItem('webhooksData',      JSON.stringify(a.webhooksData));
-  if (a.customActionsData) localStorage.setItem('customActionsData', JSON.stringify(a.customActionsData));
+  // (DB) automationsData, webhooksData, customActionsData — en mémoire uniquement
 
   const sKeys = ['teamsData','roleGroupsData','collectionsData','metadataViewsData',
     'metadonneesData','rolesData','itemsAdvancedData','savedSearchesData',
     'storagesData','appTokensData','workflowsData','categoriesData'];
+  // TODO Phase D : rediriger vers DB plutôt que localStorage
   sKeys.forEach(k => { if (s[k] !== undefined && s[k] !== null) localStorage.setItem(k, JSON.stringify(s[k])); });
 
-  if (fileOrg) localStorage.setItem('organisationName', fileOrg);
+  // (DB) organisationName — en mémoire uniquement
 
   // Sauvegarder et rafraîchir
   sauvegarderEtat();

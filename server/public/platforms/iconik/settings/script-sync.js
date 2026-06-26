@@ -1304,9 +1304,7 @@ async function syncIconik(nom, scope) {
     });
     itemsAdvancedData.items = Object.values(globalItemsMap).filter(i => i.assignations.length > 0).sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
 
-    localStorage.setItem('roleGroupsData',   JSON.stringify(roleGroupsData));
-    localStorage.setItem('rolesData',         JSON.stringify(rolesData));
-    localStorage.setItem('itemsAdvancedData', JSON.stringify(itemsAdvancedData));
+    // (DB) roleGroupsData, rolesData, itemsAdvancedData — en mémoire uniquement
   }
 
   // ── 5) TEAMS (liste + ACLs Collections + ACLs MDViews + ACLs Saved Searches) ─
@@ -1646,7 +1644,7 @@ async function syncIconik(nom, scope) {
     const prevConditionsById = {};
     (automationsData.automations||[]).forEach(a => { if (a?.id) prevConditionsById[String(a.id)] = Array.isArray(a.conditions) ? a.conditions : []; });
     const list = await syncFetchAll(base, headers, '/API/automations/v1/automations/?per_page=500', r => r.objects || []);
-    localStorage.setItem('automationsData_raw', JSON.stringify({ automations: list||[], date_synced: new Date().toISOString() }));
+    // (DB) automationsData_raw — supprimé (données en mémoire uniquement)
     const M = window.WFD_Mappers;
     automationsData = {
       automations: (list||[]).map(a => {
@@ -1655,7 +1653,7 @@ async function syncIconik(nom, scope) {
         return mapped;
       })
     };
-    localStorage.setItem('automationsData', JSON.stringify(automationsData));
+    // (DB) automationsData — en mémoire uniquement
   }
 
   // ── CUSTOM ACTIONS ────────────────────────────────────────────────────────
@@ -1697,7 +1695,7 @@ async function syncIconik(nom, scope) {
     const r = await fetch(base + '/API/settings/v1/merged/current/', { headers });
     if (r.ok) {
       const data = await r.json();
-      localStorage.setItem('systemSettingsData', JSON.stringify({ settings: data, date_saved: new Date().toISOString() }));
+      // (DB) systemSettingsData — en mémoire uniquement
     }
   }
 

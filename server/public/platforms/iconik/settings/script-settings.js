@@ -678,14 +678,14 @@ function sauvegarderDonnees() {
   });
 
   // 1.c) Écrire RAW store
-  localStorage.setItem('automationsData_raw', JSON.stringify({
+  // (DB) automationsData_raw — en mémoire uniquement
     automations: rawAutomations,
     date_saved: now
   }));
 
   // 1.d) Écrire CANONIQUE store (SoT pour les pages consommatrices)
   automationsData = { automations: canonAutomations }; // garde le modèle attendu (automations[])
-  localStorage.setItem('automationsData', JSON.stringify({
+  // (DB) automationsData — en mémoire uniquement
     automations: canonAutomations,
     date_saved: now
   }));
@@ -697,7 +697,7 @@ function sauvegarderDonnees() {
 }
 
 function mettreAJourOrganisation(name) {
-  localStorage.setItem('organisationName', name.trim());
+  // (DB) organisationName — en mémoire uniquement
   const orgBadge = document.getElementById('orgBadge');
   if (orgBadge) orgBadge.textContent = name.trim().toUpperCase();
   document.title = (name.trim() || 'Iconik') + ' — Settings';
@@ -778,8 +778,8 @@ function normalizeTeamRoleGroupsDoc() {
   });
 
   // Persist
-  localStorage.setItem('teamsData', JSON.stringify(teamsData));
-  localStorage.setItem('roleGroupsData', JSON.stringify(roleGroupsData));
+  // (DB) teamsData — en mémoire uniquement
+  // (DB) roleGroupsData — en mémoire uniquement
 }
 
 // Ajout (bidirectionnel) : teamId <-> rgId
@@ -852,8 +852,8 @@ function retirerTeamRoleGroupDoc(teamId, rgId) {
   rg.teams_doc_ids     = (rg.teams_doc_ids || []).map(String).filter(x => x !== tid);
 
   // Persist
-  localStorage.setItem('teamsData', JSON.stringify(teamsData));
-  localStorage.setItem('roleGroupsData', JSON.stringify(roleGroupsData));
+  // (DB) teamsData — en mémoire uniquement
+  // (DB) roleGroupsData — en mémoire uniquement
 
   // Refresh UI robuste : repasse par le cycle UI complet
   (function(){
@@ -4221,7 +4221,7 @@ function reinitialiserDonnees() {
           })
     );
 
-    localStorage.setItem('savedSearchesData', JSON.stringify(savedSearchesData));
+  // (DB) savedSearchesData — en mémoire uniquement
   }
 
   if (!Array.isArray(savedSearchesData.savedSearches) || savedSearchesData.savedSearches.length === 0) {
@@ -4360,8 +4360,8 @@ function reinitialiserDonnees() {
   }
 
   // Persist
-  localStorage.setItem('teamsData', JSON.stringify(teamsData));
-  localStorage.setItem('savedSearchesData', JSON.stringify(savedSearchesData));
+  // (DB) teamsData — en mémoire uniquement
+  // (DB) savedSearchesData — en mémoire uniquement
 }
  
 // ────────────────────────────────────────────────────────────────────────
@@ -4467,8 +4467,8 @@ async function syncAclsCustomActionsToTeams(base, headers) {
   }
 
   // Persist (comme tes autres ACL sync) 
-  localStorage.setItem('teamsData', JSON.stringify(teamsData));
-  localStorage.setItem('customActionsData', JSON.stringify(customActionsData));
+  // (DB) teamsData — en mémoire uniquement
+  // (DB) customActionsData — en mémoire uniquement
 }
  
 // =======================================================================
