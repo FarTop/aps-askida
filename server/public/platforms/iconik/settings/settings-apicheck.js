@@ -70,14 +70,14 @@ const API_CHECK_SCOPES = [
   { id:'webhooks', label:'Webhooks',
     ep:'/API/notifications/v1/webhooks/?per_page=500',
     get:r=>(r.objects||[]), keyFn:o=>o.name||o.id,
-    local:()=>(JSON.parse(localStorage.getItem('webhooksData')||'{}').webhooks)||[],
+    local:()=>(window.webhooksData?.webhooks)||[],
     localKey:o=>o.name||o.nom,
     deps:[], apiReqs:[{m:'GET', p:'/API/notifications/v1/webhooks/?per_page=500', d:'Lister Webhooks'}]},
 
   { id:'customActions', label:'Custom Actions',
     ep:'/API/assets/v1/custom_actions/?per_page=500',
     get:r=>(r.objects||[]), keyFn:o=>o.title||o.name||o.id,
-    local:()=>(JSON.parse(localStorage.getItem('customActionsData')||'{}').customActions)||[],
+    local:()=>(window.customActionsData?.customActions)||[],
     localKey:o=>o.name||o.nom,
     deps:[], apiReqs:[
       {m:'GET', p:'/API/assets/v1/custom_actions/?per_page=500', d:'Lister Custom Actions'},
@@ -88,14 +88,14 @@ const API_CHECK_SCOPES = [
   { id:'automations', label:'Automations',
     ep:'/API/automations/v1/automations/?per_page=500',
     get:r=>(r.objects||[]), keyFn:o=>o.name||o.id,
-    local:()=>(JSON.parse(localStorage.getItem('automationsData')||'{}').automations)||[],
+    local:()=>(window.automationsData?.automations)||[],
     localKey:o=>o.name||o.nom,
     deps:[], apiReqs:[{m:'GET', p:'/API/automations/v1/automations/?per_page=500', d:'Lister Automations'}]},
 
   { id:'relationTypes', label:'Relation Types',
     ep:'/API/assets/v1/assets/relation_types/?per_page=500',
     get:r=>(r.objects||[]).filter(o=>!o.is_system), keyFn:o=>o.name||o.id,
-    local:()=>(JSON.parse(localStorage.getItem('relationTypesData')||'{}').relationTypes)||[],
+    local:()=>(window.relationTypesData?.relationTypes)||[],
     localKey:o=>o.name||o.nom,
     deps:[], apiReqs:[{m:'GET', p:'/API/assets/v1/assets/relation_types/?per_page=500', d:'Lister Relation Types'}]},
 ];
@@ -1634,7 +1634,7 @@ function initApiCheck() {
 
 // ── Collect audit data pour exports ──────────────────────────────────────────
 function collectAuditData() {
-  const org=localStorage.getItem('organisationName')||'';
+  const org=window.organisationName||(document.getElementById('input-org-name')?.value)||'';
   const date=new Date().toISOString();
   const colSelects=document.querySelectorAll('#apichk-col-selects select');
   const colLabels=[...colSelects].map(s=>{const opt=s.options[s.selectedIndex];return opt?opt.text:s.value;}).filter(Boolean);
@@ -1695,7 +1695,7 @@ function exporterAuditPostman() {
 
 function exporterAuditPython() {
   const status=document.getElementById('audit-export-status');
-  const org=(localStorage.getItem('organisationName')||'Iconik').replace(/\s/g,'_');
+  const org=(window.organisationName||(document.getElementById('input-org-name')?.value)||'Iconik').replace(/\s/g,'_');
   const envs=appTokensData.appTokens||[];
   const token=envs[0]||{};
   const base=(token.iconikUrl||'https://app.iconik.io').replace(/\/$/,'');
@@ -1708,7 +1708,7 @@ function exporterAuditPython() {
 
 function exporterAuditShell() {
   const status=document.getElementById('audit-export-status');
-  const org=(localStorage.getItem('organisationName')||'Iconik').replace(/\s/g,'_');
+  const org=(window.organisationName||(document.getElementById('input-org-name')?.value)||'Iconik').replace(/\s/g,'_');
   const token=(appTokensData.appTokens||[])[0]||{};
   const base=(token.iconikUrl||'https://app.iconik.io').replace(/\/$/,'');
   const script=`#!/bin/bash\nBASE="${base}"\nH=('-H' "App-ID: ${token.appId||''}" '-H' "Auth-Token: ${token.token||''}" '-H' 'Content-Type: application/json')\necho "Teams:"; curl -s "\${H[@]}" "$BASE/API/users/v1/teams/?per_page=500" | python3 -c "import sys,json;d=json.load(sys.stdin);print(len(d.get('objects',[])),' items')"\necho "Views:"; curl -s "\${H[@]}" "$BASE/API/metadata/v1/views/?per_page=500" | python3 -c "import sys,json;d=json.load(sys.stdin);print(len(d.get('objects',[])),' items')"\n`;

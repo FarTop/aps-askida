@@ -36,29 +36,16 @@
   let lastDomWrite = 0;
 
   // ---------- Local stores ----------
-  function getArr(key, prop) {
-    try {
-      const d = JSON.parse(localStorage.getItem(key) || '{}');
-      const arr = d && Array.isArray(d[prop]) ? d[prop] : [];
-      return arr;
-    } catch {
-      return [];
-    }
-  }
-
-  const getWebhooks = () => getArr('webhooksData', 'webhooks');
-  const getCustomActions = () => getArr('customActionsData', 'customActions');
-  const getApps = () => getArr('appsData', 'apps');
+  // Lectures depuis variables globales (migration localStorage → mémoire)
+  const getWebhooks      = () => (window.webhooksData?.webhooks           || []);
+  const getCustomActions = () => (window.customActionsData?.customActions || []);
+  const getApps          = () => (window.appsData?.apps                   || []);
 
   function getMetadataViewsById() {
     const out = {};
-    try {
-      const d = JSON.parse(localStorage.getItem('metadataViewsData') || '{}');
-      const arr = d.metadataViews || [];
-      (arr || []).forEach(v => {
-        if (v && v.id) out[String(v.id)] = (v.name || v.nom || v.id);
-      });
-    } catch {}
+    (window.metadataViewsData?.metadataViews || []).forEach(v => {
+      if (v && v.id) out[String(v.id)] = (v.name || v.nom || v.id);
+    });
     return out;
   }
 

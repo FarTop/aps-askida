@@ -2975,12 +2975,7 @@ function detailExportLocation(nom) {
 }
 
 function detailShareSettings() {
-  if (!systemSettingsData?.settings || !Object.keys(systemSettingsData.settings).length) {
-    try {
-      const fresh = JSON.parse(localStorage.getItem('systemSettingsData') || 'null');
-      if (fresh?.settings) systemSettingsData = fresh;
-    } catch(_) {}
-  }
+  // systemSettingsData chargé depuis DB uniquement (plus de fallback localStorage)
   const raw = systemSettingsData?.settings || {};
   if (!Object.keys(raw).length)
     return '<div class="set-empty-list">Aucune donnée — lancez une sync DS pour charger les Share Settings.</div>';
@@ -3569,7 +3564,7 @@ function updateCatApplique(catNom) {
 // ── Sauvegarde / restauration rapide des environnements ──────────
 function exporterEnvironnements() {
   const data = JSON.stringify(appTokensData, null, 2);
-  const org  = localStorage.getItem('organisationName') || 'iconik';
+  const org  = document.getElementById('input-org-name')?.value || 'iconik';
   const blob = new Blob([data], { type: 'application/json' });
   const a = Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(blob),
@@ -4090,22 +4085,26 @@ function exporterConfigurationComplete() {
     'storagesData','appTokensData','workflowsData','categoriesData',
     'teamAclsData','relationTypesData','systemSettingsData'];
   const settings = {};
-  sKeys.forEach(k => { try { settings[k] = JSON.parse(localStorage.getItem(k)||'null'); } catch(e){} });
-  const aKeys = ['automationsData','webhooksData','customActionsData'];
-  const automations = {};
-  aKeys.forEach(k => { try { automations[k] = JSON.parse(localStorage.getItem(k)||'null'); } catch(e){} });
+  // Export depuis variables globales (migration localStorage → mémoire)
+  sKeys.forEach(k => { const g = window[k]; if (g != null) settings[k] = g; });
+  const automations = {
+    automationsData:   window.automationsData   || null,
+    webhooksData:      window.webhooksData      || null,
+    customActionsData: window.customActionsData || null,
+  };
   const wKeys = ['wfdFlows','wfdPalNodes','wfdMappings','wfdContacts'];
   const workflow = {};
   wKeys.forEach(k => { try { workflow[k] = JSON.parse(localStorage.getItem(k)||'[]'); } catch(e){} });
 
+  const _orgName = document.getElementById('input-org-name')?.value || '';
   const payload = {
     version:4, schema:'iconik-global-config',
-    organisation: localStorage.getItem('organisationName')||'',
+    organisation: _orgName,
     exportedAt: new Date().toISOString(), exportedFrom:'settings',
     settings, automations, workflow,
   };
   const date = new Date().toISOString().split('T')[0];
-  const org  = (localStorage.getItem('organisationName')||'iconik').replace(/\s+/g,'-');
+  const org  = (_orgName || 'iconik').replace(/\s+/g,'-');
   const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json;charset=utf-8;'});
   const a = Object.assign(document.createElement('a'), { href:URL.createObjectURL(blob), download:`${org}-config-${date}.json` });
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
@@ -4141,7 +4140,7 @@ function importerConfigurationComplete(event) {
     try {
       const data = JSON.parse(e.target.result);
       if (!data?.version) throw new Error('Fichier invalide');
-      const currentOrg = localStorage.getItem('organisationName')||'';
+      const currentOrg = document.getElementById('input-org-name')?.value || '';
       const fileOrg = data.organisation||'';
       if (fileOrg && currentOrg && fileOrg!==currentOrg) {
         if (!confirm(`Organisation différente !\nFichier: "${fileOrg}"\nActuel: "${currentOrg}"\nContinuer ?`)) return;

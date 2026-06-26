@@ -339,12 +339,7 @@ console.log("[MIRROR] aps-mirror-engine LOADED — 2026-06-25 16:45");
           }
           case 'categories': {
             const rawCats = D.get('categories');
-            let defaultViewsByType = {};
-            try {
-              const raw = localStorage.getItem('categoriesData');
-              const parsed = raw ? JSON.parse(raw) : null;
-              defaultViewsByType = parsed?.defaultViewsByType || {};
-            } catch(e) {}
+            const defaultViewsByType = window.categoriesData?.defaultViewsByType || {};
             return Promise.resolve({ categories: rawCats, defaultViewsByType });
           }
           case 'savedSearches': return Promise.resolve(D.get('savedSearches'));
@@ -370,12 +365,8 @@ console.log("[MIRROR] aps-mirror-engine LOADED — 2026-06-25 16:45");
         const v = (views||[]).find(x=>x.id===id);
         if (!v) return Promise.resolve(null);
         // view_fields stockés dans viewFieldsById par syncViewFields
-        try {
-          const raw = localStorage.getItem('metadataViewsData');
-          const mvd = raw ? JSON.parse(raw) : {};
-          const vf = mvd.viewFieldsById?.[id] || v.view_fields || [];
-          return Promise.resolve({ ...v, view_fields: vf });
-        } catch { return Promise.resolve(v); }
+        const vf = window.metadataViewsData?.viewFieldsById?.[id] || v.view_fields || [];
+        return Promise.resolve({ ...v, view_fields: vf });
       },
       fetchTeamSettings(teamId) {
         // Team settings stockés dans teamsData si sync DS complète
