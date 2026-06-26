@@ -409,6 +409,7 @@ function initialiserDonnees() {
 
 async function chargerDonnees(forcedEnvSlug) {
   // 2026-06-25 — Cache sessionStorage + proxy DB
+  window._apsLoading = true;
   // forcedEnvSlug : si fourni, charge cet env (switch utilisateur) — bypass cache
   // Stratégie cache : on ne cache que l'env par défaut (PROD) pour éviter le quota sessionStorage.
   // Les switchs d'env rechargent toujours depuis la DB (action délibérée, acceptable).
@@ -465,6 +466,7 @@ async function chargerDonnees(forcedEnvSlug) {
         if (_ob && _on) _ob.textContent = _on.toUpperCase();
         document.title = (_on || 'Iconik') + ' — Settings';
         _populateEnvSwitcher();
+        window._apsLoading = false;
         // Timestamp depuis le cache
         const _tsCached = document.getElementById('snapshot-ts');
         if (_tsCached && _cached._snapshotTs) {
@@ -612,6 +614,7 @@ async function chargerDonnees(forcedEnvSlug) {
     // Env non-défaut (switch utilisateur) — pas de cache sessionStorage pour éviter le quota
     console.log('[APS] Env non-défaut (', forcedEnvSlug, ') — cache sessionStorage ignoré');
     _populateEnvSwitcher();
+    window._apsLoading = false;
   } else {
     try {
       const _saveKey = 'aps_settings_cache_' + window._apsActiveEnvSlug;
@@ -626,6 +629,7 @@ async function chargerDonnees(forcedEnvSlug) {
       }));
       console.log('[APS] Cache sessionStorage sauvegardé —', _saveKey, '| teams:', (teamsData.teams||[]).length, ', cols:', (collectionsData.collections||[]).length);
       _populateEnvSwitcher();
+      window._apsLoading = false;
     } catch(e) { console.warn('[APS] sessionStorage quota:', e.message); }
   }
 }
@@ -967,7 +971,7 @@ function updateCounters() {
 
   // helpers: si les filtres WFD existent, on les utilise
   const teamsCount = (typeof wfdGetTeamsForSync === 'function')
-    ? (wfdGetTeamsForSync() || []).length
+    ? (wfdGetTeamsForSync() || []).filter(t => !(t?.is_acl_stub === true || t?.source === 'acl_stub')).length
     : (teamsData.teams || []).length;
 
   const catsCount = (typeof wfdGetCategoriesForSync === 'function')
@@ -4790,6 +4794,7 @@ function _populateEnvSwitcher() {
 
 async function switchEnv(slug) {
   if (!slug || slug === window._apsActiveEnvSlug) return;
+  if (window._apsLoading) return; // chargement initial en cours
   console.log('[APS] Switch env →', slug);
   // Vider l'affichage courant
   document.getElementById('set-list-body').innerHTML = '';
