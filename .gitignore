@@ -1,0 +1,30 @@
+# Dépendances
+node_modules/
+
+# Prisma client généré
+node_modules/.prisma/
+
+# Variables d'environnement (credentials)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Docker / Colima
+.colima/
+
+# macOS
+.DS_Store
+
+# Fichiers temporaires
+*.tmp
+*.bak
+
+# Données sensibles / export production
+scripts/aps-export-full.json
+
+# Données runtime Node-RED (config, flows, credentials)
+docker/node-red/data/

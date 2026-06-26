@@ -1,0 +1,17 @@
+# APS — docker/node-red/docker-compose.yml — 2026-06-23
+# Node-RED — banc de test et validation des workflows WFD
+
+services:
+  node-red:
+    image: nodered/node-red:latest
+    container_name: aps-node-red
+    restart: unless-stopped
+    ports:
+      - "1881:1880"
+    volumes:
+      - ./data:/data
+    environment:
+      - TZ=Europe/Paris
+    labels:
+      - "aps.managed=true"
+      - "aps.service=node-red"

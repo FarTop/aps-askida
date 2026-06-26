@@ -1,0 +1,913 @@
+// APS — schema.prisma — 2026-06-24 19:15
+// Askida Platform Studio — Schéma de base de données
+// PostgreSQL + Prisma ORM
+//
+// Principe fondamental :
+//   - Toute donnée métier vit en DB, jamais en localStorage
+//   - Le localStorage navigateur est réservé à la session UI (token, préférences légères)
+//   - Les snapshots Iconik sont versionnés et immutables (historique complet)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// CORE — ORGANISATIONS & UTILISATEURS
+// ─────────────────────────────────────────────
+
+model Organisation {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  users        User[]
+  projects     Project[]
+  environments Environment[]
+  platforms    OrganisationPlatform[]
+  palNodes     PalNode[]
+  mappings     Mapping[]
+  nommages     Nommage[]
+  scripts      Script[]
+  managedApps  ManagedApp[]
+  docAssets    DocAsset[]
+  contactLists   ContactList[]
+  apiCheckConfig ApiCheckConfig?
+  docKitContexts DocKitContext[]
+  syncJobs       SyncJob[]
+}
+
+model User {
+  id            String        @id @default(cuid())
+  orgId         String
+  organisation  Organisation  @relation(fields: [orgId], references: [id])
+  name          String
+  email         String        @unique
+  passwordHash  String
+  role          String        @default("editor") // 'superadmin' | 'admin' | 'editor' | 'viewer'
+  profile       String        @default("mixed")  // 'engineer' | 'pm' | 'mixed'
+  lang          String        @default("fr")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  permissions   Permission[]
+  runs          Run[]
+  lockedProjects Project[]    @relation("ProjectLockedBy")
+  syncJobs       SyncJob[]
+}
+
+// ─────────────────────────────────────────────
+// CORE — PROJETS & PERMISSIONS
+// ─────────────────────────────────────────────
+
+model Project {
+  id           String       @id @default(cuid())
+  orgId        String
+  organisation Organisation @relation(fields: [orgId], references: [id])
+  name         String
+  description  String?
+  status       String       @default("active") // 'active' | 'archived' | 'locked'
+  lockedAt     DateTime?
+  lockedById   String?
+  lockedBy     User?        @relation("ProjectLockedBy", fields: [lockedById], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  permissions  Permission[]
+  flows        Flow[]
+  docKits      DocKit[]
+  apiSpecs     ApiSpec[]
+
+  @@unique([orgId, name])
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  resource    String   // 'workflow' | 'doc' | 'api' | 'connexion' | 'export' | 'platform' | '*'
+  level       String   // 'view' | 'edit' | 'admin'
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, projectId, resource])
+}
+
+// ─────────────────────────────────────────────
+// CORE — ENVIRONNEMENTS & PLATEFORMES
+// ─────────────────────────────────────────────
+
+model Environment {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  name          String                            // 'QA | ASKIDA'
+  slug          String                            // 'qa', 'prod', 'dev'...
+  type          String       @default("qa")       // 'prod' | 'dev' | 'qa' | 'poc'
+  platformId    String?
+  platform      Platform?    @relation(fields: [platformId], references: [id])
+  baseUrl       String?                           // 'https://app.iconik.io'
+  appId         String?                           // App ID Iconik
+  tokenEnc      String?                           // Token chiffré AES
+  isDefault     Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  connexions    Connexion[]
+  flows         Flow[]
+  syncJobs      SyncJob[]
+  snapshots     IkonSnapshot[]
+
+  @@unique([orgId, slug])
+}
+
+model Platform {
+  id              String           @id @default(cuid())
+  name            String
+  slug            String           @unique
+  description     Json?            // {"fr": "...", "en": "..."}
+  icon            String?
+  version         String           @default("1.0.0")
+  type            String           @default("integration") // 'integration' | 'runtime' | 'encoder' | 'ai'
+  hasSandbox      Boolean          @default(false)
+  sandboxUrl      String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  environments    Environment[]
+  organisations   OrganisationPlatform[]
+  nodeDefinitions NodeDefinition[]
+}
+
+model OrganisationPlatform {
+  id           String       @id @default(cuid())
+  orgId        String
+  organisation Organisation @relation(fields: [orgId], references: [id])
+  platformId   String
+  platform     Platform     @relation(fields: [platformId], references: [id])
+  createdAt    DateTime     @default(now())
+
+  @@unique([orgId, platformId])
+}
+
+model NodeDefinition {
+  id             String    @id @default(cuid())
+  platformId     String?
+  platform       Platform? @relation(fields: [platformId], references: [id])
+  family         String    @unique
+  label          Json      // {"fr": "Déclencheur", "en": "Trigger"}
+  description    Json?
+  icon           String?
+  group          String?
+  configSchema   Json?
+  engineHandler  String?
+  isActive       Boolean   @default(true)
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// WORKFLOW BUILDER
+// ─────────────────────────────────────────────
+
+model Connexion {
+  id            String      @id @default(cuid())
+  envId         String
+  environment   Environment @relation(fields: [envId], references: [id])
+  name          String
+  type          String      // 'iconik' | 'aws_s3' | 'http' | 'listener'
+  direction     String      @default("outbound")
+  baseUrl       String?
+  headersEnc    String?
+  authType      String?
+  authValueEnc  String?
+  extraConfig   Json?
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([envId, name])
+}
+
+model Flow {
+  id            String      @id @default(cuid())
+  envId         String
+  environment   Environment @relation(fields: [envId], references: [id])
+  projectId     String?
+  project       Project?    @relation(fields: [projectId], references: [id])
+  name          String
+  description   String?
+  nodes         Json        @default("[]")
+  connections   Json        @default("[]")
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  runs          Run[]
+  exports       Export[]
+
+  @@unique([envId, name])
+}
+
+model Run {
+  id              String    @id @default(cuid())
+  flowId          String
+  flow            Flow      @relation(fields: [flowId], references: [id])
+  triggeredById   String?
+  triggeredBy     User?     @relation(fields: [triggeredById], references: [id])
+  status          String    // 'running' | 'success' | 'error' | 'cancelled'
+  triggerType     String?   // 'manual' | 'custom_action' | 'timer' | 'webhook'
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+  durationMs      Int?
+  snapshot        Json?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+}
+
+model PalNode {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  family        String
+  name          String
+  config        Json         @default("{}")
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Mapping {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  name          String
+  rules         Json         @default("[]")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([orgId, name])
+}
+
+model Nommage {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  name          String
+  rules         Json         @default("[]")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([orgId, name])
+}
+
+model Script {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  name          String
+  lang          String       @default("python") // 'python' | 'javascript'
+  content       String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([orgId, name])
+}
+
+// ─────────────────────────────────────────────
+// DOCUMENTATION BUILDER
+// ─────────────────────────────────────────────
+
+model DocAsset {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  name          String
+  type          String       // 'icon' | 'font' | 'brand' | 'logo' | 'image'
+  mimeType      String
+  storagePath   String
+  meta          Json?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model DocTemplate {
+  id            String       @id @default(cuid())
+  orgId         String?
+  name          String
+  description   Json?        // {"fr": "...", "en": "..."}
+  renderer      String       // 'docx' | 'html' | 'pptx' | 'xlsx' | 'pdf' | 'mermaid'
+  content       Json
+  brandAssetId  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  docKits       DocKitItem[]
+}
+
+model DocKit {
+  id            String       @id @default(cuid())
+  projectId     String
+  project       Project      @relation(fields: [projectId], references: [id])
+  name          String
+  profile       String       // 'pm' | 'engineer' | 'mixed'
+  description   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  items         DocKitItem[]
+}
+
+model DocKitItem {
+  id            String      @id @default(cuid())
+  kitId         String
+  kit           DocKit      @relation(fields: [kitId], references: [id])
+  templateId    String
+  template      DocTemplate @relation(fields: [templateId], references: [id])
+  sortOrder     Int         @default(0)
+  dataBindings  Json?
+}
+
+// ─────────────────────────────────────────────
+// API BUILDER
+// ─────────────────────────────────────────────
+
+model ApiSpec {
+  id            String    @id @default(cuid())
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id])
+  name          String
+  format        String    // 'openapi' | 'postman' | 'wsdl' | 'graphql'
+  version       String?
+  rawContent    Json
+  baseUrl       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  endpoints     ApiEndpoint[]
+}
+
+model ApiEndpoint {
+  id             String   @id @default(cuid())
+  specId         String
+  spec           ApiSpec  @relation(fields: [specId], references: [id])
+  method         String
+  path           String
+  summary        Json?
+  requestSchema  Json?
+  responseSchema Json?
+  apsMapping     Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  checks        ApiCheck[]
+}
+
+model ApiCheck {
+  id            String      @id @default(cuid())
+  endpointId    String
+  endpoint      ApiEndpoint @relation(fields: [endpointId], references: [id])
+  status        String      // 'ok' | 'error' | 'timeout' | 'auth_error'
+  statusCode    Int?
+  responseMs    Int?
+  responseBody  Json?
+  errorMessage  String?
+  checkedAt     DateTime    @default(now())
+}
+
+// ─────────────────────────────────────────────
+// RUNTIME & INFRA
+// ─────────────────────────────────────────────
+
+model ManagedApp {
+  id              String       @id @default(cuid())
+  orgId           String
+  organisation    Organisation @relation(fields: [orgId], references: [id])
+  type            String       // 'node-red' | 'n8n' | 'ffmpeg' | 'flics' | 'tornado' | 'ollama'
+  runtimeType     String       @default("service") // 'docker' | 'executable' | 'service' | 'ai-model'
+  name            String
+  host            String?
+  currentVersion  String?
+  latestVersion   String?
+  lastCheckedAt   DateTime?
+  autoUpdate      Boolean      @default(false)
+  envType         String       @default("production")
+  status          String       @default("unknown")
+  credentialsEnc  String?
+  extraConfig     Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  exports         Export[]
+
+  @@unique([orgId, name])
+}
+
+model Export {
+  id            String      @id @default(cuid())
+  flowId        String
+  flow          Flow        @relation(fields: [flowId], references: [id])
+  appId         String?
+  managedApp    ManagedApp? @relation(fields: [appId], references: [id])
+  target        String
+  flowUpdatedAt DateTime
+  payload       Json
+  exportedAt    DateTime    @default(now())
+  syncStatus    String      @default("exported")
+  syncedAt      DateTime?
+  syncError     String?
+}
+
+model SubtitleJob {
+  id            String    @id @default(cuid())
+  flowId        String?
+  inputPath     String
+  outputPath    String?
+  inputFormat   String
+  outputFormat  String
+  rules         Json?
+  status        String    @default("pending")
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+  finishedAt    DateTime?
+}
+
+// ─────────────────────────────────────────────
+// CONTACTS & NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model ContactList {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  name          String
+  contacts      Json         @default("[]")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([orgId, name])
+}
+
+// ─────────────────────────────────────────────
+// API HEALTH CHECK — CONFIGURATION
+// ─────────────────────────────────────────────
+
+model ApiCheckConfig {
+  id               String       @id @default(cuid())
+  orgId            String
+  organisation     Organisation @relation(fields: [orgId], references: [id])
+  systemTeams      Boolean      @default(true)
+  systemCategories Boolean      @default(true)
+  storages         Boolean      @default(true)
+  users            Boolean      @default(true)
+  customNames      Json         @default("[]")
+  excluded         Json         @default("{}")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([orgId])
+}
+
+// ─────────────────────────────────────────────
+// DOCUMENTATION BUILDER — CONTEXTE
+// ─────────────────────────────────────────────
+
+model DocKitContext {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  envKey        String
+  ownerId       String?
+  templateId    String?
+  datasets      Json         @default("{}")
+  status        String?
+  locked        Boolean      @default(false)
+  lockedAt      DateTime?
+  lockedReason  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([orgId, envKey])
+}
+
+// ═════════════════════════════════════════════
+// SYNC SERVEUR — JOBS & SNAPSHOTS VERSIONNÉS
+// ═════════════════════════════════════════════
+//
+// Architecture :
+//   SyncJob      → un job de sync lancé depuis le frontend
+//   IkonSnapshot → un snapshot immutable produit par un job
+//   Ikon*        → les objets Iconik typés, rattachés à un snapshot
+//
+// Le versioning est assuré par snapshotId :
+//   - chaque sync crée un nouveau snapshot (jamais d'écrasement)
+//   - l'état "courant" = snapshot le plus récent par (envId, scope)
+//   - les snapshots précédents restent pour audit, diff, rollback
+//
+// Principe : zéro localStorage pour les données métier.
+
+// ─────────────────────────────────────────────
+// JOB DE SYNC
+// ─────────────────────────────────────────────
+
+model SyncJob {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+
+  // Environnement(s) impliqués
+  srcEnvId      String?                          // source (DS, DD, SD)
+  srcEnv        Environment? @relation(fields: [srcEnvId], references: [id])
+  dstEnvSlug    String?                          // destination slug (DD, SD) — env peut ne pas exister localement
+
+  // Direction et périmètre
+  direction     String                           // 'DS' | 'DD' | 'SD'
+  scopes        Json         @default("[]")      // ['teams','collections','metadataViews',...]
+  mode          String       @default("merge")   // 'merge' | 'overwrite'
+
+  // Déclencheur
+  triggeredById String?
+  triggeredBy   User?        @relation(fields: [triggeredById], references: [id])
+  triggerType   String       @default("manual")  // 'manual' | 'scheduled' | 'api'
+
+  // Statut et progression
+  status        String       @default("pending") // 'pending' | 'running' | 'done' | 'error' | 'cancelled'
+  totalItems    Int?
+  doneItems     Int?
+  currentScope  String?                          // scope en cours de traitement
+  errorMessage  String?
+  log           Json         @default("[]")      // [{ts, level, msg}] — journal détaillé
+
+  // Timing
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  durationMs    Int?
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  snapshots     IkonSnapshot[]
+
+  @@index([orgId, direction, status])
+  @@index([srcEnvId])
+}
+
+// ─────────────────────────────────────────────
+// SNAPSHOT ICONIK — VERSIONING
+// ─────────────────────────────────────────────
+
+model IkonSnapshot {
+  id            String       @id @default(cuid())
+  jobId         String
+  job           SyncJob      @relation(fields: [jobId], references: [id])
+  envId         String
+  environment   Environment  @relation(fields: [envId], references: [id])
+
+  // Périmètre de ce snapshot
+  scope         String       // 'teams' | 'collections' | 'metadataViews' | ... | 'all'
+
+  // Métadonnées
+  iconikBaseUrl String?      // URL Iconik au moment du snapshot
+  objectCount   Int          @default(0)
+  isCurrent     Boolean      @default(true)  // false sur les snapshots archivés
+
+  // Horodatage
+  capturedAt    DateTime     @default(now())
+
+  // Relations vers les objets typés
+  collections   IkonCollection[]
+  teams         IkonTeam[]
+  metadataViews IkonMetadataView[]
+  fields        IkonField[]
+  roleGroups    IkonRoleGroup[]
+  savedSearches IkonSavedSearch[]
+  storages      IkonStorage[]
+  categories    IkonCategory[]
+  webhooks      IkonWebhook[]
+  automations   IkonAutomation[]
+  customActions IkonCustomAction[]
+  relationTypes IkonRelationType[]
+  systemSettings IkonSystemSettings[]
+  exportLocations IkonExportLocation[]
+  users         IkonUser[]
+  roles         IkonRole[]
+  apps          IkonApp[]
+
+  @@index([envId, scope, isCurrent])
+  @@index([envId, capturedAt])
+}
+
+// ─────────────────────────────────────────────
+// OBJETS ICONIK — UN TIROIR PAR TYPE
+// ─────────────────────────────────────────────
+// Chaque table :
+//   - est rattachée à un IkonSnapshot (versioning)
+//   - porte l'iconikId (ID côté Iconik) pour les diffs et upserts
+//   - a ses colonnes propres indexées pour les requêtes builders
+//   - garde les données brutes dans rawData pour les cas non modélisés
+
+model IkonCollection {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String       // ID Iconik de la collection
+  title         String
+  parentId      String?      // iconikId du parent (null = racine)
+  path          String?      // chemin calculé "Parent / Enfant / ..."
+  status        String?      // 'ACTIVE' | 'DELETED'
+  storageId     String?
+  externalId    String?
+  isRoot        Boolean      @default(false)
+  objectType    String       @default("collection")
+  dateDeleted   DateTime?
+  rawData       Json?        // données brutes complètes pour usage futur
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, parentId])
+  @@index([snapshotId, path])
+}
+
+model IkonTeam {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  name          String
+  description   String?
+  isSystem      Boolean      @default(false)
+  isAclStub     Boolean      @default(false)
+
+  // Relations dénormalisées pour accès rapide
+  userIds       Json         @default("[]")   // [{id, email, nom}]
+  roleGroupIds  Json         @default("[]")   // [{id, name}]
+  collectionIds Json         @default("[]")   // [{id, path, permission, permission_flags}]
+  viewIds       Json         @default("[]")   // [{id, name, permission, permission_flags}]
+  storageIds    Json         @default("[]")   // [{id, name}]
+  settings      Json?        // team settings Iconik (home_page, search_view_id, ...)
+  aclFlags      Json?        // ACL flags bruts
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, name])
+}
+
+model IkonUser {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  email         String
+  firstName     String?
+  lastName      String?
+  displayName   String?
+  status        String?      // 'ACTIVE' | 'INACTIVE' | 'PENDING'
+  userType      String?      // 'STANDARD' | 'EXTERNAL' | 'SYSTEM'
+  teamIds       Json         @default("[]")   // [{id, name, is_primary}]
+  roleGroupIds  Json         @default("[]")
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, email])
+}
+
+model IkonMetadataView {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  name          String
+  isSystem      Boolean      @default(false)
+  viewFields    Json         @default("[]")   // [{name, field_id, label, sortOrder}]
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, name])
+}
+
+model IkonField {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  name          String       // nom technique (slug)
+  label         String?      // label affiché
+  fieldType     String?      // 'string' | 'integer' | 'boolean' | 'date' | 'float' | ...
+  uiType        String?      // 'Text' | 'Integer' | 'Yes/No' | 'Date' | 'Select' | ...
+  isMultiple    Boolean      @default(false)
+  isMandatory   Boolean      @default(false)
+  options       Json         @default("[]")   // [{label, value}] pour les champs Select
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, name])
+}
+
+model IkonRoleGroup {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  name          String
+  description   String?
+  roles         Json         @default("[]")   // liste des rôles Iconik
+  roleCategories Json        @default("{}")   // {core: [...], collaborate: [...], ...}
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, name])
+}
+
+model IkonSavedSearch {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  name          String
+  criteria      Json?        // critères de recherche Iconik
+  shareWithTeams Json        @default("[]")
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, name])
+}
+
+model IkonStorage {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  name          String
+  storageType   String?      // 'S3' | 'GCS' | 'LOCAL' | ...
+  status        String?
+  scannerStatus String?
+  purpose       String?      // 'ASSET' | 'PROXY' | 'ARCHIVE'
+  teamIds       Json         @default("[]")
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, name])
+}
+
+model IkonCategory {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String?
+  name          String       // label affiché
+  apiName       String       // identifiant technique (default/generic/tag/...)
+  isSystem      Boolean      @default(false)
+  objectTypes   Json         @default("[]")   // ['assets','collections',...]
+  viewIds       Json         @default("[]")
+  rawData       Json?
+
+  @@index([snapshotId, apiName])
+}
+
+model IkonWebhook {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  name          String
+  url           String?
+  eventType     String?
+  realm         String?
+  operation     String?
+  status        String?
+  headers       Json         @default("[]")
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, name])
+}
+
+model IkonAutomation {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  name          String
+  eventType     String?
+  isActive      Boolean      @default(true)
+  actions       Json         @default("[]")
+  conditions    Json?
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, name])
+}
+
+model IkonCustomAction {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  title         String
+  objectTypes   Json         @default("[]")  // ['assets','collections',...]
+  url           String?
+  method        String?
+  teamIds       Json         @default("[]")
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, title])
+}
+
+model IkonRelationType {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  name          String
+  isDirectional Boolean      @default(false)
+  sourceLabel   String?
+  destinationLabel String?
+  description   String?
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, name])
+}
+
+model IkonSystemSettings {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  // Une seule ligne par snapshot (settings globaux de l'instance)
+  shareSettings       Json?   // default_share_options, expiration, etc.
+  searchSettings      Json?   // search_in_transcriptions, default_sections, etc.
+  uploadSettings      Json?   // default_upload_storage_id, required_metadata_views, etc.
+  downloadSettings    Json?   // append_uuid, use_asset_name, etc.
+  aclSettings         Json?   // acl_template_id, collections_get_parent_acls, etc.
+  rawData             Json?
+
+  @@index([snapshotId])
+}
+
+model IkonExportLocation {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  name          String
+  locationType  String?      // 'S3' | 'FTP' | 'LOCAL' | ...
+  status        String?
+  aclData       Json?
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, name])
+}
+
+model IkonRole {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String?
+  name          String
+  slug          String?
+  category      String?      // 'core' | 'collaborate' | 'organize' | ...
+  permissions   Json         @default("[]")  // can_read, can_write, etc.
+  rawData       Json?
+
+  @@index([snapshotId, name])
+}
+
+model IkonApp {
+  id            String       @id @default(cuid())
+  snapshotId    String
+  snapshot      IkonSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  iconikId      String
+  name          String
+  appType       String?
+  isActive      Boolean      @default(true)
+  rawData       Json?
+
+  @@index([snapshotId, iconikId])
+  @@index([snapshotId, name])
+}
