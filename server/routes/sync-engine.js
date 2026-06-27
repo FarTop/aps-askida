@@ -820,7 +820,7 @@ async function runSyncDS(opts) {
   const { prisma, jobId, env, scopes: requestedScopes, onProgress, log } = opts;
 
   const doAll   = requestedScopes.includes('all');
-  const active  = doAll ? [...SCOPE_ORDER] : requestedScopes.filter(s => SCOPE_ORDER.includes(s));
+  const active  = doAll ? [...SCOPE_ORDER] : SCOPE_ORDER.filter(s => requestedScopes.includes(s));
   const total   = active.length;
   let   done    = 0;
 

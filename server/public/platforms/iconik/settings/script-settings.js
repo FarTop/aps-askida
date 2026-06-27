@@ -571,31 +571,37 @@ async function chargerDonnees(forcedEnvSlug) {
   }
   console.log('[APS] Chargement snapshot :', window._apsActiveEnvSlug, '—', snapCheck.capturedAt);
 
-  // 4) syncIconik scope par scope via proxy DB
-  const nom = _activeToken.name;
-  // Ordre critique : tout ce dont teams a besoin pour les ACLs doit être chargé avant teams
-  // savedSearches, storages, customActions → peuplent les ACLs des teams via syncAcls*
-  // teams → en dernier parmi les scopes dépendants (fetch ACLs collections, views, saved searches, storages, custom actions)
-  // users → après teams (rebuild membership)
-  const scopes = [
-    // Scopes sans dépendance aux teams
-    'collections', 'metadataViews', 'metadata', 'roleGroups',
-    'savedSearches', 'customActions',
-    // teams en dernier parmi les scopes ACL (proxy DB a déjà storageIds/customActionIds/savedSearchIds)
-    'teams',
-    // storages APRÈS teams : syncAclsStoragesToTeams() a besoin de teamsData chargé
-    'storages',
-    'users', 'categories', 'webhooks', 'automations', 'relationTypes', 'systemSettings', 'exportLocations',
-  ];
-  for (const scope of scopes) {
-    try {
-      const _t0 = performance.now();
-      await syncIconik(nom, scope);
-      console.log('[APS] scope', scope, Math.round(performance.now()-_t0)+'ms',
-        '| teams:', (teamsData.teams||[]).length,
-        '| cols:', (collectionsData.collections||[]).length);
-    } catch(e) { console.warn('[APS] chargerDonnees scope', scope, ':', e.message); }
-  }
+  // 4) Chargement snapshot DB — un seul appel, toutes les données résolues côté serveur
+  // syncIconik() supprimé — la source de vérité est le snapshot DB (ikon-data.js)
+  const _t0 = performance.now();
+  const snap = await fetch('/api/ikon/snapshot/' + window._apsActiveEnvSlug)
+    .then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!snap) { console.warn('[APS] Snapshot introuvable pour', window._apsActiveEnvSlug); window._apsLoading = false; return; }
+
+  // Distribution dans les variables globales — contrat canonique ikon-data.js
+  collectionsData     = { collections:    snap.collections    || [] };
+  metadataViewsData   = { metadataViews:  snap.views          || [], viewFieldsById: snap.viewFieldsById || {} };
+  metadonneesData     = { metadonnees:    snap.metadonnees    || [] };
+  roleGroupsData      = { roleGroups:     snap.roleGroups     || [] };
+  savedSearchesData   = { savedSearches:  snap.savedSearches  || [] };
+  customActionsData   = { customActions:  snap.customActions  || [] };
+  teamsData           = { teams:          snap.teams          || [] };
+  storagesData        = { storages:       snap.storages       || [] };
+  usersData           = { users:          snap.users          || [] };
+  categoriesData      = { categories:     snap.categories     || [], defaultViewsByType: {} };
+  webhooksData        = { webhooks:       snap.webhooks       || [] };
+  automationsData     = { automations:    snap.automations    || [] };
+  customActionsData   = { customActions:  snap.customActions  || [] };
+  relationTypesData   = { relationTypes:  snap.relationTypes  || [] };
+  systemSettingsData  = snap.systemSettings || null;
+  exportLocationsData = { exportLocations: snap.exportLocations || [] };
+  rolesData           = { roles:          snap.roles          || [] };
+  appsData            = { apps:           snap.apps           || [] };
+
+  console.log('[APS] Snapshot chargé en', Math.round(performance.now()-_t0)+'ms',
+    '| teams:', (teamsData.teams||[]).length,
+    '| cols:', (collectionsData.collections||[]).length,
+    '| views:', (metadataViewsData.metadataViews||[]).length);
 
   // 5) Org
   const orgName  = _activeToken.name.split('|')[1]?.trim() || _activeToken.name;
@@ -679,16 +685,10 @@ function sauvegarderDonnees() {
 
   // 1.c) Écrire RAW store
   // (DB) automationsData_raw — en mémoire uniquement
-    automations: rawAutomations,
-    date_saved: now
-  }));
 
   // 1.d) Écrire CANONIQUE store (SoT pour les pages consommatrices)
   automationsData = { automations: canonAutomations }; // garde le modèle attendu (automations[])
   // (DB) automationsData — en mémoire uniquement
-    automations: canonAutomations,
-    date_saved: now
-  }));
 
   // ────────────────────────────────────────────────────────────────
   // 2) Backup existant
