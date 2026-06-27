@@ -335,16 +335,36 @@ async function readFields(snapshotId) {
     where:   { snapshotId },
     orderBy: { name: 'asc' },
   });
-  return rows.map(r => ({
-    id:         r.iconikId,
-    nom:        r.name,
-    label:      r.label,
-    field_type: r.fieldType,
-    ui_type:    r.uiType,
-    multi:      r.isMultiple,
-    required:   r.isMandatory,
-    options:    r.options,
-  }));
+  return rows.map(r => {
+    // options stockées comme [{ label, value }] — extraire les valeurs pour l'UI
+    const rawOptions = Array.isArray(r.options) ? r.options : [];
+    const valeurs = rawOptions.map(o => o.label || o.value || o).filter(Boolean);
+    return {
+      id:           r.iconikId,
+      nom:          r.name,
+      name:         r.name,
+      label:        r.label,
+      field_type:   r.fieldType,
+      type:         r.uiType || r.fieldType || '',   // type UI mappé (Text, Dropdown, etc.)
+      ui_type:      r.uiType,
+      multi:        r.isMultiple,
+      multiselect:  r.isMultiple,
+      required:     r.isMandatory,
+      options:      rawOptions,
+      valeurs,                                        // tableau de strings pour l'UI
+      description:       r.rawData?.description         || '',
+      defaultValue:      r.rawData?.default_value        ?? null,
+      read_only:          !!r.rawData?.read_only,
+      hide_if_not_set:    !!r.rawData?.hide_if_not_set,
+      use_in_filters:     !!r.rawData?.use_as_facet,        // Iconik: use_as_facet
+      string_exact:       r.fieldType === 'string_exact' || !!r.rawData?.string_exact,
+      display_as_warning: !!r.rawData?.is_warning_field,    // Iconik: is_warning_field
+      block_assets:       !!r.rawData?.is_block_field,      // Iconik: is_block_field
+      mapped_field_name:  r.rawData?.mapped_field_name   || null,
+      metadataViews:     [],   // peuplé par post-traitement dans chargerDonnees
+      metadataView:      null,
+    };
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -389,15 +409,38 @@ async function readRoleGroups(snapshotId) {
 // ─────────────────────────────────────────────
 
 async function readSavedSearches(snapshotId) {
-  const rows = await prisma.ikonSavedSearch.findMany({
-    where:   { snapshotId },
-    orderBy: { name: 'asc' },
+  const [rows, viewRows, teamRows] = await Promise.all([
+    prisma.ikonSavedSearch.findMany({ where: { snapshotId }, orderBy: { name: 'asc' } }),
+    prisma.ikonMetadataView.findMany({ where: { snapshotId }, select: { iconikId: true, name: true } }),
+    prisma.ikonTeam.findMany({ where: { snapshotId }, select: { iconikId: true, name: true, savedSearchIds: true } }),
+  ]);
+
+  // Index viewId → name
+  const viewNameById = {};
+  viewRows.forEach(v => { if (v.iconikId) viewNameById[v.iconikId] = v.name; });
+
+  // Index inverse : ssId → teams [{nom, permission}]
+  const ssTeams = {};
+  teamRows.forEach(t => {
+    (Array.isArray(t.savedSearchIds) ? t.savedSearchIds : []).forEach(ss => {
+      const id = ss.id || ss;
+      if (!id) return;
+      if (!ssTeams[id]) ssTeams[id] = [];
+      ssTeams[id].push({ nom: t.name, permission: ss.permission || 'Read Only' });
+    });
   });
-  return rows.map(r => ({
-    id:       r.iconikId,
-    nom:      r.name,
-    criteria: r.criteria,
-  }));
+
+  return rows.map(r => {
+    const criteria = r.criteria || {};
+    const mdvId = criteria.metadata_view_id || null;
+    return {
+      id:           r.iconikId,
+      nom:          r.name,
+      criteria,
+      metadataView: mdvId ? (viewNameById[mdvId] || mdvId) : '',
+      teams:        ssTeams[r.iconikId] || [],
+    };
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -439,21 +482,31 @@ async function readCategories(snapshotId) {
     prisma.ikonCategory.findMany({ where: { snapshotId }, orderBy: { name: 'asc' } }),
     prisma.ikonMetadataView.findMany({ where: { snapshotId }, select: { iconikId: true, name: true } }),
   ]);
-
-  // Index iconikId → name pour résolution des viewIds
   const viewNameById = {};
   viewRows.forEach(v => { if (v.iconikId) viewNameById[v.iconikId] = v.name; });
 
-  return rows.map(r => ({
-    id:            r.iconikId,
-    nom:           r.name,
-    api_name:      r.apiName,
-    is_system:     r.isSystem,
-    object_types:  r.objectTypes,
-    appliqueeA:    r.objectTypes,                                        // alias filtre UI
-    metadataViews: (r.viewIds || []).map(id => viewNameById[id]).filter(Boolean), // noms résolus
-    view_ids:      r.viewIds,                                            // IDs bruts conservés
-  }));
+  return rows.map(r => {
+    const raw = r.rawData || {};
+    // viewIds par object_type depuis rawByType (pour filtre Collections vs Assets vs Segments)
+    const rawByType = raw.rawByType || {};
+    const viewIdsByType = {};
+    Object.entries(rawByType).forEach(([type, cat]) => {
+      viewIdsByType[type] = (cat.view_ids || []).map(id => viewNameById[id]).filter(Boolean);
+    });
+    // metadataViews = union de tous les types (pour catégorie globale)
+    const metadataViews = (r.viewIds || []).map(id => viewNameById[id]).filter(Boolean);
+    return {
+      id:             r.iconikId,
+      nom:            r.name,
+      api_name:       r.apiName,
+      is_system:      r.isSystem,
+      object_types:   r.objectTypes,
+      appliqueeA:     r.objectTypes,
+      metadataViews,
+      viewIdsByType,  // { assets: [...noms], collections: [...noms], segments: [...], custom_actions: [...] }
+      view_ids:       r.viewIds,
+    };
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -568,28 +621,53 @@ async function readExportLocations(snapshotId) {
     where:   { snapshotId },
     orderBy: { name: 'asc' },
   });
-
-  const viewNameById = await buildViewNameIndex(snapshotId);
-  const teamNameById = await buildTeamNameIndex(snapshotId);
+  const [viewNameById, teamNameById, userRows] = await Promise.all([
+    buildViewNameIndex(snapshotId),
+    buildTeamNameIndex(snapshotId),
+    prisma.ikonUser.findMany({ where: { snapshotId }, select: { iconikId: true, displayName: true, email: true } }),
+  ]);
+  const userNameById = {};
+  userRows.forEach(u => { if (u.iconikId) userNameById[u.iconikId] = u.displayName || u.email || u.iconikId; });
 
   return rows.map(r => {
     const raw = r.rawData || {};
-    // ACLs teams depuis rawData (persisté par writeExportLocations)
+    const acl = r.aclData || {};
+
     const teams = [
-      ...((raw.groups_acl || []).map(g => ({
-        id:          g.group_id,
-        nom:         teamNameById[g.group_id] || g.group_id,
-        permissions: g.permissions || [],
-        _origin:     'direct',
-      }))),
+      ...((acl.groups_acl || []).map(g => ({ id: g.group_id, nom: teamNameById[g.group_id] || g.group_id, permissions: g.permissions || [], _origin: 'direct' }))),
+      ...((acl.propagating_groups_acl || []).map(g => ({ id: g.group_id, nom: teamNameById[g.group_id] || g.group_id, permissions: g.permissions || [], _origin: 'propagates' }))),
+      ...((acl.inherited_groups_acl || []).map(g => ({ id: g.group_id, nom: teamNameById[g.group_id] || g.group_id, permissions: g.permissions || [], _origin: 'inherited' }))),
     ];
+
+    const users = [
+      ...((acl.users_acl || []).map(u => ({ id: u.user_id, nom: userNameById[u.user_id] || u.user_id, permissions: u.permissions || [], _origin: 'direct' }))),
+    ];
+
+    const mdvId = raw.metadata_view || null;
+
     return {
-      id:            r.iconikId,
-      nom:           r.name,
-      location_type: r.locationType,
-      status:        r.status,
-      mdViewName:    r.mdViewId ? (viewNameById[r.mdViewId] || r.mdViewId) : null,
+      id:                         r.iconikId,
+      nom:                        r.name,
+      name:                       r.name,
+      location_type:              r.locationType,
+      status:                     r.status,
+      description:                raw.description              || '',
+      path:                       raw.path                     || '',
+      storage_id:                 raw.storage_id               || null,
+      storage_nom:                raw.storage_id               || '',
+      export_original:            !!raw.export_original,
+      export_proxy:               !!raw.export_proxy,
+      export_posters:             !!raw.export_posters,
+      export_metadata:            !!raw.export_metadata,
+      metadata_view:              mdvId,
+      metadata_format:            raw.metadata_format          || null,
+      export_transcriptions:      !!raw.export_transcriptions,
+      transcription_format:       raw.transcription_format     || null,
+      include_original_extension: !!raw.include_original_extension,
+      export_to_asset_folder:     raw.export_to_asset_folder   || null,
+      transcode_profile_ids:      raw.transcode_profile_ids    || [],
       teams,
+      users,
     };
   });
 }

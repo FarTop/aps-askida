@@ -785,9 +785,9 @@ async function writeApps(prisma, snapshotId, apps) {
     data: apps.map(a => ({
       snapshotId,
       iconikId: a.id,
-      name:     String(a.name || a.title || a.app_name || a.settings?.name || a.id || '').trim(),
-      appType:  a.app_type || null,
-      isActive: a.status !== 'INACTIVE',
+      name:     String(a.name || a.title || a.app_name || a.id || '').trim(),
+      appType:  a.type || a.app_type || null,
+      isActive: a.status ? a.status !== 'INACTIVE' : true,
       rawData:  a,
     })),
     skipDuplicates: true,

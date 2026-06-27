@@ -408,177 +408,43 @@ function initialiserDonnees() {
 }
 
 async function chargerDonnees(forcedEnvSlug) {
-  // 2026-06-25 — Cache sessionStorage + proxy DB
+  // 2026-06-27 — Chargement direct depuis snapshot DB, sans sessionStorage
+  // sessionStorage supprimé : la source de vérité est le snapshot DB (ikon-data.js)
+  // Le chargement à la demande par scope remplacera ce chargement monolithique en Phase D
   window._apsLoading = true;
-  // forcedEnvSlug : si fourni, charge cet env (switch utilisateur) — bypass cache
-  // Stratégie cache : on ne cache que l'env par défaut (PROD) pour éviter le quota sessionStorage.
-  // Les switchs d'env rechargent toujours depuis la DB (action délibérée, acceptable).
 
-  // ── Cache sessionStorage — uniquement pour le chargement initial (pas de forcedEnvSlug) ──
-  if (!forcedEnvSlug) {
-    // On doit d'abord savoir quel env sera l'env par défaut pour lire la bonne clé.
-    // On fait un fetch léger des envs, puis on lit le cache.
-    // (Le fetch /api/environments est ~1ms, le cache évite les 12s de chargement complet.)
-    try {
-      const _envsR = await fetch('/api/environments');
-      if (_envsR.ok) {
-        const _envs = await _envsR.json();
-        appTokensData = { appTokens: _envs.map(e => ({ name: e.name, environment: e.type, env: e.slug, iconikUrl: e.baseUrl || 'https://app.iconik.io', appId: e.appId || '', token: '', enabled: true })) };
-      }
-    } catch(e) { appTokensData = { appTokens: [] }; }
-
-    const _defToken = appTokensData.appTokens.find(t => t.environment === 'prod')
-      || appTokensData.appTokens.find(t => t.environment === 'qa')
-      || appTokensData.appTokens[0] || null;
-    const _defSlug = _defToken ? (_defToken.env || _defToken.environment) : 'prod';
-    const _ck = 'aps_settings_cache_' + _defSlug;
-    const _cached = (() => { try { return JSON.parse(sessionStorage.getItem(_ck) || 'null'); } catch { return null; } })();
-
-    if (_cached) {
-      const _cv = (_cached.teamsData?.teams?.length > 0) && (_cached.collectionsData?.collections?.length > 0);
-      if (_cv) {
-        console.log('[APS] Restauration depuis sessionStorage (cache session) env:', _defSlug);
-        teamsData           = _cached.teamsData           || { teams: [] };
-        roleGroupsData      = _cached.roleGroupsData      || { roleGroups: [] };
-        collectionsData     = _cached.collectionsData     || { collections: [] };
-        metadataViewsData   = _cached.metadataViewsData   || { metadataViews: [] };
-        metadonneesData     = _cached.metadonneesData     || { metadonnees: [] };
-        savedSearchesData   = _cached.savedSearchesData   || { savedSearches: [] };
-        storagesData        = _cached.storagesData        || { storages: [] };
-        categoriesData      = _cached.categoriesData      || { categories: [] };
-        usersData           = _cached.usersData           || { users: [] };
-        webhooksData        = _cached.webhooksData        || { webhooks: [] };
-        customActionsData   = _cached.customActionsData   || { customActions: [] };
-        automationsData     = _cached.automationsData     || { automations: [] };
-        relationTypesData   = _cached.relationTypesData   || { relationTypes: [] };
-        systemSettingsData  = _cached.systemSettingsData  || null;
-        rolesData           = _cached.rolesData           || { roles: [] };
-        itemsAdvancedData   = _cached.itemsAdvancedData   || { items: [] };
-        appsData            = _cached.appsData            || { apps: [] };
-        appTokensData       = _cached.appTokensData       || { appTokens: [] };
-        exportLocationsData = _cached.exportLocationsData || { exportLocations: [] };
-        window._apsActiveEnvSlug = _defSlug;
-        try { localStorage.setItem('aps:context', JSON.stringify({ domain: _defSlug })); } catch(_) {}
-        const _on = _cached.orgName || '';
-        const _oi = document.getElementById('input-org-name');
-        if (_oi) _oi.value = _on;
-        const _ob = document.getElementById('orgBadge');
-        if (_ob && _on) _ob.textContent = _on.toUpperCase();
-        document.title = (_on || 'Iconik') + ' — Settings';
-        _populateEnvSwitcher();
-        window._apsLoading = false;
-        // Timestamp depuis le cache
-        const _tsCached = document.getElementById('snapshot-ts');
-        if (_tsCached && _cached._snapshotTs) {
-          const _d = new Date(_cached._snapshotTs);
-          const _fmt = _d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit' })
-            + ' ' + _d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
-          _tsCached.textContent = 'Snapshot : ' + _fmt;
-          _tsCached.title = _cached._snapshotTs;
-        }
-        return;
-      } else {
-        sessionStorage.removeItem(_ck);
-      }
+  // 1) Environments depuis DB
+  try {
+    const envsResp = await fetch('/api/environments');
+    if (envsResp.ok) {
+      const envs = await envsResp.json();
+      appTokensData = {
+        appTokens: envs.map(e => ({
+          name: e.name, environment: e.type, env: e.slug,
+          iconikUrl: e.baseUrl || 'https://app.iconik.io',
+          appId: e.appId || '', token: '', enabled: true,
+        }))
+      };
     }
-    // Pas de cache valide — on continue avec le fetch complet
-    // (appTokensData déjà chargé ci-dessus, on saute le fetch du bloc 1 ci-dessous)
-    // On pose un flag pour éviter le double fetch
-    window._apsEnvsAlreadyLoaded = true;
-  }
+  } catch(e) { console.warn('[APS] Erreur environments:', e.message); appTokensData = { appTokens: [] }; }
 
-  // 1) Environments depuis DB (sauf si déjà chargé dans le bloc cache ci-dessus)
-  if (!window._apsEnvsAlreadyLoaded) {
-    try {
-      const envsResp = await fetch('/api/environments');
-      if (envsResp.ok) {
-        const envs = await envsResp.json();
-        appTokensData = {
-          appTokens: envs.map(e => ({
-            name: e.name, environment: e.type, env: e.slug,
-            iconikUrl: e.baseUrl || 'https://app.iconik.io',
-            appId: e.appId || '', token: '', enabled: true,
-          }))
-        };
-      }
-    } catch(e) { console.warn('[APS] Erreur environments:', e.message); appTokensData = { appTokens: [] }; }
-  }
-  window._apsEnvsAlreadyLoaded = false; // reset pour le prochain appel
-
-  // 2) Env actif — forcedEnvSlug si switch utilisateur, sinon priorité PROD > QA > premier
+  // 2) Env actif
   const _activeToken = forcedEnvSlug
     ? (appTokensData.appTokens.find(t => (t.env || t.environment) === forcedEnvSlug) || appTokensData.appTokens[0])
     : (appTokensData.appTokens.find(t => t.environment === 'prod')
        || appTokensData.appTokens.find(t => t.environment === 'qa')
        || appTokensData.appTokens[0]) || null;
-  if (!_activeToken) { console.warn('[APS] Aucun environnement'); return; }
+  if (!_activeToken) { console.warn('[APS] Aucun environnement'); window._apsLoading = false; return; }
   window._apsActiveEnvSlug = _activeToken.env || _activeToken.environment;
-  // Écrire aps:context pour que wfd-sync-bridge-settings puisse lire l'env actif
   try { localStorage.setItem('aps:context', JSON.stringify({ domain: window._apsActiveEnvSlug })); } catch(_) {}
-  // Vérifier le cache pour cet env (chargement initial sans forcedEnvSlug)
-  if (!forcedEnvSlug) {
-    const _ck = 'aps_settings_cache_' + window._apsActiveEnvSlug;
-    const _initCached = (() => { try { return JSON.parse(sessionStorage.getItem(_ck) || 'null'); } catch { return null; } })();
-    if (_initCached) {
-      const _cv = (_initCached.teamsData?.teams?.length > 0) && (_initCached.collectionsData?.collections?.length > 0);
-      if (_cv) {
-        console.log('[APS] Restauration depuis sessionStorage (cache session) env:', window._apsActiveEnvSlug);
-        teamsData = _initCached.teamsData || { teams: [] };
-        roleGroupsData = _initCached.roleGroupsData || { roleGroups: [] };
-        collectionsData = _initCached.collectionsData || { collections: [] };
-        metadataViewsData = _initCached.metadataViewsData || { metadataViews: [] };
-        metadonneesData = _initCached.metadonneesData || { metadonnees: [] };
-        savedSearchesData = _initCached.savedSearchesData || { savedSearches: [] };
-        storagesData = _initCached.storagesData || { storages: [] };
-        categoriesData = _initCached.categoriesData || { categories: [] };
-        usersData = _initCached.usersData || { users: [] };
-        webhooksData = _initCached.webhooksData || { webhooks: [] };
-        customActionsData = _initCached.customActionsData || { customActions: [] };
-        automationsData = _initCached.automationsData || { automations: [] };
-        relationTypesData = _initCached.relationTypesData || { relationTypes: [] };
-        systemSettingsData = _initCached.systemSettingsData || null;
-        rolesData = _initCached.rolesData || { roles: [] };
-        itemsAdvancedData = _initCached.itemsAdvancedData || { items: [] };
-        appsData = _initCached.appsData || { apps: [] };
-        appTokensData = _initCached.appTokensData || { appTokens: [] };
-        exportLocationsData = _initCached.exportLocationsData || { exportLocations: [] };
-        const _on = _initCached.orgName || '';
-        const _oi = document.getElementById('input-org-name');
-        if (_oi) _oi.value = _on;
-        const _ob = document.getElementById('orgBadge');
-        if (_ob && _on) _ob.textContent = _on.toUpperCase();
-        document.title = (_on || 'Iconik') + ' — Settings';
-        _populateEnvSwitcher();
-        return;
-      } else {
-        sessionStorage.removeItem(_ck);
-      }
-    }
-  }
 
-  // 3) Vérifier snapshot
-  const snapCheck = await fetch('/api/ikon/snapshot/' + window._apsActiveEnvSlug)
-    .then(r => r.ok ? r.json() : null).catch(() => null);
-  if (!snapCheck) { console.warn('[APS] Aucun snapshot pour', window._apsActiveEnvSlug); return; }
-  // Afficher le timestamp du snapshot dans la barre org
-  const _tsEl = document.getElementById('snapshot-ts');
-  if (_tsEl && snapCheck.capturedAt) {
-    const _d = new Date(snapCheck.capturedAt);
-    const _fmt = _d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit' })
-      + ' ' + _d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
-    _tsEl.textContent = 'Snapshot : ' + _fmt;
-    _tsEl.title = snapCheck.capturedAt;
-  }
-  console.log('[APS] Chargement snapshot :', window._apsActiveEnvSlug, '—', snapCheck.capturedAt);
-
-  // 4) Chargement snapshot DB — un seul appel, toutes les données résolues côté serveur
-  // syncIconik() supprimé — la source de vérité est le snapshot DB (ikon-data.js)
+  // 3) Chargement snapshot DB — un seul appel, toutes les données résolues côté serveur
   const _t0 = performance.now();
   const snap = await fetch('/api/ikon/snapshot/' + window._apsActiveEnvSlug)
     .then(r => r.ok ? r.json() : null).catch(() => null);
   if (!snap) { console.warn('[APS] Snapshot introuvable pour', window._apsActiveEnvSlug); window._apsLoading = false; return; }
 
-  // Distribution dans les variables globales — contrat canonique ikon-data.js
+  // 4) Distribution dans les variables globales — contrat canonique ikon-data.js
   collectionsData     = { collections:    snap.collections    || [] };
   metadataViewsData   = { metadataViews:  snap.views          || [], viewFieldsById: snap.viewFieldsById || {} };
   metadonneesData     = { metadonnees:    snap.metadonnees    || [] };
@@ -591,9 +457,8 @@ async function chargerDonnees(forcedEnvSlug) {
   categoriesData      = { categories:     snap.categories     || [], defaultViewsByType: {} };
   webhooksData        = { webhooks:       snap.webhooks       || [] };
   automationsData     = { automations:    snap.automations    || [] };
-  customActionsData   = { customActions:  snap.customActions  || [] };
   relationTypesData   = { relationTypes:  snap.relationTypes  || [] };
-  systemSettingsData  = snap.systemSettings || null;
+  systemSettingsData  = snap.systemSettings ? { settings: snap.systemSettings } : null;
   exportLocationsData = { exportLocations: snap.exportLocations || [] };
   rolesData           = { roles:          snap.roles          || [] };
   appsData            = { apps:           snap.apps           || [] };
@@ -603,41 +468,118 @@ async function chargerDonnees(forcedEnvSlug) {
     '| cols:', (collectionsData.collections||[]).length,
     '| views:', (metadataViewsData.metadataViews||[]).length);
 
-  // 5) Org
-  const orgName  = _activeToken.name.split('|')[1]?.trim() || _activeToken.name;
+  // 5) UI — org + timestamp snapshot
+  const orgName = _activeToken.name.split('|')[1]?.trim() || _activeToken.name;
   const orgInput = document.getElementById('input-org-name');
   if (orgInput) orgInput.value = orgName;
   const orgBadge = document.getElementById('orgBadge');
   if (orgBadge && orgName) orgBadge.textContent = orgName.toUpperCase();
   document.title = (orgName || 'Iconik') + ' — Settings';
-
-  // 6) Cache sessionStorage — sauvegarder seulement si les données clés sont présentes
-  const _teamsOk = (teamsData.teams || []).length > 0;
-  const _colsOk  = (collectionsData.collections || []).length > 0;
-  if (!_teamsOk || !_colsOk) {
-    console.warn('[APS] Données incomplètes — sessionStorage non sauvegardé (teams:', (teamsData.teams||[]).length, ', cols:', (collectionsData.collections||[]).length, ')');
-  } else if (forcedEnvSlug) {
-    // Env non-défaut (switch utilisateur) — pas de cache sessionStorage pour éviter le quota
-    console.log('[APS] Env non-défaut (', forcedEnvSlug, ') — cache sessionStorage ignoré');
-    _populateEnvSwitcher();
-    window._apsLoading = false;
-  } else {
-    try {
-      const _saveKey = 'aps_settings_cache_' + window._apsActiveEnvSlug;
-      sessionStorage.setItem(_saveKey, JSON.stringify({
-        teamsData, roleGroupsData, collectionsData, metadataViewsData,
-        metadonneesData, savedSearchesData, storagesData, categoriesData,
-        usersData, webhooksData, customActionsData, automationsData,
-        relationTypesData, systemSettingsData, rolesData, itemsAdvancedData,
-        appsData, appTokensData, exportLocationsData, orgName,
-        _envSlug: window._apsActiveEnvSlug,
-        _snapshotTs: snapCheck.capturedAt || null,
-      }));
-      console.log('[APS] Cache sessionStorage sauvegardé —', _saveKey, '| teams:', (teamsData.teams||[]).length, ', cols:', (collectionsData.collections||[]).length);
-      _populateEnvSwitcher();
-      window._apsLoading = false;
-    } catch(e) { console.warn('[APS] sessionStorage quota:', e.message); }
+  const _tsEl = document.getElementById('snapshot-ts');
+  if (_tsEl && snap.capturedAt) {
+    const _d = new Date(snap.capturedAt);
+    const _fmt = _d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit' })
+      + ' ' + _d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
+    _tsEl.textContent = 'Snapshot : ' + _fmt;
+    _tsEl.title = snap.capturedAt;
   }
+
+  // 5b) Post-traitements — calculs dérivés depuis les données du snapshot
+  // Ces calculs étaient faits par syncIconik — ils sont maintenant faits ici
+  // après distribution, sans aucun appel Iconik supplémentaire
+
+  // 5b-1) metadonnees[].metadataViews — depuis viewFieldsById du snapshot
+  if (metadonneesData.metadonnees?.length && metadataViewsData.metadataViews?.length) {
+    const metaByName = {};
+    metadonneesData.metadonnees.forEach(m => { if (m.nom || m.name) metaByName[m.nom || m.name] = m; });
+    metadataViewsData.metadataViews.forEach(v => {
+      const viewName = v.nom || v.name || v.id;
+      (v.view_fields || []).forEach(f => {
+        const meta = metaByName[f.name || f.field_name];
+        if (!meta) return;
+        if (!meta.metadataViews) meta.metadataViews = meta.metadataView ? [meta.metadataView] : [];
+        if (!meta.metadataViews.includes(viewName)) meta.metadataViews.push(viewName);
+        meta.metadataView = meta.metadataViews[0];
+      });
+    });
+  }
+
+  // 5b-2) users — enrichissement teams + role_groups depuis teamIds du snapshot
+  if (usersData.users?.length && teamsData.teams?.length) {
+    const teamById = {};
+    teamsData.teams.forEach(t => { if (t?.id) teamById[t.id] = t; });
+    usersData.users.forEach(u => {
+      u.teams = (Array.isArray(u.groups) ? u.groups : [])
+        .map(g => { const id = g.id || g; const t = teamById[id]; return t ? { id, nom: t.nom || t.name || id } : null; })
+        .filter(Boolean);
+      u.role_groups = [];
+    });
+    // 5b-3) teams[].users — reconstruction inverse
+    teamsData.teams.forEach(t => { t.users = []; });
+    usersData.users.forEach(u => {
+      (u.teams || []).forEach(mt => {
+        const team = teamById[mt.id];
+        if (!team) return;
+        if (!team.users) team.users = [];
+        if (!team.users.some(x => x.id === u.id))
+          team.users.push({ id: u.id, nom: u.nom || u.name || u.email || u.id, email: u.email || '' });
+      });
+    });
+  }
+
+  // 5b-4) roleGroups — calcul fonctionnalites + rolesData + itemsAdvancedData — calcul fonctionnalites + rolesData + itemsAdvancedData
+  // Ces données sont dérivées de role_categories et roles (présents dans le snapshot)
+  // mais nécessitent ROLE_CAT_LABELS, SLUG_TO_CATALOG_KEY, ICONIK_ITEMS_CATALOG (constantes frontend)
+  if (typeof ROLE_CAT_LABELS !== 'undefined' && typeof slugToPermLabel === 'function') {
+    roleGroupsData.roleGroups = (roleGroupsData.roleGroups || []).map(rg => {
+      const rc  = rg.role_categories || {};
+      const fonctionnalites = Object.entries(rc)
+        .filter(([, active]) => active === true)
+        .map(([k]) => ROLE_CAT_LABELS[k] || k)
+        .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+      const rolesSlugs = rg.roles || [];
+      const itemsMap = {};
+      rolesSlugs.forEach(slug => {
+        const itemKey = SLUG_TO_CATALOG_KEY[slug];
+        if (!itemKey) return;
+        if (!itemsMap[itemKey]) itemsMap[itemKey] = { id: itemKey, nom: ICONIK_ITEMS_CATALOG[itemKey]?.label || itemKey, permissions: [], slugs: [] };
+        const permLabel = slugToPermLabel(slug);
+        if (!itemsMap[itemKey].permissions.includes(permLabel)) itemsMap[itemKey].permissions.push(permLabel);
+        if (!itemsMap[itemKey].slugs.includes(slug)) itemsMap[itemKey].slugs.push(slug);
+      });
+      const assignations = Object.values(itemsMap).map(item => ({
+        role: fonctionnalites[0] || 'Core Functionality',
+        permissions: item.permissions, slugs: item.slugs
+      }));
+      return { ...rg, fonctionnalites, assignations };
+    });
+
+    rolesData.roles = Object.values(ROLE_CAT_LABELS).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+
+    const globalItemsMap = {};
+    roleGroupsData.roleGroups.forEach(rg => {
+      const rc = rg.role_categories || {};
+      Object.entries(rc).filter(([, v]) => v === true).forEach(([catKey]) => {
+        const rolLabel = ROLE_CAT_LABELS[catKey] || catKey;
+        (rg.roles || []).forEach(slug => {
+          const itemKey = SLUG_TO_CATALOG_KEY[slug];
+          if (!itemKey || !ICONIK_ITEMS_CATALOG[itemKey]) return;
+          if (!globalItemsMap[itemKey]) globalItemsMap[itemKey] = { id: itemKey, nom: ICONIK_ITEMS_CATALOG[itemKey].label, permissionsDisponibles: ICONIK_ITEMS_CATALOG[itemKey].perms, assignations: [] };
+          let assign = globalItemsMap[itemKey].assignations.find(a => a.role === rolLabel);
+          if (!assign) { assign = { role: rolLabel, permissions: [], slugs: [] }; globalItemsMap[itemKey].assignations.push(assign); }
+          const permLabel = slugToPermLabel(slug);
+          if (!assign.permissions.includes(permLabel)) assign.permissions.push(permLabel);
+          if (!assign.slugs.includes(slug)) assign.slugs.push(slug);
+        });
+      });
+    });
+    itemsAdvancedData.items = Object.values(globalItemsMap)
+      .filter(i => i.assignations.length > 0)
+      .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
+  }
+
+  _populateEnvSwitcher();
+  window._apsLoading = false;
 }
 
 
@@ -2319,7 +2261,11 @@ function detailCollection(nom) {
   let sectionViews = '';
   if (UI_COLLECTIONS_SHOW_MDV_CARD) {
     const vuesSet = new Set();
-    catsCollections.forEach(cat => (cat.metadataViews || []).forEach(v => vuesSet.add(v)));
+    catsCollections.forEach(cat => {
+      // Utiliser uniquement viewIdsByType.collections — pas de fallback
+      const vuesCol = (cat.viewIdsByType && cat.viewIdsByType.collections) || [];
+      vuesCol.forEach(v => vuesSet.add(v));
+    });
     const mdvRows = vuesSet.size ? [...vuesSet]
       .sort((a,b)=> String(a).localeCompare(String(b),'fr',{sensitivity:'base'}))
       .map(v => assocRowHtml(v, null, null)).join('')
@@ -2336,7 +2282,8 @@ function detailCollection(nom) {
   const safeId = s => String(s).replace(/[^a-z0-9_]/gi, '_');
 
   const catRows = catsCollections.length ? catsCollections.map(cat => {
-    const vues = (cat.metadataViews || []).slice().sort((a,b)=>
+    const _vuesCol = (cat.viewIdsByType && cat.viewIdsByType.collections) || [];
+    const vues = _vuesCol.slice().sort((a,b)=>
       String(a).localeCompare(String(b),'fr',{sensitivity:'base'})
     );
     const chips = vues.length

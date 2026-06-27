@@ -785,9 +785,9 @@ function onScopeChange(cb, prefix, envId) {
   const boxes = [...document.querySelectorAll('.' + cls)];
   const checked = boxes.filter(c => c.checked).map(c => c.value);
 
-  // Si "all" est coché, on retourne TOUS les scopes affichés (sauf "all")
+  // Si "all" est coché, on retourne ['all'] pour que le serveur utilise SCOPE_ORDER complet
   if (checked.includes('all')) {
-    return boxes.map(c => c.value).filter(v => v !== 'all');
+    return ['all'];
   }
 
   return checked;
