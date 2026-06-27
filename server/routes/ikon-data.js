@@ -146,9 +146,17 @@ async function readTeamDetail(snapshotId, iconikId) {
     permission_flags: v.permission_flags  || [],
   }));
 
+  // Résoudre noms storages depuis IkonStorage
+  const stRows = await prisma.ikonStorage.findMany({
+    where:  { snapshotId },
+    select: { iconikId: true, name: true },
+  });
+  const stNameById = {};
+  stRows.forEach(s => { if (s.iconikId) stNameById[s.iconikId] = s.name; });
+
   const storages = (Array.isArray(r.storageIds) ? r.storageIds : []).map(s => ({
     id:  s.id  || '',
-    nom: s.nom || s.name || '',
+    nom: stNameById[s.id] || s.nom || s.name || s.id || '',
   }));
 
   const users = (Array.isArray(r.userIds) ? r.userIds : []).map(u => ({
@@ -172,7 +180,10 @@ async function readTeamDetail(snapshotId, iconikId) {
     collections,
     vues,
     storages,
-    savedSearches:     [],   // TODO étape 2 — persistance ssAcls dans writeTeams
+    savedSearches:     (Array.isArray(r.savedSearchIds) ? r.savedSearchIds : []).map(s => ({
+      id:  s.id  || '',
+      nom: s.nom || s.name || s.id || '',
+    })),   // résolu depuis savedSearchIds DB
     customActions:     [],   // TODO étape 2 — persistance caAcls dans writeTeams
     roleGroups,
     users,
@@ -183,10 +194,18 @@ async function readTeamDetail(snapshotId, iconikId) {
 
 // FULL LIST — rétrocompatibilité chargerDonnees() — sera retiré en Phase D
 async function readTeams(snapshotId) {
-  const rows = await prisma.ikonTeam.findMany({
-    where:   { snapshotId },
-    orderBy: { name: 'asc' },
-  });
+  const [rows, stRows, ssRows, caRows] = await Promise.all([
+    prisma.ikonTeam.findMany({ where: { snapshotId }, orderBy: { name: 'asc' } }),
+    prisma.ikonStorage.findMany({ where: { snapshotId }, select: { iconikId: true, name: true } }),
+    prisma.ikonSavedSearch.findMany({ where: { snapshotId }, select: { iconikId: true, name: true } }),
+    prisma.ikonCustomAction.findMany({ where: { snapshotId }, select: { iconikId: true, title: true } }),
+  ]);
+  const stNameById = {};
+  stRows.forEach(s => { if (s.iconikId) stNameById[s.iconikId] = s.name; });
+  const ssNameById = {};
+  ssRows.forEach(s => { if (s.iconikId) ssNameById[s.iconikId] = s.name; });
+  const caNameById = {};
+  caRows.forEach(c => { if (c.iconikId) caNameById[c.iconikId] = c.title; });
   return rows.map(r => {
     const collections = (Array.isArray(r.collectionIds) ? r.collectionIds : []).map(c => ({
       chemin:           c.id    || c.chemin || '',
@@ -203,7 +222,7 @@ async function readTeams(snapshotId) {
     }));
     const storages = (Array.isArray(r.storageIds) ? r.storageIds : []).map(s => ({
       id:  s.id  || '',
-      nom: s.nom || s.name || '',
+      nom: stNameById[s.id] || s.nom || s.name || s.id || '',
     }));
     const users = (Array.isArray(r.userIds) ? r.userIds : []).map(u => ({
       id:    u.id    || '',
@@ -223,8 +242,14 @@ async function readTeams(snapshotId) {
       collections,
       vues,
       storages,
-      savedSearches:     [],
-      customActions:     [],
+      savedSearches:     (Array.isArray(r.savedSearchIds) ? r.savedSearchIds : []).map(s => ({
+        id:  s.id  || '',
+        nom: ssNameById[s.id] || s.nom || s.name || s.id || '',
+      })),
+      customActions:     (Array.isArray(r.customActionIds) ? r.customActionIds : []).map(c => ({
+        id:  c.id  || '',
+        nom: caNameById[c.id] || c.nom || c.name || c.id || '',
+      })),
       roleGroups,
       roleGroups_doc_ids: roleGroups.map(rg => rg.id), // compat script-settings.js
       users,

@@ -652,8 +652,10 @@ model IkonTeam {
   roleGroupIds  Json         @default("[]")   // [{id, name}]
   collectionIds Json         @default("[]")   // [{id, path, permission, permission_flags}]
   viewIds       Json         @default("[]")   // [{id, name, permission, permission_flags}]
-  storageIds    Json         @default("[]")   // [{id, name}]
-  settings      Json?        // team settings Iconik (home_page, search_view_id, ...)
+  storageIds      Json         @default("[]")   // [{id, name}]
+  savedSearchIds  Json         @default("[]")   // [{id, nom}]
+  customActionIds Json         @default("[]")   // [{id, nom}]
+  settings        Json?        // team settings Iconik (home_page, search_view_id, ...)
   aclFlags      Json?        // ACL flags bruts
   rawData       Json?
 

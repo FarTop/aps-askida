@@ -410,7 +410,7 @@ async function writeRoleGroups(prisma, snapshotId, roleGroups) {
 
 async function writeTeams(prisma, snapshotId, teams, {
   colAcls = {}, viewAcls = {}, ssAcls = {}, stAcls = {}, caAcls = {},
-  teamSettings = {}, teamAclsMap = {}, collections = [], views = [], searches = [], storages = []
+  teamSettings = {}, teamAclsMap = {}, collections = [], views = [], searches = [], storages = [], customActions = []
 } = {}) {
   if (!teams.length) return;
 
@@ -419,12 +419,19 @@ async function writeTeams(prisma, snapshotId, teams, {
   collections.forEach(c => { if (c?.id) colById[c.id] = c; });
   const viewById = {};
   views.forEach(v => { if (v?.id) viewById[v.id] = v; });
+  const searchById = {};
+  searches.forEach(s => { if (s?.id) searchById[s.id] = s; });
+  const storageById = {};
+  storages.forEach(s => { if (s?.id) storageById[s.id] = s; });
+  const caById = {};
+  customActions.forEach(c => { if (c?.id) caById[c.id] = c; });
 
   // Construire les relations ACL par team
   const teamCollections = {};
   const teamViews = {};
   const teamSearches = {};
   const teamStorages = {};
+  const teamCustomActions = {};
 
   // Collections ACLs
   // Règle de fusion : si une collection apparaît dans plusieurs buckets (direct/inherited/propagates)
@@ -491,20 +498,33 @@ async function writeTeams(prisma, snapshotId, teams, {
   // SavedSearch ACLs
   Object.entries(ssAcls).forEach(([ssId, aclData]) => {
     if (!aclData) return;
+    const ss = searchById[ssId];
     const entries = [...(aclData.groups_acl || []).map(e => ({ ...e, _origin: 'direct' }))];
     entries.forEach(ga => {
       if (!teamSearches[ga.group_id]) teamSearches[ga.group_id] = [];
-      teamSearches[ga.group_id].push({ id: ssId });
+      teamSearches[ga.group_id].push({ id: ssId, nom: ss?.name || ss?.title || ssId });
     });
   });
 
   // Storage ACLs
   Object.entries(stAcls).forEach(([stId, aclData]) => {
     if (!aclData) return;
+    const st = storageById[stId];
     const entries = [...(aclData.groups_acl || []).map(e => ({ ...e, _origin: 'direct' }))];
     entries.forEach(ga => {
       if (!teamStorages[ga.group_id]) teamStorages[ga.group_id] = [];
-      teamStorages[ga.group_id].push({ id: stId });
+      teamStorages[ga.group_id].push({ id: stId, nom: st?.name || st?.title || stId });
+    });
+  });
+
+  // Custom Action ACLs
+  Object.entries(caAcls).forEach(([caId, aclData]) => {
+    if (!aclData) return;
+    const ca = caById[caId];
+    const entries = [...(aclData.groups_acl || []).map(e => ({ ...e, _origin: 'direct' }))];
+    entries.forEach(ga => {
+      if (!teamCustomActions[ga.group_id]) teamCustomActions[ga.group_id] = [];
+      teamCustomActions[ga.group_id].push({ id: caId, nom: ca?.title || ca?.name || caId });
     });
   });
 
@@ -519,9 +539,11 @@ async function writeTeams(prisma, snapshotId, teams, {
       isAclStub:    !!(t.acl_stub || (t.raw && t.raw.acl_stub)),
       userIds:      [],   // rempli lors du scope users
       roleGroupIds: [],
-      collectionIds: teamCollections[t.id] || [],
-      viewIds:       teamViews[t.id] || [],
-      storageIds:    teamStorages[t.id] || [],
+      collectionIds:   teamCollections[t.id] || [],
+      viewIds:         teamViews[t.id]        || [],
+      storageIds:      teamStorages[t.id]     || [],
+      savedSearchIds:   teamSearches[t.id]      || [],
+      customActionIds:  teamCustomActions[t.id]  || [],
       settings:      teamSettings[t.id] || null,
       aclFlags:      teamAclsMap[t.id] ? { groups_acl: teamAclsMap[t.id].groups_acl || [] } : null,
       rawData:       t,
@@ -948,7 +970,7 @@ async function runSyncDS(opts) {
           const colAclCount = Object.keys(colAcls).length;
           const viewAclCount = Object.keys(viewAcls).length;
           log('info', `  ACLs fetchées — collections: ${colAclCount}, views: ${viewAclCount}`);
-          await writeTeams(prisma, snapshotId, teams, { colAcls, viewAcls, ssAcls, stAcls, caAcls, teamSettings, teamAclsMap, collections, views, searches, storages });
+          await writeTeams(prisma, snapshotId, teams, { colAcls, viewAcls, ssAcls, stAcls, caAcls, teamSettings, teamAclsMap, collections, views, searches, storages, customActions });
           log('info', `  teams : ${teams.length}`);
           break;
         }
