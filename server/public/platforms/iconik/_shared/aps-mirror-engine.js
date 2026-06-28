@@ -265,7 +265,24 @@ console.log("[MIRROR] aps-mirror-engine LOADED — 2026-06-25 16:45");
    * @returns {Object} adapter
    */
   function createAPSAdapter() {
-    const D = window.APS_Data;
+    // Lecture directe depuis les variables globales hydratées par chargerDonnees()
+    // Source de vérité post-migration snapshot DB — plus de dépendance à APS_Data/localStorage
+    const G = {
+      teams:        () => (typeof teamsData         !== 'undefined' ? teamsData.teams          : []) || [],
+      users:        () => (typeof usersData          !== 'undefined' ? usersData.users           : []) || [],
+      roleGroups:   () => (typeof roleGroupsData     !== 'undefined' ? roleGroupsData.roleGroups : []) || [],
+      collections:  () => (typeof collectionsData    !== 'undefined' ? collectionsData.collections : []) || [],
+      metadataViews:() => (typeof metadataViewsData  !== 'undefined' ? metadataViewsData.metadataViews : []) || [],
+      metadata:     () => (typeof metadonneesData    !== 'undefined' ? metadonneesData.metadonnees : []) || [],
+      savedSearches:() => (typeof savedSearchesData  !== 'undefined' ? savedSearchesData.savedSearches : []) || [],
+      storages:     () => (typeof storagesData       !== 'undefined' ? storagesData.storages    : []) || [],
+      webhooks:     () => (typeof webhooksData       !== 'undefined' ? webhooksData.webhooks    : []) || [],
+      customActions:() => (typeof customActionsData  !== 'undefined' ? customActionsData.customActions : []) || [],
+      automations:  () => (typeof automationsData    !== 'undefined' ? automationsData.automations : []) || [],
+      relationTypes:() => (typeof relationTypesData  !== 'undefined' ? relationTypesData.relationTypes : []) || [],
+      categories:   () => (typeof categoriesData     !== 'undefined' ? categoriesData.categories : []) || [],
+      systemSettings:() => (typeof systemSettingsData !== 'undefined' ? systemSettingsData.settings : {}) || {},
+    };
 
     // Extraire nom string depuis une collection APS
     // Format brut Iconik search : { title, parent_id, in_collections }
@@ -315,21 +332,20 @@ console.log("[MIRROR] aps-mirror-engine LOADED — 2026-06-25 16:45");
 
       fetch(scope) {
         switch (scope) {
-          case 'teams':         return Promise.resolve(D.get('teams'));
-          case 'users':         return Promise.resolve(D.get('users'));
-          case 'roleGroups':    return Promise.resolve(D.get('roleGroups'));
-          case 'collections':   return Promise.resolve(enrichCollections(D.get('collections')));
-          case 'metadataViews': return Promise.resolve(D.get('metadataViews'));
-          case 'metadata':      return Promise.resolve(D.get('metadata'));
+          case 'teams':         return Promise.resolve(G.teams());
+          case 'users':         return Promise.resolve(G.users());
+          case 'roleGroups':    return Promise.resolve(G.roleGroups());
+          case 'collections':   return Promise.resolve(enrichCollections(G.collections()));
+          case 'metadataViews': return Promise.resolve(G.metadataViews());
+          case 'metadata':      return Promise.resolve(G.metadata());
           case 'teamAcls': {
-            // Les groupAcls contiennent des group_id Iconik — on les enrichit
-            // avec _name en croisant avec les teams et roleGroups du localStorage APS
-            const rawAcls = D.get('teamAcls') || [];
-            const allGroups = [...(D.get('teams')||[]), ...(D.get('roleGroups')||[])];
+            // Les ACLs teams sont intégrées dans teamsData.teams[].groupAcls
+            // On les extrait et enrichit _name depuis teams + roleGroups
+            const teams = G.teams();
+            const allGroups = [...teams, ...G.roleGroups()];
             const groupNameById = {};
             allGroups.forEach(g => { if (g?.id) groupNameById[String(g.id)] = g.name||g.nom||g.id; });
-            // teamAclsData stocke aussi les raw Iconik ids — enrichir _name si absent
-            return Promise.resolve(rawAcls.map(t => ({
+            return Promise.resolve(teams.map(t => ({
               ...t,
               groupAcls: (t.groupAcls||[]).map(a => ({
                 ...a,
@@ -338,20 +354,16 @@ console.log("[MIRROR] aps-mirror-engine LOADED — 2026-06-25 16:45");
             })));
           }
           case 'categories': {
-            const rawCats = D.get('categories');
             const defaultViewsByType = window.categoriesData?.defaultViewsByType || {};
-            return Promise.resolve({ categories: rawCats, defaultViewsByType });
+            return Promise.resolve({ categories: G.categories(), defaultViewsByType });
           }
-          case 'savedSearches': return Promise.resolve(D.get('savedSearches'));
-          case 'storages':      return Promise.resolve(D.get('storages'));
-          case 'webhooks':      return Promise.resolve(D.get('webhooks'));
-          case 'customActions': return Promise.resolve(D.get('customActions'));
-          case 'automations':   return Promise.resolve(D.get('automations'));
-          case 'relationTypes': return Promise.resolve(D.get('relationTypes'));
-          case 'shareSettings': {
-            const s = D.get('systemSettings');
-            return Promise.resolve(s || {});
-          }
+          case 'savedSearches': return Promise.resolve(G.savedSearches());
+          case 'storages':      return Promise.resolve(G.storages());
+          case 'webhooks':      return Promise.resolve(G.webhooks());
+          case 'customActions': return Promise.resolve(G.customActions());
+          case 'automations':   return Promise.resolve(G.automations());
+          case 'relationTypes': return Promise.resolve(G.relationTypes());
+          case 'shareSettings': return Promise.resolve(G.systemSettings());
           default:
             console.warn('[APS_MirrorEngine] APS scope inconnu:', scope);
             return Promise.resolve([]);
@@ -361,33 +373,41 @@ console.log("[MIRROR] aps-mirror-engine LOADED — 2026-06-25 16:45");
       // L'adaptateur APS n'a pas d'API distante pour les détails
       // → retourne les données locales enrichies si disponibles
       fetchViewDetail(id) {
-        const views = D.get('metadataViews');
+        const views = G.metadataViews();
         const v = (views||[]).find(x=>x.id===id);
         if (!v) return Promise.resolve(null);
-        // view_fields stockés dans viewFieldsById par syncViewFields
         const vf = window.metadataViewsData?.viewFieldsById?.[id] || v.view_fields || [];
         return Promise.resolve({ ...v, view_fields: vf });
       },
       fetchTeamSettings(teamId) {
-        // Team settings stockés dans teamsData si sync DS complète
-        const teams = D.get('teams');
-        const t = (teams||[]).find(x=>x.id===teamId);
+        const t = G.teams().find(x=>x.id===teamId);
         return Promise.resolve(t?.settings || null);
       },
       fetchAcl(type, id) {
-        // ACLs non stockées individuellement en APS — on retourne null
-        // Les ACLs sont intégrées dans teamsData.collections / teamsData.vues
+        // ACLs non stockées individuellement — intégrées dans teamsData.teams[].groupAcls
         return Promise.resolve(null);
       },
       fetchSavedSearchDetail(id) {
-        const searches = D.get('savedSearches');
-        const s = (searches||[]).find(x=>x.id===id);
+        const s = G.savedSearches().find(x=>x.id===id);
         if (!s) return Promise.resolve(null);
-        // Exposer criteria depuis raw.criteria ou query pour que le Mirror Check puisse comparer
         return Promise.resolve({
           ...s,
           criteria: s.raw?.criteria || s.criteria || s.query || null,
         });
+      },
+      fetchOne(path) {
+        // Résolution locale depuis le snapshot — pas d'appel réseau en mode APS
+        if (path.includes('/API/assets/v1/collections/')) {
+          const id = path.split('/API/assets/v1/collections/')[1].replace('/','');
+          const col = G.collections().find(x=>x.id===id);
+          return Promise.resolve(col ? { title: col.nom||col.name||col.title||id } : null);
+        }
+        if (path.includes('/API/files/v1/storages/')) {
+          const id = path.split('/API/files/v1/storages/')[1].replace('/','');
+          const sto = G.storages().find(x=>x.id===id);
+          return Promise.resolve(sto ? { name: sto.nom||sto.name||id } : null);
+        }
+        return Promise.resolve(null);
       },
     };
   }
