@@ -307,6 +307,29 @@ Dans `sync-engine.js`, l'ordre d'exécution des scopes est dicté par `SCOPE_ORD
 **sessionStorage périmé**
 Après un patch de `ikon-data.js` ou `sync-engine.js`, le sessionStorage peut contenir d'anciennes données sans les nouveaux champs. Toujours faire `sessionStorage.clear()` + `Ctrl+Shift+R` + nouvelle sync pour tester proprement.
 
+**Ordre des routes Express — spécifique avant paramétré**
+`router.get('/:id')` capture TOUT ce qui ressemble à un segment, y compris des routes nommées comme `/credentials` ou `/counts`. Toujours déclarer les routes spécifiques **avant** les routes paramétrées dans chaque fichier de routes. Exemple :
+```js
+router.get('/credentials', ...)  // ← AVANT
+router.get('/:id', ...)          // ← APRÈS
+```
+Symptôme d'un mauvais ordre : la route spécifique retourne 404 ou la réponse de `/:id`.
+
+**Fetch async au démarrage — logique dans le `.then()`**
+Quand plusieurs fetches sont lancés dans `DOMContentLoaded`, les données produites par le premier fetch ne sont disponibles que dans son `.then()`. Toute logique dépendant de ces données doit être chaînée, pas placée dans le flux synchrone qui suit.
+```js
+// FAUX — appTokensData encore vide ici
+fetch('/api/environments/credentials').then(envs => { appTokensData = { appTokens: envs }; });
+utiliserAppTokensData(); // ← trop tôt
+
+// CORRECT
+fetch('/api/environments/credentials')
+  .then(envs => {
+    appTokensData = { appTokens: envs };
+    utiliserAppTokensData(); // ← dans le .then()
+  });
+```
+
 ---
 
 ## Architecture — Principes fondamentaux
