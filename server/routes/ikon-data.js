@@ -319,6 +319,7 @@ async function readMetadataViews(snapshotId) {
       id:          r.iconikId,
       nom:         r.name,
       is_system:   r.isSystem,
+      object_types: r.objectTypes || [],
       view_fields: viewFields,
       teams:       viewTeams[r.iconikId] || [],  // résolu depuis IkonTeam, pas hardcodé []
     };
@@ -497,7 +498,7 @@ async function readCategories(snapshotId) {
     const metadataViews = (r.viewIds || []).map(id => viewNameById[id]).filter(Boolean);
     return {
       id:             r.iconikId,
-      nom:            r.name,
+      nom:            raw.label || r.name,
       api_name:       r.apiName,
       is_system:      r.isSystem,
       object_types:   r.objectTypes,

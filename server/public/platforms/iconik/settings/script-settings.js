@@ -2403,8 +2403,24 @@ function detailMDView(nom) {
     `ajouterTeamAMDV('${escJs(nom)}')`
   );
 
+  // --- Objets cibles — depuis viewIdsByType des catégories ---
+  const OBJ_LABELS = { assets: 'Assets', collections: 'Collections', segments: 'Segments', custom_actions: 'Custom Actions' };
+  const OBJ_ICONS2 = { assets: '🎬', collections: '📁', segments: '✂️', custom_actions: '⚡' };
+  const objTypesForView = new Set();
+  (categoriesData.categories || []).forEach(c => {
+    Object.entries(c.viewIdsByType || {}).forEach(([objType, viewNames]) => {
+      if ((viewNames || []).includes(nom)) objTypesForView.add(objType);
+    });
+  });
+  const objHtml = objTypesForView.size
+    ? [...objTypesForView].map(o =>
+        `<span class="perm-tag">${OBJ_ICONS2[o] || ''} ${OBJ_LABELS[o] || o}</span>`
+      ).join('')
+    : '<div class="set-empty-list">Non défini</div>';
+
   // --- Construction (éviter les "line breaks" ambigus sur ? : +) ---
-  return sectionHtml('🏷️','Métadonnées','var(--accent)', metaRows + metaAdd)
+  return sectionHtml('🎯','Objets cibles','var(--text-mid)', `<div class="perm-checkbox-grid">${objHtml}</div>`)
+       + sectionHtml('🏷️','Métadonnées','var(--accent)', metaRows + metaAdd)
        + sectionHtml('🗂️','Catégorie','var(--accent2)', catRows + catAdd)
        + sectionHtml('👥','Teams ayant accès','var(--c-info)', teamRows + teamsAdd);
 }
@@ -3443,9 +3459,26 @@ function detailCategorie(nom) {
   const cat = categoriesData.categories.find(c => c.nom === nom);
   if (!cat) return '';
 
-  const mdvRows = sortAlpha(cat.metadataViews || []).map(v =>
-    assocRowHtml(v, null, `retirer('catMdv','${escHtml(nom)}','${escHtml(v)}')`)
-  ).join('') || '<div class="set-empty-list">Aucune MD View</div>';
+  // Index inverse viewName → [object_types] depuis viewIdsByType
+  const viewObjTypes = {};
+  Object.entries(cat.viewIdsByType || {}).forEach(([objType, viewNames]) => {
+    (viewNames || []).forEach(vName => {
+      if (!viewObjTypes[vName]) viewObjTypes[vName] = [];
+      if (!viewObjTypes[vName].includes(objType)) viewObjTypes[vName].push(objType);
+    });
+  });
+  const OBJ_ICONS = { assets: '🎬', collections: '📁', segments: '✂️', custom_actions: '⚡' };
+  const mdvRows = sortAlpha(cat.metadataViews || []).map(v => {
+    const objTypes = viewObjTypes[v] || [];
+    const badge = objTypes.map(o => OBJ_ICONS[o] || o).join(' ');
+    return `<div class="assoc-row">
+      <span class="assoc-name">${escHtml(v)}</span>
+      ${badge ? `<span style="font-size:0.8em;opacity:0.6;margin-left:6px;">${badge}</span>` : ''}
+      <span style="margin-left:auto;">
+        <button class="assoc-del" onclick="retirer('catMdv','${escHtml(nom)}','${escHtml(v)}')" title="Retirer">×</button>
+      </span>
+    </div>`;
+  }).join('') || '<div class="set-empty-list">Aucune MD View</div>';
 
   // ⚠️ metadataViewsData.metadataViews est une liste d'objets {id,name} (pas des strings)
   // On filtre sur le "name" affiché.
