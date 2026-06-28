@@ -55,11 +55,25 @@ router.get('/', async (req, res) => {
 
 // GET /api/environments/credentials — tous les envs actifs avec credentials déchiffrés
 // Utilisé par le frontend pour alimenter appTokensData (format Iconik legacy)
+// GET /api/environments/credentials — tous les envs avec credentials déchiffrés
+// Utilisé par le frontend WFD pour alimenter appTokensData
 router.get('/credentials', async (req, res) => {
   try {
-    const envs = await prisma.environment.findMany({
-      orderBy: { createdAt: 'asc' },
-    });
+    const envs = await prisma.environment.findMany({ orderBy: { createdAt: 'asc' } });
+    const result = envs
+      .filter(e => e.appId && e.tokenEnc)
+      .map(e => ({
+        name:        e.name,
+        environment: e.type,
+        iconikUrl:   e.baseUrl || 'https://app.iconik.io',
+        appId:       e.appId,
+        token:       decrypt(e.tokenEnc),
+        envId:       e.id,
+        isDefault:   e.isDefault,
+      }));
+    res.json(result);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 // GET /api/environments/:id
 router.get('/:id', async (req, res) => {
@@ -139,21 +153,6 @@ router.post('/:id/test', async (req, res) => {
       res.json({ ok: false, message: `Échec — HTTP ${r.status}`, status: r.status });
     }
   } catch(e) { res.status(500).json({ ok: false, message: e.message }); }
-});
-
-    const result = envs
-      .filter(e => e.appId && e.tokenEnc) // uniquement ceux qui ont des credentials
-      .map(e => ({
-        name:        e.name,
-        environment: e.type,
-        iconikUrl:   e.baseUrl || 'https://app.iconik.io',
-        appId:       e.appId,
-        token:       decrypt(e.tokenEnc),
-        envId:       e.id,
-        isDefault:   e.isDefault,
-      }));
-    res.json(result);
-  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 module.exports = router;

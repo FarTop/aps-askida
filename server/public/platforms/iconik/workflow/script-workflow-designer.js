@@ -377,14 +377,33 @@ let configDirty     = false;
 
 // ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Charger toutes les données partagées (appTokensData, collectionsData, etc.)
-  if (typeof chargerDonneesShared === 'function') chargerDonneesShared();
+  // P1 fix 2026-06-28 — envs Iconik depuis DB (Settings n'alimente plus localStorage)
+  fetch(_APS_BASE + '/api/environments/credentials')
+    .then(r => r.ok ? r.json() : [])
+    .then(envs => {
+      appTokensData = { appTokens: envs };
+      peuplerSelectEnvironnement();
+      // P3 — snapshot DB sur l'env par défaut dès que les envs sont connus
+      const defEnv = envs.find(e => e.isDefault) || envs[0];
+      if (defEnv) _wfdChargerSnapshotDB(defEnv.name);
+    })
+    .catch(() => {});
 
-  // Afficher le nom d'organisation
-  const orgName = localStorage.getItem('organisationName') || localStorage.getItem('nomOrganisation') || '';
-  const badge = document.getElementById('orgBadge');
-  if (badge) badge.textContent = orgName;
-  if (orgName) document.title = orgName + ' \u2014 Workflow Designer';
+  // Org name depuis API
+  fetch(_APS_BASE + '/api/organisation')
+    .then(r => r.ok ? r.json() : null)
+    .then(org => {
+      if (!org) return;
+      const badge = document.getElementById('orgBadge');
+      if (badge) badge.textContent = org.name;
+      document.title = org.name + ' \u2014 Workflow Designer';
+    })
+    .catch(() => {
+      const orgName = localStorage.getItem('organisationName') || localStorage.getItem('nomOrganisation') || '';
+      const badge = document.getElementById('orgBadge');
+      if (badge && orgName) badge.textContent = orgName;
+      if (orgName) document.title = orgName + ' \u2014 Workflow Designer';
+    });
 
   chargerIconikData();
   // chargerEtat est async (charge depuis le serveur) — peuplerPalette/Flux sont appelés en interne
@@ -1403,6 +1422,36 @@ function chargerIconikData() {
     savedSearches   : gl('savedSearches',  'savedSearchesData', 'savedSearches'),
     exportLocations : gl('exportLocations', 'exportLocationsData', 'exportLocations'),
   };
+
+  // P3 fix 2026-06-28 — si pas de live data, charger snapshot DB en async
+  if (!live) _wfdChargerSnapshotDB(envName);
+}
+
+// P3 fix 2026-06-28 — charger wfdData depuis snapshot DB si pas de live data
+function _wfdChargerSnapshotDB(envName) {
+  const envs = (typeof appTokensData !== 'undefined' && appTokensData.appTokens) ? appTokensData.appTokens : [];
+  const env  = envs.find(e => e.name === envName) || envs.find(e => e.isDefault) || envs[0];
+  if (!env) return;
+  const slug = env.environment || env.type || 'qa';
+  fetch(_APS_BASE + '/api/ikon/snapshot/' + slug)
+    .then(r => r.ok ? r.json() : null)
+    .then(snap => {
+      if (!snap) return;
+      if (snap.teams           && snap.teams.length)           wfdData.teams           = snap.teams;
+      if (snap.collections     && snap.collections.length)     wfdData.collections     = snap.collections;
+      if (snap.metadataViews   && snap.metadataViews.length)   wfdData.mdViews         = snap.metadataViews;
+      if (snap.metadonnees     && snap.metadonnees.length)     wfdData.metadata        = snap.metadonnees;
+      if (snap.savedSearches   && snap.savedSearches.length)   wfdData.savedSearches   = snap.savedSearches;
+      if (snap.exportLocations && snap.exportLocations.length) wfdData.exportLocations = snap.exportLocations;
+      if (snap.automations     && snap.automations.length)     wfdData.automations     = snap.automations;
+      if (snap.customActions   && snap.customActions.length)   wfdData.customActions   = snap.customActions.map(a => ({
+        ...a, title: a.title || a.nom || a.name || a.id, nom: a.nom || a.title || a.name || a.id,
+      }));
+      if (snap.storages        && snap.storages.length)        wfdData.storages        = snap.storages;
+      console.log('[WFD] wfdData peuplé depuis snapshot DB (' + slug + ')');
+      if (typeof renderCanvas === 'function') renderCanvas();
+    })
+    .catch(e => console.warn('[WFD] snapshot DB indisponible:', e.message));
 }
 
 // ── Actualisation globale depuis l'API Iconik ─────────────────────────────────

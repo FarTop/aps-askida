@@ -1,0 +1,216 @@
+
+<h2 class="sr-only">Graphe d'architecture APS — relations entre pages, couches de données et entités</h2>
+<div id="controls" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:0.75rem 0 0.5rem;font-size:13px;color:var(--text-secondary)">
+  <span style="font-weight:500;color:var(--text-primary)">APS Architecture</span>
+  <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="cb-pages" checked onchange="filterLayer('pages',this.checked)"><span style="color:#5DCAA5">● Pages</span></label>
+  <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="cb-storage" checked onchange="filterLayer('storage',this.checked)"><span style="color:#7F77DD">● Stockage</span></label>
+  <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="cb-api" checked onchange="filterLayer('api',this.checked)"><span style="color:#EF9F27">● API / Routes</span></label>
+  <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="cb-iconik" checked onchange="filterLayer('iconik',this.checked)"><span style="color:#D85A30">● Entités Iconik</span></label>
+  <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="cb-platform" checked onchange="filterLayer('platform',this.checked)"><span style="color:#378ADD">● Couche Plateforme</span></label>
+  <button onclick="resetSim()" style="margin-left:auto;padding:4px 10px;font-size:12px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:transparent;color:var(--text-secondary);cursor:pointer">↺ Reset</button>
+</div>
+<div id="graph" style="width:100%;height:560px;position:relative;border:0.5px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface-1)"></div>
+<div id="tooltip" style="position:fixed;display:none;background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text-primary);pointer-events:none;max-width:220px;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.12)"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+const COLORS={pages:'#5DCAA5',storage:'#7F77DD',api:'#EF9F27',iconik:'#D85A30',platform:'#378ADD'};
+const LAYER_ALPHA={pages:0.95,storage:0.9,api:0.85,iconik:0.8,platform:0.85};
+
+const nodes=[
+  // Pages
+  {id:'settings',label:'Settings',layer:'pages',r:30,desc:'Source de vérité config. Charge snapshot DB via chargerDonnees(). Env-aware.'},
+  {id:'automations',label:'Automations',layer:'pages',r:22,desc:'Extension Settings. Lit localStorage (périmé). Pas de switch env.'},
+  {id:'dashboard',label:'Dashboard',layer:'pages',r:20,desc:'Lit localStorage via chargerDonneesShared(). Pas de switch env.'},
+  {id:'viewer',label:'Viewer',layer:'pages',r:20,desc:'Lit ET écrit collectionsData localStorage. 3 modes: Image, Config, Designer.'},
+  {id:'workflow',label:'WFD',layer:'pages',r:28,desc:'Workflow Designer. Données plateforme via API REST. Données Iconik via proxy live.'},
+  {id:'monitoring',label:'Monitoring',layer:'pages',r:16,desc:'Temps réel. Appels Iconik directs via proxy.'},
+  // Stockage
+  {id:'postgres',label:'PostgreSQL',layer:'storage',r:32,desc:'Source de vérité principale. Snapshots Iconik versionnés par env. Entités plateforme (Flows, Connexions...).'},
+  {id:'localstorage',label:'localStorage',layer:'storage',r:22,desc:'Dette technique Electron. Plus alimenté par Settings depuis 2026-06-27. Automations, Dashboard, Viewer lisent ici.'},
+  {id:'wfdbus',label:'WFD Bus',layer:'storage',r:14,desc:'BroadcastChannel + localStorage fallback. Communication inter-pages. Pas utilisé pour ENV_SWITCHED (à corriger).'},
+  // API / Routes
+  {id:'snapshot-api',label:'/api/ikon/snapshot',layer:'api',r:26,desc:'GET :envSlug → snapshot complet. Seul Settings l\'utilise aujourd\'hui. À étendre à Automations+Dashboard.'},
+  {id:'env-api',label:'/api/environments',layer:'api',r:18,desc:'CRUD environnements Iconik (credentials chiffrés AES). Utilisé par Settings au démarrage.'},
+  {id:'connexions-api',label:'/api/connexions',layer:'api',r:16,desc:'CRUD connexions externes (VodFactory, S3, etc.) par env. Bien utilisé par WFD.'},
+  {id:'flows-api',label:'/api/flows',layer:'api',r:16,desc:'CRUD flows WFD par env. Bien utilisé par WFD.'},
+  {id:'wfd-data-api',label:'/api/wfd/*',layer:'api',r:16,desc:'Mappings, PalNodes, Nommages, Scripts, Contacts. Par org. Bien utilisé par WFD.'},
+  {id:'proxy',label:'Iconik Proxy',layer:'api',r:20,desc:'Proxy APS → Iconik live. Utilisé par WFD pour refresh. Cache ACL TTL.'},
+  {id:'sync-engine',label:'sync-engine',layer:'api',r:18,desc:'Moteur sync DS. Fetch Iconik → persistance DB. SCOPE_ORDER. Tournant sur Mac Mini.'},
+  // Entités Iconik (snapshot)
+  {id:'teams',label:'Teams',layer:'iconik',r:20,desc:'collectionIds, viewIds, storageIds, savedSearchIds, customActionIds, settings, aclFlags. groupAcls manquant (Phase D).'},
+  {id:'collections',label:'Collections',layer:'iconik',r:18,desc:'Arborescence complète avec _path calculé. 1545 en PROD.'},
+  {id:'metadataviews',label:'MD Views',layer:'iconik',r:18,desc:'view_fields[] et teams[] résolus. object_types ABSENT de IkonMetadataView → source: categoriesData.viewIdsByType.'},
+  {id:'categories',label:'Catégories',layer:'iconik',r:16,desc:'viewIdsByType = seule source fiable des object_types par vue. defaultViewsByType toujours vide (bug).'},
+  {id:'metadata',label:'Metadata',layer:'iconik',r:16,desc:'130+ champs. options[], valeurs[]. metadataViews[] peuplé en post-traitement chargerDonnees.'},
+  {id:'automations-entity',label:'Automations',layer:'iconik',r:14,desc:'48 automations QA. actions[], conditions, triggers. Mapping WFD via WFD_Mappers.'},
+  {id:'users',label:'Users',layer:'iconik',r:14,desc:'teams[] résolu en post-traitement. role_groups toujours [].'},
+  {id:'rolegroups',label:'Role Groups',layer:'iconik',r:14,desc:'roles[], role_categories{}. fonctionnalites calculées via ROLE_CAT_LABELS (Phase D).'},
+  // Couche Plateforme
+  {id:'organisation',label:'Organisation',layer:'platform',r:18,desc:'Racine multi-tenant. PalNodes, Mappings, Nommages, Scripts, ContactLists rattachés ici.'},
+  {id:'environment',label:'Environment',layer:'platform',r:22,desc:'Pivot entre couche Plateforme et couche Iconik. credentials chiffrés. Flows + Connexions + IkonSnapshot.'},
+  {id:'connexion',label:'Connexions',layer:'platform',r:16,desc:'VodFactory, S3, Amazon Prime, HTTP. direction: inbound|outbound. credentials chiffrés AES.'},
+  {id:'flow',label:'Flows',layer:'platform',r:16,desc:'nodes[], connections[]. Par env. Runs tracés. iconikEnv stocké par nom (fragile — à migrer vers envId).'},
+  {id:'palnodes',label:'PalNodes',layer:'platform',r:12,desc:'Nœuds WFD personnalisés par org. family, config.'},
+  {id:'mappings',label:'Mappings',layer:'platform',r:12,desc:'Règles de transformation. Par org. Bien persistées en DB.'},
+  {id:'nodedef',label:'NodeDefinitions',layer:'platform',r:12,desc:'Catalogue nœuds WFD. NON consommé — hardcodé en JS. À migrer vers /api/node-definitions.'},
+];
+
+const links=[
+  // Settings consomme
+  {source:'settings',target:'snapshot-api',type:'reads',label:'charge tout'},
+  {source:'settings',target:'env-api',type:'reads',label:'appTokensData'},
+  {source:'settings',target:'localstorage',type:'writes',label:'aps:context seulement'},
+  {source:'settings',target:'wfdbus',type:'emits',label:'sync_done'},
+  // Automations
+  {source:'automations',target:'localstorage',type:'reads',label:'tout (périmé)'},
+  {source:'automations',target:'localstorage',type:'writes',label:'automationsData'},
+  {source:'automations',target:'wfdbus',type:'listens',label:'sync_done'},
+  // Dashboard
+  {source:'dashboard',target:'localstorage',type:'reads',label:'chargerDonneesShared'},
+  // Viewer
+  {source:'viewer',target:'localstorage',type:'reads',label:'collectionsData'},
+  {source:'viewer',target:'localstorage',type:'writes',label:'collectionsData (dsn_doImport)'},
+  // WFD
+  {source:'workflow',target:'flows-api',type:'reads',label:'chargerEtat'},
+  {source:'workflow',target:'connexions-api',type:'reads',label:'wfdConnexions'},
+  {source:'workflow',target:'wfd-data-api',type:'reads',label:'mappings etc.'},
+  {source:'workflow',target:'proxy',type:'reads',label:'Iconik live'},
+  {source:'workflow',target:'localstorage',type:'reads',label:'wfdLiveData cache'},
+  {source:'workflow',target:'env-api',type:'missing',label:'⚠ pas encore'},
+  // DB → API
+  {source:'postgres',target:'snapshot-api',type:'source'},
+  {source:'postgres',target:'sync-engine',type:'target'},
+  {source:'postgres',target:'env-api',type:'source'},
+  {source:'postgres',target:'connexions-api',type:'source'},
+  {source:'postgres',target:'flows-api',type:'source'},
+  {source:'postgres',target:'wfd-data-api',type:'source'},
+  // Sync engine
+  {source:'sync-engine',target:'teams',type:'writes'},
+  {source:'sync-engine',target:'collections',type:'writes'},
+  {source:'sync-engine',target:'metadataviews',type:'writes'},
+  {source:'sync-engine',target:'categories',type:'writes'},
+  {source:'sync-engine',target:'metadata',type:'writes'},
+  {source:'sync-engine',target:'automations-entity',type:'writes'},
+  {source:'sync-engine',target:'users',type:'writes'},
+  {source:'sync-engine',target:'rolegroups',type:'writes'},
+  // Snapshot API → Iconik entities
+  {source:'snapshot-api',target:'teams',type:'reads'},
+  {source:'snapshot-api',target:'collections',type:'reads'},
+  {source:'snapshot-api',target:'metadataviews',type:'reads'},
+  {source:'snapshot-api',target:'categories',type:'reads'},
+  {source:'snapshot-api',target:'metadata',type:'reads'},
+  // Plateforme
+  {source:'organisation',target:'environment',type:'parent'},
+  {source:'environment',target:'connexion',type:'parent'},
+  {source:'environment',target:'flow',type:'parent'},
+  {source:'organisation',target:'palnodes',type:'parent'},
+  {source:'organisation',target:'mappings',type:'parent'},
+  {source:'organisation',target:'nodedef',type:'parent'},
+  {source:'environment',target:'postgres',type:'stored'},
+  // Mirror check & cross
+  {source:'teams',target:'metadataviews',type:'cross',label:'viewIds ACLs'},
+  {source:'categories',target:'metadataviews',type:'cross',label:'viewIdsByType'},
+  {source:'teams',target:'collections',type:'cross',label:'collectionIds ACLs'},
+  {source:'monitoring',target:'proxy',type:'reads'},
+];
+
+let activeFilters=new Set(['pages','storage','api','iconik','platform']);
+let simulation, svg, linkSel, nodeSel, labelSel, allNodes, allLinks;
+
+function buildGraph(){
+  d3.select('#graph').selectAll('*').remove();
+  const container=document.getElementById('graph');
+  const W=container.clientWidth, H=container.clientHeight;
+
+  svg=d3.select('#graph').append('svg').attr('width',W).attr('height',H);
+
+  svg.append('defs').append('marker')
+    .attr('id','arr').attr('viewBox','0 0 10 10').attr('refX',8).attr('refY',5)
+    .attr('markerWidth',5).attr('markerHeight',5).attr('orient','auto-start-reverse')
+    .append('path').attr('d','M2 1L8 5L2 9').attr('fill','none')
+    .attr('stroke','#888').attr('stroke-width',1.5).attr('stroke-linecap','round');
+
+  const filteredNodes=nodes.filter(n=>activeFilters.has(n.layer));
+  const filteredNodeIds=new Set(filteredNodes.map(n=>n.id));
+  const filteredLinks=links.filter(l=>filteredNodeIds.has(l.source.id||l.source)&&filteredNodeIds.has(l.target.id||l.target));
+
+  allNodes=filteredNodes.map(d=>({...d,x:W/2+(Math.random()-.5)*200,y:H/2+(Math.random()-.5)*200}));
+  allLinks=filteredLinks.map(d=>({...d}));
+  const nodeMap=new Map(allNodes.map(n=>[n.id,n]));
+  allLinks.forEach(l=>{l.source=nodeMap.get(l.source.id||l.source)||l.source;l.target=nodeMap.get(l.target.id||l.target)||l.target;});
+
+  linkSel=svg.append('g').selectAll('line').data(allLinks).join('line')
+    .attr('stroke',d=>d.type==='missing'?'#E24B4A':d.type==='writes'?'#7F77DD':d.type==='reads'?'#5DCAA5':d.type==='cross'?'#EF9F27':'#888')
+    .attr('stroke-width',d=>d.type==='missing'?1.5:d.type==='parent'?0.5:1)
+    .attr('stroke-dasharray',d=>d.type==='missing'?'4 3':d.type==='cross'?'3 2':null)
+    .attr('stroke-opacity',d=>d.type==='parent'?0.3:0.5)
+    .attr('marker-end','url(#arr)');
+
+  const drag=d3.drag()
+    .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
+    .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y;})
+    .on('end',(e,d)=>{if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null;});
+
+  nodeSel=svg.append('g').selectAll('g').data(allNodes).join('g')
+    .call(drag)
+    .style('cursor','pointer')
+    .on('mouseover',(e,d)=>{
+      const tt=document.getElementById('tooltip');
+      tt.innerHTML=`<strong style="font-size:13px">${d.label}</strong><br><span style="color:var(--text-secondary);font-size:11px;text-transform:uppercase;letter-spacing:.05em">${d.layer}</span><br><span style="font-size:12px;margin-top:4px;display:block">${d.desc}</span>`;
+      tt.style.display='block';tt.style.left=(e.clientX+12)+'px';tt.style.top=(e.clientY-8)+'px';
+      linkSel.attr('stroke-opacity',l=>(l.source===d||l.target===d)?0.9:0.08);
+      nodeSel.attr('opacity',n=>{const linked=allLinks.some(l=>(l.source===d&&l.target===n)||(l.target===d&&l.source===n));return n===d||linked?1:0.25;});
+    })
+    .on('mousemove',(e)=>{const tt=document.getElementById('tooltip');tt.style.left=(e.clientX+12)+'px';tt.style.top=(e.clientY-8)+'px';})
+    .on('mouseout',()=>{
+      document.getElementById('tooltip').style.display='none';
+      linkSel.attr('stroke-opacity',d=>d.type==='parent'?0.3:0.5);
+      nodeSel.attr('opacity',1);
+    });
+
+  nodeSel.append('circle')
+    .attr('r',d=>d.r)
+    .attr('fill',d=>COLORS[d.layer])
+    .attr('fill-opacity',d=>LAYER_ALPHA[d.layer]*0.18)
+    .attr('stroke',d=>COLORS[d.layer])
+    .attr('stroke-width',d=>d.layer==='pages'?2:1)
+    .attr('stroke-opacity',0.7);
+
+  labelSel=nodeSel.append('text')
+    .text(d=>d.label)
+    .attr('text-anchor','middle')
+    .attr('dominant-baseline','central')
+    .attr('font-size',d=>d.r>20?12:10)
+    .attr('font-weight','500')
+    .attr('fill',d=>COLORS[d.layer])
+    .attr('pointer-events','none');
+
+  simulation=d3.forceSimulation(allNodes)
+    .force('link',d3.forceLink(allLinks).id(d=>d.id).distance(d=>d.type==='parent'?60:d.type==='cross'?100:80).strength(0.4))
+    .force('charge',d3.forceManyBody().strength(d=>-d.r*18))
+    .force('center',d3.forceCenter(W/2,H/2))
+    .force('collision',d3.forceCollide(d=>d.r+8))
+    .on('tick',()=>{
+      linkSel.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+             .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+      nodeSel.attr('transform',d=>`translate(${Math.max(d.r,Math.min(W-d.r,d.x))},${Math.max(d.r,Math.min(H-d.r,d.y))})`);
+    });
+}
+
+function filterLayer(layer,on){
+  if(on)activeFilters.add(layer);else activeFilters.delete(layer);
+  buildGraph();
+}
+function resetSim(){if(simulation)simulation.alpha(1).restart();}
+
+document.addEventListener('DOMContentLoaded',buildGraph);
+if(document.readyState!=='loading')buildGraph();
+</script>
+<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--text-secondary);margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border)">
+  <span>— lien actif</span>
+  <span style="color:#5DCAA5">— lit depuis</span>
+  <span style="color:#7F77DD">— écrit dans</span>
+  <span style="color:#EF9F27">- - croisement entités</span>
+  <span style="color:#E24B4A">- - ⚠ manquant</span>
+  <span style="color:#888">— parent/enfant</span>
+</div>
