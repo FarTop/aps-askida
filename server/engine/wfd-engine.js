@@ -16,7 +16,7 @@ function createEngine(options = {}) {
   const nodeHandlers  = options.nodeHandlers || {};
   let   iconikClient  = options.iconikClient || null;
   const onEvent       = options.onEvent      || (() => {});
-  const port          = options.port !== undefined ? options.port : 2880;
+  const port          = options.port !== undefined ? options.port : 0;
 
   // Registre des flux actifs
   let _fluxes = [];

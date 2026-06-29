@@ -17,7 +17,7 @@ const path = require('path');
 // ── Classe principale du serveur de triggers ────────────────────
 class WfdTriggerServer {
   constructor(options = {}) {
-    this.port      = options.port || 2880;
+    this.port      = options.port ?? 2880;
     this.executor  = options.executor;   // WfdExecutor
     this.getFluxes = options.getFluxes;  // fn() → [flux]
     this.iconikClient = options.iconikClient;

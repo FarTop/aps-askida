@@ -20,6 +20,7 @@ router.get('/', async (req, res) => {
     res.json(flows.map(f => ({
       id: f.id, name: f.name, description: f.description,
       nodes: f.nodes, connections: f.connections, isActive: f.isActive,
+      iconikEnv: f.iconikEnv || null,
       createdAt: f.createdAt, updatedAt: f.updatedAt,
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -46,8 +47,8 @@ router.post('/', async (req, res) => {
         items.map(f =>
           prisma.flow.upsert({
             where:  { id: f.id },
-            update: { name: f.name, description: f.description, nodes: f.nodes || [], connections: f.connections || [], isActive: f.isActive !== false },
-            create: { id: f.id, envId, name: f.name, description: f.description, nodes: f.nodes || [], connections: f.connections || [], isActive: f.isActive !== false },
+            update: { name: f.name, description: f.description, nodes: f.nodes || [], connections: f.connections || [], isActive: f.isActive !== false, iconikEnv: f.iconikEnv || null },
+            create: { id: f.id, envId, name: f.name, description: f.description, nodes: f.nodes || [], connections: f.connections || [], isActive: f.isActive !== false, iconikEnv: f.iconikEnv || null },
           })
         )
       );
@@ -68,10 +69,10 @@ router.post('/', async (req, res) => {
 // PUT /api/flows/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { name, description, nodes, connections, isActive } = req.body;
+    const { name, description, nodes, connections, isActive, iconikEnv } = req.body;
     const flow = await prisma.flow.update({
       where: { id: req.params.id },
-      data:  { name, description, nodes, connections, isActive },
+      data:  { name, description, nodes, connections, isActive, iconikEnv: iconikEnv || null },
     });
     res.json(flow);
   } catch(e) { res.status(500).json({ error: e.message }); }
