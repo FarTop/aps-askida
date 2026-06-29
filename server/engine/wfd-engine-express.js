@@ -152,7 +152,21 @@ async function loadActiveFluxes() {
 
   try {
     const flows      = await prisma.flow.findMany({ where: { isActive: true }, include: { environment: true } });
-    const connexions = await prisma.connexion.findMany();
+    // Charger les connexions directement depuis Prisma + déchiffrement via module partagé
+    const { decrypt } = require(path.join(__dirname, '../lib/crypto.js'));
+    const connexionsRaw = await prisma.connexion.findMany();
+    const connexionsFmt = connexionsRaw.map(c => ({
+      id         : c.id,
+      name       : c.name,
+      type       : c.type,
+      direction  : c.direction,
+      endpoint   : c.baseUrl,
+      authType   : c.authType,
+      authValue  : decrypt(c.authValueEnc),
+      mappings   : c.extraConfig?.mappings   || [],
+      description: c.extraConfig?.description || '',
+      isActive   : c.isActive,
+    }));
 
     if (!_engine) return;
 
@@ -165,32 +179,6 @@ async function loadActiveFluxes() {
       iconikEnv  : f.environment?.name || null,
     })));
 
-    // Déchiffrer authValue pour chaque connexion (même algo que connexions.js)
-    const crypto = require('crypto');
-    const SECRET = process.env.APS_SECRET || '';
-    const decrypt = (enc) => {
-      if (!enc || !SECRET) return '';
-      try {
-        const [ivHex, encHex] = enc.split(':');
-        const iv  = Buffer.from(ivHex, 'hex');
-        const key = crypto.scryptSync(SECRET, 'aps-salt', 32);
-        const dec = crypto.createDecipheriv('aes-256-cbc', key, iv);
-        return Buffer.concat([dec.update(Buffer.from(encHex, 'hex')), dec.final()]).toString();
-      } catch(_) { return ''; }
-    };
-    const connexionsFmt = connexions.map(c => ({
-      id        : c.id,
-      name      : c.name,
-      type      : c.type,
-      direction : c.direction,
-      endpoint  : c.baseUrl,
-      authType  : c.authType,
-      authValue : decrypt(c.authValueEnc),
-      mappings  : c.extraConfig?.mappings  || [],
-      description: c.extraConfig?.description || '',
-      isActive  : c.isActive,
-    }));
-
     if (_engine._trigger?.loadConnexions) {
       _engine._trigger.loadConnexions(connexionsFmt);
     }
@@ -199,7 +187,7 @@ async function loadActiveFluxes() {
     if (_runHistory) _runHistory.service.setFluxes(flows);
 
     flows.forEach(f => _engine.activateFlux(f.id));
-    console.log(`[WFD Engine] ${flows.length} flux actifs, ${connexions.length} connexions`);
+    console.log(`[WFD Engine] ${flows.length} flux actifs, ${connexionsFmt.length} connexions`);
   } catch(e) {
     console.warn('[WFD Engine] Chargement flux échoué :', e.message);
   } finally {
@@ -210,8 +198,8 @@ async function loadActiveFluxes() {
 // ── Démarrage complet ────────────────────────────────────────────
 async function start() {
   initEngine();
-  // Attendre que le serveur Express soit prêt avant d'appeler /api/environments/credentials
-  await new Promise(r => setTimeout(r, 1000));
+  // Attendre que le serveur Express soit complètement prêt
+  await new Promise(r => setTimeout(r, 2000));
   await loadIconikClients();
   await loadActiveFluxes();
 }
