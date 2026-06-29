@@ -3076,11 +3076,11 @@ function buildCfgFields(pfx, family, cfg) {
       Opération
     </button>
     <button onclick="awsTabSwitch('${pfx}','s3post')" id="${pfx}-aws-tab-s3post"
-      style="padding:6px 14px;background:${_awsTab==='s3post'?'#0F4761':'none'};border:none;color:${_awsTab==='s3post'?'#fff':'#555'};cursor:pointer;font-size:11px;border-radius:4px 4px 0 0;">
+      style="padding:6px 14px;background:${_awsTab==='s3post'?'#0F4761':'none'};border:none;color:${_awsTab==='s3post'?'#fff':'#555'};cursor:pointer;font-size:11px;border-radius:4px 4px 0 0;${_awsOp==='artwork_s3'?'display:none':''}">
       Post-action
     </button>
     <button onclick="awsTabSwitch('${pfx}','artworks')" id="${pfx}-aws-tab-artworks"
-      style="padding:6px 14px;background:${_awsTab==='artworks'?'#0F4761':'none'};border:none;color:${_awsTab==='artworks'?'#fff':'#555'};cursor:pointer;font-size:11px;border-radius:4px 4px 0 0;">
+      style="padding:6px 14px;background:${_awsTab==='artworks'?'#0F4761':'none'};border:none;color:${_awsTab==='artworks'?'#fff':'#555'};cursor:pointer;font-size:11px;border-radius:4px 4px 0 0;${_awsOp!=='artwork_s3'?'display:none':''}">
       Artworks
     </button>
   </div>
@@ -3096,29 +3096,31 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
     <div class="cfg-field">
       <label class="cfg-label">Opération</label>
-      <select id="${pfx}-aws-op" class="cfg-select">
+      <select id="${pfx}-aws-op" class="cfg-select" onchange="awsOpChange('${pfx}',this.value)">
         ${Object.entries(_awsOps).map(([k,v]) => `<option value="${k}" ${_awsOp===k?'selected':''}>${v}</option>`).join('')}
       </select>
     </div>
-    <div class="cfg-field">
-      <label class="cfg-label">Chemin de l'objet</label>
-      <input id="${pfx}-aws-key" class="cfg-input" list="${pfx}-wfd-var-list"
-        value="${escHtml(cfg.objectKey||'')}" placeholder="AmazonPrime/{Titre}/"
-        style="font-family:var(--font-mono);"
-        title="Chemin relatif dans le bucket — sans le nom du bucket">
-      <div style="font-size:10px;color:#555;margin-top:3px;">Chemin relatif dans le bucket. Supporte les variables <code>{...}</code></div>
-    </div>
-    <div class="cfg-field">
-      <label class="cfg-label">Stocker le résultat dans</label>
-      <input id="${pfx}-aws-result" class="cfg-input"
-        value="${escHtml(cfg.resultVar||'awsResult')}" placeholder="awsResult" style="font-family:var(--font-mono);">
-    </div>
-    <div style="background:#080808;border:1px solid #1a1a1a;border-radius:4px;padding:8px 10px;margin-top:4px;">
-      <div style="font-size:9px;color:#444;margin-bottom:6px;text-transform:uppercase;">Ports de sortie</div>
-      <div style="font-size:11px;display:flex;flex-direction:column;gap:4px;">
-        <span>🟠 <b>Succès</b> — opération réussie (2xx)</span>
-        <span>🟡 <b>Non trouvé</b> — objet absent (404)</span>
-        <span>🔴 <b>Erreur</b> — erreur AWS ou réseau</span>
+    <div id="${pfx}-aws-std-fields" style="${_awsOp==='artwork_s3'?'display:none':''}">
+      <div class="cfg-field">
+        <label class="cfg-label">Chemin de l'objet</label>
+        <input id="${pfx}-aws-key" class="cfg-input" list="${pfx}-wfd-var-list"
+          value="${escHtml(cfg.objectKey||'')}" placeholder="AmazonPrime/{Titre}/"
+          style="font-family:var(--font-mono);"
+          title="Chemin relatif dans le bucket — sans le nom du bucket">
+        <div style="font-size:10px;color:#555;margin-top:3px;">Chemin relatif dans le bucket. Supporte les variables <code>{...}</code></div>
+      </div>
+      <div class="cfg-field">
+        <label class="cfg-label">Stocker le résultat dans</label>
+        <input id="${pfx}-aws-result" class="cfg-input"
+          value="${escHtml(cfg.resultVar||'awsResult')}" placeholder="awsResult" style="font-family:var(--font-mono);">
+      </div>
+      <div style="background:#080808;border:1px solid #1a1a1a;border-radius:4px;padding:8px 10px;margin-top:4px;">
+        <div style="font-size:9px;color:#444;margin-bottom:6px;text-transform:uppercase;">Ports de sortie</div>
+        <div style="font-size:11px;display:flex;flex-direction:column;gap:4px;">
+          <span>🟠 <b>Succès</b> — opération réussie (2xx)</span>
+          <span>🟡 <b>Non trouvé</b> — objet absent (404)</span>
+          <span>🔴 <b>Erreur</b> — erreur AWS ou réseau</span>
+        </div>
       </div>
     </div>
   </div>
@@ -9189,6 +9191,20 @@ function wfS3ReadMappings(pfx) {
   }).filter(function(r) { return r.variable; });
 }
 
+
+function awsOpChange(pfx, op) {
+  const isArtwork = op === 'artwork_s3';
+  const stdFields = document.getElementById(pfx + '-aws-std-fields');
+  if (stdFields) stdFields.style.display = isArtwork ? 'none' : '';
+  const tabPost = document.getElementById(pfx + '-aws-tab-s3post');
+  if (tabPost) tabPost.style.display = isArtwork ? 'none' : '';
+  const panelPost = document.getElementById(pfx + '-aws-panel-s3post');
+  if (panelPost && isArtwork) panelPost.style.display = 'none';
+  const tabArt = document.getElementById(pfx + '-aws-tab-artworks');
+  if (tabArt) tabArt.style.display = isArtwork ? '' : 'none';
+  if (isArtwork) awsTabSwitch(pfx, 'artworks');
+  else awsTabSwitch(pfx, 'operation');
+}
 function awsTabSwitch(pfx, tab) {
   document.getElementById(pfx + '-aws-panel-operation').style.display = tab === 'operation' ? '' : 'none';
   document.getElementById(pfx + '-aws-panel-s3post').style.display    = tab === 's3post'    ? '' : 'none';
@@ -9196,6 +9212,9 @@ function awsTabSwitch(pfx, tab) {
   document.getElementById(pfx + '-aws-tab-s3post').style.background    = tab === 's3post'    ? '#0F4761' : 'none';
   document.getElementById(pfx + '-aws-tab-operation').style.color = tab === 'operation' ? '#fff' : '#555';
   document.getElementById(pfx + '-aws-tab-s3post').style.color    = tab === 's3post'    ? '#fff' : '#555';
+  document.getElementById(pfx + '-aws-panel-artworks').style.display  = tab === 'artworks'  ? '' : 'none';
+  document.getElementById(pfx + '-aws-tab-artworks').style.background  = tab === 'artworks'  ? '#0F4761' : 'none';
+  document.getElementById(pfx + '-aws-tab-artworks').style.color       = tab === 'artworks'  ? '#fff' : '#555';
 }
 
 // ── S3 Post Action — gestion des lignes de mapping ────────────────────────────
