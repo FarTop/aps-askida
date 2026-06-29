@@ -200,9 +200,12 @@ function stop() {
 
 // ── SSE — événements temps réel vers l'UI ────────────────────────
 router.get('/events', (req, res) => {
+  // Désactiver la compression gzip — incompatible avec SSE (bufferisation)
+  req.headers['accept-encoding'] = 'identity';
   res.setHeader('Content-Type',  'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection',    'keep-alive');
+  res.setHeader('Content-Encoding', 'identity');
   res.flushHeaders();
 
   const ping = setInterval(() => {
@@ -268,8 +271,10 @@ router.post('/action/:slug', (req, res) => {
     };
 
     if (isCustomAction) {
-      _dispatchCustomAction(payload, flux, runFlux, WfdTrigger);
+      Promise.resolve(_dispatchCustomAction(payload, flux, runFlux, WfdTrigger))
+        .catch(err => console.error(`[WFD] _dispatchCustomAction erreur "${flux.name}" :`, err.message));
     } else {
+      console.log(`[WFD] runFlux direct — flux "${flux.name}"`);
       runFlux(WfdTrigger.normalizeIconikPayload(payload));
     }
   }
