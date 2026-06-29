@@ -184,6 +184,15 @@ async function loadActiveFluxes() {
     }
     WfdHandlers._connexions = connexionsFmt.filter(c => c.direction === 'outbound');
 
+    // Charger les nommages depuis la DB
+    const nommages = await prisma.nommage.findMany();
+    WfdHandlers._nommages = nommages.map(n => ({
+      id         : n.id,
+      name       : n.name,
+      description: n.description || '',
+      steps      : n.rules || [],
+    }));
+
     if (_runHistory) _runHistory.service.setFluxes(flows);
 
     flows.forEach(f => _engine.activateFlux(f.id));
@@ -201,7 +210,49 @@ async function start() {
   // Attendre que le serveur Express soit complètement prêt
   await new Promise(r => setTimeout(r, 2000));
   await loadIconikClients();
+  await _initNommageTemplates();
   await loadActiveFluxes();
+}
+
+// ── Créer les templates de nommage prédéfinis s'ils n'existent pas ───────────
+async function _initNommageTemplates() {
+  const { PrismaClient } = require('@prisma/client');
+  const { PrismaPg }     = require('@prisma/adapter-pg');
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const prisma  = new PrismaClient({ adapter });
+  try {
+    const existing = await prisma.nommage.findFirst({ where: { name: 'Amazon Prime' } });
+    if (!existing) {
+      const orgId = await _getDefaultOrgId(prisma);
+      if (!orgId) return;
+      await prisma.nommage.create({
+        data: {
+          id    : 'nom-amazon-prime',
+          name  : 'Amazon Prime',
+          orgId,
+          rules      : [
+            { type: 'template', value: '{Titre}_{artwork}.{ext}' },
+            { type: 'replace',  value: ' → _' },
+            { type: 'replace',  value: '. → _' },
+            { type: 'remove',   value: '[^a-zA-Z0-9_.]' },
+            { type: 'replace',  value: '__+ → _' },
+          ],
+        },
+      });
+      console.log('[WFD Engine] Template nommage "Amazon Prime" créé');
+    }
+  } catch(e) {
+    console.warn('[WFD Engine] Init templates nommage :', e.message);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+async function _getDefaultOrgId(prisma) {
+  try {
+    const org = await prisma.organisation.findFirst();
+    return org?.id || null;
+  } catch(_) { return null; }
 }
 
 function stop() {

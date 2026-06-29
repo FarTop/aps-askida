@@ -2897,6 +2897,146 @@ async function aws_s3(node, ctx) {
   if (!accessKey || !secretKey) throw new Error('aws_s3 : credentials AWS manquants');
   if (!bucket)                  throw new Error('aws_s3 : bucket S3 manquant');
 
+  // ── Opération artwork_s3 ─────────────────────────────────────────────────
+  // Récupère les artworks depuis les subjobs Iconik, les renomme via une règle
+  // de nommage et les copie dans S3 avec CopyObject + DeleteObject
+  if (operation === 'artwork_s3') {
+    const jobId      = r(cfg.jobId      || '{exportJobId}', ctx);
+    const s3Prefix   = r(cfg.objectKey  || '', ctx);
+    const titreVar   = r(cfg.titreVar   || '{Titre}',       ctx);
+    const nommageId  = cfg.nommageId    || '';
+    const artworks   = cfg.artworks     || []; // [{ iconikName, mdField, variable }]
+    const writeMd    = cfg.writeMd      !== false;
+    const mdViewId   = r(cfg.mdViewId   || '', ctx);
+
+    if (!jobId) throw new Error('artwork_s3 : jobId manquant');
+    if (!artworks.length) throw new Error('artwork_s3 : aucun artwork configuré');
+
+    // 1. Récupérer les subjobs Iconik pour construire la map { nom → clé S3 }
+    if (!iconikClient) throw new Error('artwork_s3 : client Iconik manquant');
+    const subjobsRes = await iconikClient.get(`/API/jobs/v1/jobs/?parent_id=${jobId}&per_page=100`);
+    const subjobs    = subjobsRes.objects || [];
+
+    // Construire la map { "Cover" → "AmazonPrime/MonFilm/MonFilm-2.png" }
+    // Title format: "Exporting file Cover.png to PRIME"
+    const subjobMap = {};
+    subjobs.forEach(j => {
+      const m = (j.title || '').match(/Exporting file (.+?) to /i);
+      if (m) {
+        const fname     = m[1]; // "Cover.png"
+        const baseName  = fname.replace(/\.[^.]+$/, ''); // "Cover"
+        subjobMap[baseName.toLowerCase()] = fname;
+      }
+    });
+
+    // 2. Récupérer la règle de nommage si configurée
+    const nommageRule = nommageId
+      ? (WfdHandlers._nommages || []).find(n => n.id === nommageId)
+      : null;
+
+    // 3. Pour chaque artwork configuré, faire CopyObject + DeleteObject
+    const results   = {};
+    const errors    = [];
+    const assetId   = ctx.asset?.id || r('{asset.id}', ctx);
+    const mdValues  = {};
+
+    for (const artwork of artworks) {
+      const iconikName = artwork.iconikName || ''; // ex: "Cover"
+      const mdField    = artwork.mdField    || ''; // ex: "URLCoverArt"
+      const variable   = artwork.variable   || ''; // ex: "s3_cover_url"
+
+      // Trouver la clé S3 source via la map subjobs
+      const sourceFileName = subjobMap[iconikName.toLowerCase()];
+      if (!sourceFileName) {
+        errors.push(`${iconikName} : non trouvé dans les subjobs`);
+        continue;
+      }
+
+      // Clé source dans le bucket (liste S3 pour trouver la clé exacte)
+      // Le fichier S3 est dans s3Prefix avec un nom du type "Titre-N.png"
+      // On cherche le fichier dont le subjob correspond
+      const sourceKey = s3Prefix + sourceFileName;
+
+      // Construire le nouveau nom selon la règle de nommage
+      let newName;
+      if (nommageRule) {
+        const nomCtx = { ...ctx.vars, Titre: titreVar, artwork: iconikName, ext: (sourceFileName.match(/\.([^.]+)$/) || [])[1] || 'png' };
+        newName = applyNommage('', nommageRule.steps, nomCtx);
+      } else {
+        // Nommage par défaut : {Titre}_{Type}.{ext}
+        const ext = (sourceFileName.match(/\.([^.]+)$/) || [])[1] || 'png';
+        newName = titreVar.replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_') + '_' + iconikName + '.' + ext;
+      }
+
+      const destKey = s3Prefix + newName;
+
+      // CopyObject S3
+      const crypto  = require('crypto');
+      const now     = new Date();
+      const dateStr = now.toISOString().replace(/[:\-]|\..*/g, '').slice(0, 15) + 'Z';
+      const dateDay = dateStr.slice(0, 8);
+      const copySource = encodeURIComponent('/' + bucket + '/' + sourceKey);
+
+      const signS3 = (method, path2, query2, extraHeaders, bodyHash) => {
+        const allHeaders = { host: `s3.${region}.amazonaws.com`, 'x-amz-date': dateStr, 'x-amz-content-sha256': bodyHash, ...extraHeaders };
+        const sortedKeys = Object.keys(allHeaders).sort();
+        const canonH     = sortedKeys.map(k => k + ':' + allHeaders[k]).join('\n') + '\n';
+        const signedH    = sortedKeys.join(';');
+        const canonical  = [method, path2, query2, canonH, signedH, bodyHash].join('\n');
+        const scope      = `${dateDay}/${region}/s3/aws4_request`;
+        const toSign     = `AWS4-HMAC-SHA256\n${dateStr}\n${scope}\n` + require('crypto').createHash('sha256').update(canonical).digest('hex');
+        const hmac       = (key, data) => require('crypto').createHmac('sha256', key).update(data).digest();
+        const sigKey     = hmac(hmac(hmac(hmac('AWS4' + secretKey, dateDay), region), 's3'), 'aws4_request');
+        const sig        = require('crypto').createHmac('sha256', sigKey).update(toSign).digest('hex');
+        return { Authorization: `AWS4-HMAC-SHA256 Credential=${accessKey}/${scope}, SignedHeaders=${signedH}, Signature=${sig}`, ...allHeaders };
+      };
+
+      const emptyHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+      const destPath  = `/${bucket}/${destKey.split('/').map(p => encodeURIComponent(p)).join('/')}`;
+      const copyHeaders = signS3('PUT', destPath, '', { 'x-amz-copy-source': copySource }, emptyHash);
+
+      const copyRes = await globalThis.fetch(`https://s3.${region}.amazonaws.com${destPath}`, {
+        method: 'PUT',
+        headers: { ...copyHeaders, 'x-amz-copy-source': copySource },
+      });
+
+      if (!copyRes.ok) {
+        const txt = await copyRes.text();
+        errors.push(`${iconikName} CopyObject ${copyRes.status}: ${txt.slice(0, 100)}`);
+        continue;
+      }
+
+      // DeleteObject source
+      const srcPath     = `/${bucket}/${sourceKey.split('/').map(p => encodeURIComponent(p)).join('/')}`;
+      const delHeaders  = signS3('DELETE', srcPath, '', {}, emptyHash);
+      await globalThis.fetch(`https://s3.${region}.amazonaws.com${srcPath}`, {
+        method: 'DELETE', headers: delHeaders,
+      });
+
+      // URL S3 finale
+      const s3Url = `https://s3.${region}.amazonaws.com/${bucket}/${destKey}`;
+      results[iconikName] = s3Url;
+
+      if (variable) WfdContext.setVar(ctx, variable, s3Url);
+      if (mdField)  mdValues[mdField] = { field_values: [{ value: s3Url }] };
+    }
+
+    // 4. Écrire les URLs dans MD Iconik si demandé
+    if (writeMd && mdViewId && Object.keys(mdValues).length && iconikClient && assetId) {
+      try {
+        await iconikClient.put(`/API/metadata/v1/assets/${assetId}/views/${mdViewId}/`, { metadata_values: mdValues });
+      } catch(e) {
+        errors.push('Écriture MD Iconik : ' + e.message);
+      }
+    }
+
+    WfdContext.storeResult(ctx, cfg.resultVar || 'artworkResult', { results, errors });
+
+    if (errors.length && Object.keys(results).length === 0) return { port: 2, warn: errors.join(' | ') };
+    if (errors.length) return { port: 1, warn: errors.join(' | ') }; // partiel
+    return { port: 0 };
+  }
+
   // ── Signature AWS V4 ──────────────────────────────────────────────────────
   const crypto = require('crypto');
 
@@ -3022,6 +3162,70 @@ async function aws_s3(node, ctx) {
   WfdContext.storeResult(ctx, resultVar, result);
   WfdContext.setVar(ctx, resultVar + '_exists', 'true');
   return { port: 0 };
+}
+
+// ── MOTEUR DE NOMMAGE ────────────────────────────────────────────────────────
+// Portage de appliquerReglesNommage() depuis le frontend
+// Fonction pure — pas de dépendance DOM
+function applyNommage(input, steps, context) {
+  let s = String(input || '');
+  for (const step of (steps || [])) {
+    const v = step.value || '';
+    switch (step.type) {
+      case 'template': {
+        s = v.replace(/\{(\w+)\}/g, (_, k) => context[k] !== undefined ? context[k] : `{${k}}`);
+        break;
+      }
+      case 'replace': {
+        const sep = v.includes(' → ') ? ' → ' : (v.includes(' > ') ? ' > ' : null);
+        if (sep) {
+          const [from, to] = v.split(sep);
+          try { s = s.replace(new RegExp(from, 'g'), to); }
+          catch(e) { s = s.split(from).join(to || ''); }
+        }
+        break;
+      }
+      case 'remove': {
+        try { s = s.replace(new RegExp(v, 'g'), ''); }
+        catch(e) { s = s.split(v).join(''); }
+        break;
+      }
+      case 'extract': {
+        if (v.startsWith('/') && v.includes('/', 1)) {
+          const m = v.match(/^\/(.+)\/([gimu]*)$/);
+          if (m) { const res = s.match(new RegExp(m[1], m[2])); if (res) s = res[1] || res[0]; }
+        } else if (v.includes(':')) {
+          const [a, b] = v.split(':').map(Number);
+          s = s.slice(a, b || undefined);
+        }
+        break;
+      }
+      case 'lowercase':   s = s.toLowerCase(); break;
+      case 'uppercase':   s = s.toUpperCase(); break;
+      case 'titlecase':   s = s.replace(/\b\w/g, c => c.toUpperCase()); break;
+      case 'trim':        s = s.trim(); break;
+      case 'slugify':
+        s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+             .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        break;
+      case 'limit': {
+        const n = parseInt(v) || 50;
+        s = n > 0 ? s.slice(0, n) : s.slice(n);
+        break;
+      }
+      case 'prefix': s = v.replace(/\{(\w+)\}/g, (_, k) => context[k] !== undefined ? String(context[k]) : `{${k}}`) + s; break;
+      case 'suffix': s = s + v.replace(/\{(\w+)\}/g, (_, k) => context[k] !== undefined ? String(context[k]) : `{${k}}`); break;
+      case 'regex_capture': {
+        const m2 = v.match(/^\/(.+)\/(?:[gimu]*)? *(?:groupe *)?(\d+)?/i);
+        if (m2) {
+          const r2 = s.match(new RegExp(m2[1]));
+          if (r2) s = r2[parseInt(m2[2]) || 1] || r2[0];
+        }
+        break;
+      }
+    }
+  }
+  return s;
 }
 
 // ── CHECKER ───────────────────────────────────────────────────────────────────

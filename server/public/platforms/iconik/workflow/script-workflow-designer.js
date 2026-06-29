@@ -6122,10 +6122,13 @@ function editerNommage(id) {
           <input id="nom-preview-input" class="cfg-input" style="flex:1;font-family:var(--font-mono);font-size:11px;"
             placeholder="Texte de test (ex: Mon Film Titre.mxf)" oninput="nomPreview('${id}')">
           <span style="color:#444;font-size:11px;">→</span>
-          <div id="nom-preview-output" style="flex:1;font-family:var(--font-mono);font-size:11px;color:#27ae60;
-            background:#0d150d;border:1px solid #1a2a1a;border-radius:4px;padding:6px 8px;min-height:30px;"></div>
+          <span style="color:#444;font-size:11px;">→</span>
+          <div style="flex:1;display:flex;flex-direction:column;gap:3px;">
+            <div id="nom-preview-output" style="font-family:var(--font-mono);font-size:11px;color:#27ae60;
+              background:#0d150d;border:1px solid #1a2a1a;border-radius:4px;padding:6px 8px;min-height:30px;"></div>
+            <div style="font-size:10px;color:#444;">Cover est un exemple</div>
+          </div>
         </div>
-      </div>
     </div>`;
 
   footer.innerHTML = `
@@ -6194,7 +6197,13 @@ function nomPreview(id) {
   const out   = document.getElementById('nom-preview-output');
   if (!n || !out) return;
   try {
-    let result = appliquerReglesNommage(input, n.steps, {});
+    // Contexte de prévisualisation — variables typiques pour tester le template
+    const previewCtx = {
+      Titre  : input || 'Mon Film Titre',
+      artwork: 'Cover',
+      ext    : 'png',
+    };
+    let result = appliquerReglesNommage(input || previewCtx.Titre, n.steps, previewCtx);
     out.textContent = result;
     out.style.color = '#27ae60';
   } catch(e) {
@@ -6263,8 +6272,8 @@ function appliquerReglesNommage(input, steps, context) {
         else       s = s.slice(n);
         break;
       }
-      case 'prefix': s = v + s; break;
-      case 'suffix': s = s + v; break;
+      case 'prefix': s = v.replace(/\{(\w+)\}/g, (_, k) => context[k] !== undefined ? context[k] : `{${k}}`) + s; break;
+      case 'suffix': s = s + v.replace(/\{(\w+)\}/g, (_, k) => context[k] !== undefined ? context[k] : `{${k}}`); break;
       case 'regex_capture': {
         const m2 = v.match(/^\/(.+)\/(?:[gimu]*)?\s*(?:groupe\s*)?(\d+)?/i);
         if (m2) {
@@ -6278,6 +6287,44 @@ function appliquerReglesNommage(input, steps, context) {
   return s;
 }
 
+
+// ── Fonctions artwork S3 ─────────────────────────────────────────────────────
+function awsArtAddRow(pfx) {
+  const container = document.getElementById(pfx + '-aws-art-rows');
+  if (!container) return;
+  const idx = container.querySelectorAll('.aws-art-row').length;
+  const div = document.createElement('div');
+  div.className = 'aws-art-row';
+  div.dataset.idx = idx;
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr 24px;gap:4px;align-items:center;';
+  div.innerHTML = `
+    <input class="cfg-input aws-art-name" data-idx="${idx}" value=""
+      placeholder="NomIconik" style="font-size:10px;font-family:var(--font-mono);">
+    <input class="cfg-input aws-art-md" data-idx="${idx}" value=""
+      placeholder="URLChampMD" style="font-size:10px;font-family:var(--font-mono);">
+    <input class="cfg-input aws-art-var" data-idx="${idx}" value=""
+      placeholder="s3_nom_url" style="font-size:10px;font-family:var(--font-mono);">
+    <button onclick="this.closest('.aws-art-row').remove()"
+      style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0;">×</button>`;
+  container.appendChild(div);
+}
+
+function awsArtRemoveRow(pfx, idx) {
+  const row = document.querySelector(`#${pfx}-aws-art-rows .aws-art-row[data-idx="${idx}"]`);
+  if (row) row.remove();
+}
+
+function awsArtReadRows(pfx) {
+  const rows = document.querySelectorAll(`#${pfx}-aws-art-rows .aws-art-row`);
+  const result = [];
+  rows.forEach(row => {
+    const name = row.querySelector('.aws-art-name')?.value?.trim() || '';
+    const md   = row.querySelector('.aws-art-md')?.value?.trim()   || '';
+    const varN = row.querySelector('.aws-art-var')?.value?.trim()   || '';
+    if (name) result.push({ iconikName: name, mdField: md, variable: varN });
+  });
+  return result;
+}
 
 // [→ wfd-config-panel.js : lignes 5606–7214]
 function ouvrirMappings() {

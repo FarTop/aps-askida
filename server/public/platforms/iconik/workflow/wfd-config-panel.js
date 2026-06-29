@@ -3065,6 +3065,7 @@ function buildCfgFields(pfx, family, cfg) {
     put_object    : 'Écrire un objet (PUT)',
     delete_object : 'Supprimer un objet (DELETE)',
     list_objects  : 'Lister les objets (LIST)',
+    artwork_s3    : 'Artworks → S3 (renommage + MD)',
   };
 
   html += `
@@ -3077,6 +3078,10 @@ function buildCfgFields(pfx, family, cfg) {
     <button onclick="awsTabSwitch('${pfx}','s3post')" id="${pfx}-aws-tab-s3post"
       style="padding:6px 14px;background:${_awsTab==='s3post'?'#0F4761':'none'};border:none;color:${_awsTab==='s3post'?'#fff':'#555'};cursor:pointer;font-size:11px;border-radius:4px 4px 0 0;">
       Post-action
+    </button>
+    <button onclick="awsTabSwitch('${pfx}','artworks')" id="${pfx}-aws-tab-artworks"
+      style="padding:6px 14px;background:${_awsTab==='artworks'?'#0F4761':'none'};border:none;color:${_awsTab==='artworks'?'#fff':'#555'};cursor:pointer;font-size:11px;border-radius:4px 4px 0 0;">
+      Artworks
     </button>
   </div>
 
@@ -3163,7 +3168,99 @@ function buildCfgFields(pfx, family, cfg) {
         + Ajouter une essence
       </button>
     </div>
-  </div>`;
+  </div>
+<!-- Onglet Artworks -->
+  <div id="${pfx}-aws-panel-artworks" style="${_awsTab==='artworks'?'':'display:none'}">
+    <div style="font-size:11px;color:#555;margin-bottom:12px;">
+      Récupère les artworks depuis les subjobs Iconik, les renomme et les pousse dans S3.
+      Requiert l'opération <b>Artworks → S3</b> et un job_id valide.
+    </div>
+
+    <div class="cfg-field">
+      <label class="cfg-label">Job ID (export Iconik)</label>
+      <input id="${pfx}-aws-art-jobid" class="cfg-input" list="${pfx}-wfd-var-list"
+        value="${escHtml(cfg.jobId||'{exportJobId}')}"
+        placeholder="{exportJobId}" style="font-family:var(--font-mono);">
+    </div>
+
+    <div class="cfg-field">
+      <label class="cfg-label">Préfixe S3 (dossier de destination)</label>
+      <input id="${pfx}-aws-art-prefix" class="cfg-input" list="${pfx}-wfd-var-list"
+        value="${escHtml(cfg.objectKey||'')}"
+        placeholder="AmazonPrime/{Titre}/" style="font-family:var(--font-mono);">
+      <div style="font-size:10px;color:#555;margin-top:3px;">Même préfixe que le nœud LIST précédent.</div>
+    </div>
+
+    <div class="cfg-field">
+      <label class="cfg-label">Titre (pour le nommage)</label>
+      <input id="${pfx}-aws-art-titre" class="cfg-input" list="${pfx}-wfd-var-list"
+        value="${escHtml(cfg.titreVar||'{Titre}')}"
+        placeholder="{Titre}" style="font-family:var(--font-mono);">
+    </div>
+
+    <div class="cfg-field">
+      <label class="cfg-label">Règle de nommage</label>
+      <select id="${pfx}-aws-art-nommage" class="cfg-select">
+        <option value="">— Défaut ({Titre}_{Type}.ext) —</option>
+        ${(typeof wfdNommages !== 'undefined' ? wfdNommages : []).map(n =>
+          `<option value="${escHtml(n.id)}" ${cfg.nommageId===n.id?'selected':''}>${escHtml(n.name)}</option>`
+        ).join('')}
+      </select>
+    </div>
+
+    <div class="cfg-field">
+      <label class="cfg-label">Artworks</label>
+      <div style="font-size:10px;color:#555;margin-bottom:6px;">
+        Nom Iconik = nom du fichier uploadé dans Iconik (ex: Cover). Champ MD = champ métadonnée cible. Variable = variable contexte.
+      </div>
+      <div id="${pfx}-aws-art-rows" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;">
+        ${(()=>{
+          const rows = cfg.artworks && cfg.artworks.length ? cfg.artworks : [
+            { iconikName:'Cover',  mdField:'URLCoverArt',  variable:'s3_cover_url'  },
+            { iconikName:'Box',    mdField:'URLBoxArt',    variable:'s3_box_url'    },
+            { iconikName:'Hero',   mdField:'URLHeroArt',   variable:'s3_hero_url'   },
+            { iconikName:'Poster', mdField:'URLPosterArt', variable:'s3_poster_url' },
+            { iconikName:'Season', mdField:'URLSeasonArt', variable:'s3_season_url' },
+          ];
+          return rows.map((row, i) => `
+            <div class="aws-art-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 1fr 1fr 24px;gap:4px;align-items:center;">
+              <input class="cfg-input aws-art-name" data-idx="${i}" value="${escHtml(row.iconikName||'')}"
+                placeholder="Cover" style="font-size:10px;font-family:var(--font-mono);" title="Nom dans Iconik">
+              <input class="cfg-input aws-art-md" data-idx="${i}" value="${escHtml(row.mdField||'')}"
+                placeholder="URLCoverArt" style="font-size:10px;font-family:var(--font-mono);" title="Champ MD Iconik">
+              <input class="cfg-input aws-art-var" data-idx="${i}" value="${escHtml(row.variable||'')}"
+                placeholder="s3_cover_url" style="font-size:10px;font-family:var(--font-mono);" title="Variable contexte">
+              <button onclick="awsArtRemoveRow('${pfx}',${i})"
+                style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0;">×</button>
+            </div>`).join('');
+        })()}
+      </div>
+      <button onclick="awsArtAddRow('${pfx}')"
+        style="font-size:10px;color:#0F4761;background:none;border:1px solid #0F4761;border-radius:3px;padding:3px 10px;cursor:pointer;">
+        + Ajouter un artwork
+      </button>
+    </div>
+
+    <div class="cfg-field">
+      <label class="cfg-label">Vue MD Iconik (pour écriture URLs)</label>
+      <select id="${pfx}-aws-art-mdview" class="cfg-select">
+        <option value="">— Aucune —</option>
+        ${(typeof wfdData !== 'undefined' && wfdData.mdViews ? wfdData.mdViews : []).map(v =>
+          `<option value="${escHtml(v.id)}" ${cfg.mdViewId===v.id?'selected':''}>${escHtml(v.nom||v.name||v.id)}</option>`
+        ).join('')}
+      </select>
+    </div>
+
+    <div style="background:#080808;border:1px solid #1a1a1a;border-radius:4px;padding:8px 10px;margin-top:4px;">
+      <div style="font-size:9px;color:#444;margin-bottom:6px;text-transform:uppercase;">Ports de sortie</div>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:4px;">
+        <span>🟢 <b>Succès</b> — tous les artworks traités</span>
+        <span>🟡 <b>Partiel</b> — certains artworks manquants</span>
+        <span>🔴 <b>Erreur</b> — échec S3 ou Iconik</span>
+      </div>
+    </div>
+  </div>
+`;
 
 } else if (family === 'wait_for') {
   const _wfConns   = (typeof wfdConnexions !== 'undefined' ? wfdConnexions : []).filter(c => c.direction === 'outbound');
@@ -5050,11 +5147,16 @@ function sauvegarderConfig() {
     const _s3m = awsS3ReadMappings('cfg');
     if (_s3m.length) {
       node.config.s3Mappings = _s3m;
-      // Rétrocompat : conserver les anciens champs pour les exports existants
       node.config.s3VarVideo = (_s3m.find(function(r){ return r.type==='video'; })    || {}).variable || 's3_video_url';
       node.config.s3VarImage = (_s3m.find(function(r){ return r.type==='image'; })    || {}).variable || 's3_image_url';
       node.config.s3VarSrt   = (_s3m.find(function(r){ return r.type==='subtitle'; }) || {}).variable || 's3_srt_url';
     }
+    // Artworks
+    node.config.jobId      = g('aws-art-jobid')   || '{exportJobId}';
+    node.config.titreVar   = g('aws-art-titre')    || '{Titre}';
+    node.config.nommageId  = g('aws-art-nommage')  || '';
+    node.config.mdViewId   = g('aws-art-mdview')   || '';
+    node.config.artworks   = awsArtReadRows('cfg');
     node.ports = buildPortsDef('aws_s3', node.config);
 
   } else if (node.family==='wait_for') {
