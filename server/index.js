@@ -47,6 +47,7 @@ const environmentsRouter  = require('./routes/environments');
 const platformsRouter     = require('./routes/platforms');
 const { router: iconikProxy } = require('./routes/iconik-proxy');
 const syncJobsRouter       = require('./routes/sync-jobs');
+const wfdEngineRouter      = require('./engine/wfd-engine-express.js');
 const ikonDataRouter       = require('./routes/ikon-data');
 
 app.use('/api/flows',      flowsRouter);
@@ -58,6 +59,7 @@ app.use('/api/ikon',         ikonDataRouter);
 app.use('/api/jobs',         syncJobsRouter);
 app.use('/api/iconik',       iconikProxy);
 app.use('/api',            wfdDataRouter);
+app.use('/wfd',            wfdEngineRouter.router);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
@@ -85,6 +87,7 @@ app.get('/{*path}', (req, res) => {
 
 // ── Démarrage ─────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
+  wfdEngineRouter.start().catch(e => console.warn('[WFD] Démarrage engine échoué :', e.message));
   console.log('');
   console.log('╔══════════════════════════════════════╗');
   console.log('║   APS — Askida Platform Studio       ║');

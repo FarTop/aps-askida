@@ -1071,9 +1071,73 @@ function _persistHistory() {
 }
 
 // ── Démarrer l'écoute des événements engine ───────────────────────────────────
+// ── WfdEngineInstance en mode Express (SSE + fetch) ──────────────────────────
+function _initWfdEngineExpress() {
+  const _eventCallbacks = [];
+  let   _sseSource = null;
+
+  function _connectSSE() {
+    if (_sseSource) { try { _sseSource.close(); } catch(_) {} }
+    _sseSource = new EventSource('/wfd/events');
+    _sseSource.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        _eventCallbacks.forEach(fn => { try { fn(data); } catch(_) {} });
+      } catch(_) {}
+    };
+    _sseSource.onerror = () => { setTimeout(_connectSSE, 3000); };
+    console.log('[WFD Express] SSE connecté');
+  }
+
+  async function _apiFetch(path, method, body) {
+    method = method || 'GET';
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(path, opts);
+    return res.json();
+  }
+
+  window.WfdEngineInstance = {
+    loadFluxes    : (fluxes)      => _apiFetch('/wfd/load-fluxes',    'POST', { fluxes }),
+    loadConnexions: (connexions)  => _apiFetch('/wfd/load-connexions', 'POST', { connexions }),
+    activateFlux  : (fluxId)      => _apiFetch('/wfd/load-fluxes',    'POST'),
+    deactivateFlux: (fluxId)      => _apiFetch('/wfd/load-fluxes',    'POST'),
+    triggerManual : (fluxId, payload) => _apiFetch('/wfd/trigger-manual', 'POST', { fluxId, payload }),
+    setIconikClient: (cfg)        => _apiFetch('/wfd/set-iconik-client', 'POST', cfg),
+    getStatus     : ()            => _apiFetch('/wfd/status'),
+    getPaused     : ()            => _apiFetch('/wfd/paused'),
+    releaseNode   : (runId, nodeId, port, ids) =>
+      _apiFetch('/wfd/release-node', 'POST', { runId, nodeId, port, assetIds: ids }),
+    rejectNode    : (runId, nodeId, reason) =>
+      _apiFetch('/wfd/reject-node',  'POST', { runId, nodeId, reason }),
+    getRunHistory  : (runId)         => _apiFetch('/wfd/runs/' + runId),
+    getRunsByFlux  : (fluxId, limit) => _apiFetch('/wfd/runs-by-flux/' + fluxId + '?limit=' + (limit||50)),
+    getRunsByNode  : (nodeId, limit) => _apiFetch('/wfd/runs-by-node/' + nodeId + '?limit=' + (limit||50)),
+    getRecentRuns  : (limit)         => _apiFetch('/wfd/recent-runs?limit=' + (limit||100)),
+    deleteRun      : (runId)         => _apiFetch('/wfd/runs/' + runId, 'DELETE'),
+    onEvent: (callback) => {
+      _eventCallbacks.push(callback);
+      return () => {
+        const i = _eventCallbacks.indexOf(callback);
+        if (i >= 0) _eventCallbacks.splice(i, 1);
+      };
+    },
+    watchFolder   : () => Promise.resolve({ ok: false }),
+    reloadHandlers: () => Promise.resolve({ ok: false }),
+    readAsBase64  : () => Promise.resolve({ ok: false }),
+    parseOpenApi  : () => Promise.resolve({ ok: false }),
+  };
+
+  _connectSSE();
+  console.log('[WFD Express] WfdEngineInstance initialisé');
+}
+
 (function _initJobsListener() {
   if (!window.WfdEngineInstance?.onEvent) {
-    // Retry si preload pas encore chargé
+    if (!window._wfdExpressInit) {
+      window._wfdExpressInit = true;
+      _initWfdEngineExpress();
+    }
     setTimeout(_initJobsListener, 500);
     return;
   }
