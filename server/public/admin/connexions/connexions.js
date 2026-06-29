@@ -77,6 +77,21 @@ function ouvrirPanel(conn = null) {
   document.getElementById('f-baseurl').value     = conn?.endpoint    || '';
   document.getElementById('f-authtype').value    = conn?.authType    || '';
   document.getElementById('f-authvalue').value   = conn?.authValue   || '';
+  // Pré-remplir les champs AWS si type aws_s3
+  if (conn?.type === 'aws_s3') {
+    try {
+      const aws = JSON.parse(conn.authValue || '{}');
+      document.getElementById('f-aws-key').value    = aws.key    || '';
+      document.getElementById('f-aws-secret').value = aws.secret || '';
+      document.getElementById('f-aws-region').value = aws.region || '';
+      document.getElementById('f-aws-bucket').value = aws.bucket || '';
+    } catch(_) {}
+  } else {
+    document.getElementById('f-aws-key').value    = '';
+    document.getElementById('f-aws-secret').value = '';
+    document.getElementById('f-aws-region').value = '';
+    document.getElementById('f-aws-bucket').value = '';
+  }
   document.getElementById('f-description').value = conn?.description || '';
   document.getElementById('f-active').checked    = conn?.isActive !== false;
 
@@ -133,7 +148,18 @@ async function sauvegarder() {
     direction:   document.getElementById('f-direction').value,
     endpoint:    document.getElementById('f-baseurl').value.trim(),
     authType:    document.getElementById('f-authtype').value,
-    authValue:   document.getElementById('f-authvalue').value,
+    authValue: (function() {
+      const type = document.getElementById('f-type').value;
+      if (type === 'aws_s3') {
+        const key    = document.getElementById('f-aws-key').value.trim();
+        const secret = document.getElementById('f-aws-secret').value.trim();
+        const region = document.getElementById('f-aws-region').value.trim();
+        const bucket = document.getElementById('f-aws-bucket').value.trim();
+        if (key || secret) return JSON.stringify({ key, secret, region, bucket });
+        return '';
+      }
+      return document.getElementById('f-authvalue').value;
+    })(),
     description: document.getElementById('f-description').value,
     isActive:    document.getElementById('f-active').checked,
   };

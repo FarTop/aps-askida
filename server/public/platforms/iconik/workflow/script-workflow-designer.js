@@ -1100,8 +1100,8 @@ function _initWfdEngineExpress() {
   window.WfdEngineInstance = {
     loadFluxes    : (fluxes)      => _apiFetch('/wfd/load-fluxes',    'POST', { fluxes }),
     loadConnexions: (connexions)  => _apiFetch('/wfd/load-connexions', 'POST', { connexions }),
-    activateFlux  : (fluxId)      => _apiFetch('/wfd/load-fluxes',    'POST'),
-    deactivateFlux: (fluxId)      => _apiFetch('/wfd/load-fluxes',    'POST'),
+    activateFlux  : (fluxId)      => _apiFetch('/wfd/activate/'   + fluxId, 'POST'),
+    deactivateFlux: (fluxId)      => _apiFetch('/wfd/deactivate/' + fluxId, 'POST'),
     triggerManual : (fluxId, payload) => _apiFetch('/wfd/trigger-manual', 'POST', { fluxId, payload }),
     setIconikClient: (cfg)        => _apiFetch('/wfd/set-iconik-client', 'POST', cfg),
     getStatus     : ()            => _apiFetch('/wfd/status'),

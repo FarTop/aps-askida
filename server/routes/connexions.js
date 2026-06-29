@@ -110,13 +110,14 @@ router.post('/', async (req, res) => {
 // PUT /api/connexions/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { name, endpoint, authType, authValue, mappings, description, isActive } = req.body;
+    const { name, type, direction, endpoint, authType, authValue, mappings, description, isActive } = req.body;
     const current = await prisma.connexion.findUnique({ where: { id: req.params.id } });
     if (!current) return res.status(404).json({ error: 'Non trouvé' });
     const conn = await prisma.connexion.update({
       where: { id: req.params.id },
       data: {
-        name, baseUrl: endpoint, authType,
+        name, type: type || current.type, direction: direction || current.direction,
+        baseUrl: endpoint, authType,
         authValueEnc: authValue ? encrypt(authValue) : current.authValueEnc,
         extraConfig: { mappings: mappings || [], description: description || '' },
         isActive,

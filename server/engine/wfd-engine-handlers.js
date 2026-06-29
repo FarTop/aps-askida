@@ -2886,10 +2886,13 @@ async function aws_s3(node, ctx) {
   if (!conn) throw new Error('aws_s3 : connexion introuvable — ' + connexionId);
   if (conn.authType !== 'aws_s3') throw new Error('aws_s3 : la connexion doit être de type AWS S3');
 
-  const accessKey = conn.awsAccessKey || '';
-  const secretKey = conn.awsSecretKey || '';
-  const region    = conn.awsRegion    || 'eu-north-1';
-  const bucket    = conn.awsBucket    || '';
+  // Lire les credentials depuis authValue (JSON) ou depuis les champs directs (legacy)
+  let _awsCreds = {};
+  try { _awsCreds = JSON.parse(conn.authValue || '{}'); } catch(_) {}
+  const accessKey = conn.awsAccessKey || _awsCreds.key    || '';
+  const secretKey = conn.awsSecretKey || _awsCreds.secret || '';
+  const region    = conn.awsRegion    || _awsCreds.region || 'eu-north-1';
+  const bucket    = conn.awsBucket    || _awsCreds.bucket || '';
 
   if (!accessKey || !secretKey) throw new Error('aws_s3 : credentials AWS manquants');
   if (!bucket)                  throw new Error('aws_s3 : bucket S3 manquant');

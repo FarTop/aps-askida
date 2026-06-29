@@ -165,10 +165,36 @@ async function loadActiveFluxes() {
       iconikEnv  : f.environment?.name || null,
     })));
 
+    // Déchiffrer authValue pour chaque connexion (même algo que connexions.js)
+    const crypto = require('crypto');
+    const SECRET = process.env.APS_SECRET || '';
+    const decrypt = (enc) => {
+      if (!enc || !SECRET) return '';
+      try {
+        const [ivHex, encHex] = enc.split(':');
+        const iv  = Buffer.from(ivHex, 'hex');
+        const key = crypto.scryptSync(SECRET, 'aps-salt', 32);
+        const dec = crypto.createDecipheriv('aes-256-cbc', key, iv);
+        return Buffer.concat([dec.update(Buffer.from(encHex, 'hex')), dec.final()]).toString();
+      } catch(_) { return ''; }
+    };
+    const connexionsFmt = connexions.map(c => ({
+      id        : c.id,
+      name      : c.name,
+      type      : c.type,
+      direction : c.direction,
+      endpoint  : c.baseUrl,
+      authType  : c.authType,
+      authValue : decrypt(c.authValueEnc),
+      mappings  : c.extraConfig?.mappings  || [],
+      description: c.extraConfig?.description || '',
+      isActive  : c.isActive,
+    }));
+
     if (_engine._trigger?.loadConnexions) {
-      _engine._trigger.loadConnexions(connexions);
+      _engine._trigger.loadConnexions(connexionsFmt);
     }
-    WfdHandlers._connexions = connexions.filter(c => c.direction === 'outbound');
+    WfdHandlers._connexions = connexionsFmt.filter(c => c.direction === 'outbound');
 
     if (_runHistory) _runHistory.service.setFluxes(flows);
 
@@ -331,6 +357,34 @@ router.post('/trigger-manual', async (req, res) => {
 router.post('/load-fluxes', async (req, res) => {
   try { await loadActiveFluxes(); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── POST /wfd/activate/:fluxId ───────────────────────────────
+router.post('/activate/:fluxId', async (req, res) => {
+  const { PrismaClient } = require('@prisma/client');
+  const { PrismaPg }     = require('@prisma/adapter-pg');
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const prisma  = new PrismaClient({ adapter });
+  try {
+    await prisma.flow.update({ where: { id: req.params.fluxId }, data: { isActive: true } });
+    if (_engine) _engine.activateFlux(req.params.fluxId);
+    res.json({ ok: true, fluxId: req.params.fluxId, isActive: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+  finally { await prisma.$disconnect(); }
+});
+
+// ── POST /wfd/deactivate/:fluxId ─────────────────────────────
+router.post('/deactivate/:fluxId', async (req, res) => {
+  const { PrismaClient } = require('@prisma/client');
+  const { PrismaPg }     = require('@prisma/adapter-pg');
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const prisma  = new PrismaClient({ adapter });
+  try {
+    await prisma.flow.update({ where: { id: req.params.fluxId }, data: { isActive: false } });
+    if (_engine) _engine.deactivateFlux(req.params.fluxId);
+    res.json({ ok: true, fluxId: req.params.fluxId, isActive: false });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+  finally { await prisma.$disconnect(); }
 });
 
 // ── POST /wfd/load-connexions ────────────────────────────────────
