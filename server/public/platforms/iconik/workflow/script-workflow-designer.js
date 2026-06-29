@@ -4946,13 +4946,13 @@ function renderConnexions() {
       ? '<span style="color:#3498db;border-color:#3498db;">↑ Sortante</span>'
       : '<span style="color:#27ae60;border-color:#27ae60;">↓ Entrante</span>';
     const info = isOut
-      ? escHtml(c.baseUrl || '— URL de base non configurée')
+      ? escHtml(c.endpoint || c.baseUrl || '— URL de base non configurée')
       : escHtml(c.endpoint || '—');
     const mappingCount = (c.mappings||[]).length;
     const usedBy = wfdFlows.reduce((n, f) =>
       n + (f.nodes||[]).filter(nd =>
-        (nd.family==='listener' || nd.family==='http_request') &&
-        nd.config?.connexionId===c.id
+        nd.config?.connexionId===c.id ||
+        nd.config?.s3ConnexionId===c.id
       ).length, 0);
     return `
     <div style="background:#0d0d0d;border:1px solid #2a2a2a;border-radius:6px;overflow:hidden;">
@@ -5064,7 +5064,7 @@ function editerConnexion(id) {
       <!-- URL de base (sortante) -->
       <div class="cfg-field">
         <label class="cfg-label">URL de base</label>
-        <input id="conn-base-url" class="cfg-input" value="${escHtml(c.baseUrl||'')}"
+        <input id="conn-base-url" class="cfg-input" value="${escHtml(c.endpoint||c.baseUrl||'')}"
           style="font-family:var(--font-mono);font-size:12px;color:#3498db;"
           placeholder="https://otto-partner.vodfactory.com">
         <div style="font-size:10px;color:#444;margin-top:3px;">
@@ -5113,22 +5113,22 @@ function editerConnexion(id) {
       <div id="conn-aws-wrap" style="${c.authType==='aws_s3'?'':'display:none'}">
         <div class="cfg-field">
           <label class="cfg-label">AWS Access Key ID</label>
-          <input id="conn-aws-access-key" class="cfg-input" value="${escHtml(c.awsAccessKey||'')}"
+          <input id="conn-aws-access-key" class="cfg-input" value="${escHtml((()=>{try{return JSON.parse(c.authValue||'{}').key||c.awsAccessKey||'';}catch(_){return c.awsAccessKey||'';}})())}"
             placeholder="AKIAIOSFODNN7EXAMPLE" style="font-family:var(--font-mono);">
         </div>
         <div class="cfg-field">
           <label class="cfg-label">AWS Secret Access Key</label>
-          <input id="conn-aws-secret-key" class="cfg-input" value="${escHtml(c.awsSecretKey||'')}"
+          <input id="conn-aws-secret-key" class="cfg-input" value="${escHtml((()=>{try{return JSON.parse(c.authValue||'{}').secret||c.awsSecretKey||'';}catch(_){return c.awsSecretKey||'';}})())}"
             placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" style="font-family:var(--font-mono);">
         </div>
         <div class="cfg-field">
           <label class="cfg-label">Région AWS</label>
-          <input id="conn-aws-region" class="cfg-input" value="${escHtml(c.awsRegion||'eu-north-1')}"
+          <input id="conn-aws-region" class="cfg-input" value="${escHtml((()=>{try{return JSON.parse(c.authValue||'{}').region||c.awsRegion||'eu-north-1';}catch(_){return c.awsRegion||'eu-north-1';}})())}"
             placeholder="eu-north-1" style="font-family:var(--font-mono);">
         </div>
         <div class="cfg-field">
           <label class="cfg-label">Bucket S3</label>
-          <input id="conn-aws-bucket" class="cfg-input" value="${escHtml(c.awsBucket||'')}"
+          <input id="conn-aws-bucket" class="cfg-input" value="${escHtml((()=>{try{return JSON.parse(c.authValue||'{}').bucket||c.awsBucket||'';}catch(_){return c.awsBucket||'';}})())}"
             placeholder="my-bucket-name" style="font-family:var(--font-mono);">
         </div>
       </div>
