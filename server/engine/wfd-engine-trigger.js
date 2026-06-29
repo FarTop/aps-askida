@@ -33,6 +33,11 @@ class WfdTriggerServer {
 
   // ── Démarrer le serveur HTTP ─────────────────────────────────
   start() {
+    // Port 0 = mode Express — pas de serveur HTTP standalone
+    if (!this.port) {
+      console.log('[WFD Engine] Mode Express — serveur HTTP interne désactivé');
+      return this;
+    }
     this._server = http.createServer((req, res) => {
       this._handleRequest(req, res);
     });
