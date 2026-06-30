@@ -5143,6 +5143,19 @@ function editerConnexion(id) {
           Ex: Accept-Language: fr-FR · Content-Type: application/json
         </div>
       </div>
+
+      <!-- Rôles crédits (personnes) -->
+      <div class="cfg-field">
+        <label class="cfg-label">Rôles crédits disponibles</label>
+        <div style="font-size:10px;color:#555;margin-bottom:6px;">
+          Rôles acceptés par cette destination pour le champ <code>persons[]</code>.
+          Séparés par des virgules.
+        </div>
+        <input id="conn-roles" class="cfg-input"
+          value="${escHtml((c.roles||[]).join(', '))}"
+          placeholder="director, producer, actor, writer, creator"
+          style="font-family:var(--font-mono);">
+      </div>
       ` : `
       <!-- Mappings (entrante) -->
       <div>
@@ -5435,6 +5448,9 @@ function sauvegarderConnexion(id) {
       const value = valEl?.value.trim() || '';
       if (key) c.headers.push({ key, value });
     });
+    // Lire les rôles crédits
+    const rolesRaw = document.getElementById('conn-roles')?.value?.trim() || '';
+    c.roles = rolesRaw ? rolesRaw.split(',').map(r => r.trim()).filter(Boolean) : [];
   } else {
     c.endpoint = document.getElementById('conn-endpoint')?.value?.trim() || c.endpoint;
   }

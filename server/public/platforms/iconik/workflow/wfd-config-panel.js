@@ -3808,7 +3808,11 @@ function buildCfgFields(pfx, family, cfg) {
 
     // ── HTML lignes persons (crédits) ────────────────────────────
     // Rôles connus — enrichis depuis la spec si disponible
-    const _knownRoles = ['director','narrator','author','actor','producer','presenter','interviewer'];
+    // Rôles depuis la connexion sélectionnée, fallback sur liste minimale
+    const _lkConnRoles = (typeof wfdConnexions !== 'undefined' ? wfdConnexions : []).find(c => c.id === cfg.connexionId);
+    const _knownRoles  = (_lkConnRoles?.roles && _lkConnRoles.roles.length)
+      ? _lkConnRoles.roles
+      : ['director','producer','actor','writer','creator'];
     const _specRoles  = _lkSpec
       ? [...new Set(_lkSpec.endpoints.flatMap(ep => (ep.fields||[])
           .filter(f => f.path && f.path.includes('persons') && f.path.includes('job'))
@@ -3862,16 +3866,16 @@ function buildCfgFields(pfx, family, cfg) {
 
       .lkr-type-btn { font-size:11px; padding:3px 8px; border-radius:4px; border:0.5px solid;
                       cursor:pointer; white-space:nowrap; transition:opacity .15s; }
-      .lk-badge-str  { background:#E8F0F5; color:#0F4761; border-color:#B5D4F4; }
-      .lk-badge-int  { background:#EEE9F8; color:#5B3FA6; border-color:#CEC2F0; }
-      .lk-badge-flt  { background:#EEE9F8; color:#5B3FA6; border-color:#CEC2F0; }
-      .lk-badge-bool { background:#F9EBE4; color:#C0580A; border-color:#F0997B; }
-      .lk-badge-list { background:#E4F2EB; color:#1B6B45; border-color:#9FE1CB; }
+      .lk-badge-str  { background:#0a1a24; color:#5BA3CC; border-color:#1a3a50; }
+      .lk-badge-int  { background:#150f24; color:#8B6FD4; border-color:#2a1a50; }
+      .lk-badge-flt  { background:#150f24; color:#8B6FD4; border-color:#2a1a50; }
+      .lk-badge-bool { background:#1f0f05; color:#D4820A; border-color:#3a1a05; }
+      .lk-badge-list { background:#051a0f; color:#3BA865; border-color:#0a3020; }
 
       .lkr-fb-btn { width:26px; height:26px; border-radius:4px; border:0.5px solid var(--color-border-tertiary);
                     background:none; color:var(--color-text-secondary); cursor:pointer; display:flex; align-items:center;
                     justify-content:center; font-size:13px; transition:all .15s; }
-      .lkr-fb-btn.lkr-fb-active { background:#FFF3E0; color:#C0580A; border-color:#F0997B; }
+      .lkr-fb-btn.lkr-fb-active { background:#1f0f05; color:#D4820A; border-color:#3a1a05; }
       .lkr-fb-btn:hover { background:var(--color-background-secondary); }
       .lkr-del { width:26px; height:26px; border-radius:4px; border:0.5px solid transparent;
                  background:none; color:var(--color-text-secondary); cursor:pointer; display:flex;
@@ -3884,13 +3888,13 @@ function buildCfgFields(pfx, family, cfg) {
       .lkr-fb-input { flex:1; }
 
       .lkr-person .lkr-main { grid-template-columns:1fr 20px 80px 1fr 24px; gap:6px; }
-      .lkr-person-target { font-size:11px; color:#3A5F7A; background:#E6EEF3;
+      .lkr-person-target { font-size:11px; color:#5BA3CC; background:#0a1a24;
                            border:0.5px solid #9FC4D8; border-radius:4px; padding:3px 8px;
                            white-space:nowrap; font-family:var(--font-mono); }
       .lkr-role-sel { font-size:11px; padding:3px 6px; border-radius:4px;
-                      border:0.5px solid var(--color-border-tertiary);
-                      background:var(--color-background-secondary);
-                      color:var(--color-text-primary); cursor:pointer; width:100%; }
+                      border:0.5px solid #2a2a2a;
+                      background:#111;
+                      color:#ccc; cursor:pointer; width:100%; }
 
       .lk-col-hdr { font-size:10px; color:var(--color-text-secondary); font-weight:500;
                     text-transform:uppercase; letter-spacing:.05em; padding:0 0 6px; }
