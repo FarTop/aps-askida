@@ -3009,6 +3009,25 @@ async function aws_s3(node, ctx, iconikClient) {
     const errors    = [];
     const assetId   = ctx.asset?.id || r('{asset.id}', ctx);
     const mdValues  = {};
+    // Crypto et signature AWS — initialisés une fois pour toute la fonction
+    const _crypto   = require('crypto');
+    const _now      = new Date();
+    const _dateStr  = _now.toISOString().replace(/[:\-]|\..*/g, '').slice(0, 15) + 'Z';
+    const _dateDay  = _dateStr.slice(0, 8);
+    const _emptyHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    const _signS3 = (method, path2, query2, extraHeaders, bodyHash) => {
+      const allHeaders = { host: `s3.${region}.amazonaws.com`, 'x-amz-date': _dateStr, 'x-amz-content-sha256': bodyHash, ...extraHeaders };
+      const sortedKeys = Object.keys(allHeaders).sort();
+      const canonH     = sortedKeys.map(k => k + ':' + allHeaders[k]).join('\n') + '\n';
+      const signedH    = sortedKeys.join(';');
+      const canonical  = [method, path2, query2, canonH, signedH, bodyHash].join('\n');
+      const scope      = `${_dateDay}/${region}/s3/aws4_request`;
+      const toSign     = `AWS4-HMAC-SHA256\n${_dateStr}\n${scope}\n` + _crypto.createHash('sha256').update(canonical).digest('hex');
+      const hmac       = (key, data) => _crypto.createHmac('sha256', key).update(data).digest();
+      const sigKey     = hmac(hmac(hmac(hmac('AWS4' + secretKey, _dateDay), region), 's3'), 'aws4_request');
+      const sig        = _crypto.createHmac('sha256', sigKey).update(toSign).digest('hex');
+      return { Authorization: `AWS4-HMAC-SHA256 Credential=${accessKey}/${scope}, SignedHeaders=${signedH}, Signature=${sig}`, ...allHeaders };
+    };
 
     for (const artwork of artworks) {
       const iconikName = artwork.iconikName || ''; // ex: "Cover"
@@ -3102,6 +3121,30 @@ async function aws_s3(node, ctx, iconikClient) {
       }
     }
 
+    // 5. Supprimer les doublons .srt (Iconik crée un .srt par fichier Original)
+    try {
+      const _srtListQuery = 'list-type=2&prefix=' + encodeURIComponent(s3Prefix);
+      const _srtListHeaders = _signS3('GET', '/' + bucket, _srtListQuery, {}, _emptyHash);
+      const _srtListRes = await globalThis.fetch(
+        'https://s3.' + region + '.amazonaws.com/' + bucket + '?' + _srtListQuery,
+        { method: 'GET', headers: _srtListHeaders }
+      );
+      if (_srtListRes.ok) {
+        const _srtXml  = await _srtListRes.text();
+        const _allKeys = [..._srtXml.matchAll(/<Key>([^<]+)<\/Key>/g)].map(m => m[1]);
+        const _srtDups = _allKeys.filter(k => /-\d+\.(srt|vtt)$/i.test(k));
+        for (const dupKey of _srtDups) {
+          const dupPath = '/' + bucket + '/' + dupKey.split('/').map(p => encodeURIComponent(p)).join('/');
+          await globalThis.fetch(
+            'https://s3.' + region + '.amazonaws.com' + dupPath,
+            { method: 'DELETE', headers: _signS3('DELETE', dupPath, '', {}, _emptyHash) }
+          );
+        }
+        if (_srtDups.length) console.log('[artwork_s3] Doublons .srt supprimés :', _srtDups.length);
+      }
+    } catch(e) {
+      console.warn('[artwork_s3] Nettoyage doublons .srt échoué :', e.message);
+    }
     WfdContext.storeResult(ctx, cfg.resultVar || 'artworkResult', { results, errors });
 
     if (errors.length && Object.keys(results).length === 0) return { port: 2, warn: errors.join(' | ') };
