@@ -53,6 +53,15 @@ function resolve(template, ctx) {
 
   return str.replace(/\{([^}]+)\}/g, (match, path) => {
     const p = path.trim();
+    // Conditionnel : {variable?texte_si_présent|texte_si_absent}
+    const condMatch = p.match(/^([^?]+)\?([^|]*)\|(.*)$/);
+    if (condMatch) {
+      const key     = condMatch[1].trim();
+      const ifTrue  = condMatch[2];
+      const ifFalse = condMatch[3];
+      const val     = resolvePath(key, ctx);
+      return (val !== undefined && val !== null && val !== '') ? ifTrue : ifFalse;
+    }
     // Transformations inline : {slug(Titre)}, {upper(Titre)}, {lower(Titre)}, {trim(Titre)}
     const fnMatch = p.match(/^(slug|upper|lower|trim)\((.+)\)$/);
     if (fnMatch) {
