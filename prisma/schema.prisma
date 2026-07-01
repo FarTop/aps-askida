@@ -914,3 +914,12 @@ model IkonApp {
   @@index([snapshotId, iconikId])
   @@index([snapshotId, name])
 }
+
+model BayardRegistry {
+  id        String   @id @default(cuid())
+  bayardId  String   @unique
+  assetId   String
+  assetType String   @default("asset")
+  orgId     String
+  createdAt DateTime @default(now())
+}

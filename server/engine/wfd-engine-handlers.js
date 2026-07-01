@@ -180,6 +180,47 @@ async function id_generator(node, ctx, iconikClient) {
       id = String(Math.floor(10000000 + Math.random() * 89999999));
   }
 
+  // Garantir l'unicité via BayardRegistry
+  if (type === 'numeric') {
+    const { PrismaClient } = require('@prisma/client');
+    const { PrismaPg }     = require('@prisma/adapter-pg');
+    const adapter  = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+    const _prisma  = new PrismaClient({ adapter });
+    const assetId  = ctx.asset?.id || ctx.vars?.asset_id || '';
+    const orgId    = ctx.vars?.orgId || 'default';
+    try {
+      // Vérifier si cet asset a déjà un ID enregistré
+      const existing = assetId ? await _prisma.bayardRegistry.findFirst({ where: { assetId } }) : null;
+      if (existing) {
+        id = existing.bayardId;
+        console.log('[id_generator] ID existant réutilisé :', id, 'pour asset', assetId);
+      } else {
+        // Chercher un ID unique (max 10 tentatives)
+        let attempts = 0;
+        while (attempts < 10) {
+          const conflict = await _prisma.bayardRegistry.findUnique({ where: { bayardId: id } });
+          if (!conflict) break;
+          // Collision — regénérer
+          const min = Math.pow(10, length - 1);
+          const max = Math.pow(10, length) - 1;
+          id = String(Math.floor(min + Math.random() * (max - min + 1)));
+          attempts++;
+        }
+        // Enregistrer le nouvel ID
+        if (assetId) {
+          await _prisma.bayardRegistry.create({
+            data: { id: require('crypto').randomUUID(), bayardId: id, assetId, assetType: 'asset', orgId }
+          });
+          console.log('[id_generator] Nouvel ID enregistré :', id, 'pour asset', assetId);
+        }
+      }
+    } catch(e) {
+      console.warn('[id_generator] BayardRegistry :', e.message);
+    } finally {
+      await _prisma.$disconnect();
+    }
+  }
+
   // Stocker dans le contexte
   // Appliquer le type de sortie configuré
   const outputType = cfg.outputType || 'string';
