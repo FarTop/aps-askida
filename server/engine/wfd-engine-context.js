@@ -52,7 +52,24 @@ function resolve(template, ctx) {
   const str = String(template);
 
   return str.replace(/\{([^}]+)\}/g, (match, path) => {
-    const val = resolvePath(path.trim(), ctx);
+    const p = path.trim();
+    // Transformations inline : {slug(Titre)}, {upper(Titre)}, {lower(Titre)}, {trim(Titre)}
+    const fnMatch = p.match(/^(slug|upper|lower|trim)\((.+)\)$/);
+    if (fnMatch) {
+      const fn  = fnMatch[1];
+      const key = fnMatch[2].trim();
+      const raw = resolvePath(key, ctx);
+      const val = raw !== undefined && raw !== null ? String(raw) : '';
+      switch (fn) {
+        case 'slug':  return val.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                               .replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '').replace(/_+/g, '_').replace(/^_|_$/g, '');
+        case 'upper': return val.toUpperCase();
+        case 'lower': return val.toLowerCase();
+        case 'trim':  return val.trim();
+        default:      return val;
+      }
+    }
+    const val = resolvePath(p, ctx);
     return val !== undefined && val !== null ? String(val) : match;
   });
 }

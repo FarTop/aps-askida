@@ -1070,7 +1070,7 @@ async function action(node, ctx, iconikClient) {
       const exportPayload = {};
       if (cfg.createFolderAsset)  exportPayload.export_to_asset_folder = true;
       if (cfg.overwrite !== undefined) exportPayload.overwrite = cfg.overwrite === true || cfg.overwrite === 'true';
-      if (cfg.fileName) exportPayload.file_name = r(cfg.fileName, ctx);
+      if (cfg.fileName) exportPayload.file_name = r(cfg.fileName, ctx).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '');
       console.log('[DEBUG export] aid:', aid, '| elId:', elId, '| payload:', JSON.stringify(exportPayload));
       result = await iconikClient.post(`/API/files/v1/assets/${aid}/export_locations/${elId}/`, exportPayload);
       console.log('[DEBUG export] result:', JSON.stringify(result));
@@ -2971,6 +2971,59 @@ async function aws_s3(node, ctx, iconikClient) {
 
     if (!jobId) throw new Error('artwork_s3 : jobId manquant');
     if (!artworks.length) throw new Error('artwork_s3 : aucun artwork configuré');
+
+    // 0. Si le préfixe destination diffère du préfixe source (slugification),
+    //    déplacer tous les fichiers S3 vers le nouveau préfixe avant toute opération
+    const srcPrefix = ctx.results?.wf_s3_result?.prefix || '';
+    if (s3Prefix && srcPrefix && s3Prefix !== srcPrefix) {
+      const _mvCrypto  = require('crypto');
+      const _mvNow     = new Date();
+      const _mvDateStr = _mvNow.toISOString().replace(/[:\-]|\..*/g, '').slice(0, 15) + 'Z';
+      const _mvDateDay = _mvDateStr.slice(0, 8);
+      const _mvEmpty   = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+      const _mvSign    = (method, path2, query2, extraHeaders, bodyHash) => {
+        const allH    = { host: `s3.${region}.amazonaws.com`, 'x-amz-date': _mvDateStr, 'x-amz-content-sha256': bodyHash, ...extraHeaders };
+        const skeys   = Object.keys(allH).sort();
+        const canonH  = skeys.map(k => k + ':' + allH[k]).join('\n') + '\n';
+        const signedH = skeys.join(';');
+        const canon   = [method, path2, query2, canonH, signedH, bodyHash].join('\n');
+        const scope   = `${_mvDateDay}/${region}/s3/aws4_request`;
+        const toSign  = `AWS4-HMAC-SHA256\n${_mvDateStr}\n${scope}\n` + _mvCrypto.createHash('sha256').update(canon).digest('hex');
+        const hmac    = (k, d) => _mvCrypto.createHmac('sha256', k).update(d).digest();
+        const sigKey  = hmac(hmac(hmac(hmac('AWS4' + secretKey, _mvDateDay), region), 's3'), 'aws4_request');
+        const sig     = _mvCrypto.createHmac('sha256', sigKey).update(toSign).digest('hex');
+        return { Authorization: `AWS4-HMAC-SHA256 Credential=${accessKey}/${scope}, SignedHeaders=${signedH}, Signature=${sig}`, ...allH };
+      };
+      const _mvListQuery = 'list-type=2&prefix=' + encodeURIComponent(srcPrefix);
+      const _mvListRes   = await globalThis.fetch(
+        'https://s3.' + region + '.amazonaws.com/' + bucket + '?' + _mvListQuery,
+        { method: 'GET', headers: _mvSign('GET', '/' + bucket, _mvListQuery, {}, _mvEmpty) }
+      );
+      if (_mvListRes.ok) {
+        const _mvXml  = await _mvListRes.text();
+        const _mvKeys = [..._mvXml.matchAll(/<Key>([^<]+)<\/Key>/g)].map(m => m[1]);
+        for (const srcKey of _mvKeys) {
+          const fileName = srcKey.slice(srcPrefix.length);
+          const dstKey   = s3Prefix + fileName;
+          const dstPath  = '/' + bucket + '/' + dstKey.split('/').map(p => encodeURIComponent(p)).join('/');
+          const srcPath  = '/' + bucket + '/' + srcKey.split('/').map(p => encodeURIComponent(p)).join('/');
+          const cpSrc    = encodeURIComponent('/' + bucket + '/' + srcKey);
+          await globalThis.fetch('https://s3.' + region + '.amazonaws.com' + dstPath,
+            { method: 'PUT', headers: _mvSign('PUT', dstPath, '', { 'x-amz-copy-source': cpSrc }, _mvEmpty) });
+          await globalThis.fetch('https://s3.' + region + '.amazonaws.com' + srcPath,
+            { method: 'DELETE', headers: _mvSign('DELETE', srcPath, '', {}, _mvEmpty) });
+        }
+        ['s3_video_url','s3_image_url','s3_srt_url'].forEach(v => {
+          const val = ctx.vars[v];
+          if (val && val.includes(srcPrefix)) WfdContext.setVar(ctx, v, val.replace(srcPrefix, s3Prefix));
+        });
+        if (ctx.results.wf_s3_result) {
+          ctx.results.wf_s3_result.prefix = s3Prefix;
+          ctx.results.wf_s3_result.keys   = _mvKeys.map(k => s3Prefix + k.slice(srcPrefix.length));
+        }
+        console.log('[artwork_s3] Dossier renommé :', srcPrefix, '→', s3Prefix, '(', _mvKeys.length, 'fichiers)');
+      }
+    }
 
     // 1. Récupérer les subjobs Iconik pour construire la map { nom → clé S3 }
     if (!iconikClient) throw new Error('artwork_s3 : client Iconik manquant');
