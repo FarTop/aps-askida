@@ -97,7 +97,8 @@ router.post('/', async (req, res) => {
       return res.json({ ok: true, count: results.length, errors: errors.length ? errors : undefined });
     }
 
-    const { id, name, type, direction, endpoint, authType, authValue, mappings, description } = req.body;
+    const { id, name, type, direction, authType, authValue, mappings, description } = req.body;
+    const endpoint = (req.body.endpoint || '').replace(/^\/+/, ''); // retirer les slashes parasites en début d'URL
     const conn = await prisma.connexion.upsert({
       where:  { id: id || '' },
       update: { name, type: type || 'listener', direction: direction || 'inbound', baseUrl: endpoint, authType, authValueEnc: authValue ? encrypt(authValue) : null, extraConfig: { mappings: mappings || [], description: description || '' } },
@@ -110,7 +111,8 @@ router.post('/', async (req, res) => {
 // PUT /api/connexions/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { name, type, direction, endpoint, authType, authValue, mappings, description, isActive } = req.body;
+    const { name, type, direction, authType, authValue, mappings, description, isActive } = req.body;
+    const endpoint = (req.body.endpoint || '').replace(/^\/+/, ''); // retirer les slashes parasites en début d'URL
     const current = await prisma.connexion.findUnique({ where: { id: req.params.id } });
     if (!current) return res.status(404).json({ error: 'Non trouvé' });
     const conn = await prisma.connexion.update({

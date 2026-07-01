@@ -208,7 +208,7 @@ async function id_generator(node, ctx, iconikClient) {
       else if (conn.authType === 'apikey') headers[conn.authHeader || 'X-Api-Key'] = conn.authValue;
       (conn.headers || []).forEach(h => { if (h.key) headers[h.key] = h.value; });
 
-      const url = (conn.baseUrl || '').replace(/\/$/, '') + action.endpoint;
+      const url = (conn.baseUrl || conn.endpoint || '').replace(/\/$/, '') + action.endpoint;
       // node-fetch remplacé par fetch natif Node 18+
       const res = await fetch(url, {
         method : action.method || 'POST',
@@ -745,16 +745,15 @@ function _setNestedValue(obj, path, val) {
     return;
   }
 
-  // Cas 3 : tableau d'objets à fusionner — amazon[].starts_at
-  // [^.]+ interdit le point — ne matche que le segment immédiat
-  const arrObjMatch = path.match(/^([^.[]+)\[\]\.(.+)$/);
+  // Cas 3 : tableau d'objets à fusionner — amazon[].starts_at ou amazon[0].starts_at
+  const arrObjMatch = path.match(/^([^.[]+)\[(\d*)\]\.(.+)$/);
   if (arrObjMatch) {
     const listKey  = arrObjMatch[1];
-    const fieldKey = arrObjMatch[2];
-    if (!Array.isArray(obj[listKey])) obj[listKey] = [{}];
-    if (!obj[listKey].length) obj[listKey].push({});
-    // Fusionner dans le premier objet du tableau
-    _setNestedValue(obj[listKey][0], fieldKey, val);
+    const idx      = arrObjMatch[2] !== '' ? parseInt(arrObjMatch[2]) : 0;
+    const fieldKey = arrObjMatch[3];
+    if (!Array.isArray(obj[listKey])) obj[listKey] = [];
+    while (obj[listKey].length <= idx) obj[listKey].push({});
+    _setNestedValue(obj[listKey][idx], fieldKey, val);
     return;
   }
 
@@ -1919,7 +1918,7 @@ async function handleHttpRequest(node, ctx, iconikClient) {
     throw new Error('Connexion introuvable : ' + connexionId);
   }
 
-  const baseUrl = conn?.baseUrl || '';
+  const baseUrl = conn?.baseUrl || conn?.endpoint || '';
 
   // Résoudre une variable depuis le contexte
   const resolveVar = (key) => {
@@ -2065,7 +2064,26 @@ async function handleHttpRequest(node, ctx, iconikClient) {
         }
       });
 
-      return JSON.stringify(result);
+      // Encoder les URLs S3/HTTPS dans le résultat (espaces → %20)
+      const _encodeUrlInBody = (val) => {
+        if (typeof val !== 'string') return val;
+        if (!val.startsWith('s3://') && !val.startsWith('https://') && !val.startsWith('http://')) return val;
+        const proto = val.match(/^(s3|https?):\/\/([^/]+)\//)?.[0] || '';
+        if (!proto) return val;
+        const rest = val.slice(proto.length);
+        return proto + rest.split('/').map(seg => encodeURIComponent(decodeURIComponent(seg))).join('/');
+      };
+      const _encodeDeepBody = (obj) => {
+        if (typeof obj === 'string') return _encodeUrlInBody(obj);
+        if (Array.isArray(obj)) return obj.map(_encodeDeepBody);
+        if (obj && typeof obj === 'object') {
+          const out = {};
+          Object.entries(obj).forEach(([k, v]) => { out[k] = _encodeDeepBody(v); });
+          return out;
+        }
+        return obj;
+      };
+      return JSON.stringify(_encodeDeepBody(result));
     } catch(e) {
       // Fallback : interpolation directe
       return interpolate(bodyTemplate);
@@ -2090,13 +2108,56 @@ async function handleHttpRequest(node, ctx, iconikClient) {
   // Body — construit depuis les tags (spread) ou depuis la string brute
   let body = undefined;
   if (!['GET','DELETE'].includes(method)) {
-    const bodyTpl = cfg.body || '';
+    const bodyTpl = cfg.body || cfg.bodyTemplate || '';
+    console.log('[DEBUG simple] bodyTpl:', bodyTpl?.slice(0,200), '| vodFactoryPayload:', JSON.stringify(ctx.vars?.vodFactoryPayload)?.slice(0,300));
     if (bodyTpl && bodyTpl !== '{}') {
       body = buildBody(bodyTpl);
       if (body) {
         try { JSON.parse(body); } catch(e) {
           throw new Error('Body JSON invalide : ' + e.message + ' → ' + body.slice(0, 100));
         }
+      }
+    } else {
+      // Pas de bodyTemplate — chercher automatiquement vodFactoryPayload dans le contexte
+      const _srcVar = cfg.sourceVar || '';
+      let _payload = null;
+      if (_srcVar) {
+        _payload = ctx.results?.[_srcVar] ?? null;
+        if (!_payload) {
+          const _raw = ctx.vars?.[_srcVar];
+          if (_raw) { try { _payload = typeof _raw === 'string' ? JSON.parse(_raw) : _raw; } catch(_) {} }
+        }
+      }
+      if (!_payload) {
+        const _raw = ctx.vars?.vodFactoryPayload;
+        if (_raw) { try { _payload = typeof _raw === 'string' ? JSON.parse(_raw) : _raw; } catch(_) {} }
+      }
+      if (!_payload) {
+        const key = Object.keys(ctx.results || {}).find(k =>
+          !k.startsWith('_') && ctx.results[k] && typeof ctx.results[k] === 'object' && !Array.isArray(ctx.results[k])
+        );
+        if (key) _payload = ctx.results[key];
+      }
+      if (_payload && typeof _payload === 'object' && !Array.isArray(_payload)) {
+        const _encodeUrlVal = (val) => {
+          if (typeof val !== 'string') return val;
+          if (!val.startsWith('s3://') && !val.startsWith('https://') && !val.startsWith('http://')) return val;
+          const proto = val.match(/^(s3|https?):\/\/([^/]+)\//)?.[0] || '';
+          if (!proto) return val;
+          const rest = val.slice(proto.length);
+          return proto + rest.split('/').map(seg => encodeURIComponent(decodeURIComponent(seg))).join('/');
+        };
+        const _encodeDeepPayload = (obj) => {
+          if (typeof obj === 'string') return _encodeUrlVal(obj);
+          if (Array.isArray(obj)) return obj.map(_encodeDeepPayload);
+          if (obj && typeof obj === 'object') {
+            const out = {};
+            Object.entries(obj).forEach(([k, v]) => { out[k] = _encodeDeepPayload(v); });
+            return out;
+          }
+          return obj;
+        };
+        body = JSON.stringify(_encodeDeepPayload(_expandDotKeys(_payload)));
       }
     }
   }
@@ -2362,7 +2423,7 @@ async function _handleHttpForeach(node, ctx, iconikClient) {
   const allConns = WfdHandlers._connexions || [];
   const conn     = allConns.find(c => c.id === connexionId) || null;
   if (!conn && connexionId) throw new Error('Connexion introuvable : ' + connexionId);
-  const baseUrl = conn?.baseUrl || '';
+  const baseUrl = conn?.baseUrl || conn?.endpoint || '';
 
   // Résoudre la variable source
   const rawVal = ctx.vars?.[sourceVar]
@@ -2487,7 +2548,6 @@ async function _handleHttpForeach(node, ctx, iconikClient) {
     WfdContext.setVar(ctx, resultVar + '_count', String(merged.length));
   } else {
     WfdContext.storeResult(ctx, resultVar, collected);
-    // Exposer aussi dans vars pour que {personsPayload} soit résolvable dans les templates
     WfdContext.setVar(ctx, resultVar, JSON.stringify(collected));
     WfdContext.setVar(ctx, resultVar + '_count', String(collected.length));
   }
@@ -2527,7 +2587,7 @@ async function _handleHttpVerify(node, ctx, iconikClient) {
   const allConns = WfdHandlers._connexions || [];
   const conn     = allConns.find(c => c.id === connexionId) || null;
   if (!conn && connexionId) throw new Error('Connexion introuvable : ' + connexionId);
-  const baseUrl = conn?.baseUrl || '';
+  const baseUrl = conn?.baseUrl || conn?.endpoint || '';
 
   const interpolate = (str) => {
     if (!str) return str;
@@ -2612,7 +2672,7 @@ async function handleHttpSequence(node, ctx, iconikClient) {
       }),
     };
 
-    console.log('[HTTP Sequence] Étape', i + 1, '/', steps.length, '—', virtualNode.name);
+    console.log('[HTTP Sequence] Étape', i + 1, '/', steps.length, '—', virtualNode.name, '| httpMode:', step.httpMode, '| actionId:', step.actionId, '| feSourceVar:', step.feSourceVar);
 
     try {
       const result = await handleHttpRequest(virtualNode, ctx, iconikClient);
@@ -2779,7 +2839,7 @@ async function wait_for(node, ctx, iconikClient) {
 
   let baseUrl = '', headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
   if (conn) {
-    baseUrl = conn.baseUrl || '';
+    baseUrl = conn.baseUrl || conn.endpoint || '';
     if (conn.authType === 'bearer' || conn.authType === 'token') {
       headers['Authorization'] = 'Bearer ' + conn.authValue;
     } else if (conn.authType === 'iconik') {
@@ -2854,7 +2914,7 @@ async function wait_for(node, ctx, iconikClient) {
                   ],
                 },
               };
-              await aws_s3(s3Virtual, ctx);
+              await aws_s3(s3Virtual, ctx, iconikClient);
               console.log('[wait_for] Post-action S3 OK — s3_video_url:', ctx.vars.s3_video_url);
             }
           } catch(e) {
@@ -2875,7 +2935,7 @@ async function wait_for(node, ctx, iconikClient) {
 
 // ── AWS S3 ────────────────────────────────────────────────────────────────────
 // Opérations sur un bucket Amazon S3 avec Signature V4
-async function aws_s3(node, ctx) {
+async function aws_s3(node, ctx, iconikClient) {
   const cfg         = node.config || {};
   const connexionId = cfg.connexionId || '';
   const operation   = cfg.operation   || 'head_object';
@@ -2917,15 +2977,25 @@ async function aws_s3(node, ctx) {
     const subjobsRes = await iconikClient.get(`/API/jobs/v1/jobs/?parent_id=${jobId}&per_page=100`);
     const subjobs    = subjobsRes.objects || [];
 
-    // Construire la map { "Cover" → "AmazonPrime/MonFilm/MonFilm-2.png" }
+    // Construire la map { "cover" → { s3FileName: "Test hd upload 10-2.png", iconikFileName: "Cover.png" } }
     // Title format: "Exporting file Cover.png to PRIME"
+    // Le titre du subjob ne donne QUE le nom original Iconik (avant renommage par
+    // l'export) — le vrai nom du fichier déposé sur S3 vit dans job_context.file_name
+    // (ex: "Test hd upload 10-2", sans extension). Sans ce champ, CopyObject échoue
+    // en 404 NoSuchKey car "Cover.png" n'existe jamais tel quel comme clé S3.
     const subjobMap = {};
     subjobs.forEach(j => {
       const m = (j.title || '').match(/Exporting file (.+?) to /i);
       if (m) {
-        const fname     = m[1]; // "Cover.png"
-        const baseName  = fname.replace(/\.[^.]+$/, ''); // "Cover"
-        subjobMap[baseName.toLowerCase()] = fname;
+        const iconikFileName = m[1]; // "Cover.png"
+        const baseName       = iconikFileName.replace(/\.[^.]+$/, ''); // "Cover"
+        const ext            = (iconikFileName.match(/\.([^.]+)$/) || [])[1] || 'png';
+        const s3BaseName      = j.job_context?.file_name || ''; // "Test hd upload 10-2"
+        if (!s3BaseName) return; // pas de file_name exploitable, on ignore ce subjob
+        subjobMap[baseName.toLowerCase()] = {
+          s3FileName    : s3BaseName + '.' + ext,
+          iconikFileName,
+        };
       }
     });
 
@@ -2945,17 +3015,17 @@ async function aws_s3(node, ctx) {
       const mdField    = artwork.mdField    || ''; // ex: "URLCoverArt"
       const variable   = artwork.variable   || ''; // ex: "s3_cover_url"
 
-      // Trouver la clé S3 source via la map subjobs
-      const sourceFileName = subjobMap[iconikName.toLowerCase()];
-      if (!sourceFileName) {
+      // Trouver la clé S3 source via la map subjobs (nom réel S3, pas le nom Iconik)
+      const subjobEntry = subjobMap[iconikName.toLowerCase()];
+      if (!subjobEntry) {
         errors.push(`${iconikName} : non trouvé dans les subjobs`);
         continue;
       }
+      const sourceFileName = subjobEntry.iconikFileName; // ex: "Cover.png" — utilisé plus bas pour l'extension
 
-      // Clé source dans le bucket (liste S3 pour trouver la clé exacte)
-      // Le fichier S3 est dans s3Prefix avec un nom du type "Titre-N.png"
-      // On cherche le fichier dont le subjob correspond
-      const sourceKey = s3Prefix + sourceFileName;
+      // Clé source dans le bucket : le vrai nom du fichier déposé par l'export
+      // (job_context.file_name + extension), PAS le nom original Iconik.
+      const sourceKey = s3Prefix + subjobEntry.s3FileName;
 
       // Construire le nouveau nom selon la règle de nommage
       let newName;
@@ -3002,6 +3072,8 @@ async function aws_s3(node, ctx) {
 
       if (!copyRes.ok) {
         const txt = await copyRes.text();
+        console.error(`[artwork_s3] CopyObject échoué pour "${iconikName}" — sourceKey="${sourceKey}" destKey="${destKey}" bucket="${bucket}" status=${copyRes.status}`);
+        console.error(`[artwork_s3] Réponse S3 complète : ${txt}`);
         errors.push(`${iconikName} CopyObject ${copyRes.status}: ${txt.slice(0, 100)}`);
         continue;
       }
@@ -3244,7 +3316,7 @@ async function checker(node, ctx, iconikClient) {
   let baseUrl = '';
   let headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
   if (conn) {
-    baseUrl = conn.baseUrl || '';
+    baseUrl = conn.baseUrl || conn.endpoint || '';
     if (conn.authType === 'bearer' || conn.authType === 'token') headers['Authorization'] = 'Bearer ' + conn.authValue;
     else if (conn.authType === 'iconik') { headers['App-ID'] = conn.appId || ''; headers['Auth-Token'] = conn.authValue || ''; }
     else if (conn.authValue) headers['Authorization'] = 'Bearer ' + conn.authValue;

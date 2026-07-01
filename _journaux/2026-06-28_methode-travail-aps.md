@@ -556,3 +556,41 @@ git revert <hash>               # annuler un commit entier
 - Utiliser `var(--text)` pour tout texte informatif
 - `var(--text-dim)` réservé uniquement aux séparateurs et décorations pures sans contenu informatif
 - Ne pas utiliser `opacity` sur du petit texte — le rend invisible sur fond sombre
+
+---
+
+## Règles supplémentaires — Session 2026-06-30
+
+### `&&` ne fonctionne pas dans les alias zsh
+Les alias définis dans `.zshrc` ne supportent pas `&&` pour chaîner des commandes.
+Utiliser `;` à la place :
+```bash
+# ❌ Ne fonctionne pas dans un alias
+alias cmd="commande1 && commande2"
+
+# ✅ Correct
+alias cmd="commande1; commande2"
+```
+`&&` fonctionne dans les scripts `.sh` mais pas dans les alias zsh inline.
+
+### Prisma drift — Ne jamais `migrate dev` sans vérifier
+Si la DB a été modifiée directement via `ALTER TABLE` (hors Prisma), `migrate dev` détecte un drift et peut tenter de recréer la table (perte de données).
+
+**Procédure sûre en cas de drift :**
+1. Modifier le schema Prisma pour refléter l'état réel de la DB
+2. Créer le fichier de migration manuellement dans `prisma/migrations/`
+3. Marquer la migration comme déjà appliquée : `npx prisma migrate resolve --applied nom_migration`
+4. `npx prisma generate` + redémarrage serveur
+
+**Ne jamais faire :** `npx prisma migrate dev` sans avoir d'abord vérifié avec `npx prisma migrate status`.
+
+### `||` vs `??` pour les valeurs numériques pouvant être 0
+`options.port || 2880` écrase `0` car `0` est falsy. Utiliser `??` quand `0` est une valeur valide :
+```js
+// ❌ Écrase 0
+this.port = options.port || 2880;
+
+// ✅ Respecte 0
+this.port = options.port ?? 2880;
+```
+Règle générale : pour tout nombre qui peut être `0`, préférer `??` à `||`.

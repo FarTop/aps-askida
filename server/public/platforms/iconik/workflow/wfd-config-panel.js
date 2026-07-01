@@ -3784,11 +3784,9 @@ function buildCfgFields(pfx, family, cfg) {
             title="Cliquer pour changer le type">${typeLabel(rType)}</button>
           <button class="lkr-fb-btn ${hasFb ? 'lkr-fb-active' : ''}" onclick="lkToggleFb(this)"
             title="${hasFb ? 'Fallback : ' + fb : 'Définir un fallback'}">
-            <i class="ti ti-arrow-back-up" aria-hidden="true"></i>
+            ↩
           </button>
-          <button class="lkr-del" onclick="lkRemoveRow(this)" title="Supprimer">
-            <i class="ti ti-x" aria-hidden="true"></i>
-          </button>
+          <button class="lkr-del" onclick="lkRemoveRow(this)" title="Supprimer">×</button>
         </div>
         <div class="lkr-fb-row" style="display:${hasFb ? 'flex' : 'none'}">
           <span class="lkr-fb-label">Fallback</span>
@@ -3800,7 +3798,7 @@ function buildCfgFields(pfx, family, cfg) {
           ${(r.children||[]).map(c => `<div class="lk-child-row" style="display:grid;grid-template-columns:1fr 1fr 28px;gap:4px;margin-bottom:2px;">
             <input class="cfg-input lk-key"   value="${escHtml(c.key||c.src||'')}"   placeholder="Si valeur…" style="font-size:11px;">
             <input class="cfg-input lk-value" value="${escHtml(c.value||c.tgt||'')}" placeholder="…traduire en" style="font-size:11px;">
-            <button onclick="lkRemoveRow(this)" class="lkr-del"><i class="ti ti-x" aria-hidden="true"></i></button>
+            <button onclick="lkRemoveRow(this)" class="lkr-del">×</button>
           </div>`).join('')}
         </div>
       </div>`;
@@ -3872,12 +3870,12 @@ function buildCfgFields(pfx, family, cfg) {
       .lk-badge-bool { background:#1f0f05; color:#D4820A; border-color:#3a1a05; }
       .lk-badge-list { background:#051a0f; color:#3BA865; border-color:#0a3020; }
 
-      .lkr-fb-btn { width:26px; height:26px; border-radius:4px; border:0.5px solid var(--color-border-tertiary);
+      .lkr-fb-btn { width:26px; height:26px; border-radius:4px; border:0.5px solid var(--color-border-tertiary); color:var(--color-text-secondary);
                     background:none; color:var(--color-text-secondary); cursor:pointer; display:flex; align-items:center;
                     justify-content:center; font-size:13px; transition:all .15s; }
       .lkr-fb-btn.lkr-fb-active { background:#1f0f05; color:#D4820A; border-color:#3a1a05; }
       .lkr-fb-btn:hover { background:var(--color-background-secondary); }
-      .lkr-del { width:26px; height:26px; border-radius:4px; border:0.5px solid transparent;
+      .lkr-del { width:26px; height:26px; border-radius:4px; border:0.5px solid transparent; color:var(--color-text-secondary);
                  background:none; color:var(--color-text-secondary); cursor:pointer; display:flex;
                  align-items:center; justify-content:center; font-size:13px; }
       .lkr-del:hover { background:var(--color-background-danger); color:var(--color-text-danger); }
@@ -4232,7 +4230,7 @@ function buildCfgFields(pfx, family, cfg) {
               <div>
                 <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:3px;">Rôle (job)</div>
                 <select class="cfg-select hseq-fe-job" style="font-size:11px;">
-                  ${['director','narrator','author','actor','producer','presenter'].map(j =>
+                  ${(selConn?.roles?.length ? selConn.roles : ['director','producer','actor','writer','creator']).map(j =>
                     `<option value="${j}" ${(step.feJob||'director')===j?'selected':''}>${j}</option>`
                   ).join('')}
                 </select>
@@ -5159,6 +5157,8 @@ function sauvegarderConfig() {
     }
     // Artworks
     node.config.jobId      = g('aws-art-jobid')   || '{exportJobId}';
+    const _awsArtPrefix    = g('aws-art-prefix');
+    if (_awsArtPrefix) node.config.objectKey = _awsArtPrefix;
     node.config.titreVar   = g('aws-art-titre')    || '{Titre}';
     node.config.nommageId  = g('aws-art-nommage')  || '';
     node.config.mdViewId   = g('aws-art-mdview')   || '';
@@ -8926,6 +8926,20 @@ function hseqModeChange(btn, mode) {
   if (typeof sauvegarderConfig === 'function') sauvegarderConfig();
 }
 
+// Retourne les rôles disponibles pour la connexion actuellement sélectionnée
+// sur un nœud http_sequence identifié par son préfixe DOM (pfx). Fallback si
+// la connexion n'a pas de roles[] configurés ou si rien n'est encore sélectionné.
+function _hseqRolesForPfx(pfx) {
+  const fallback = ['director','producer','actor','writer','creator'];
+  try {
+    const connId = document.getElementById(pfx + '-hseq-conn')?.value;
+    const conn    = (typeof wfdConnexions !== 'undefined' ? wfdConnexions : []).find(c => c.id === connId);
+    return (conn?.roles?.length) ? conn.roles : fallback;
+  } catch(_) {
+    return fallback;
+  }
+}
+
 function hseqAddStep(pfx) {
   const container = document.getElementById(pfx + '-hseq-steps');
   if (!container) return;
@@ -8981,11 +8995,7 @@ function hseqAddStep(pfx) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
             <div><div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:3px;">Rôle (job)</div>
               <select class="cfg-select hseq-fe-job" style="font-size:11px;">
-                <option value="director">director</option>
-                <option value="narrator">narrator</option>
-                <option value="author">author</option>
-                <option value="actor">actor</option>
-                <option value="producer">producer</option>
+                ${(_hseqRolesForPfx(pfx)).map(j => `<option value="${j}">${j}</option>`).join('')}
               </select></div>
             <div><div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:3px;">Codes à ignorer</div>
               <input class="cfg-input hseq-fe-ignore" value="409, 422" placeholder="409, 422" style="font-size:11px;font-family:var(--font-mono);"></div>
@@ -9121,7 +9131,7 @@ function hseqReadSteps(pfx) {
       httpMode  : mode,
       method    : body?.querySelector('.hseq-method')?.value   || 'POST',
       endpoint  : body?.querySelector('.hseq-endpoint')?.value || '',
-      resultVar : body?.querySelector('.hseq-result-var')?.value || '',
+      resultVar : (body?.querySelector('.hseq-result-var')?.value || '').replace(/^\{|\}$/g, ''),
       onError   : body?.querySelector('.hseq-on-error')?.value  || 'stop',
     };
     if (mode === 'action') {

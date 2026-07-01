@@ -18,6 +18,7 @@ const { createRunHistory } = require(path.join(__dirname, 'wfd-run-history.js'))
 // ── État interne ─────────────────────────────────────────────────
 let _engine     = null;
 let _runHistory = null;
+let _fluxesReady = false; // true une fois loadActiveFluxes() terminée avec succès
 const _iconikClients = {};
 const _sseClients    = [];
 
@@ -147,11 +148,15 @@ async function loadIconikClients() {
 async function loadActiveFluxes() {
   const { PrismaClient } = require('@prisma/client');
   const { PrismaPg }     = require('@prisma/adapter-pg');
+  console.log('[DEBUG loadActiveFluxes] DATABASE_URL =', JSON.stringify(process.env.DATABASE_URL));
   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
   const prisma  = new PrismaClient({ adapter });
 
   try {
     const flows      = await prisma.flow.findMany({ where: { isActive: true }, include: { environment: true } });
+    console.log('[DEBUG loadActiveFluxes] flows trouvés (avant filtre any) =', flows.length);
+    const allFlows = await prisma.flow.findMany();
+    console.log('[DEBUG loadActiveFluxes] total flows en base (sans filtre) =', allFlows.length, '— actifs parmi eux:', allFlows.filter(f => f.isActive).map(f => f.name));
     // Charger les connexions directement depuis Prisma + déchiffrement via module partagé
     const { decrypt } = require(path.join(__dirname, '../lib/crypto.js'));
     const connexionsRaw = await prisma.connexion.findMany();
@@ -163,7 +168,9 @@ async function loadActiveFluxes() {
       endpoint   : c.baseUrl,
       authType   : c.authType,
       authValue  : decrypt(c.authValueEnc),
-      mappings   : c.extraConfig?.mappings   || [],
+      roles      : c.extraConfig?.roles    || [],
+      actions    : c.extraConfig?.actions  || [],
+      mappings   : c.extraConfig?.mappings || [],
       description: c.extraConfig?.description || '',
       isActive   : c.isActive,
     }));
@@ -196,7 +203,8 @@ async function loadActiveFluxes() {
     if (_runHistory) _runHistory.service.setFluxes(flows);
 
     flows.forEach(f => _engine.activateFlux(f.id));
-    console.log(`[WFD Engine] ${flows.length} flux actifs, ${connexionsFmt.length} connexions`);
+    _fluxesReady = true;
+    console.log(`[WFD Engine] pid=${process.pid} ${flows.length} flux actifs, ${connexionsFmt.length} connexions`);
   } catch(e) {
     console.warn('[WFD Engine] Chargement flux échoué :', e.message);
   } finally {
@@ -291,9 +299,13 @@ router.get('/events', (req, res) => {
 // ── POST /wfd/action/:slug — Custom Action Iconik ────────────────
 router.post('/action/:slug', (req, res) => {
   const slug = req.params.slug;
-  console.log(`[WFD] Custom Action reçue → /wfd/action/${slug}`);
+  console.log(`[WFD] pid=${process.pid} Custom Action reçue → /wfd/action/${slug}`);
 
   if (!_engine) return res.status(503).json({ error: 'WFD Engine non initialisé' });
+  if (!_fluxesReady) {
+    console.warn(`[WFD] Action reçue pendant le chargement des flux (pas encore prêt) → /wfd/action/${slug}`);
+    return res.status(503).json({ error: 'WFD Engine en cours de démarrage — flux pas encore chargés, réessayez dans quelques secondes' });
+  }
 
   const fluxes  = _engine._getFluxes?.() || [];
   const matched = fluxes.filter(flux => {
@@ -429,7 +441,9 @@ router.post('/deactivate/:fluxId', async (req, res) => {
 // ── POST /wfd/load-connexions ────────────────────────────────────
 router.post('/load-connexions', (req, res) => {
   const connexions = req.body?.connexions || [];
+  console.log('[DEBUG load-connexions] reçu:', connexions.map(c => c.id + '|' + c.name + '|' + c.direction + '|' + c.authType));
   WfdHandlers._connexions = connexions.filter(c => c.direction === 'outbound');
+  console.log('[DEBUG load-connexions] outbound:', WfdHandlers._connexions.map(c => c.id + '|' + c.name));
   if (_engine._trigger?.loadConnexions) _engine._trigger.loadConnexions(connexions);
   res.json({ ok: true, count: connexions.length });
 });
@@ -448,7 +462,7 @@ router.post('/set-iconik-client', (req, res) => {
 router.get('/status', (req, res) => {
   const fluxes  = _engine?._getFluxes?.() || [];
   const actives = fluxes.filter(f => _engine?.isActive(f.id));
-  res.json({ running: !!_engine, activeFluxes: actives.length,
+  res.json({ running: !!_engine, fluxesReady: _fluxesReady, activeFluxes: actives.length,
              totalFluxes: fluxes.length, envs: Object.keys(_iconikClients),
              sseClients: _sseClients.length });
 });
@@ -561,4 +575,4 @@ function _buildTempClient(raw) {
 }
 
 // ── Export ───────────────────────────────────────────────────────
-module.exports = { router, start, stop, pushEvent };
+module.exports = { router, start, stop, pushEvent, isReady: () => _fluxesReady };
