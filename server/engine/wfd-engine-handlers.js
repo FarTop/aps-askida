@@ -3205,11 +3205,19 @@ async function aws_s3(node, ctx, iconikClient) {
         if (!mapping.variable) return;
         const filters = (mapping.filter || '').split(',').map(function(f){ return f.trim().toLowerCase(); }).filter(Boolean);
         if (!filters.length) return;
-        // Chercher la première clé qui correspond à l'un des filtres
-        const matchedKey = keys.find(function(k) {
+        // Chercher la clé correspondant au filtre
+        // Pour les sous-titres : préférer le fichier sans suffixe numérique (-N)
+        // car Iconik crée un .srt par fichier Original (doublons)
+        const matchedCandidates = keys.filter(function(k) {
           const kl = k.toLowerCase();
           return filters.some(function(f){ return kl.includes(f); });
         });
+        const matchedKey = matchedCandidates.length > 1
+          ? (matchedCandidates.find(function(k) {
+              // Préférer le fichier sans -N avant l'extension (ex: "titre.srt" vs "titre-1.srt")
+              return !k.match(/-\d+\.[^.]+$/);
+            }) || matchedCandidates[0])
+          : matchedCandidates[0];
         if (matchedKey) {
           WfdContext.setVar(ctx, mapping.variable, base + matchedKey);
           console.log('[AWS S3] mapping', mapping.type, '→', mapping.variable, '=', matchedKey);
