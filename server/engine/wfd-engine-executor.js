@@ -185,6 +185,13 @@ async function executeFlux(flux, triggerPayload, nodeHandlers, iconikClient, onE
     if (triggerPayload?.asset?.type) ctx.asset.type = triggerPayload.asset.type;
   }
 
+  // Injecter collection_id si présent
+  const _colId = triggerPayload?.collection?.id || '';
+  if (_colId) {
+    WfdContext.setVar(ctx, 'collection_id', _colId);
+    if (ctx.collection) ctx.collection.id = _colId;
+    else ctx.collection = { id: _colId };
+  }
   // Injecter metadata_view_id — forme normalisée (event.viewId) OU brute
   const _viewId = triggerPayload?.event?.viewId || triggerPayload?.metadata_view_id || '';
   if (_viewId) {

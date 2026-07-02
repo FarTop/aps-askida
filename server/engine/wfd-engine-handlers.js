@@ -186,14 +186,17 @@ async function id_generator(node, ctx, iconikClient) {
     const { PrismaPg }     = require('@prisma/adapter-pg');
     const adapter  = new PrismaPg({ connectionString: process.env.DATABASE_URL });
     const _prisma  = new PrismaClient({ adapter });
-    const assetId  = ctx.asset?.id || ctx.vars?.asset_id || '';
-    const orgId    = ctx.vars?.orgId || 'default';
+    const assetId    = ctx.asset?.id || ctx.vars?.asset_id || '';
+    const colId      = ctx.collection?.id || ctx.vars?.collection_id || '';
+    const objectId   = assetId || colId;
+    const objectType = assetId ? 'asset' : (colId ? 'collection' : 'asset');
+    const orgId      = ctx.vars?.orgId || 'default';
     try {
-      // Vérifier si cet asset a déjà un ID enregistré
-      const existing = assetId ? await _prisma.bayardRegistry.findFirst({ where: { assetId } }) : null;
+      // Vérifier si cet objet a déjà un ID enregistré
+      const existing = objectId ? await _prisma.bayardRegistry.findFirst({ where: { assetId: objectId } }) : null;
       if (existing) {
         id = existing.bayardId;
-        console.log('[id_generator] ID existant réutilisé :', id, 'pour asset', assetId);
+        console.log('[id_generator] ID existant réutilisé :', id, 'pour', objectType, objectId);
       } else {
         // Chercher un ID unique (max 10 tentatives)
         let attempts = 0;
@@ -207,11 +210,11 @@ async function id_generator(node, ctx, iconikClient) {
           attempts++;
         }
         // Enregistrer le nouvel ID
-        if (assetId) {
+        if (objectId) {
           await _prisma.bayardRegistry.create({
-            data: { id: require('crypto').randomUUID(), bayardId: id, assetId, assetType: 'asset', orgId }
+            data: { id: require('crypto').randomUUID(), bayardId: id, assetId: objectId, assetType: objectType, orgId }
           });
-          console.log('[id_generator] Nouvel ID enregistré :', id, 'pour asset', assetId);
+          console.log('[id_generator] Nouvel ID enregistré :', id, 'pour', objectType, objectId);
         }
       }
     } catch(e) {
@@ -560,7 +563,7 @@ async function fetch(node, ctx, iconikClient) {
   // ── Métadonnées ──────────────────────────────────────────────
   if (subType === 'metadata') {
     const varName    = r(cfg.fetchVar || cfg.storeAs || 'metadata', ctx);
-    const assetId    = r(ctx.asset?.id || '{asset.id}', ctx);
+    const assetId    = ctx.asset?.id || '';
     const colId      = ctx.collection?.id || '';
     const objectType = colId && !assetId ? 'collections' : 'assets';
     const objectId   = objectType === 'collections' ? colId : assetId;
@@ -568,7 +571,17 @@ async function fetch(node, ctx, iconikClient) {
     const endpoint   = viewId
       ? `/API/metadata/v1/${objectType}/${objectId}/views/${viewId}/`
       : `/API/metadata/v1/${objectType}/${objectId}/`;
-    const data = await iconikClient.get(endpoint);
+    let data;
+    try {
+      data = await iconikClient.get(endpoint);
+    } catch(e) {
+      if (e.statusCode === 404 || e.message?.includes('404')) {
+        // Vue non encore initialisée pour cet objet — traiter comme vide
+        data = { metadata_values: {} };
+      } else {
+        throw e;
+      }
+    }
     // Filtrer les champs si spécifié
     const fields = cfg.metadataFields || [];
     if (fields.length && data.metadata_values) {
@@ -1480,12 +1493,17 @@ async function update_meta(node, ctx, iconikClient) {
     return { port: 0 };
   }
 
-  // Mode "via une vue" : déléguer au handler action avec metadata_patch
+  // Mode "via une vue" : déléguer au handler action
+  // Si la cible est une collection, utiliser metadata_collection
+  const _isCollection = cfg.target === 'collection';
+  const _actionType = _isCollection ? 'metadata_collection' : (node.config?.actionType || 'metadata_patch');
   const normalized = {
     ...node,
     config: {
       ...node.config,
-      actionType: node.config?.actionType || 'metadata_patch',
+      actionType : _actionType,
+      collectionId: _isCollection ? (cfg.targetId || '{collection.id}') : undefined,
+      viewId      : _isCollection ? cfg.mdViewId : undefined,
     },
   };
   return action(normalized, ctx, iconikClient);

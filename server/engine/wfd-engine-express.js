@@ -137,7 +137,7 @@ async function loadIconikClients() {
         appId  : env.appId  || '',
         token  : env.token,
       });
-      console.log(`[WFD Engine] Client Iconik chargé : ${env.name}`);
+      console.log(`[WFD Engine] Client Iconik chargé : ${env.name} | appId: ${env.appId} | token: ${env.token?.slice(0,20)}...`);
     });
   } catch(e) {
     console.warn('[WFD Engine] Chargement clients Iconik échoué :', e.message);
@@ -308,6 +308,9 @@ router.post('/action/:slug', (req, res) => {
   }
 
   const fluxes  = _engine._getFluxes?.() || [];
+  console.log('[WFD DEBUG] fluxes en mémoire:', fluxes.length, '| actifs:', fluxes.filter(f => _engine.isActive(f.id)).map(f => f.name + '/' + f.nodes?.find(n=>n.family==='trigger')?.config?.wfdSlug));
+  console.log('[WFD DEBUG] payload reçu:', JSON.stringify(req.body).slice(0, 300));
+  console.log('[WFD DEBUG] isCustomAction sera:', !!(  (req.body.auth_token && (req.body.asset_ids !== undefined || req.body.object_id)) || (req.body.collection_ids !== undefined && req.body.context === 'COLLECTION') ));
   const matched = fluxes.filter(flux => {
     if (!_engine.isActive(flux.id)) return false;
     const trigger = flux.nodes?.find(n => ['trigger','listener'].includes(n.family));
@@ -329,9 +332,10 @@ router.post('/action/:slug', (req, res) => {
   const WfdTrigger = require(path.join(__dirname, 'wfd-engine-trigger.js'));
   const WfdExecutor = require(path.join(__dirname, 'wfd-engine-executor.js'));
 
-  const isCustomAction = !!(payload.auth_token && (
-    payload.asset_ids !== undefined || payload.object_id
-  ));
+  const isCustomAction = !!(
+    (payload.auth_token && (payload.asset_ids !== undefined || payload.object_id)) ||
+    (payload.collection_ids !== undefined && payload.context === 'COLLECTION')
+  );
 
   for (const flux of matched) {
     const onEvent = (type, data) => {
@@ -526,6 +530,13 @@ function _dispatchCustomAction(raw, flux, runFlux, WfdTrigger) {
 
   if (context === 'COLLECTION') {
     const collectionId = (Array.isArray(raw.collection_ids) ? raw.collection_ids[0] : null) || raw.object_id || '';
+    console.log('[WFD DEBUG] _dispatchCustomAction COLLECTION — collectionId:', collectionId);
+    // Lancer le flux avec la collection comme contexte directement
+    runFlux(WfdTrigger.normalizeIconikPayload({
+      ...raw, collection_ids: [collectionId],
+      object_type: 'COLLECTION', context: 'COLLECTION',
+    }));
+    return;
     const client = _buildTempClient(raw);
     client.get(`/API/assets/v1/collections/${collectionId}/content/?object_types=assets&per_page=200`)
       .then(data => {
