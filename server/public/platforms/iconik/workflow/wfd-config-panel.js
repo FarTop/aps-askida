@@ -1461,14 +1461,20 @@ function _listenerConnChange(pfx) {
 // (remplacé par _triggerEventChange / _triggerCondChange ci-dessus)
 
 async function syncTriggerRefs() {
-  // Tenter une synchro partielle si disponible, sinon recharger depuis localStorage
   toast('Actualisation…');
   try {
-    if (typeof syncIconikPartial === 'function') {
-      const env = getEnvironnements().find(e => e.name === currentEnvName);
-      if (env) await syncIconikPartial(env, ['webhooks','customActions']);
+    // Fetch direct Iconik — temps réel, sans passer par le snapshot
+    const env = getEnvironnements().find(e => e.name === currentEnvName);
+    if (env) {
+      const headers = { 'App-ID': env.appId, 'Auth-Token': env.token };
+      const _envSlug = encodeURIComponent(env.name || env.environment || 'default');
+      const res = await fetch('/api/iconik/' + _envSlug + '/API/assets/v1/custom_actions/?per_page=500');
+      if (res.ok) {
+        const data = await res.json();
+        wfdData.customActions = data.objects || [];
+      }
     }
-  } catch(e) { /* synchro optionnelle */ }
+  } catch(e) { /* fetch optionnel */ }
   chargerIconikData();
   // Repeupler les selects sans reconstruire le panneau
   for (const pfx of ['mn','cfg']) {

@@ -314,9 +314,9 @@ const DB_HANDLERS = [
   // ── Custom Actions ───────────────────────────────────────────────────────
   {
     match: (m, p) => m === 'GET' && p === '/API/assets/v1/custom_actions/',
-    handle: async ({ snapshotId }) => {
-      const rows = await prisma.ikonCustomAction.findMany({ where: { snapshotId }, orderBy: { title: 'asc' } });
-      return { handled: true, status: 200, data: ikonPage(rawList(rows)) };
+    handle: async () => {
+      // Fetch temps réel — pas de snapshot pour garantir visibilité immédiate
+      return { handled: false };
     },
   },
 

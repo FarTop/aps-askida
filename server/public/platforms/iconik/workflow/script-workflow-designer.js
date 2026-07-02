@@ -754,6 +754,7 @@ function _wfdHandleEngineEvent(ev) {
       }
       _wfdUpdateLiveBadge();
       _wfdRenderJobsPanel();
+      peuplerSelectFlux();
       break;
     }
 
@@ -1889,12 +1890,22 @@ function peuplerSelectFlux() {
   const sel = document.getElementById('wfd-flow-select');
   const prev = sel.value;
   sel.innerHTML = '<option value="">\u2014 Flux \u2014</option>';
-  wfdFlows.forEach(f => {
+  const actives = _getActiveFluxes();
+  [...wfdFlows].sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
     const opt = document.createElement('option');
-    opt.value = f.id; opt.textContent = f.name;
-    // Indicateur actif
-    const actives = _getActiveFluxes();
-    if (actives.has(f.id)) opt.textContent = '● ' + f.name;
+    // Déterminer le statut du flux
+    const isLive    = Object.values(_wfdJobs.live || {}).some(j => j.fluxId === f.id);
+    const fluxHistory = (_wfdJobs.history || []).filter(j => j.fluxId === f.id);
+    const lastRun   = fluxHistory.sort((a,b) => new Date(b.startedAt||0) - new Date(a.startedAt||0))[0];
+    const lastFailed = lastRun?.status === 'failed';
+    let dot = '⚫'; // inactif
+    if (actives.has(f.id)) {
+      if (isLive)       dot = '🟠'; // run en cours
+      else if (lastFailed) dot = '🔴'; // dernier run en échec
+      else              dot = '🟢'; // actif, OK
+    }
+    opt.value = f.id;
+    opt.textContent = dot + ' ' + f.name;
     sel.appendChild(opt);
   });
   if (prev && wfdFlows.find(f=>f.id===prev)) { sel.value = prev; }
@@ -9131,6 +9142,7 @@ function wfdToggleFlux() {
   }
   _saveActiveFluxes(actives);
   wfdUpdateToggleBtn();
+  peuplerSelectFlux();
 }
 
 // ── Déclenchement manuel (test) ──────────────────────────────────
