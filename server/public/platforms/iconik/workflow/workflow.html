@@ -99,6 +99,10 @@
         <span class="eng-label">Node-RED</span>
         <a class="eng-link" id="link-nr" href="http://192.168.1.102:1881" target="_blank" title="Ouvrir Node-RED">↗</a>
       </div>
+      <div class="eng-indicator" id="eng-iconik">
+        <span class="eng-dot" id="dot-iconik"></span>
+        <span class="eng-label" id="label-iconik">Iconik</span>
+      </div>
     </div>
   </header>
 
@@ -828,6 +832,52 @@
 
   checkNodeRed();
   setInterval(checkNodeRed, 10000);
+
+  // ── Indicateur Iconik — timestamp dernière actualisation ───────
+  function updateIconikDot() {
+    const dot   = document.getElementById('dot-iconik');
+    const label = document.getElementById('label-iconik');
+    if (!dot || !label) return;
+
+    // Chercher wfdLiveData_* dans localStorage
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('wfdLiveData_'));
+    if (!keys.length) {
+      dot.classList.remove('online'); dot.classList.add('offline');
+      label.textContent = 'Iconik — snapshot';
+      return;
+    }
+    // Prendre le plus récent
+    let latest = null;
+    keys.forEach(k => {
+      try {
+        const d = JSON.parse(localStorage.getItem(k));
+        if (d._refreshedAt && (!latest || d._refreshedAt > latest._refreshedAt)) latest = d;
+      } catch(e) {}
+    });
+    if (!latest || !latest._refreshedAt) {
+      dot.classList.remove('online'); dot.classList.add('offline');
+      label.textContent = 'Iconik — snapshot';
+      return;
+    }
+    const dt  = new Date(latest._refreshedAt);
+    const pad = n => String(n).padStart(2, '0');
+    const ts  = pad(dt.getDate()) + '/' + pad(dt.getMonth()+1) + ' à ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+    dot.classList.add('online'); dot.classList.remove('offline');
+    label.textContent = 'Iconik — ' + ts;
+  }
+
+  updateIconikDot();
+  setInterval(updateIconikDot, 15000);
+
+  // Hook : mettre à jour la bille après chaque wfdRefreshAllData
+  const _origRefresh = window.wfdRefreshAllData;
+  if (typeof _origRefresh === 'function') {
+    window.wfdRefreshAllData = async function(opts) {
+      const r = await _origRefresh(opts);
+      updateIconikDot();
+      return r;
+    };
+  }
   </script>
   <!-- WFD Logger -->
   <script src="wfd-logger.js"></script>

@@ -254,9 +254,8 @@ const DB_HANDLERS = [
   // ── Metadata Fields ──────────────────────────────────────────────────────
   {
     match: (m, p) => m === 'GET' && p === '/API/metadata/v1/fields/',
-    handle: async ({ snapshotId }) => {
-      const rows = await prisma.ikonField.findMany({ where: { snapshotId }, orderBy: { name: 'asc' } });
-      return { handled: true, status: 200, data: ikonPage(rawList(rows)) };
+    handle: async () => {
+      return { handled: false }; // WFD : toujours temps réel
     },
   },
 

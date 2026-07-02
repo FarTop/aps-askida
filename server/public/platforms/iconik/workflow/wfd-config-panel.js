@@ -3003,6 +3003,170 @@ function buildCfgFields(pfx, family, cfg) {
         placeholder="Description de ce nœud...">${cfg.description||''}</textarea>
     </div>`;
 
+} else if (family === 'aps_search') {
+  const _srBlocks   = cfg.blocks || [];
+  const _srMdFields = (typeof wfdData !== 'undefined' ? wfdData.metadata : []) || [];
+  const _srMdNames  = _srMdFields.map(m => m.nom||m.name||'').filter(Boolean).sort();
+
+  const SYSTEM_FIELDS = ['id','title','date_created','date_modified','object_type','status','archive_status','external_id'];
+  const ALL_FIELDS    = [...SYSTEM_FIELDS, ..._srMdNames];
+
+  const OBJECT_TYPES = [
+    { value:'asset',           label:'🎬 Asset' },
+    { value:'collection',      label:'📁 Collection' },
+    { value:'segment',         label:'✂️ Segment' },
+    { value:'saved_search',    label:'💾 Recherche sauvegardée' },
+    { value:'format',          label:'🎞 Format' },
+    { value:'storage',         label:'🗄 Storage' },
+    { value:'metadata_view',   label:'📋 Metadata View' },
+    { value:'user',            label:'👥 User / Team' },
+    { value:'export_location', label:'📤 Export Location' },
+  ];
+
+  const OPS_BY_TYPE = {
+    text   : { equals:'est égal à', not_equals:'est différent de', contains:'contient', not_contains:'ne contient pas', starts_with:'commence par', is_empty:'est vide', is_not_empty:"n'est pas vide" },
+    date   : { before:'avant', after:'après', is_empty:'est vide', is_not_empty:"n'est pas vide" },
+    number : { equals:'est égal à', gt:'supérieur à', lt:'inférieur à', is_empty:'est vide', is_not_empty:"n'est pas vide" },
+    list   : { contains_any:'contient au moins un', contains_all:'contient tous', not_contains:'ne contient pas', is_empty:'est vide', is_not_empty:"n'est pas vide" },
+    bool   : { is_true:'est vrai', is_false:'est faux', is_empty:'est vide' },
+  };
+  const ALL_OPS = Object.assign({}, ...Object.values(OPS_BY_TYPE));
+
+  function srOpsOptions(selOp) {
+    return Object.entries(ALL_OPS)
+      .map(([k,v]) => `<option value="${k}" ${selOp===k?'selected':''}>${v}</option>`)
+      .join('');
+  }
+
+  function srNeedsValue(op) {
+    return !['is_empty','is_not_empty','is_true','is_false'].includes(op);
+  }
+
+  function srBlockHtml(block, idx, allBlocks) {
+    const prevBlocks = allBlocks.slice(0, idx);
+    const parentOpts = `<option value="">— aucun —</option>` +
+      prevBlocks.map(b => `<option value="${b.id}" ${block.parentBlock==b.id?'selected':''}>${escHtml('Bloc '+b.id)}</option>`).join('');
+
+    const critHtml = (block.criteria||[]).map((crit, ci) => {
+      const hasVal = srNeedsValue(crit.op||'equals');
+      const joinBtn = ci > 0
+        ? `<button onclick="srToggleJoin('${pfx}',${idx},${ci})" class="cfg-btn"
+             style="padding:2px 8px;font-size:10px;min-width:44px;"
+             title="Cliquer pour basculer AND/OR">${escHtml(crit.join||'AND')}</button>`
+        : '';
+      return `
+      <div class="sr-crit-row" data-bidx="${idx}" data-cidx="${ci}"
+           style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+        ${joinBtn ? joinBtn : '<span style="min-width:44px;"></span>'}
+        <select class="cfg-select sr-crit-field" data-bidx="${idx}" data-cidx="${ci}"
+                style="flex:2;" onchange="srFieldChange('${pfx}',${idx},${ci},this.value)">
+          ${ALL_FIELDS.map(f => `<option value="${escHtml(f)}" ${crit.field===f?'selected':''}>${escHtml(f)}</option>`).join('')}
+        </select>
+        <select class="cfg-select sr-crit-op" data-bidx="${idx}" data-cidx="${ci}"
+                style="flex:2;" onchange="srOpChange('${pfx}',${idx},${ci},this.value)">
+          ${srOpsOptions(crit.op||'equals')}
+        </select>
+        <input class="cfg-input sr-crit-val" data-bidx="${idx}" data-cidx="${ci}"
+               value="${escHtml(crit.value||'')}" placeholder="valeur"
+               style="flex:2;font-family:var(--font-mono);font-size:10px;${hasVal?'':'display:none;'}"
+               oninput="srAutoSave('${pfx}')">
+        <button onclick="srRemoveCrit('${pfx}',${idx},${ci})"
+                style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0 2px;">×</button>
+      </div>`;
+    }).join('');
+
+    return `
+    <div class="sr-block" data-bidx="${idx}"
+         style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:5px;padding:10px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:10px;font-weight:700;color:#8e44ad;min-width:52px;">Bloc ${block.id}</span>
+        <select class="cfg-select sr-obj-type" data-bidx="${idx}" style="flex:2;"
+                onchange="srAutoSave('${pfx}')">
+          ${OBJECT_TYPES.map(o => `<option value="${o.value}" ${block.objectType===o.value?'selected':''}>${o.label}</option>`).join('')}
+        </select>
+        ${prevBlocks.length ? `
+        <select class="cfg-select sr-parent" data-bidx="${idx}" style="flex:2;"
+                onchange="srAutoSave('${pfx}')">
+          ${parentOpts}
+        </select>` : ''}
+        <button onclick="srRemoveBlock('${pfx}',${idx})"
+                style="background:none;border:none;color:#555;cursor:pointer;font-size:14px;padding:0 2px;margin-left:auto;">×</button>
+      </div>
+      <div class="sr-crits" data-bidx="${idx}" style="padding-left:4px;">
+        ${critHtml}
+      </div>
+      <button onclick="srAddCrit('${pfx}',${idx})"
+              style="font-size:10px;padding:3px 8px;margin-top:4px;width:100%;" class="cfg-btn">
+        + Critère
+      </button>
+    </div>`;
+  }
+
+  const blocksHtml = _srBlocks.map((b, i) => srBlockHtml(b, i, _srBlocks)).join('');
+  const blockOpts  = _srBlocks.map(b => `<option value="${b.id}" ${cfg.returnBlock==b.id?'selected':''}>Bloc ${b.id}</option>`).join('');
+
+  html += `
+  <!-- En-tête résultat -->
+  <div style="font-size:9px;color:#e67e22;margin-bottom:6px;padding:5px 8px;background:#1a1000;border-radius:3px;border:1px solid #3a2800;">
+    💡 Les champs MD proviennent du snapshot. Cliquez sur <b>Actualiser</b> (⟳) dans la toolbar pour obtenir les champs à jour depuis Iconik.
+  </div>
+  <div class="cfg-field" style="display:flex;gap:8px;align-items:center;">
+    <div style="flex:1;">
+      <label class="cfg-label">Variable de stockage</label>
+      <input id="${pfx}-sr-result-var" class="cfg-input"
+             value="${escHtml(cfg.resultVar||'search_results')}"
+             style="font-family:var(--font-mono);" oninput="srAutoSave('${pfx}')">
+    </div>
+  </div>
+
+  <!-- Blocs -->
+  <div class="cfg-field">
+    <label class="cfg-label">Blocs de recherche</label>
+    <div id="${pfx}-sr-blocks" style="margin-bottom:6px;">${blocksHtml}</div>
+    <button class="cfg-btn" onclick="srAddBlock('${pfx}')" style="width:100%;padding:6px;">
+      + Ajouter un bloc
+    </button>
+  </div>
+
+  <!-- Expression booléenne -->
+  <div class="cfg-field">
+    <label class="cfg-label">Expression</label>
+    <input id="${pfx}-sr-expression" class="cfg-input"
+           value="${escHtml(cfg.expression||'')}"
+           placeholder="ex : 1 AND 2 AND (3 OR 4)"
+           style="font-family:var(--font-mono);"
+           oninput="srAutoSave('${pfx}')">
+    <div style="font-size:9px;color:#555;margin-top:3px;">
+      Numéros de blocs + AND · OR · NOT · parenthèses. Vide = tous les blocs actifs.
+    </div>
+  </div>
+
+  <!-- Résultat -->
+  <div class="cfg-field" style="display:flex;gap:8px;align-items:center;">
+    <div style="flex:2;">
+      <label class="cfg-label">Retourner le résultat de</label>
+      <select id="${pfx}-sr-return-block" class="cfg-select" onchange="srAutoSave('${pfx}')">
+        ${blockOpts}
+      </select>
+    </div>
+    <div style="flex:1;">
+      <label class="cfg-label">Limite</label>
+      <input id="${pfx}-sr-limit" class="cfg-input" type="number"
+             value="${cfg.limit||500}" min="1" max="2000"
+             oninput="srAutoSave('${pfx}')">
+    </div>
+  </div>
+
+  <!-- Ports -->
+  <div style="background:#080808;border:1px solid #1a1a1a;border-radius:4px;padding:8px 10px;margin-top:4px;">
+    <div style="font-size:9px;color:#444;margin-bottom:6px;text-transform:uppercase;">Ports de sortie</div>
+    <div style="font-size:11px;display:flex;flex-direction:column;gap:4px;">
+      <span>🟣 <b>Résultats trouvés</b> — au moins un objet retourné</span>
+      <span>🟠 <b>Aucun résultat</b> — recherche vide</span>
+      <span>🔴 <b>Erreur</b> — erreur API Iconik</span>
+    </div>
+  </div>`;
+
 } else if (family === 'checker') {
   const _chkConns  = (typeof wfdConnexions !== 'undefined' ? wfdConnexions : []).filter(c => c.direction === 'outbound');
   const _chkChecks = cfg.checks || [];
@@ -5137,6 +5301,14 @@ function sauvegarderConfig() {
     node.config.mapping        = g('mapping');
     node.config.endpoint       = g('endpoint');
     node.config.metadataViewId = g('mdview');
+  } else if (node.family === 'aps_search') {
+    node.config.blocks      = srReadBlocks('cfg');
+    node.config.expression  = document.getElementById('cfg-sr-expression')?.value?.trim() || '';
+    node.config.returnBlock = parseInt(document.getElementById('cfg-sr-return-block')?.value) || 1;
+    node.config.limit       = parseInt(document.getElementById('cfg-sr-limit')?.value) || 500;
+    node.config.resultVar   = document.getElementById('cfg-sr-result-var')?.value?.trim() || 'search_results';
+    node.ports = buildPortsDef('aps_search', node.config);
+
   } else if (node.family==='checker') {
     node.config.connexionId = g('chk-conn') || '';
     node.config.checks      = chkReadRows('cfg');
@@ -9581,3 +9753,179 @@ function httpForeachPreview(pfx) {
     'wfdRefreshSavedSearches','wfdRefreshList'];
   names.forEach(function(n){try{var f=eval(n);if(typeof f==='function')window[n]=f;}catch(e){}});
 })();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Recherche APS — fonctions utilitaires (sr*)
+// ══════════════════════════════════════════════════════════════════════════════
+
+function srReadBlocks(pfx) {
+  const container = document.getElementById(pfx + '-sr-blocks');
+  if (!container) return [];
+  const blocks = [];
+  container.querySelectorAll('.sr-block').forEach((blockEl, bidx) => {
+    const id        = bidx + 1;
+    const objectType = blockEl.querySelector('.sr-obj-type')?.value || 'asset';
+    const parentSel  = blockEl.querySelector('.sr-parent');
+    const parentBlock = parentSel ? (parseInt(parentSel.value) || null) : null;
+    const criteria   = [];
+    blockEl.querySelectorAll('.sr-crit-row').forEach((critEl, cidx) => {
+      criteria.push({
+        field : critEl.querySelector('.sr-crit-field')?.value || '',
+        op    : critEl.querySelector('.sr-crit-op')?.value    || 'equals',
+        value : critEl.querySelector('.sr-crit-val')?.value   || '',
+        join  : critEl.querySelector('.cfg-btn')?.textContent?.trim() || (cidx > 0 ? 'AND' : ''),
+      });
+    });
+    blocks.push({ id, objectType, parentBlock, criteria });
+  });
+  return blocks;
+}
+
+function srAddBlock(pfx) {
+  const blocks = srReadBlocks(pfx);
+  const newId  = (blocks.length ? Math.max(...blocks.map(b => b.id)) : 0) + 1;
+  blocks.push({ id: newId, objectType: 'asset', parentBlock: null, criteria: [] });
+  srRerender(pfx, blocks);
+  srAutoSave(pfx);
+}
+
+function srRemoveBlock(pfx, bidx) {
+  const blocks = srReadBlocks(pfx);
+  blocks.splice(bidx, 1);
+  // Renumber
+  blocks.forEach((b, i) => { b.id = i + 1; });
+  srRerender(pfx, blocks);
+  srAutoSave(pfx);
+}
+
+function srAddCrit(pfx, bidx) {
+  const blocks = srReadBlocks(pfx);
+  if (!blocks[bidx]) return;
+  blocks[bidx].criteria.push({ field: 'title', op: 'is_not_empty', value: '', join: 'AND' });
+  srRerender(pfx, blocks);
+  srAutoSave(pfx);
+}
+
+function srRemoveCrit(pfx, bidx, cidx) {
+  const blocks = srReadBlocks(pfx);
+  if (!blocks[bidx]) return;
+  blocks[bidx].criteria.splice(cidx, 1);
+  srRerender(pfx, blocks);
+  srAutoSave(pfx);
+}
+
+function srToggleJoin(pfx, bidx, cidx) {
+  const blocks = srReadBlocks(pfx);
+  if (!blocks[bidx] || !blocks[bidx].criteria[cidx]) return;
+  const cur = blocks[bidx].criteria[cidx].join || 'AND';
+  blocks[bidx].criteria[cidx].join = cur === 'AND' ? 'OR' : 'AND';
+  srRerender(pfx, blocks);
+  srAutoSave(pfx);
+}
+
+function srFieldChange(pfx, bidx, cidx, val) {
+  srAutoSave(pfx);
+}
+
+function srOpChange(pfx, bidx, cidx, op) {
+  // Afficher/masquer le champ valeur selon l'opérateur
+  const container = document.getElementById(pfx + '-sr-blocks');
+  if (!container) return;
+  const critRows = container.querySelectorAll('.sr-crit-row');
+  let rowCount = 0;
+  container.querySelectorAll('.sr-block').forEach((blockEl, bi) => {
+    blockEl.querySelectorAll('.sr-crit-row').forEach((critEl, ci) => {
+      if (bi === bidx && ci === cidx) {
+        const noVal = ['is_empty','is_not_empty','is_true','is_false'].includes(op);
+        const valEl = critEl.querySelector('.sr-crit-val');
+        if (valEl) valEl.style.display = noVal ? 'none' : '';
+      }
+    });
+  });
+  srAutoSave(pfx);
+}
+
+function srAutoSave(pfx) {
+  if (pfx === 'cfg' && typeof sauvegarderConfig === 'function') sauvegarderConfig();
+}
+
+function srRerender(pfx, blocks) {
+  // Déclencher une reconstruction complète du panel via sauvegarderConfig + réouverture
+  // Pattern simplifié : reconstruire uniquement la zone blocs
+  const container = document.getElementById(pfx + '-sr-blocks');
+  if (!container) return;
+
+  const flux = typeof getFluxCourant === 'function' ? getFluxCourant() : null;
+  const node = flux && selectedNodeId ? flux.nodes.find(n => n.id === selectedNodeId) : null;
+  if (node) {
+    node.config.blocks = blocks;
+    // Reconstruire le HTML des blocs
+    const OBJECT_TYPES = [
+      { value:'asset',           label:'🎬 Asset' },
+      { value:'collection',      label:'📁 Collection' },
+      { value:'segment',         label:'✂️ Segment' },
+      { value:'saved_search',    label:'💾 Recherche sauvegardée' },
+      { value:'format',          label:'🎞 Format' },
+      { value:'storage',         label:'🗄 Storage' },
+      { value:'metadata_view',   label:'📋 Metadata View' },
+      { value:'user',            label:'👥 User / Team' },
+      { value:'export_location', label:'📤 Export Location' },
+    ];
+    const _srMdFields = (typeof wfdData !== 'undefined' ? wfdData.metadata : []) || [];
+    const _srMdNames  = _srMdFields.map(m => m.nom||m.name||'').filter(Boolean).sort();
+    const SYSTEM_FIELDS = ['id','title','date_created','date_modified','object_type','status','archive_status','external_id'];
+    const ALL_FIELDS    = [...SYSTEM_FIELDS, ..._srMdNames];
+    const ALL_OPS = {
+      equals:'est égal à', not_equals:'est différent de', contains:'contient',
+      not_contains:'ne contient pas', starts_with:'commence par',
+      before:'avant', after:'après', gt:'supérieur à', lt:'inférieur à',
+      contains_any:'contient au moins un', contains_all:'contient tous',
+      is_empty:'est vide', is_not_empty:"n'est pas vide",
+      is_true:'est vrai', is_false:'est faux',
+    };
+
+    const html = blocks.map((block, idx) => {
+      const prevBlocks = blocks.slice(0, idx);
+      const parentOpts = '<option value="">— aucun —</option>' +
+        prevBlocks.map(b => `<option value="${b.id}" ${block.parentBlock==b.id?'selected':''}>Bloc ${b.id}</option>`).join('');
+      const critHtml = (block.criteria||[]).map((crit, ci) => {
+        const hasVal = !['is_empty','is_not_empty','is_true','is_false'].includes(crit.op||'equals');
+        const joinBtn = ci > 0
+          ? `<button onclick="srToggleJoin('${pfx}',${idx},${ci})" class="cfg-btn" style="padding:2px 8px;font-size:10px;min-width:44px;">${crit.join||'AND'}</button>`
+          : '';
+        return `<div class="sr-crit-row" data-bidx="${idx}" data-cidx="${ci}" style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+          ${joinBtn||'<span style="min-width:44px;"></span>'}
+          <select class="cfg-select sr-crit-field" data-bidx="${idx}" data-cidx="${ci}" style="flex:2;" onchange="srFieldChange('${pfx}',${idx},${ci},this.value)">
+            ${ALL_FIELDS.map(f=>`<option value="${f}" ${crit.field===f?'selected':''}>${f}</option>`).join('')}
+          </select>
+          <select class="cfg-select sr-crit-op" data-bidx="${idx}" data-cidx="${ci}" style="flex:2;" onchange="srOpChange('${pfx}',${idx},${ci},this.value)">
+            ${Object.entries(ALL_OPS).map(([k,v])=>`<option value="${k}" ${(crit.op||'equals')===k?'selected':''}>${v}</option>`).join('')}
+          </select>
+          <input class="cfg-input sr-crit-val" data-bidx="${idx}" data-cidx="${ci}" value="${(crit.value||'').replace(/"/g,'&quot;')}" placeholder="valeur"
+            style="flex:2;font-family:var(--font-mono);font-size:10px;${hasVal?'':'display:none;'}" oninput="srAutoSave('${pfx}')">
+          <button onclick="srRemoveCrit('${pfx}',${idx},${ci})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0 2px;">×</button>
+        </div>`;
+      }).join('');
+      return `<div class="sr-block" data-bidx="${idx}" style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:5px;padding:10px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:10px;font-weight:700;color:#8e44ad;min-width:52px;">Bloc ${block.id}</span>
+          <select class="cfg-select sr-obj-type" data-bidx="${idx}" style="flex:2;" onchange="srAutoSave('${pfx}')">
+            ${OBJECT_TYPES.map(o=>`<option value="${o.value}" ${block.objectType===o.value?'selected':''}>${o.label}</option>`).join('')}
+          </select>
+          ${prevBlocks.length?`<select class="cfg-select sr-parent" data-bidx="${idx}" style="flex:2;" onchange="srAutoSave('${pfx}')">${parentOpts}</select>`:''}
+          <button onclick="srRemoveBlock('${pfx}',${idx})" style="background:none;border:none;color:#555;cursor:pointer;font-size:14px;padding:0 2px;margin-left:auto;">×</button>
+        </div>
+        <div class="sr-crits" data-bidx="${idx}" style="padding-left:4px;">${critHtml}</div>
+        <button onclick="srAddCrit('${pfx}',${idx})" style="font-size:10px;padding:3px 8px;margin-top:4px;width:100%;" class="cfg-btn">+ Critère</button>
+      </div>`;
+    }).join('');
+
+    container.innerHTML = html;
+
+    // Mettre à jour le select "Retourner le résultat de"
+    const retSel = document.getElementById(pfx + '-sr-return-block');
+    if (retSel) {
+      retSel.innerHTML = blocks.map(b => `<option value="${b.id}" ${node.config.returnBlock==b.id?'selected':''}>Bloc ${b.id}</option>`).join('');
+    }
+  }
+}

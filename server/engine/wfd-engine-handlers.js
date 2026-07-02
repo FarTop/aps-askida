@@ -3578,3 +3578,200 @@ async function checker(node, ctx, iconikClient) {
     ? { port: 1, warn: failures.map(f => f.label + ': ' + (f.error || f.actual)).join(' | ') }
     : { port: 0 };
 }
+
+// ── APS SEARCH ───────────────────────────────────────────────────────────────
+async function aps_search(node, ctx, iconikClient) {
+  requireIconik(iconikClient, 'aps_search');
+  const cfg = node.config || {};
+  const blocks     = cfg.blocks     || [];
+  const expression = (cfg.expression || '').trim();
+  const returnBlock = cfg.returnBlock ?? 1;
+  const limit      = cfg.limit      || 500;
+  const resultVar  = cfg.resultVar  || 'search_results';
+
+  if (!blocks.length) throw new Error('Recherche APS : aucun bloc défini');
+
+  // Évaluer l'expression booléenne pour déterminer les blocs actifs
+  // Expression : "1 AND 2 AND (3 OR 4) AND NOT 5"
+  // Si absente → tous les blocs sont actifs
+  let activeBlocks = new Set(blocks.map(b => b.id));
+  if (expression) {
+    try {
+      activeBlocks = _apsSearchEvalExpression(expression, blocks.map(b => b.id));
+    } catch(e) {
+      console.warn('[APS SEARCH] Expression invalide, tous les blocs actifs :', e.message);
+    }
+  }
+
+  // Exécuter les blocs dans l'ordre, en injectant les résultats parents
+  const blockResults = {}; // blockId → tableau d'objets Iconik
+
+  for (const block of blocks) {
+    if (!activeBlocks.has(block.id)) continue;
+
+    // Récupérer les IDs du bloc parent si relation définie
+    let parentIds = null;
+    if (block.parentBlock != null) {
+      const parentRes = blockResults[block.parentBlock] || [];
+      parentIds = parentRes.map(obj => obj.id).filter(Boolean);
+      if (!parentIds.length) {
+        // Parent n'a rien retourné — ce bloc ne peut pas s'exécuter
+        blockResults[block.id] = [];
+        continue;
+      }
+    }
+
+    // Construire le body Iconik search
+    const body = _apsSearchBuildBody(block, parentIds, limit, ctx);
+
+    try {
+      const res = await iconikClient.post('/API/search/v1/search/', body);
+      blockResults[block.id] = (res.objects || []);
+      console.log('[APS SEARCH] Bloc', block.id, ':', blockResults[block.id].length, 'résultat(s)');
+    } catch(e) {
+      console.error('[APS SEARCH] Bloc', block.id, 'erreur :', e.message);
+      WfdContext.addError(ctx, node.name, 'Bloc ' + block.id + ' : ' + e.message, 'error');
+      return { port: 2 };
+    }
+  }
+
+  // Retourner le résultat du bloc choisi
+  const finalResults = blockResults[returnBlock] || [];
+  WfdContext.storeResult(ctx, resultVar, { objects: finalResults, total: finalResults.length });
+  WfdContext.setVar(ctx, resultVar, JSON.stringify(finalResults));
+  WfdContext.setVar(ctx, resultVar + '.count', String(finalResults.length));
+
+  console.log('[APS SEARCH] Résultat final bloc', returnBlock, ':', finalResults.length, 'objet(s)');
+  return finalResults.length > 0 ? { port: 0 } : { port: 1 };
+}
+
+// Construit le body pour POST /API/search/v1/search/
+function _apsSearchBuildBody(block, parentIds, limit, ctx) {
+  const OBJECT_TYPE_MAP = {
+    asset          : 'assets',
+    collection     : 'collections',
+    segment        : 'segments',
+    saved_search   : 'saved_searches',
+    format         : 'formats',
+    storage        : 'storages',
+  };
+
+  const objectType = OBJECT_TYPE_MAP[block.objectType] || block.objectType || 'assets';
+  const body = {
+    object_types : [objectType],
+    query        : '',
+    filters      : [],
+    limit        : limit,
+    offset       : 0,
+  };
+
+  // Relation parent → filtre collection_ids
+  if (parentIds && parentIds.length) {
+    body.collection_ids = parentIds;
+  }
+
+  // Critères → filters Iconik
+  const criteria = block.criteria || [];
+  for (const crit of criteria) {
+    const filter = _apsSearchCritToFilter(crit, ctx);
+    if (filter) body.filters.push(filter);
+  }
+
+  return body;
+}
+
+// Traduit un critère APS en filtre Iconik search
+function _apsSearchCritToFilter(crit, ctx) {
+  if (!crit.field) return null;
+  const field = crit.field;
+  const op    = crit.op || 'equals';
+  const rawVal = crit.value || '';
+  const val   = rawVal.includes('{') ? WfdContext.resolve(rawVal, ctx) : rawVal;
+
+  // Champs système Iconik — query_string vs metadata_values
+  const SYSTEM_FIELDS = ['id','title','date_created','date_modified','object_type','status','archive_status','external_id'];
+  const isSystem = SYSTEM_FIELDS.includes(field);
+
+  // Construire le filtre selon l'opérateur
+  switch (op) {
+    case 'equals':
+      return isSystem
+        ? { name: field, value: val, condition: 'must' }
+        : { name: 'metadata.' + field, value: val, condition: 'must' };
+
+    case 'not_equals':
+      return isSystem
+        ? { name: field, value: val, condition: 'must_not' }
+        : { name: 'metadata.' + field, value: val, condition: 'must_not' };
+
+    case 'contains':
+      return { name: isSystem ? field : 'metadata.' + field, value: '*' + val + '*', condition: 'must' };
+
+    case 'not_contains':
+      return { name: isSystem ? field : 'metadata.' + field, value: '*' + val + '*', condition: 'must_not' };
+
+    case 'starts_with':
+      return { name: isSystem ? field : 'metadata.' + field, value: val + '*', condition: 'must' };
+
+    case 'is_empty':
+      return { name: isSystem ? field : 'metadata.' + field, value: '', condition: 'must_not', filter_type: 'exists' };
+
+    case 'is_not_empty':
+      return { name: isSystem ? field : 'metadata.' + field, value: '*', condition: 'must', filter_type: 'exists' };
+
+    case 'before':
+      return { name: isSystem ? field : 'metadata.' + field, range: { lt: val }, condition: 'must' };
+
+    case 'after':
+      return { name: isSystem ? field : 'metadata.' + field, range: { gt: val }, condition: 'must' };
+
+    case 'gt':
+      return { name: isSystem ? field : 'metadata.' + field, range: { gt: val }, condition: 'must' };
+
+    case 'lt':
+      return { name: isSystem ? field : 'metadata.' + field, range: { lt: val }, condition: 'must' };
+
+    case 'contains_any':
+      return { name: isSystem ? field : 'metadata.' + field, values: val.split(',').map(v => v.trim()), condition: 'must' };
+
+    case 'contains_all':
+      return { name: isSystem ? field : 'metadata.' + field, values: val.split(',').map(v => v.trim()), condition: 'must', match: 'all' };
+
+    case 'is_true':
+      return { name: isSystem ? field : 'metadata.' + field, value: 'true', condition: 'must' };
+
+    case 'is_false':
+      return { name: isSystem ? field : 'metadata.' + field, value: 'false', condition: 'must' };
+
+    default:
+      console.warn('[APS SEARCH] Opérateur inconnu :', op);
+      return null;
+  }
+}
+
+// Évalue l'expression booléenne "1 AND 2 AND (3 OR 4) AND NOT 5"
+// Retourne un Set des IDs de blocs actifs
+function _apsSearchEvalExpression(expr, allIds) {
+  // Remplacer les IDs par true/false temporairement pour eval partiel
+  // Approche : parser l'expression en tokens et résoudre
+  // Les blocs référencés dans l'expression sont "actifs si leur numéro apparaît"
+  // NOT n → exclure n, le reste est inclus via AND/OR
+  const active = new Set();
+  const excluded = new Set();
+
+  // Extraire les tokens NOT n
+  const notMatches = expr.matchAll(/NOT\s+(\d+)/g);
+  for (const m of notMatches) excluded.add(parseInt(m[1]));
+
+  // Extraire tous les numéros de blocs mentionnés
+  const numMatches = expr.matchAll(/(\d+)/g);
+  for (const m of numMatches) {
+    const id = parseInt(m[1]);
+    if (!excluded.has(id)) active.add(id);
+  }
+
+  // Valider : seuls les IDs connus sont gardés
+  return new Set([...active].filter(id => allIds.includes(id)));
+}
+
+WfdHandlers.aps_search = aps_search;

@@ -53,6 +53,7 @@ const FAMILIES = {
   wait_for         : { color:'#e67e22', icon:'⏳', label:'Attendre',    desc:'Polling sur un endpoint jusqu\'à ce qu\'une condition soit remplie' },
   aws_s3           : { color:'#ff9900', icon:'☁️',  label:'AWS S3',      desc:'Opérations sur un bucket Amazon S3' },
   checker          : { color:'#27ae60', icon:'✔️',  label:'Vérificateur', desc:'Vérifie une liste d\'endpoints et leurs valeurs attendues' },
+  aps_search        : { color:'#8e44ad', icon:'🔍', label:'Recherche APS',  desc:'Recherche multi-blocs dans Iconik avec critères typés' },
   notify_post : { color:'#1abc9c', icon:'🔔',  label:'Notifier (POST)',   desc:'Envoie un POST HTTP vers un système externe' },
   subflow     : { color:'#8e44ad', icon:'🔀',  label:'Appeler Workflow',  desc:'Appelle un autre workflow en synchrone ou asynchrone' },
   relate      : { color:'#2980b9', icon:'🔗',  label:'Créer Relation',    desc:'Crée une relation entre deux assets Iconik' },
@@ -385,7 +386,18 @@ document.addEventListener('DOMContentLoaded', () => {
       peuplerSelectEnvironnement();
       // P3 — snapshot DB sur l'env par défaut dès que les envs sont connus
       const defEnv = envs.find(e => e.isDefault) || envs[0];
-      if (defEnv) _wfdChargerSnapshotDB(defEnv.name);
+      if (defEnv) {
+        // Toujours fetcher Iconik en direct au démarrage — snapshot en fallback si échec
+        setTimeout(() => {
+          if (typeof wfdRefreshAllData === 'function') {
+            wfdRefreshAllData({ silent: true }).catch(() => {
+              _wfdChargerSnapshotDB(defEnv.name);
+            });
+          } else {
+            _wfdChargerSnapshotDB(defEnv.name);
+          }
+        }, 500); // laisser peuplerSelectEnvironnement() finir d'abord
+      }
     })
     .catch(() => {});
 
@@ -469,7 +481,7 @@ const WFD_CAT_MAP = {
   },
   misc   : {
     label : '📝 Utilitaires',
-    nodes : ['postit','subflow','manual','gate','wait_for','aws_s3','checker'],
+    nodes : ['postit','subflow','manual','gate','wait_for','aws_s3','checker','aps_search'],
   },
 };
 
@@ -1520,17 +1532,18 @@ function _wfdChargerSnapshotDB(envName) {
 }
 
 // ── Actualisation globale depuis l'API Iconik ─────────────────────────────────
-async function wfdRefreshAllData() {
+async function wfdRefreshAllData(opts) {
+  const silent  = opts?.silent || false;
   const btn     = document.getElementById('btn-refresh-data');
   const flux    = getFluxCourant();
   const envName = flux?.iconikEnv || document.getElementById('wfd-env-select')?.value || '';
   const envs    = getEnvironnements();
   const env     = envs.find(e => e.name === envName) || envs[0];
 
-  if (!env) { toast('❌ Aucun environnement sélectionné'); return; }
+  if (!env) { if (!silent) toast('❌ Aucun environnement sélectionné'); return; }
 
-  if (btn) { btn.style.transform = 'rotate(360deg)'; btn.disabled = true; }
-  toast('⏳ Actualisation depuis ' + env.name + '…');
+  if (!silent && btn) { btn.style.transform = 'rotate(360deg)'; btn.disabled = true; }
+  if (!silent) toast('⏳ Actualisation depuis ' + env.name + '…');
 
   // Proxy APS — les appels passent par Express pour éviter les problèmes CORS
   // Le type d'environnement (qa, prod, dev...) est utilisé comme identifiant
@@ -1570,11 +1583,18 @@ async function wfdRefreshAllData() {
   // Mettre à jour wfdData en mémoire immédiatement
   chargerIconikData();
 
-  const msg = '✅ Actualisé depuis ' + env.name
-    + ' — ' + success + ' liste(s)'
-    + (failed ? ' (' + failed + ' erreur(s))' : '');
-  toast(msg);
-  if (btn) { setTimeout(() => { btn.style.transform = ''; btn.disabled = false; }, 400); }
+  if (!silent) {
+    const msg = '✅ Actualisé depuis ' + env.name
+      + ' — ' + success + ' liste(s)'
+      + (failed ? ' (' + failed + ' erreur(s))' : '');
+    toast(msg);
+    if (btn) { setTimeout(() => { btn.style.transform = ''; btn.disabled = false; }, 400); }
+  } else {
+    if (btn) { btn.style.transform = ''; btn.disabled = false; }
+    console.log('[WFD] Refresh silencieux OK — ' + success + ' liste(s), ' + failed + ' erreur(s)');
+  }
+  // Mettre à jour la bille Iconik
+  if (typeof updateIconikDot === 'function') updateIconikDot();
 }
 
 
@@ -2344,6 +2364,16 @@ function buildPortsDef(family, config) {
     return {
       inputs : [{ id:'in', label:'Entr\u00E9e' }],
       outputs: [{ id:'out', label:'Envoy\u00E9' }, { id:'err', label:'Erreur', color:'#e74c3c' }],
+    };
+  }
+  if (family === 'aps_search') {
+    return {
+      inputs : [{ id:'in', label:'Entrée' }],
+      outputs: [
+        { id:'found', label:'Résultats trouvés', color:'#8e44ad' },
+        { id:'empty', label:'Aucun résultat',    color:'#e67e22' },
+        { id:'error', label:'Erreur',            color:'#e74c3c' },
+      ],
     };
   }
   if (family === 'relate') {
