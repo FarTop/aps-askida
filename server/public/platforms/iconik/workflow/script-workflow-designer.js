@@ -1891,15 +1891,9 @@ function sauvegarderEtat(label) {
   // Synchroniser avec le serveur (fire-and-forget)
   _sauvegarderEtatVersServeur();
 
-  // Synchroniser les flux et connexions avec l'engine Electron si disponible
-  if (window.WfdEngineInstance?.loadFluxes) {
-    window.WfdEngineInstance.loadFluxes(wfdFlows).catch(() => {});
-  }
-  if (window.WfdEngineInstance?.loadConnexions) {
-    window.WfdEngineInstance.loadConnexions(
-      (wfdConnexions || []).filter(c => c.direction === 'outbound')
-    ).catch(() => {});
-  }
+  // Note : loadFluxes N'est PAS appelé ici — sauvegarderEtat est une sauvegarde canvas,
+  // pas un rechargement moteur. loadFluxes est réservé à load-fluxes explicite
+  // pour éviter d'écraser l'état actif en mémoire moteur après un toggle.
 }
 
 // ── Flux ─────────────────────────────────────────────────────
@@ -1909,30 +1903,53 @@ function getFluxCourant() { return getFlux(currentFlowId); }
 function peuplerSelectFlux() {
   const sel = document.getElementById('wfd-flow-select');
   const prev = sel.value;
-  sel.innerHTML = '<option value="">\u2014 Flux \u2014</option>';
   const actives = _getActiveFluxes();
-  [...wfdFlows].sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
-    const opt = document.createElement('option');
-    // Déterminer le statut du flux
-    const isLive    = Object.values(_wfdJobs.live || {}).some(j => j.fluxId === f.id);
+  const sorted = [...wfdFlows].sort((a,b) => a.name.localeCompare(b.name));
+
+  // Calculer les labels voulus
+  const labels = {};
+  sorted.forEach(f => {
+    const isLive     = Object.values(_wfdJobs.live || {}).some(j => j.fluxId === f.id);
     const fluxHistory = (_wfdJobs.history || []).filter(j => j.fluxId === f.id);
-    const lastRun   = fluxHistory.sort((a,b) => new Date(b.startedAt||0) - new Date(a.startedAt||0))[0];
+    const lastRun    = fluxHistory.sort((a,b) => new Date(b.startedAt||0) - new Date(a.startedAt||0))[0];
     const lastFailed = lastRun?.status === 'failed';
-    let dot = '⚫'; // inactif
+    let dot = '⚫';
     if (actives.has(f.id)) {
-      if (isLive)       dot = '🟠'; // run en cours
-      else if (lastFailed) dot = '🔴'; // dernier run en échec
-      else              dot = '🟢'; // actif, OK
+      if (isLive)          dot = '🟠';
+      else if (lastFailed) dot = '🔴';
+      else                 dot = '🟢';
     }
-    opt.value = f.id;
-    opt.textContent = dot + ' ' + f.name;
-    sel.appendChild(opt);
+    labels[f.id] = dot + ' ' + f.name;
   });
+
+  // Vérifier si le select doit être reconstruit (flux ajoutés/supprimés)
+  const existingIds = [...sel.options].slice(1).map(o => o.value);
+  const newIds      = sorted.map(f => f.id);
+  const needRebuild = JSON.stringify(existingIds) !== JSON.stringify(newIds);
+
+  if (needRebuild) {
+    sel.innerHTML = '<option value="">\u2014 Flux \u2014</option>';
+    sorted.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = labels[f.id];
+      sel.appendChild(opt);
+    });
+  } else {
+    // Mise à jour directe du textContent — évite le problème de repaint macOS
+    [...sel.options].slice(1).forEach(opt => {
+      if (labels[opt.value] && opt.textContent !== labels[opt.value]) {
+        opt.textContent = labels[opt.value];
+      }
+    });
+  }
+
   if (prev && wfdFlows.find(f=>f.id===prev)) { sel.value = prev; }
   document.getElementById('btn-del-flux').style.display = currentFlowId ? 'flex' : 'none';
 _wfdSetDisplay('btn-ren-flux', currentFlowId ? 'flex' : 'none');
   peuplerSelectEnvironnement();
   wfdUpdateToggleBtn();
+
   // Forcer renderCanvas si un flux est sélectionné
   if (currentFlowId) requestAnimationFrame(() => renderCanvas());
 }
