@@ -239,21 +239,15 @@ const DB_HANDLERS = [
   // ── Metadata Views ───────────────────────────────────────────────────────
   {
     match: (m, p) => m === 'GET' && p === '/API/metadata/v1/views/',
-    handle: async ({ snapshotId }) => {
-      const rows = await prisma.ikonMetadataView.findMany({ where: { snapshotId }, orderBy: { name: 'asc' } });
-      return { handled: true, status: 200, data: ikonPage(rawList(rows)) };
+    handle: async () => {
+      return { handled: false }; // WFD : toujours temps réel
     },
   },
   // Vue individuelle avec view_fields (utilisé par syncViewFields et _syncViewsToMetadata)
   {
     match: (m, p) => m === 'GET' && /^\/API\/metadata\/v1\/views\/[^/]+\/$/.test(p),
-    handle: async ({ snapshotId, pathParts }) => {
-      const viewId = pathParts[4];
-      const row = await prisma.ikonMetadataView.findFirst({ where: { snapshotId, iconikId: viewId } });
-      if (!row) return { handled: false };
-      // Fusionner rawData avec view_fields depuis la colonne DB
-      const data = { ...(row.rawData || {}), view_fields: row.viewFields || [] };
-      return { handled: true, status: 200, data };
+    handle: async () => {
+      return { handled: false }; // WFD : toujours temps réel
     },
   },
 

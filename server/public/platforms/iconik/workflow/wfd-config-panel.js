@@ -5050,9 +5050,8 @@ function sauvegarderConfig() {
         const _tokens = JSON.parse(localStorage.getItem('appTokensData') || '{}')?.appTokens || [];
         const _tok = _tokens.find(t => t.name?.includes('QA')) || _tokens[0];
         if (_tok) {
-          fetch(_iconikBase + '/API/metadata/v1/views/' + _viewId + '/', {
-            headers: { 'App-ID': _tok.appId, 'Auth-Token': _tok.token || _tok.appToken }
-          }).then(r => r.ok ? r.json() : null).then(data => {
+          const _envName = encodeURIComponent(document.getElementById('wfd-env-select')?.value || wfdData?.env?.name || '');
+          fetch('/api/iconik/' + _envName + '/API/metadata/v1/views/' + _viewId + '/').then(r => r.ok ? r.json() : null).then(data => {
             if (!data || !data.view_fields) return;
             const fields = data.view_fields.filter(f => f.name && f.name !== '__separator__');
             // Mise en cache pour éviter les appels répétés

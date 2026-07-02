@@ -559,12 +559,15 @@ async function fetch(node, ctx, iconikClient) {
 
   // ── Métadonnées ──────────────────────────────────────────────
   if (subType === 'metadata') {
-    const varName  = r(cfg.fetchVar || cfg.storeAs || 'metadata', ctx);
-    const assetId  = r(ctx.asset?.id || '{asset.id}', ctx);
-    const viewId   = r(cfg.fetchMdViewId || cfg.metadataViewId || cfg.fetchMdView || '', ctx);
-    const endpoint = viewId
-      ? `/API/metadata/v1/assets/${assetId}/views/${viewId}/`
-      : `/API/metadata/v1/assets/${assetId}/`;
+    const varName    = r(cfg.fetchVar || cfg.storeAs || 'metadata', ctx);
+    const assetId    = r(ctx.asset?.id || '{asset.id}', ctx);
+    const colId      = ctx.collection?.id || '';
+    const objectType = colId && !assetId ? 'collections' : 'assets';
+    const objectId   = objectType === 'collections' ? colId : assetId;
+    const viewId     = r(cfg.fetchMdViewId || cfg.metadataViewId || cfg.fetchMdView || '', ctx);
+    const endpoint   = viewId
+      ? `/API/metadata/v1/${objectType}/${objectId}/views/${viewId}/`
+      : `/API/metadata/v1/${objectType}/${objectId}/`;
     const data = await iconikClient.get(endpoint);
     // Filtrer les champs si spécifié
     const fields = cfg.metadataFields || [];
