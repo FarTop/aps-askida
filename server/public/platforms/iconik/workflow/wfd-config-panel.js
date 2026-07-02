@@ -2898,7 +2898,7 @@ function buildCfgFields(pfx, family, cfg) {
       </div>
       <div class="cfg-field">
         <label class="cfg-label">VUE DE MÉTADONNÉES</label>
-        <select id="${pfx}-fetch-meta-view" class="cfg-select">
+        <select id="${pfx}-fetch-meta-view" class="cfg-select" onchange="wfdFetchMetaViewChanged('${pfx}')">
           <option value="">— Toutes les vues —</option>${viewOpts}
         </select>
       </div>
@@ -5015,6 +5015,7 @@ function sauvegarderConfig() {
     node.config = { ...node.config, ...d };
   } else if (node.family==='fetch') {
     node.config.description     = g('description');
+    const _oeFetch = document.getElementById('cfg-onerror-val'); if (_oeFetch) node.config.onError = _oeFetch.value;
     node.config.storeAs         = g('fetch-store-as') || 'asset';
     node.config.resultVar       = node.config.storeAs;
     node.config.fetchVar        = node.config.storeAs;
@@ -8398,6 +8399,39 @@ function wfdMsgAutoMode(pfx) {
   if (wrap) wrap.style.display = cb?.checked ? 'none' : '';
 }
 // ── Fetch — tags métadonnées + saved search ──────────────────────────────────
+async function wfdFetchMetaViewChanged(pfx) {
+  const viewId = document.getElementById(pfx + '-fetch-meta-view')?.value;
+  const addEl  = document.getElementById(pfx + '-fetch-meta-field-add');
+  if (!addEl) return;
+  // Récupérer les champs de la vue sélectionnée via le proxy
+  let fields = [];
+  if (viewId) {
+    try {
+      const envName = encodeURIComponent(document.getElementById('wfd-env-select')?.value || '');
+      const res = await fetch('/api/iconik/' + envName + '/API/metadata/v1/views/' + viewId + '/');
+      if (res.ok) {
+        const data = await res.json();
+        fields = (data.view_fields || [])
+          .filter(f => f.name && f.name !== '__separator__')
+          .map(f => f.name)
+          .sort();
+        // Mettre en cache
+        if (!wfdData.mdViewFields) wfdData.mdViewFields = {};
+        wfdData.mdViewFields[viewId] = data.view_fields?.filter(f => f.name && f.name !== '__separator__') || [];
+      }
+    } catch(e) { console.warn('[wfdFetchMetaViewChanged]', e.message); }
+  } else {
+    // Pas de vue sélectionnée — tous les champs
+    fields = (wfdData.metadata || []).map(m => m.nom || m.name || '').filter(Boolean).sort();
+  }
+  // Mettre à jour le dropdown d'ajout de champ
+  const currentTags = wfdFetchReadTags(pfx);
+  addEl.innerHTML = '<option value="">+ Ajouter un champ…</option>' +
+    fields.filter(f => !currentTags.includes(f))
+          .map(f => `<option value="${escHtml(f)}">${escHtml(f)}</option>`)
+          .join('');
+}
+
 function wfdFetchAddTag(pfx) {
   var sel = document.getElementById(pfx + '-fetch-meta-field-add');
   var tags = document.getElementById(pfx + '-meta-tags');
@@ -8504,6 +8538,11 @@ function wfdFetchSubType(pfx, subType) {
     if (panel) panel.style.display = a ? '' : 'none';
   });
   if (pfx === 'cfg' && typeof sauvegarderConfig === 'function') sauvegarderConfig();
+  // Si on active le sous-type metadata et qu'une vue est déjà sélectionnée, filtrer les champs
+  if (subType === 'metadata') {
+    const viewId = document.getElementById(pfx + '-fetch-meta-view')?.value;
+    if (viewId) wfdFetchMetaViewChanged(pfx);
+  }
 }
 function wfdFetchSourceChange(pfx) {
   const sel=document.getElementById(pfx+'-fetch-source-asset');

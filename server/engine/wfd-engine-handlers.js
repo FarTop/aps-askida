@@ -577,6 +577,17 @@ async function fetch(node, ctx, iconikClient) {
       data.metadata_values = filtered;
     }
     WfdContext.storeResult(ctx, varName, data);
+    // Exposer chaque champ MD : {varName.NomChamp}
+    const _mvObj2 = data.metadata_values || {};
+    Object.entries(_mvObj2).forEach(([fieldName, fieldData]) => {
+      if (fieldName === '__separator__') return;
+      const values = (fieldData?.field_values || [])
+        .map(fv => fv.value)
+        .filter(v => v !== null && v !== undefined && v !== '');
+      if (!values.length) return;
+      const exposed = values.length === 1 ? String(values[0]) : JSON.stringify(values);
+      WfdContext.setVar(ctx, varName + '.' + fieldName, exposed);
+    });
     return { port: 0 };
   }
 
