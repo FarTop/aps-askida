@@ -1554,7 +1554,7 @@ async function wfdRefreshAllData(opts) {
     { key: 'savedSearches',  url: '/API/search/v1/search/saved/?per_page=200',          prop: 'objects',       nameField: 'name'  },
     { key: 'mdViews',        url: '/API/metadata/v1/views/?per_page=200',               prop: 'objects',       nameField: 'name'  },
     { key: 'metadata',       url: '/API/metadata/v1/fields/?per_page=200',              prop: 'objects',       nameField: 'name'  },
-    { key: 'collections',    url: '/API/assets/v1/collections/?per_page=200',           prop: 'objects',       nameField: 'title' },
+    // collections chargées séparément via POST search (pagination + parent_id)
     { key: 'automations',    url: '/API/automations/v1/automations/?per_page=200',      prop: 'objects',       nameField: 'name'  },
     { key: 'customActions',  url: '/API/assets/v1/custom_actions/?per_page=200',        prop: 'objects',       nameField: 'title' },
     { key: 'webhooks',        url: '/API/notifications/v1/webhooks/?per_page=200',       prop: 'objects', nameField: 'name'  },
@@ -1576,6 +1576,43 @@ async function wfdRefreshAllData(opts) {
       failed++;
     }
   }));
+
+  // Charger les collections via POST search — paginé, avec parent_id
+  try {
+    const colPayload = {
+      doc_types: ['collections'],
+      filter: { operator: 'AND', terms: [{ name: 'date_deleted', missing: true }] }
+    };
+    let colPage = 1, allCols = [];
+    while (colPage < 50) {
+      const rc = await fetch(base + '/API/search/v1/search/?per_page=150&page=' + colPage, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(colPayload),
+      });
+      if (!rc.ok) break;
+      const dc = await rc.json();
+      const objs = dc.objects || [];
+      if (!objs.length) break;
+      // Garder uniquement les champs essentiels pour éviter QuotaExceededError
+      allCols = allCols.concat(objs.map(c => ({
+        id        : c.id,
+        title     : c.title || c.name || '',
+        nom       : c.title || c.name || '',
+        parent_id : c.parent_id || null,
+        is_root   : c.is_root || false,
+        status    : c.status || 'ACTIVE',
+      })));
+      if (colPage >= (dc.pages || 1)) break;
+      colPage++;
+    }
+    live.collections = allCols;
+    success++;
+    console.log('[WFD Refresh] collections :', allCols.length);
+  } catch(e) {
+    console.warn('[WFD Refresh] collections :', e.message);
+    failed++;
+  }
 
   // Persister par environnement
   localStorage.setItem('wfdLiveData_' + envName, JSON.stringify(live));
@@ -1631,7 +1668,7 @@ function wfdRenderColTree(roots, selIds, prefix, depth) {
       <span style="width:${indent}px;flex-shrink:0;"></span>
       <span style="width:16px;text-align:center;font-size:9px;color:#8899aa;cursor:pointer;"
         onclick="event.stopPropagation();wfdColToggle('${c.id}','${prefix}',${hasKids})">${toggle}</span>
-      <span style="user-select:none;">${folder} ${c.name||''}</span>
+      <span style="user-select:none;">${folder} ${c.title||c.nom||c.name||''}</span>
     </div>`;
     if (hasKids && expanded) h += wfdRenderColTree(c._kids, selIds, prefix, depth + 1);
   });
@@ -1684,7 +1721,7 @@ function _wfdColRefresh(prefix, selIds) {
     tagsEl.innerHTML = selIds.length
       ? selIds.map(id => {
           const col = cols.find(c => c.id === id);
-          const name = col ? col.name : id;
+          const name = col ? (col.title||col.nom||col.name) : id;
           return `<span style="display:inline-flex;align-items:center;gap:4px;background:#1a2a1a;
             color:#5dbb6b;border:1px solid #2d5a2d;border-radius:3px;padding:2px 6px;font-size:10px;">
             📁 ${escHtml(name)}
@@ -1710,7 +1747,7 @@ function wfdColTreeHtml(prefix, selectedId) {
 
   const tagsHtml = selIds.map(id => {
     const col = cols.find(c => c.id === id);
-    const name = col ? col.name : id;
+    const name = col ? (col.title||col.nom||col.name) : id;
     return `<span style="display:inline-flex;align-items:center;gap:4px;background:#1a2a1a;
       color:#5dbb6b;border:1px solid #2d5a2d;border-radius:3px;padding:2px 6px;font-size:10px;">
       📁 ${escHtml(name)}

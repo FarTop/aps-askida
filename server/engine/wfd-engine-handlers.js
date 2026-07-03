@@ -3685,6 +3685,19 @@ function _apsSearchCritToFilter(crit, ctx) {
   if (!crit.field) return null;
   const field = crit.field;
   const op    = crit.op || 'equals';
+
+  // Critère collection browse — filtre sur ancestor_collections ou in_collections
+  if (field === '__collection__') {
+    const colId = crit.value || '';
+    if (!colId) return null;
+    if (op === 'in_branch') {
+      // Toute la hiérarchie — ancestor_collections contient l'ID
+      return { name: 'ancestor_collections', value: colId, condition: 'must' };
+    } else {
+      // Collection directe uniquement — in_collections contient l'ID
+      return { name: 'in_collections', value: colId, condition: 'must' };
+    }
+  }
   const rawVal = crit.value || '';
   const val   = rawVal.includes('{') ? WfdContext.resolve(rawVal, ctx) : rawVal;
 

@@ -9819,10 +9819,27 @@ function srReadBlocks(pfx) {
     const parentBlock = parentSel ? (parseInt(parentSel.value) || null) : null;
     const criteria   = [];
     blockEl.querySelectorAll('.sr-crit-row').forEach((critEl, cidx) => {
+      const field = critEl.querySelector('.sr-crit-field')?.value || '';
+      const isCol = field === '__collection__';
+      const op = isCol
+        ? (critEl.querySelector('.sr-crit-col-op')?.checked !== false ? 'in_branch' : 'in_collection')
+        : (critEl.querySelector('.sr-crit-op')?.value || 'equals');
+      let val = '';
+      if (isCol) {
+        const colPrefix = pfx + '-sr-col-' + bidx + '-' + cidx;
+        const hiddenSel = document.getElementById(colPrefix + '-col-selected');
+        if (hiddenSel) {
+          try { const ids = JSON.parse(hiddenSel.value||'[]'); val = ids[0]||''; } catch(e) {}
+        } else {
+          val = critEl.querySelector('.sr-crit-val')?.value || '';
+        }
+      } else {
+        val = critEl.querySelector('.sr-crit-val')?.value || '';
+      }
       criteria.push({
-        field : critEl.querySelector('.sr-crit-field')?.value || '',
-        op    : critEl.querySelector('.sr-crit-op')?.value    || 'equals',
-        value : critEl.querySelector('.sr-crit-val')?.value   || '',
+        field,
+        op,
+        value : val,
         join  : critEl.querySelector('.cfg-btn')?.textContent?.trim() || (cidx > 0 ? 'AND' : ''),
       });
     });
@@ -9874,6 +9891,18 @@ function srToggleJoin(pfx, bidx, cidx) {
 }
 
 function srFieldChange(pfx, bidx, cidx, val) {
+  // Si on bascule vers/depuis collection browse, il faut rerendrer
+  if (val === '__collection__' || val !== '__collection__') {
+    const blocks = srReadBlocks(pfx);
+    if (blocks[bidx] && blocks[bidx].criteria[cidx]) {
+      blocks[bidx].criteria[cidx].field = val;
+      if (val === '__collection__') {
+        blocks[bidx].criteria[cidx].op    = 'in_branch';
+        blocks[bidx].criteria[cidx].value = '';
+      }
+    }
+    srRerender(pfx, blocks);
+  }
   srAutoSave(pfx);
 }
 
@@ -9922,37 +9951,95 @@ function srRerender(pfx, blocks) {
       { value:'export_location', label:'📤 Export Location' },
     ];
     const _srMdFields = (typeof wfdData !== 'undefined' ? wfdData.metadata : []) || [];
-    const _srMdNames  = _srMdFields.map(m => m.nom||m.name||'').filter(Boolean).sort();
-    const SYSTEM_FIELDS = ['id','title','date_created','date_modified','object_type','status','archive_status','external_id'];
-    const ALL_FIELDS    = [...SYSTEM_FIELDS, ..._srMdNames];
-    const ALL_OPS = {
-      equals:'est égal à', not_equals:'est différent de', contains:'contient',
-      not_contains:'ne contient pas', starts_with:'commence par',
-      before:'avant', after:'après', gt:'supérieur à', lt:'inférieur à',
-      contains_any:'contient au moins un', contains_all:'contient tous',
-      is_empty:'est vide', is_not_empty:"n'est pas vide",
-      is_true:'est vrai', is_false:'est faux',
+    const _srMdObjs   = _srMdFields.map(m => ({
+      name  : m.name || m.nom || '',
+      label : m.label || m.name || m.nom || '',
+      type  : m.field_type || 'string',
+    })).filter(m => m.name).sort((a,b) => a.label.localeCompare(b.label));
+
+    const SYSTEM_FIELDS = [
+      { name:'id',             label:'ID',             type:'string' },
+      { name:'title',          label:'Titre',          type:'string' },
+      { name:'date_created',   label:'Date création',  type:'date'   },
+      { name:'date_modified',  label:'Date modif.',    type:'date'   },
+      { name:'object_type',    label:'Type objet',     type:'string' },
+      { name:'status',         label:'Statut',         type:'string' },
+      { name:'archive_status', label:'Statut archive', type:'string' },
+      { name:'external_id',    label:'ID externe',     type:'string' },
+    ];
+    const ALL_FIELDS = [
+      { name:'__collection__', label:'📁 Collection (browse)', type:'collection' },
+      ...SYSTEM_FIELDS,
+      ..._srMdObjs,
+    ];
+
+    // Opérateurs par type de champ
+    const OPS_BY_TYPE = {
+      string    : { equals:'est égal à', not_equals:'est différent de', contains:'contient', not_contains:'ne contient pas', starts_with:'commence par', is_empty:'est vide', is_not_empty:"n'est pas vide" },
+      text      : { equals:'est égal à', not_equals:'est différent de', contains:'contient', not_contains:'ne contient pas', starts_with:'commence par', is_empty:'est vide', is_not_empty:"n'est pas vide" },
+      date      : { before:'avant', after:'après', is_empty:'est vide', is_not_empty:"n'est pas vide" },
+      integer   : { equals:'est égal à', not_equals:'est différent de', gt:'supérieur à', lt:'inférieur à', is_empty:'est vide', is_not_empty:"n'est pas vide" },
+      float     : { equals:'est égal à', not_equals:'est différent de', gt:'supérieur à', lt:'inférieur à', is_empty:'est vide', is_not_empty:"n'est pas vide" },
+      boolean   : { is_true:'est vrai', is_false:'est faux', is_empty:'est vide' },
+      list      : { contains_any:'contient au moins un', contains:'contient', not_contains:'ne contient pas', is_empty:'est vide', is_not_empty:"n'est pas vide" },
+      tag_cloud : { contains_any:'contient au moins un', contains:'contient', not_contains:'ne contient pas', is_empty:'est vide', is_not_empty:"n'est pas vide" },
+      dropdown  : { equals:'est égal à', not_equals:'est différent de', is_empty:'est vide', is_not_empty:"n'est pas vide" },
     };
+    const ALL_OPS_DEFAULT = { equals:'est égal à', not_equals:'est différent de', contains:'contient', not_contains:'ne contient pas', is_empty:'est vide', is_not_empty:"n'est pas vide" };
+
+    function getOpsForField(fieldName) {
+      const fd = ALL_FIELDS.find(f => f.name === fieldName);
+      if (!fd) return ALL_OPS_DEFAULT;
+      return OPS_BY_TYPE[fd.type] || ALL_OPS_DEFAULT;
+    }
 
     const html = blocks.map((block, idx) => {
       const prevBlocks = blocks.slice(0, idx);
       const parentOpts = '<option value="">— aucun —</option>' +
         prevBlocks.map(b => `<option value="${b.id}" ${block.parentBlock==b.id?'selected':''}>Bloc ${b.id}</option>`).join('');
       const critHtml = (block.criteria||[]).map((crit, ci) => {
-        const hasVal = !['is_empty','is_not_empty','is_true','is_false'].includes(crit.op||'equals');
+        const isColField = crit.field === '__collection__';
+        const _fd = ALL_FIELDS.find(f => f.name === crit.field);
+        const hasVal = !isColField && !['is_empty','is_not_empty','is_true','is_false'].includes(crit.op||'equals');
         const joinBtn = ci > 0
           ? `<button onclick="srToggleJoin('${pfx}',${idx},${ci})" class="cfg-btn" style="padding:2px 8px;font-size:10px;min-width:44px;">${crit.join||'AND'}</button>`
           : '';
-        return `<div class="sr-crit-row" data-bidx="${idx}" data-cidx="${ci}" style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+        // Sélectionner la collection sauvegardée pour afficher son nom
+        const colId = isColField ? (crit.value||'') : '';
+        const colName = colId ? ((wfdData.collections||[]).find(c=>c.id===colId)?.title||(wfdData.collections||[]).find(c=>c.id===colId)?.nom||(wfdData.collections||[]).find(c=>c.id===colId)?.name || colId.slice(0,8)+'...') : '';
+        const fieldOpts = ALL_FIELDS.map(f =>
+          `<option value="${f.name}" ${crit.field===f.name?'selected':''}>${f.label}</option>`
+        ).join('');
+        const colBrowseHtml = isColField ? `
+          <div style="flex:4;display:flex;flex-direction:column;gap:4px;">
+            <div style="display:flex;gap:4px;align-items:center;">
+              <span style="font-size:10px;color:#8e44ad;font-family:var(--font-mono);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                title="${colId}">${colName||'— aucune —'}</span>
+              <input type="hidden" class="sr-crit-val" data-bidx="${idx}" data-cidx="${ci}" value="${colId}">
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:10px;color:#aaa;cursor:pointer;">
+              <input type="checkbox" class="sr-crit-col-op" data-bidx="${idx}" data-cidx="${ci}"
+                ${(crit.op||'in_branch')==='in_branch'?'checked':''}
+                onchange="srAutoSave('${pfx}')" style="cursor:pointer;">
+              Inclure les sous-dossiers
+            </label>
+            <div style="max-height:150px;overflow-y:auto;background:#050505;border:1px solid #2a2a2a;border-radius:3px;">
+              ${typeof wfdColTreeHtml === 'function'
+                ? wfdColTreeHtml(pfx+'-sr-col-'+idx+'-'+ci, JSON.stringify(colId?[colId]:[])).replace(/wfdColRemove/g,'srColRemove')
+                : '<div style="padding:8px;color:#555;font-size:10px;">Collections non disponibles</div>'}
+            </div>
+          </div>` : '';
+        return `<div class="sr-crit-row" data-bidx="${idx}" data-cidx="${ci}" style="display:flex;gap:4px;align-items:${isColField?'flex-start':'center'};margin-bottom:4px;">
           ${joinBtn||'<span style="min-width:44px;"></span>'}
           <select class="cfg-select sr-crit-field" data-bidx="${idx}" data-cidx="${ci}" style="flex:2;" onchange="srFieldChange('${pfx}',${idx},${ci},this.value)">
-            ${ALL_FIELDS.map(f=>`<option value="${f}" ${crit.field===f?'selected':''}>${f}</option>`).join('')}
+            ${fieldOpts}
           </select>
+          ${isColField ? colBrowseHtml : `
           <select class="cfg-select sr-crit-op" data-bidx="${idx}" data-cidx="${ci}" style="flex:2;" onchange="srOpChange('${pfx}',${idx},${ci},this.value)">
-            ${Object.entries(ALL_OPS).map(([k,v])=>`<option value="${k}" ${(crit.op||'equals')===k?'selected':''}>${v}</option>`).join('')}
+            ${Object.entries(getOpsForField(crit.field||'title')).map(([k,v])=>`<option value="${k}" ${(crit.op||'equals')===k?'selected':''}>${v}</option>`).join('')}
           </select>
           <input class="cfg-input sr-crit-val" data-bidx="${idx}" data-cidx="${ci}" value="${(crit.value||'').replace(/"/g,'&quot;')}" placeholder="valeur"
-            style="flex:2;font-family:var(--font-mono);font-size:10px;${hasVal?'':'display:none;'}" oninput="srAutoSave('${pfx}')">
+            style="flex:2;font-family:var(--font-mono);font-size:10px;${hasVal?'':'display:none;'}" oninput="srAutoSave('${pfx}')">`}
           <button onclick="srRemoveCrit('${pfx}',${idx},${ci})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0 2px;">×</button>
         </div>`;
       }).join('');
