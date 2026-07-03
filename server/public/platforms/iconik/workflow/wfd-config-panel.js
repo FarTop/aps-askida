@@ -3105,7 +3105,27 @@ function buildCfgFields(pfx, family, cfg) {
   const blocksHtml = _srBlocks.map((b, i) => srBlockHtml(b, i, _srBlocks)).join('');
   const blockOpts  = _srBlocks.map(b => `<option value="${b.id}" ${cfg.returnBlock==b.id?'selected':''}>Bloc ${b.id}</option>`).join('');
 
+  // Charger les searches sauvegardées
+  fetch('/api/aps-search')
+    .then(r => r.json())
+    .then(searches => {
+      const sel = document.getElementById(pfx + '-sr-saved');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">— Charger une recherche sauvegardée —</option>' +
+        searches.map(s => '<option value="' + s.id + '">' + escHtml(s.name) + '</option>').join('');
+    }).catch(() => {});
+
   html += `
+  <!-- Charger une recherche sauvegardée -->
+  <div class="cfg-field">
+    <label class="cfg-label">Recherche sauvegardée</label>
+    <div style="display:flex;gap:4px;">
+      <select id="${pfx}-sr-saved" class="cfg-select" style="flex:1;"
+              onchange="srChargerSearch('${pfx}', this.value)">
+        <option value="">— Charger une recherche —</option>
+      </select>
+    </div>
+  </div>
   <!-- En-tête résultat -->
   <div style="font-size:9px;color:#e67e22;margin-bottom:6px;padding:5px 8px;background:#1a1000;border-radius:3px;border:1px solid #3a2800;">
     💡 Les champs MD proviennent du snapshot. Cliquez sur <b>Actualiser</b> (⟳) dans la toolbar pour obtenir les champs à jour depuis Iconik.
@@ -9756,6 +9776,36 @@ function httpForeachPreview(pfx) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Recherche APS — fonctions utilitaires (sr*)
+
+async function srChargerSearch(pfx, id) {
+  if (!id) return;
+  try {
+    const r = await fetch('/api/aps-search/' + id);
+    const s = await r.json();
+    if (!s.config) return;
+    const cfg = s.config;
+    // Injecter la config dans le nœud courant
+    const flux = typeof getFluxCourant === 'function' ? getFluxCourant() : null;
+    const node = flux && selectedNodeId ? flux.nodes.find(n => n.id === selectedNodeId) : null;
+    if (!node) return;
+    node.config.blocks      = cfg.blocks || [];
+    node.config.expression  = cfg.expression || '';
+    node.config.returnBlock = cfg.returnBlock || 1;
+    node.config.limit       = cfg.limit || 500;
+    srRerender(pfx, node.config.blocks);
+    // Mettre à jour les champs expression/limit
+    const exprEl = document.getElementById(pfx + '-sr-expression');
+    if (exprEl) exprEl.value = cfg.expression || '';
+    const limEl = document.getElementById(pfx + '-sr-limit');
+    if (limEl) limEl.value = cfg.limit || 500;
+    const retEl = document.getElementById(pfx + '-sr-return-block');
+    if (retEl) setTimeout(() => { retEl.value = cfg.returnBlock || 1; }, 150);
+    if (typeof sauvegarderConfig === 'function') sauvegarderConfig();
+    console.log('[WFD] Search chargée :', s.name);
+  } catch(e) {
+    console.warn('[WFD] Erreur chargement search:', e);
+  }
+}
 // ══════════════════════════════════════════════════════════════════════════════
 
 function srReadBlocks(pfx) {
