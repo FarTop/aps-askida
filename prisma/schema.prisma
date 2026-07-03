@@ -923,3 +923,12 @@ model BayardRegistry {
   orgId     String
   createdAt DateTime @default(now())
 }
+
+model ApsSearch {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  config      Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

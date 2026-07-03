@@ -49,6 +49,7 @@ const { router: iconikProxy } = require('./routes/iconik-proxy');
 const syncJobsRouter       = require('./routes/sync-jobs');
 const wfdEngineRouter      = require('./engine/wfd-engine-express.js');
 const ikonDataRouter       = require('./routes/ikon-data');
+const apsSearchRouter      = require('./routes/aps-search');
 
 app.use('/api/flows',      flowsRouter);
 app.use('/api/connexions', connexionsRouter);
@@ -56,6 +57,7 @@ app.use('/api/status',       statusRouter);
 app.use('/api/environments', environmentsRouter);
 app.use('/api/platforms',    platformsRouter);
 app.use('/api/ikon',         ikonDataRouter);
+app.use('/api/aps-search',   apsSearchRouter);
 app.use('/api/jobs',         syncJobsRouter);
 app.use('/api/iconik',       iconikProxy);
 app.use('/api',            wfdDataRouter);

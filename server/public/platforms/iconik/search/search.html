@@ -86,6 +86,30 @@
     .aps-empty-msg{font-size:12px;color:#444;}
     .aps-spinner{width:24px;height:24px;border:2px solid #222;border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg);}}
+    .aps-saved-bar {
+      display:flex; gap:8px; align-items:center;
+      padding:8px 12px; border-bottom:1px solid var(--border);
+      background:var(--panel); flex-shrink:0;
+    }
+    .aps-saved-name {
+      flex:1; padding:7px 10px; background:#0a0a0a; color:var(--text);
+      border:1px solid var(--border2); border-radius:4px;
+      font-family:var(--font-ui); font-size:12px; outline:none;
+    }
+    .aps-saved-name:focus { border-color:var(--accent); }
+    .aps-btn-save {
+      padding:6px 12px; background:var(--accent); color:#fff;
+      border:none; border-radius:4px; font-size:11px;
+      font-family:var(--font-mono); cursor:pointer; white-space:nowrap;
+      transition:background .15s;
+    }
+    .aps-btn-save:hover { background:var(--accent2); }
+    .aps-btn-del {
+      padding:6px 10px; background:none; color:#e74c3c;
+      border:1px solid #3a1010; border-radius:4px; font-size:11px;
+      cursor:pointer; transition:all .15s;
+    }
+    .aps-btn-del:hover { background:#1a0a0a; }
     @media print{
       header,.aps-criteria,.aps-results-actions{display:none!important;}
       .aps-main,.aps-results,.aps-table-wrap{display:block;overflow:visible;}
@@ -121,6 +145,16 @@
   <div class="aps-main">
     <div class="aps-criteria">
       <div class="aps-criteria-header"><h2>&#128269; Criteres de recherche</h2></div>
+      <div class="aps-saved-bar">
+        <select id="sr-saved-list" class="aps-select" style="flex:2;font-size:11px;" onchange="chargerSearch(this.value)">
+          <option value="">— Searches sauvegardées —</option>
+        </select>
+        <button class="aps-btn-del" id="btn-del-search" onclick="supprimerSearch()" style="display:none;">✕</button>
+      </div>
+      <div class="aps-saved-bar" style="border-bottom:none;padding-top:4px;">
+        <input id="sr-save-name" class="aps-saved-name" placeholder="Nom de la recherche…">
+        <button class="aps-btn-save" onclick="sauvegarderSearch()">💾 Sauvegarder</button>
+      </div>
       <div class="aps-criteria-body" id="blocks-container"></div>
       <div class="aps-expr-section">
         <label class="aps-label">Expression</label>
@@ -203,9 +237,97 @@
     { value:'is_false',     label:'est faux',            noVal:true  },
   ];
 
+  // ── Searches sauvegardées ─────────────────────────────────────
+  let _savedSearches = [];
+  let _currentSearchId = null;
+
+  async function chargerListeSearches() {
+    try {
+      const r = await fetch('/api/aps-search');
+      _savedSearches = await r.json();
+      const sel = document.getElementById('sr-saved-list');
+      sel.innerHTML = '<option value="">— Searches sauvegardées —</option>' +
+        _savedSearches.map(s =>
+          '<option value="' + s.id + '">' + s.name + '</option>'
+        ).join('');
+      if (_currentSearchId) sel.value = _currentSearchId;
+    } catch(e) { console.warn('Erreur chargement searches:', e); }
+  }
+
+  async function chargerSearch(id) {
+    if (!id) {
+      _currentSearchId = null;
+      document.getElementById('btn-del-search').style.display = 'none';
+      document.getElementById('sr-save-name').value = '';
+      return;
+    }
+    try {
+      const r = await fetch('/api/aps-search/' + id);
+      const s = await r.json();
+      _currentSearchId = s.id;
+      document.getElementById('sr-save-name').value = s.name;
+      document.getElementById('btn-del-search').style.display = '';
+      // Restaurer la config
+      const cfg = s.config;
+      _blocks = cfg.blocks || [];
+      _nextBlockId = (_blocks.length ? Math.max(..._blocks.map(b => b.id)) : 0) + 1;
+      rerendreBlocs();
+      if (cfg.expression) document.getElementById('sr-expression').value = cfg.expression;
+      if (cfg.limit) document.getElementById('sr-limit').value = cfg.limit;
+      setTimeout(() => {
+        if (cfg.returnBlock) document.getElementById('sr-return-block').value = cfg.returnBlock;
+      }, 100);
+    } catch(e) { console.warn('Erreur chargement search:', e); }
+  }
+
+  async function sauvegarderSearch() {
+    lireBlocs();
+    const name = document.getElementById('sr-save-name').value.trim();
+    if (!name) { alert('Donnez un nom à cette recherche.'); return; }
+    const config = {
+      blocks      : _blocks,
+      expression  : document.getElementById('sr-expression').value.trim(),
+      returnBlock : parseInt(document.getElementById('sr-return-block').value) || 1,
+      limit       : parseInt(document.getElementById('sr-limit').value) || 500,
+    };
+    try {
+      let r;
+      if (_currentSearchId) {
+        r = await fetch('/api/aps-search/' + _currentSearchId, {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ name, config }),
+        });
+      } else {
+        r = await fetch('/api/aps-search', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ name, config }),
+        });
+      }
+      const s = await r.json();
+      _currentSearchId = s.id;
+      await chargerListeSearches();
+      document.getElementById('sr-saved-list').value = s.id;
+      document.getElementById('btn-del-search').style.display = '';
+      console.log('Search sauvegardée :', s.name);
+    } catch(e) { console.warn('Erreur sauvegarde:', e); }
+  }
+
+  async function supprimerSearch() {
+    if (!_currentSearchId) return;
+    if (!confirm('Supprimer cette recherche sauvegardée ?')) return;
+    try {
+      await fetch('/api/aps-search/' + _currentSearchId, { method:'DELETE' });
+      _currentSearchId = null;
+      document.getElementById('sr-save-name').value = '';
+      document.getElementById('btn-del-search').style.display = 'none';
+      await chargerListeSearches();
+    } catch(e) { console.warn('Erreur suppression:', e); }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     chargerOrg();
     chargerEnvs();
+    chargerListeSearches();
   });
 
   // ── Dictionnaire collections id->{ name, parent_id } ──────────
