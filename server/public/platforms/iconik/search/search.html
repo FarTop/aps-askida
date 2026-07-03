@@ -28,7 +28,7 @@
     .hdr-sep{width:1px;height:20px;background:#222;margin:0 8px;flex-shrink:0;}
     .hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
     .aps-main{display:flex;flex:1;height:calc(100vh - 48px);overflow:hidden;}
-    .aps-criteria{width:340px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border2);display:flex;flex-direction:column;overflow:hidden;}
+    .aps-criteria{width:420px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border2);display:flex;flex-direction:column;overflow:hidden;}
     .aps-criteria-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
     .aps-criteria-header h2{font-size:11px;font-weight:700;letter-spacing:1.2px;color:var(--accent);font-family:var(--font-mono);text-transform:uppercase;}
     .aps-criteria-body{flex:1;overflow-y:auto;padding:12px;}
@@ -220,22 +220,65 @@
     { value:'export_locations', label:'Export Location'       },
   ];
 
-  const ALL_OPS = [
-    { value:'is_not_empty', label:"n'est pas vide",      noVal:true  },
-    { value:'is_empty',     label:'est vide',            noVal:true  },
-    { value:'equals',       label:'est egal a',          noVal:false },
-    { value:'not_equals',   label:'est different de',    noVal:false },
-    { value:'contains',     label:'contient',            noVal:false },
-    { value:'not_contains', label:'ne contient pas',     noVal:false },
-    { value:'starts_with',  label:'commence par',        noVal:false },
-    { value:'before',       label:'avant (date)',        noVal:false },
-    { value:'after',        label:'apres (date)',        noVal:false },
-    { value:'gt',           label:'superieur a',         noVal:false },
-    { value:'lt',           label:'inferieur a',         noVal:false },
-    { value:'contains_any', label:'contient au moins un',noVal:false },
-    { value:'is_true',      label:'est vrai',            noVal:true  },
-    { value:'is_false',     label:'est faux',            noVal:true  },
-  ];
+  const OPS_BY_TYPE = {
+    string   : [{v:'is_not_empty',l:"n'est pas vide",noVal:true},{v:'is_empty',l:'est vide',noVal:true},{v:'equals',l:'est egal a'},{v:'not_equals',l:'est different de'},{v:'contains',l:'contient'},{v:'not_contains',l:'ne contient pas'},{v:'starts_with',l:'commence par'}],
+    text     : [{v:'is_not_empty',l:"n'est pas vide",noVal:true},{v:'is_empty',l:'est vide',noVal:true},{v:'equals',l:'est egal a'},{v:'not_equals',l:'est different de'},{v:'contains',l:'contient'},{v:'not_contains',l:'ne contient pas'},{v:'starts_with',l:'commence par'}],
+    date     : [{v:'is_not_empty',l:"n'est pas vide",noVal:true},{v:'is_empty',l:'est vide',noVal:true},{v:'before',l:'avant'},{v:'after',l:'apres'},{v:'between',l:'entre deux dates'}],
+    integer  : [{v:'is_not_empty',l:"n'est pas vide",noVal:true},{v:'is_empty',l:'est vide',noVal:true},{v:'equals',l:'est egal a'},{v:'not_equals',l:'est different de'},{v:'gt',l:'superieur a'},{v:'lt',l:'inferieur a'}],
+    float    : [{v:'is_not_empty',l:"n'est pas vide",noVal:true},{v:'is_empty',l:'est vide',noVal:true},{v:'equals',l:'est egal a'},{v:'not_equals',l:'est different de'},{v:'gt',l:'superieur a'},{v:'lt',l:'inferieur a'}],
+    boolean  : [{v:'is_true',l:'est vrai',noVal:true},{v:'is_false',l:'est faux',noVal:true},{v:'is_empty',l:'est vide',noVal:true}],
+    list     : [{v:'is_not_empty',l:"n'est pas vide",noVal:true},{v:'is_empty',l:'est vide',noVal:true},{v:'contains_any',l:'contient au moins un'},{v:'contains',l:'contient'},{v:'not_contains',l:'ne contient pas'}],
+    tag_cloud: [{v:'is_not_empty',l:"n'est pas vide",noVal:true},{v:'is_empty',l:'est vide',noVal:true},{v:'contains_any',l:'contient au moins un'},{v:'contains',l:'contient'},{v:'not_contains',l:'ne contient pas'}],
+    dropdown : [{v:'is_not_empty',l:"n'est pas vide",noVal:true},{v:'is_empty',l:'est vide',noVal:true},{v:'equals',l:'est egal a'},{v:'not_equals',l:'est different de'}],
+    collection:[{v:'in_branch',l:'est dans la branche'},{v:'in_collection',l:'est dans (direct)'}],
+  };
+  const ALL_OPS_DEFAULT = OPS_BY_TYPE.string;
+
+  function getOpsForField(fieldName) {
+    if (fieldName === '__collection__') return OPS_BY_TYPE.collection;
+    const fd = _allFields.find(f => f.name === fieldName);
+    return OPS_BY_TYPE[fd ? fd.type : 'string'] || ALL_OPS_DEFAULT;
+  }
+
+  function buildValInput(crit, blockId, ci) {
+    const fd = _allFields.find(f => f.name === crit.field);
+    const isDate = (fd && fd.type === 'date') || ['date_created','date_modified'].includes(crit.field||'');
+    const noVal = (getOpsForField(crit.field).find(o => o.v === crit.op)||{}).noVal;
+    if (noVal) return '<input class="aps-input aps-crit-val" style="display:none;">';
+    if (isDate && crit.op === 'between') {
+      const parts = (crit.value||'|').split('|');
+      return '<input type="date" class="aps-input aps-crit-val-from" data-bid="'+blockId+'" data-ci="'+ci+'" value="'+(parts[0]||'')+'" style="flex:1;color-scheme:dark;" onchange="onBetweenChange('+blockId+','+ci+')">'
+        + '<span style="color:#555;font-size:10px;padding:0 3px;">&#8594;</span>'
+        + '<input type="date" class="aps-input aps-crit-val-to" data-bid="'+blockId+'" data-ci="'+ci+'" value="'+(parts[1]||'')+'" style="flex:1;color-scheme:dark;" onchange="onBetweenChange('+blockId+','+ci+')">'
+        + '<input type="hidden" class="aps-crit-val" value="'+(crit.value||'')+'">';
+    } else if (isDate) {
+      return '<input type="date" class="aps-input aps-crit-val" value="'+(crit.value||'')+'" style="flex:1;color-scheme:dark;">';
+    } else if (crit.field === '__collection__') {
+      return ''; // Browse géré séparément
+    }
+    return '<input class="aps-input aps-crit-val" value="'+(crit.value||'').replace(/"/g,'&quot;')+'" placeholder="valeur" style="flex:1;font-size:11px;">';
+  }
+
+  function onColSubChange(el) {
+    const blockId = parseInt(el.dataset.bid);
+    const ci      = parseInt(el.dataset.ci);
+    const op      = el.checked ? 'in_branch' : 'in_collection';
+    onOpChange(blockId, ci, op);
+  }
+
+  function onBetweenChange(blockId, ci) {
+    const block = _blocks.find(b => b.id === blockId);
+    if (!block || !block.criteria[ci]) return;
+    const container = document.getElementById('blocks-container');
+    const blockEl = container.querySelector('[data-block-id="'+blockId+'"]');
+    if (!blockEl) return;
+    const rows = blockEl.querySelectorAll('.aps-crit-row');
+    if (!rows[ci]) return;
+    const from = rows[ci].querySelector('.aps-crit-val-from')?.value || '';
+    const to   = rows[ci].querySelector('.aps-crit-val-to')?.value   || '';
+    const hidden = rows[ci].querySelector('.aps-crit-val');
+    if (hidden) hidden.value = from + '|' + to;
+  }
 
   // ── Searches sauvegardées ─────────────────────────────────────
   let _savedSearches = [];
@@ -417,7 +460,7 @@
           label: f.label || f.name,
           type : f.field_type || 'text',
         })).sort((a,b) => a.label.localeCompare(b.label));
-        _allFields = [...SYSTEM_FIELDS, ...md];
+        _allFields = [{ name:'__collection__', label:'Collection (browse)', type:'collection' }, ...SYSTEM_FIELDS, ...md];
         if (_blocks.length === 0) ajouterBloc();
         else rerendreBlocs();
       }).catch(() => {
@@ -452,10 +495,24 @@
       block.criteria = [];
       el.querySelectorAll('.aps-crit-row').forEach((row, ci) => {
         const joinEl = row.querySelector('.aps-crit-join');
+        const _field = row.querySelector('.aps-crit-field') ? row.querySelector('.aps-crit-field').value : '';
+        const _isCol = _field === '__collection__';
+        const _op = _isCol
+          ? (row.querySelector('.aps-crit-col-sub')?.checked !== false ? 'in_branch' : 'in_collection')
+          : (row.querySelector('.aps-crit-op') ? row.querySelector('.aps-crit-op').value : 'is_not_empty');
+        // Pour between, consolider from|to
+        let _val = '';
+        if (!_isCol && row.querySelector('.aps-crit-val-from')) {
+          const from = row.querySelector('.aps-crit-val-from')?.value || '';
+          const to   = row.querySelector('.aps-crit-val-to')?.value   || '';
+          _val = from + '|' + to;
+        } else {
+          _val = row.querySelector('.aps-crit-val') ? row.querySelector('.aps-crit-val').value : '';
+        }
         block.criteria.push({
-          field : row.querySelector('.aps-crit-field') ? row.querySelector('.aps-crit-field').value : '',
-          op    : row.querySelector('.aps-crit-op') ? row.querySelector('.aps-crit-op').value : 'is_not_empty',
-          value : row.querySelector('.aps-crit-val') ? row.querySelector('.aps-crit-val').value : '',
+          field : _field,
+          op    : _op,
+          value : _val,
           join  : joinEl ? joinEl.textContent.trim() : 'AND',
         });
       });
@@ -487,14 +544,59 @@
   }
 
   function onOpChange(blockId, ci, op) {
-    const noVal = (ALL_OPS.find(o => o.value === op) || {}).noVal;
-    const el = document.querySelector('[data-block-id="' + blockId + '"]');
-    if (!el) return;
-    const rows = el.querySelectorAll('.aps-crit-row');
-    if (rows[ci]) {
-      const v = rows[ci].querySelector('.aps-crit-val');
-      if (v) v.style.display = noVal ? 'none' : '';
+    lireBlocs();
+    const block = _blocks.find(b => b.id === blockId);
+    if (!block || !block.criteria[ci]) return;
+    block.criteria[ci].op = op;
+    rerendreBlocs();
+  }
+
+  function onFieldChange(blockId, ci, field) {
+    lireBlocs();
+    const block = _blocks.find(b => b.id === blockId);
+    if (!block || !block.criteria[ci]) return;
+    const oldField = block.criteria[ci].field;
+    block.criteria[ci].field = field;
+    // Réinitialiser l'opérateur si incompatible avec le nouveau type
+    const ops = getOpsForField(field);
+    if (!ops.find(o => o.v === block.criteria[ci].op)) {
+      block.criteria[ci].op = ops[0]?.v || 'equals';
     }
+    if (field === '__collection__') block.criteria[ci].value = '';
+    rerendreBlocs();
+  }
+
+  function buildColTreeHtml(selectedId, blockId, ci) {
+    if (!Object.keys(_colDict).length) return '<div style="padding:6px;color:#444;font-size:10px;">Collections non chargées</div>';
+    // Construire l'arbo depuis _colDict
+    const roots = Object.entries(_colDict).filter(([id,c]) => !c.parent_id);
+    function renderNode(id, depth) {
+      const col = _colDict[id];
+      if (!col) return '';
+      const children = Object.entries(_colDict).filter(([cid,c]) => c.parent_id === id);
+      const indent = depth * 12;
+      const selected = id === selectedId;
+      let html = '<div onclick="selectCol(\'' + blockId + '\''+ ',' + ci + ',\''+id+'\')" style="padding:3px 6px 3px '+(6+indent)+'px;cursor:pointer;font-size:10px;'+(selected?'color:#8e44ad;background:#1a0a2a;':'color:#aaa;')+'">'
+        + (children.length ? '▸ ' : '  ') + col.name + '</div>';
+      if (children.length) {
+        children.forEach(([cid]) => { html += renderNode(cid, depth+1); });
+      }
+      return html;
+    }
+    return roots.map(([id]) => renderNode(id, 0)).join('');
+  }
+
+  function selectCol(blockId, ci, colId) {
+    // Lire l'état DOM avant de modifier
+    lireBlocs();
+    const block = _blocks.find(b => b.id == blockId); // == intentionnel (string vs number)
+    if (!block) return;
+    // S'assurer que le critère existe
+    if (!block.criteria[ci]) {
+      block.criteria[ci] = { field:'__collection__', op:'in_branch', value:'', join:'AND' };
+    }
+    block.criteria[ci].value = colId;
+    rerendreBlocs();
   }
 
   function rerendreBlocs() {
@@ -511,20 +613,35 @@
           '</select>'
         : '';
       const crits = block.criteria.map((crit, ci) => {
-        const noVal = (ALL_OPS.find(o => o.value === crit.op) || {}).noVal;
+        const _ops = getOpsForField(crit.field);
         const fOpts = _allFields.map(f =>
           '<option value="' + f.name + '"' + (crit.field === f.name ? ' selected' : '') + '>' + (f.label || f.name) + '</option>'
         ).join('');
-        const opOpts = ALL_OPS.map(o =>
-          '<option value="' + o.value + '"' + (crit.op === o.value ? ' selected' : '') + '>' + o.label + '</option>'
+        const opOpts = _ops.map(o =>
+          '<option value="' + o.v + '"' + (crit.op === o.v ? ' selected' : '') + '>' + o.l + '</option>'
         ).join('');
+        const isColField = crit.field === '__collection__';
+        const colId = isColField ? (crit.value||'') : '';
+        const colName = colId ? (_colDict[colId]?.name || colId.slice(0,8)+'...') : '';
+        const colBrowse = isColField ? (
+          '<div style="flex:3;display:flex;flex-direction:column;gap:4px;">' +
+          '<span style="font-size:10px;color:#8e44ad;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+colId+'">' + (colName||'— aucune —') + '</span>' +
+          '<label style="display:flex;align-items:center;gap:6px;font-size:10px;color:#aaa;cursor:pointer;">' +
+          '<input type="checkbox" class="aps-crit-col-sub" data-bid="'+block.id+'" data-ci="'+ci+'"' + ((crit.op||'in_branch')==='in_branch'?' checked':'') + ' onchange="onColSubChange(this)">' +
+          'Inclure les sous-dossiers</label>' +
+          '<div style="max-height:120px;overflow-y:auto;background:#050505;border:1px solid #2a2a2a;border-radius:3px;">' +
+          buildColTreeHtml(colId, block.id, ci) +
+          '</div><input type="hidden" class="aps-crit-val" value="'+colId+'"></div>'
+        ) : '';
         return '<div class="aps-crit-row">' +
           (ci > 0
             ? '<button class="aps-crit-join" onclick="toggleJoin(' + block.id + ',' + ci + ')">' + (crit.join || 'AND') + '</button>'
             : '<div class="aps-crit-join-spacer"></div>') +
-          '<select class="aps-select aps-crit-field" style="flex:1.5;font-size:11px;">' + fOpts + '</select>' +
-          '<select class="aps-select aps-crit-op" style="flex:1.2;font-size:11px;" onchange="onOpChange(' + block.id + ',' + ci + ',this.value)">' + opOpts + '</select>' +
-          '<input class="aps-input aps-crit-val" value="' + (crit.value || '').replace(/"/g, '&quot;') + '" placeholder="valeur" style="flex:1;font-size:11px;' + (noVal ? 'display:none;' : '') + '">' +
+          '<select class="aps-select aps-crit-field" style="flex:1.5;font-size:11px;" onchange="onFieldChange('+block.id+','+ci+',this.value)">' + fOpts + '</select>' +
+          (isColField
+            ? colBrowse
+            : '<select class="aps-select aps-crit-op" style="flex:1.2;font-size:11px;" onchange="onOpChange(' + block.id + ',' + ci + ',this.value)">' + opOpts + '</select>' +
+              buildValInput(crit, block.id, ci)) +
           '<button class="aps-crit-del" onclick="supprimerCritere(' + block.id + ',' + ci + ')">&times;</button>' +
           '</div>';
       }).join('');
@@ -590,6 +707,11 @@
 
   function _critToFilter(crit) {
     if (!crit.field) return null;
+    // Collection browse
+    if (crit.field === '__collection__' && crit.value) {
+      const fname2 = crit.op === 'in_branch' ? 'ancestor_collections' : 'in_collections';
+      return { name:fname2, value:crit.value, condition:'must' };
+    }
     const SYS = ['id','title','date_created','date_modified','object_type','status','archive_status','external_id'];
     const fname = SYS.includes(crit.field) ? crit.field : 'metadata.' + crit.field;
     const val = crit.value || '';
@@ -601,6 +723,10 @@
       case 'starts_with':  return { name:fname, value:val+'*', condition:'must' };
       case 'is_empty':     return { name:fname, value:'', condition:'must_not', filter_type:'exists' };
       case 'is_not_empty': return { name:fname, value:'*', condition:'must', filter_type:'exists' };
+      case 'between': {
+        const parts = val.split('|');
+        return { name:fname, range:{ gt:parts[0]||'', lt:parts[1]||'' }, condition:'must' };
+      }
       case 'before':       return { name:fname, range:{ lt:val }, condition:'must' };
       case 'after':        return { name:fname, range:{ gt:val }, condition:'must' };
       case 'gt':           return { name:fname, range:{ gt:val }, condition:'must' };
