@@ -1,0 +1,524 @@
+<!-- APS Search — search.html — modifié le 2026-07-03 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Recherche APS</title>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0a0a0a; --surface:#111; --panel:#161616;
+      --border:#222; --border2:#2a2a2a; --text:#e0e0e0;
+      --muted:#555; --accent:#8e44ad; --accent2:#a55dc8;
+      --font-mono:'JetBrains Mono','Courier New',monospace;
+      --font-ui:'DM Sans',sans-serif;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:var(--font-ui);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+    header{height:48px;background:#111;border-bottom:1px solid #2a2a2a;display:flex;align-items:center;padding:0 16px;gap:16px;flex-shrink:0;}
+    .hdr-logo{display:flex;align-items:center;gap:8px;}
+    .hdr-logo img{max-height:26px;}
+    .hdr-org{font-size:9px;letter-spacing:1.5px;color:var(--accent);font-weight:700;border:1px solid #8e44ad33;padding:2px 7px;border-radius:10px;font-family:var(--font-mono);}
+    nav{display:flex;gap:2px;}
+    .nav-btn{background:none;border:none;color:#fff;font-family:var(--font-mono);font-size:11px;letter-spacing:.8px;padding:6px 12px;border-radius:4px;cursor:pointer;transition:color .15s,background .15s;}
+    .nav-btn:hover{background:#161616;}
+    .nav-btn.active{color:var(--accent);border-bottom:2px solid var(--accent);border-radius:0;}
+    .hdr-sep{width:1px;height:20px;background:#222;margin:0 8px;flex-shrink:0;}
+    .hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+    .aps-main{display:flex;flex:1;height:calc(100vh - 48px);overflow:hidden;}
+    .aps-criteria{width:340px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border2);display:flex;flex-direction:column;overflow:hidden;}
+    .aps-criteria-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .aps-criteria-header h2{font-size:11px;font-weight:700;letter-spacing:1.2px;color:var(--accent);font-family:var(--font-mono);text-transform:uppercase;}
+    .aps-criteria-body{flex:1;overflow-y:auto;padding:12px;}
+    .aps-label{display:block;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;}
+    .aps-select,.aps-input{width:100%;padding:7px 10px;background:#0a0a0a;color:var(--text);border:1px solid var(--border2);border-radius:4px;font-family:var(--font-ui);font-size:12px;outline:none;transition:border-color .15s;}
+    .aps-select:focus,.aps-input:focus{border-color:var(--accent);}
+    .aps-block{background:#0a0a0a;border:1px solid var(--border2);border-radius:6px;margin-bottom:8px;overflow:hidden;}
+    .aps-block-header{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0d0d0d;border-bottom:1px solid var(--border);}
+    .aps-block-num{font-size:9px;font-weight:700;color:var(--accent);font-family:var(--font-mono);min-width:40px;}
+    .aps-block-body{padding:8px 10px;}
+    .aps-crit-row{display:flex;gap:4px;align-items:center;margin-bottom:6px;}
+    .aps-crit-join{font-size:9px;font-weight:700;color:var(--accent);font-family:var(--font-mono);min-width:32px;padding:3px 5px;background:#1a0a1a;border:1px solid #3a1a3a;border-radius:3px;cursor:pointer;text-align:center;}
+    .aps-crit-join-spacer{min-width:32px;}
+    .aps-crit-del{background:none;border:none;color:#444;cursor:pointer;font-size:16px;padding:0 3px;line-height:1;transition:color .1s;}
+    .aps-crit-del:hover{color:#e74c3c;}
+    .aps-add-crit{width:100%;padding:5px;background:none;border:1px dashed var(--border2);color:var(--muted);border-radius:4px;font-size:11px;cursor:pointer;margin-top:4px;transition:border-color .15s,color .15s;}
+    .aps-add-crit:hover{border-color:var(--accent);color:var(--accent);}
+    .aps-add-block{width:100%;padding:8px;background:none;border:1px dashed var(--border2);color:var(--muted);border-radius:6px;font-size:11px;cursor:pointer;margin-top:4px;transition:border-color .15s,color .15s;}
+    .aps-add-block:hover{border-color:var(--accent);color:var(--accent);}
+    .aps-expr-section{border-top:1px solid var(--border);padding:10px 12px;flex-shrink:0;}
+    .aps-expr-hint{font-size:9px;color:#444;margin-top:4px;}
+    .aps-criteria-footer{padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:6px;}
+    .aps-footer-row{display:flex;gap:8px;align-items:center;}
+    .aps-footer-row label{font-size:10px;color:var(--muted);min-width:50px;}
+    .aps-search-btn{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:5px;font-family:var(--font-mono);font-size:12px;font-weight:600;letter-spacing:.5px;cursor:pointer;transition:background .15s;}
+    .aps-search-btn:hover{background:var(--accent2);}
+    .aps-search-btn:disabled{background:#333;color:#666;cursor:not-allowed;}
+    .aps-results{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+    .aps-results-header{padding:12px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:12px;flex-shrink:0;background:var(--panel);}
+    .aps-results-title{font-size:11px;font-weight:700;color:var(--muted);font-family:var(--font-mono);letter-spacing:1px;text-transform:uppercase;}
+    .aps-results-count{font-size:11px;font-family:var(--font-mono);color:var(--accent);font-weight:600;}
+    .aps-results-actions{margin-left:auto;display:flex;gap:6px;}
+    .aps-action-btn{padding:5px 10px;font-size:10px;background:none;border:1px solid var(--border2);color:var(--muted);border-radius:4px;cursor:pointer;font-family:var(--font-mono);transition:all .15s;}
+    .aps-action-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .aps-table-wrap{flex:1;overflow:auto;}
+    table{width:100%;border-collapse:collapse;font-size:12px;}
+    thead th{position:sticky;top:0;background:#0d0d0d;border-bottom:1px solid var(--border2);padding:8px 12px;text-align:left;font-size:9px;font-weight:700;color:var(--muted);font-family:var(--font-mono);letter-spacing:.8px;text-transform:uppercase;white-space:nowrap;cursor:pointer;user-select:none;}
+    thead th:hover{color:var(--text);}
+    thead th.sorted{color:var(--accent);}
+    tbody tr{border-bottom:1px solid #111;transition:background .08s;}
+    tbody tr:hover{background:#111;}
+    tbody td{padding:8px 12px;vertical-align:middle;}
+    .td-title{color:var(--text);font-weight:500;max-width:280px;}
+    .td-id{font-family:var(--font-mono);font-size:10px;color:#444;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .td-type{font-family:var(--font-mono);font-size:10px;color:#777;}
+    .td-status{font-size:10px;font-family:var(--font-mono);padding:2px 6px;border-radius:3px;display:inline-block;}
+    .td-status.active{color:#2ecc71;background:#0a2a1a;border:1px solid #1a4a2a;}
+    .td-status.archive{color:#e67e22;background:#1a0f00;border:1px solid #3a2000;}
+    .td-status.deleted{color:#e74c3c;background:#1a0a0a;border:1px solid #3a1010;}
+    .td-status.other{color:#777;background:#111;border:1px solid #222;}
+    .td-date{font-size:10px;color:#555;white-space:nowrap;}
+    .aps-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#333;gap:8px;padding:60px 20px;}
+    .aps-empty-icon{font-size:32px;opacity:.4;}
+    .aps-empty-msg{font-size:12px;color:#444;}
+    .aps-spinner{width:24px;height:24px;border:2px solid #222;border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    @media print{
+      header,.aps-criteria,.aps-results-actions{display:none!important;}
+      .aps-main,.aps-results,.aps-table-wrap{display:block;overflow:visible;}
+      table{font-size:10px;}
+      thead th{background:#eee!important;color:#333!important;}
+      tbody tr:nth-child(even){background:#f9f9f9!important;}
+      body{background:#fff!important;color:#000!important;}
+      td,th{border:1px solid #ccc!important;}
+      .td-status{color:#000!important;background:none!important;border:1px solid #ccc!important;}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hdr-logo">
+      <img src="../_images/logo.svg" alt="APS">
+      <span class="hdr-org" id="orgBadge">APS</span>
+    </div>
+    <div class="hdr-sep"></div>
+    <nav>
+      <button class="nav-btn" onclick="location.href='../dashboard/dashboard.html'">DASHBOARD</button>
+      <button class="nav-btn" onclick="location.href='../settings/settings.html'">SETTINGS</button>
+      <button class="nav-btn" onclick="location.href='../automations/automations.html'">AUTOMATIONS</button>
+      <button class="nav-btn" onclick="location.href='../workflow/workflow.html'">WORKFLOW</button>
+      <button class="nav-btn active">RECHERCHE</button>
+      <button class="nav-btn" onclick="location.href='../viewer/viewer.html'">VIEWER</button>
+      <button class="nav-btn" onclick="location.href='../monitoring/monitoring.html'">MONITORING</button>
+    </nav>
+    <div class="hdr-right">
+      <select id="env-select" class="aps-select" style="width:180px;font-size:11px;" onchange="onEnvChange()"></select>
+    </div>
+  </header>
+  <div class="aps-main">
+    <div class="aps-criteria">
+      <div class="aps-criteria-header"><h2>&#128269; Criteres de recherche</h2></div>
+      <div class="aps-criteria-body" id="blocks-container"></div>
+      <div class="aps-expr-section">
+        <label class="aps-label">Expression</label>
+        <input id="sr-expression" class="aps-input" placeholder="ex : 1 AND 2 AND (3 OR 4)">
+        <div class="aps-expr-hint">Numeros de blocs + AND OR NOT parentheses. Vide = tous actifs.</div>
+      </div>
+      <div class="aps-criteria-footer">
+        <div class="aps-footer-row">
+          <label>Retourner</label>
+          <select id="sr-return-block" class="aps-select" style="flex:1;"></select>
+        </div>
+        <div class="aps-footer-row">
+          <label>Limite</label>
+          <input id="sr-limit" class="aps-input" type="number" value="500" min="1" max="2000" style="flex:1;">
+        </div>
+        <button class="aps-search-btn" id="btn-search" onclick="lancerRecherche()">&#9654; Rechercher</button>
+      </div>
+    </div>
+    <div class="aps-results">
+      <div class="aps-results-header">
+        <span class="aps-results-title">Resultats</span>
+        <span class="aps-results-count" id="results-count"></span>
+        <div class="aps-results-actions">
+          <button class="aps-action-btn" onclick="exportCsv()" id="btn-csv" style="display:none;">&#11015; CSV</button>
+          <button class="aps-action-btn" onclick="window.print()">&#128424; Imprimer</button>
+        </div>
+      </div>
+      <div id="results-area" class="aps-table-wrap">
+        <div class="aps-empty">
+          <div class="aps-empty-icon">&#128269;</div>
+          <div class="aps-empty-msg">Definissez vos criteres et lancez la recherche.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  const _BASE = '/api/iconik';
+  let _env = '';
+  let _allFields = [];
+  let _lastResults = [];
+  let _blocks = [];
+  let _nextBlockId = 1;
+
+  const SYSTEM_FIELDS = [
+    { name:'title',          label:'Titre',          type:'text' },
+    { name:'date_created',   label:'Date creation',  type:'date' },
+    { name:'date_modified',  label:'Date modif.',    type:'date' },
+    { name:'status',         label:'Statut',         type:'text' },
+    { name:'archive_status', label:'Statut archive', type:'text' },
+    { name:'external_id',    label:'ID externe',     type:'text' },
+  ];
+
+  const OBJECT_TYPES = [
+    { value:'assets',           label:'Asset'                 },
+    { value:'collections',      label:'Collection'            },
+    { value:'segments',         label:'Segment'               },
+    { value:'saved_searches',   label:'Recherche sauvegardee' },
+    { value:'formats',          label:'Format'                },
+    { value:'storages',         label:'Storage'               },
+    { value:'metadata_views',   label:'Metadata View'         },
+    { value:'users',            label:'User / Team'           },
+    { value:'export_locations', label:'Export Location'       },
+  ];
+
+  const ALL_OPS = [
+    { value:'is_not_empty', label:"n'est pas vide",      noVal:true  },
+    { value:'is_empty',     label:'est vide',            noVal:true  },
+    { value:'equals',       label:'est egal a',          noVal:false },
+    { value:'not_equals',   label:'est different de',    noVal:false },
+    { value:'contains',     label:'contient',            noVal:false },
+    { value:'not_contains', label:'ne contient pas',     noVal:false },
+    { value:'starts_with',  label:'commence par',        noVal:false },
+    { value:'before',       label:'avant (date)',        noVal:false },
+    { value:'after',        label:'apres (date)',        noVal:false },
+    { value:'gt',           label:'superieur a',         noVal:false },
+    { value:'lt',           label:'inferieur a',         noVal:false },
+    { value:'contains_any', label:'contient au moins un',noVal:false },
+    { value:'is_true',      label:'est vrai',            noVal:true  },
+    { value:'is_false',     label:'est faux',            noVal:true  },
+  ];
+
+  document.addEventListener('DOMContentLoaded', () => {
+    chargerOrg();
+    chargerEnvs();
+  });
+
+  function chargerOrg() {
+    fetch('/api/organisation')
+      .then(r => r.ok ? r.json() : null)
+      .then(org => {
+        if (!org) return;
+        document.getElementById('orgBadge').textContent = org.name;
+        document.title = org.name + ' — Recherche APS';
+      }).catch(() => {});
+  }
+
+  function chargerEnvs() {
+    fetch('/api/environments/credentials')
+      .then(r => r.ok ? r.json() : [])
+      .then(envs => {
+        const sel = document.getElementById('env-select');
+        sel.innerHTML = envs.map(e => '<option value="' + e.name + '">' + e.name + '</option>').join('');
+        const def = envs.find(e => e.isDefault) || envs[0];
+        if (def) { sel.value = def.name; onEnvChange(); }
+      }).catch(() => {});
+  }
+
+  function onEnvChange() {
+    _env = document.getElementById('env-select').value;
+    chargerChamps();
+  }
+
+  function chargerChamps() {
+    if (!_env) return;
+    fetch(_BASE + '/' + _env + '/API/metadata/v1/fields/?per_page=500')
+      .then(r => r.ok ? r.json() : { objects:[] })
+      .then(d => {
+        const md = (d.objects || []).map(f => ({
+          name : f.name,
+          label: f.label || f.name,
+          type : f.field_type || 'text',
+        })).sort((a,b) => a.label.localeCompare(b.label));
+        _allFields = [...SYSTEM_FIELDS, ...md];
+        if (_blocks.length === 0) ajouterBloc();
+        else rerendreBlocs();
+      }).catch(() => {
+        _allFields = [...SYSTEM_FIELDS];
+        if (_blocks.length === 0) ajouterBloc();
+        else rerendreBlocs();
+      });
+  }
+
+  function ajouterBloc() {
+    const id = _nextBlockId++;
+    _blocks.push({ id, objectType:'assets', parentBlock:null,
+      criteria:[{ field:'title', op:'is_not_empty', value:'', join:'AND' }] });
+    rerendreBlocs();
+  }
+
+  function supprimerBloc(id) {
+    _blocks = _blocks.filter(b => b.id !== id);
+    _blocks.forEach(b => { if (b.parentBlock === id) b.parentBlock = null; });
+    rerendreBlocs();
+  }
+
+  function lireBlocs() {
+    const container = document.getElementById('blocks-container');
+    _blocks.forEach(block => {
+      const el = container.querySelector('[data-block-id="' + block.id + '"]');
+      if (!el) return;
+      block.objectType  = el.querySelector('.sr-obj-type') ? el.querySelector('.sr-obj-type').value : 'assets';
+      const ps = el.querySelector('.sr-parent');
+      block.parentBlock = ps ? (parseInt(ps.value) || null) : null;
+      block.criteria = [];
+      el.querySelectorAll('.aps-crit-row').forEach((row, ci) => {
+        const joinEl = row.querySelector('.aps-crit-join');
+        block.criteria.push({
+          field : row.querySelector('.aps-crit-field') ? row.querySelector('.aps-crit-field').value : '',
+          op    : row.querySelector('.aps-crit-op') ? row.querySelector('.aps-crit-op').value : 'is_not_empty',
+          value : row.querySelector('.aps-crit-val') ? row.querySelector('.aps-crit-val').value : '',
+          join  : joinEl ? joinEl.textContent.trim() : 'AND',
+        });
+      });
+    });
+  }
+
+  function ajouterCritere(blockId) {
+    lireBlocs();
+    const block = _blocks.find(b => b.id === blockId);
+    if (!block) return;
+    block.criteria.push({ field:'title', op:'is_not_empty', value:'', join:'AND' });
+    rerendreBlocs();
+  }
+
+  function supprimerCritere(blockId, ci) {
+    lireBlocs();
+    const block = _blocks.find(b => b.id === blockId);
+    if (!block) return;
+    block.criteria.splice(ci, 1);
+    rerendreBlocs();
+  }
+
+  function toggleJoin(blockId, ci) {
+    lireBlocs();
+    const block = _blocks.find(b => b.id === blockId);
+    if (!block || !block.criteria[ci]) return;
+    block.criteria[ci].join = block.criteria[ci].join === 'AND' ? 'OR' : 'AND';
+    rerendreBlocs();
+  }
+
+  function onOpChange(blockId, ci, op) {
+    const noVal = (ALL_OPS.find(o => o.value === op) || {}).noVal;
+    const el = document.querySelector('[data-block-id="' + blockId + '"]');
+    if (!el) return;
+    const rows = el.querySelectorAll('.aps-crit-row');
+    if (rows[ci]) {
+      const v = rows[ci].querySelector('.aps-crit-val');
+      if (v) v.style.display = noVal ? 'none' : '';
+    }
+  }
+
+  function rerendreBlocs() {
+    const container = document.getElementById('blocks-container');
+    let html = '';
+    _blocks.forEach((block, bidx) => {
+      const prev = _blocks.slice(0, bidx);
+      const objOpts = OBJECT_TYPES.map(o =>
+        '<option value="' + o.value + '"' + (block.objectType === o.value ? ' selected' : '') + '>' + o.label + '</option>'
+      ).join('');
+      const parentOpts = prev.length
+        ? '<select class="aps-select sr-parent" style="flex:1;font-size:11px;"><option value="">— aucun parent —</option>' +
+          prev.map(b => '<option value="' + b.id + '"' + (block.parentBlock == b.id ? ' selected' : '') + '>Dans Bloc ' + b.id + '</option>').join('') +
+          '</select>'
+        : '';
+      const crits = block.criteria.map((crit, ci) => {
+        const noVal = (ALL_OPS.find(o => o.value === crit.op) || {}).noVal;
+        const fOpts = _allFields.map(f =>
+          '<option value="' + f.name + '"' + (crit.field === f.name ? ' selected' : '') + '>' + (f.label || f.name) + '</option>'
+        ).join('');
+        const opOpts = ALL_OPS.map(o =>
+          '<option value="' + o.value + '"' + (crit.op === o.value ? ' selected' : '') + '>' + o.label + '</option>'
+        ).join('');
+        return '<div class="aps-crit-row">' +
+          (ci > 0
+            ? '<button class="aps-crit-join" onclick="toggleJoin(' + block.id + ',' + ci + ')">' + (crit.join || 'AND') + '</button>'
+            : '<div class="aps-crit-join-spacer"></div>') +
+          '<select class="aps-select aps-crit-field" style="flex:1.5;font-size:11px;">' + fOpts + '</select>' +
+          '<select class="aps-select aps-crit-op" style="flex:1.2;font-size:11px;" onchange="onOpChange(' + block.id + ',' + ci + ',this.value)">' + opOpts + '</select>' +
+          '<input class="aps-input aps-crit-val" value="' + (crit.value || '').replace(/"/g, '&quot;') + '" placeholder="valeur" style="flex:1;font-size:11px;' + (noVal ? 'display:none;' : '') + '">' +
+          '<button class="aps-crit-del" onclick="supprimerCritere(' + block.id + ',' + ci + ')">&times;</button>' +
+          '</div>';
+      }).join('');
+      html += '<div class="aps-block" data-block-id="' + block.id + '">' +
+        '<div class="aps-block-header">' +
+        '<span class="aps-block-num">BLOC ' + block.id + '</span>' +
+        '<select class="aps-select sr-obj-type" style="flex:2;font-size:11px;">' + objOpts + '</select>' +
+        parentOpts +
+        (_blocks.length > 1 ? '<button class="aps-crit-del" onclick="supprimerBloc(' + block.id + ')" style="margin-left:auto;">&times;</button>' : '') +
+        '</div><div class="aps-block-body">' + crits +
+        '<button class="aps-add-crit" onclick="ajouterCritere(' + block.id + ')">+ Critere</button>' +
+        '</div></div>';
+    });
+    html += '<button class="aps-add-block" onclick="ajouterBloc()">+ Ajouter un bloc</button>';
+    container.innerHTML = html;
+    const ret = document.getElementById('sr-return-block');
+    ret.innerHTML = _blocks.map(b => '<option value="' + b.id + '">Bloc ' + b.id + '</option>').join('');
+  }
+
+  async function lancerRecherche() {
+    lireBlocs();
+    if (!_env) { afficherErreur('Selectionnez un environnement.'); return; }
+    if (!_blocks.length) { afficherErreur('Ajoutez au moins un bloc.'); return; }
+    const btn = document.getElementById('btn-search');
+    btn.disabled = true; btn.textContent = 'Recherche...';
+    afficherChargement();
+    const limit       = parseInt(document.getElementById('sr-limit').value) || 500;
+    const returnBlock = parseInt(document.getElementById('sr-return-block').value) || _blocks[0].id;
+    const expression  = document.getElementById('sr-expression').value.trim();
+    const activeIds   = _evalExpr(expression, _blocks.map(b => b.id));
+    const blockResults = {};
+    try {
+      for (const block of _blocks) {
+        if (!activeIds.has(block.id)) continue;
+        let parentIds = null;
+        if (block.parentBlock != null) {
+          const pr = blockResults[block.parentBlock] || [];
+          parentIds = pr.map(o => o.id).filter(Boolean);
+          if (!parentIds.length) { blockResults[block.id] = []; continue; }
+        }
+        const body = { object_types:[block.objectType], query:'', filters:[], limit:limit, offset:0 };
+        if (parentIds && parentIds.length) body.collection_ids = parentIds;
+        for (const crit of block.criteria) {
+          const f = _critToFilter(crit);
+          if (f) body.filters.push(f);
+        }
+        const r = await fetch(_BASE + '/' + _env + '/API/search/v1/search/', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' bloc ' + block.id);
+        const d = await r.json();
+        blockResults[block.id] = d.objects || [];
+      }
+      const results = blockResults[returnBlock] || [];
+      _lastResults = results;
+      afficherResultats(results);
+    } catch(e) {
+      afficherErreur('Erreur : ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Rechercher';
+    }
+  }
+
+  function _critToFilter(crit) {
+    if (!crit.field) return null;
+    const SYS = ['id','title','date_created','date_modified','object_type','status','archive_status','external_id'];
+    const fname = SYS.includes(crit.field) ? crit.field : 'metadata.' + crit.field;
+    const val = crit.value || '';
+    switch (crit.op) {
+      case 'equals':       return { name:fname, value:val, condition:'must' };
+      case 'not_equals':   return { name:fname, value:val, condition:'must_not' };
+      case 'contains':     return { name:fname, value:'*'+val+'*', condition:'must' };
+      case 'not_contains': return { name:fname, value:'*'+val+'*', condition:'must_not' };
+      case 'starts_with':  return { name:fname, value:val+'*', condition:'must' };
+      case 'is_empty':     return { name:fname, value:'', condition:'must_not', filter_type:'exists' };
+      case 'is_not_empty': return { name:fname, value:'*', condition:'must', filter_type:'exists' };
+      case 'before':       return { name:fname, range:{ lt:val }, condition:'must' };
+      case 'after':        return { name:fname, range:{ gt:val }, condition:'must' };
+      case 'gt':           return { name:fname, range:{ gt:val }, condition:'must' };
+      case 'lt':           return { name:fname, range:{ lt:val }, condition:'must' };
+      case 'contains_any': return { name:fname, values:val.split(',').map(v=>v.trim()), condition:'must' };
+      case 'is_true':      return { name:fname, value:'true', condition:'must' };
+      case 'is_false':     return { name:fname, value:'false', condition:'must' };
+      default:             return null;
+    }
+  }
+
+  function _evalExpr(expr, allIds) {
+    if (!expr) return new Set(allIds);
+    const active = new Set(), excluded = new Set();
+    for (const m of expr.matchAll(/NOT\s+(\d+)/g)) excluded.add(parseInt(m[1]));
+    for (const m of expr.matchAll(/\b(\d+)\b/g)) { const id=parseInt(m[1]); if(!excluded.has(id)) active.add(id); }
+    return new Set([...active].filter(id => allIds.includes(id)));
+  }
+
+  function afficherChargement() {
+    document.getElementById('results-area').innerHTML = '<div class="aps-empty"><div class="aps-spinner"></div><div class="aps-empty-msg">Recherche en cours...</div></div>';
+    document.getElementById('results-count').textContent = '';
+    document.getElementById('btn-csv').style.display = 'none';
+  }
+
+  function afficherErreur(msg) {
+    document.getElementById('results-area').innerHTML = '<div class="aps-empty"><div class="aps-empty-msg" style="color:#e74c3c;">' + msg + '</div></div>';
+    document.getElementById('results-count').textContent = '';
+    document.getElementById('btn-csv').style.display = 'none';
+  }
+
+  function afficherResultats(results) {
+    const count = document.getElementById('results-count');
+    const area  = document.getElementById('results-area');
+    const csv   = document.getElementById('btn-csv');
+    if (!results.length) {
+      count.textContent = '0 resultat';
+      area.innerHTML = '<div class="aps-empty"><div class="aps-empty-msg">Aucun resultat pour ces criteres.</div></div>';
+      csv.style.display = 'none';
+      return;
+    }
+    count.textContent = results.length + ' resultat' + (results.length > 1 ? 's' : '');
+    csv.style.display = '';
+    const pad = n => String(n).padStart(2,'0');
+    const fmt = s => { if (!s) return '-'; const d=new Date(s); return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); };
+    const sCls = s => { if(!s) return 'other'; const sl=s.toLowerCase(); if(sl==='active') return 'active'; if(sl.includes('archive')) return 'archive'; if(sl.includes('delete')) return 'deleted'; return 'other'; };
+    area.innerHTML = '<table><thead><tr>' +
+      '<th onclick="trierPar('title')" class="sorted">Titre</th>' +
+      '<th onclick="trierPar('object_type')">Type</th>' +
+      '<th onclick="trierPar('status')">Statut</th>' +
+      '<th onclick="trierPar('date_created')">Cree</th>' +
+      '<th onclick="trierPar('date_modified')">Modifie</th>' +
+      '<th>ID</th></tr></thead><tbody>' +
+      results.map(o =>
+        '<tr>' +
+        '<td class="td-title">' + (o.title||'Sans titre').replace(/</g,'&lt;') + '</td>' +
+        '<td class="td-type">' + (o.object_type||'-') + '</td>' +
+        '<td><span class="td-status ' + sCls(o.status) + '">' + (o.status||'-') + '</span></td>' +
+        '<td class="td-date">' + fmt(o.date_created) + '</td>' +
+        '<td class="td-date">' + fmt(o.date_modified) + '</td>' +
+        '<td class="td-id" title="' + (o.id||'') + '">' + (o.id||'-') + '</td>' +
+        '</tr>'
+      ).join('') + '</tbody></table>';
+  }
+
+  let _sortField='title', _sortAsc=true;
+  function trierPar(field) {
+    if (_sortField===field) _sortAsc=!_sortAsc; else { _sortField=field; _sortAsc=true; }
+    const sorted = [..._lastResults].sort((a,b) => {
+      const va=(a[field]||'').toString().toLowerCase();
+      const vb=(b[field]||'').toString().toLowerCase();
+      return _sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    afficherResultats(sorted);
+    _lastResults = sorted;
+  }
+
+  function exportCsv() {
+    if (!_lastResults.length) return;
+    const pad = n => String(n).padStart(2,'0');
+    const fmt = s => { if(!s) return ''; const d=new Date(s); return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); };
+    const rows = _lastResults.map(o => [
+      '"'+(o.title||'').replace(/"/g,'""')+'"',
+      o.object_type||'', o.status||'',
+      fmt(o.date_created), fmt(o.date_modified), o.id||''
+    ].join(';'));
+    const csv = ['Titre;Type;Statut;Date creation;Date modif.;ID', ...rows].join('\n');
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'aps-recherche-' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+  }
+  </script>
+</body>
+</html>
