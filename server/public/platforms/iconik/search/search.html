@@ -71,15 +71,16 @@
     tbody tr{border-bottom:1px solid #111;transition:background .08s;}
     tbody tr:hover{background:#111;}
     tbody td{padding:8px 12px;vertical-align:middle;}
-    .td-title{color:var(--text);font-weight:500;max-width:280px;}
-    .td-id{font-family:var(--font-mono);font-size:10px;color:#444;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .td-type{font-family:var(--font-mono);font-size:10px;color:#777;}
+    table td.td-title{color:#ffffff !important;font-weight:600;max-width:280px;font-family:var(--font-ui) !important;}
+    table td.td-id{font-family:var(--font-mono) !important;font-size:10px;color:#666 !important;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    table td.td-type{font-family:var(--font-mono) !important;font-size:10px;color:#aaa !important;}
     .td-status{font-size:10px;font-family:var(--font-mono);padding:2px 6px;border-radius:3px;display:inline-block;}
     .td-status.active{color:#2ecc71;background:#0a2a1a;border:1px solid #1a4a2a;}
     .td-status.archive{color:#e67e22;background:#1a0f00;border:1px solid #3a2000;}
     .td-status.deleted{color:#e74c3c;background:#1a0a0a;border:1px solid #3a1010;}
     .td-status.other{color:#777;background:#111;border:1px solid #222;}
-    .td-date{font-size:10px;color:#555;white-space:nowrap;}
+    table td.td-date{font-size:10px;color:#888 !important;white-space:nowrap;}
+    table td.td-path{font-size:10px;color:#999 !important;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .aps-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#333;gap:8px;padding:60px 20px;}
     .aps-empty-icon{font-size:32px;opacity:.4;}
     .aps-empty-msg{font-size:12px;color:#444;}
@@ -207,6 +208,56 @@
     chargerEnvs();
   });
 
+  // ── Dictionnaire collections id->{ name, parent_id } ──────────
+  let _colDict = {};
+
+  async function chargerCollections() {
+    if (!_env) return;
+    _colDict = {};
+    const base = _BASE + '/' + _env;
+    const payload = {
+      doc_types: ['collections'],
+      filter: { operator: 'AND', terms: [{ name: 'date_deleted', missing: true }] }
+    };
+    let page = 1;
+    while (page < 50) {
+      try {
+        const r = await fetch(base + '/API/search/v1/search/?per_page=150&page=' + page, {
+          method : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body   : JSON.stringify(payload),
+        });
+        if (!r.ok) break;
+        const d = await r.json();
+        const objs = d.objects || [];
+        if (!objs.length) break;
+        objs.forEach(c => {
+          _colDict[c.id] = { name: c.title || c.name || c.id, parent_id: c.parent_id || null };
+        });
+        if (page >= (d.pages || 1)) break;
+        page++;
+      } catch(e) { break; }
+    }
+    console.log('[APS Search] Collections chargees :', Object.keys(_colDict).length);
+  }
+
+  function buildPath(colIds) {
+    if (!colIds || !colIds.length) return '';
+    // Prendre la collection directe (in_collections[0])
+    const colId = colIds[0];
+    if (!_colDict[colId]) return colId.slice(0,8) + '...';
+    // Remonter la hiérarchie
+    const parts = [];
+    let current = colId;
+    let safety = 0;
+    while (current && _colDict[current] && safety < 10) {
+      parts.unshift(_colDict[current].name);
+      current = _colDict[current].parent_id;
+      safety++;
+    }
+    return parts.join(' › ');
+  }
+
   function chargerOrg() {
     fetch('/api/organisation')
       .then(r => r.ok ? r.json() : null)
@@ -231,6 +282,7 @@
   function onEnvChange() {
     _env = document.getElementById('env-select').value;
     chargerChamps();
+    chargerCollections();
   }
 
   function chargerChamps() {
@@ -254,6 +306,7 @@
   }
 
   function ajouterBloc() {
+    lireBlocs(); // sauvegarder l'état courant avant d'ajouter
     const id = _nextBlockId++;
     _blocks.push({ id, objectType:'assets', parentBlock:null,
       criteria:[{ field:'title', op:'is_not_empty', value:'', join:'AND' }] });
@@ -478,7 +531,7 @@
     ];
     const thHtml = TH.map((t,i) =>
       '<th onclick="trierPar(\'' + t[0] + '\')" ' + (i===0?'class="sorted"':'') + '>' + t[1] + '</th>'
-    ).join('') + '<th>ID</th>';
+    ).join('') + '<th>Chemin</th><th>ID</th>';
     area.innerHTML = '<table><thead><tr>' + thHtml + '</tr></thead><tbody>' +
       results.map(o =>
         '<tr>' +
@@ -487,6 +540,7 @@
         '<td><span class="td-status ' + sCls(o.status) + '">' + (o.status||'-') + '</span></td>' +
         '<td class="td-date">' + fmt(o.date_created) + '</td>' +
         '<td class="td-date">' + fmt(o.date_modified) + '</td>' +
+        '<td class="td-path" title="' + buildPath(o.in_collections||[]).replace(/"/g,'&quot;') + '">' + buildPath(o.in_collections||[]) + '</td>' +
         '<td class="td-id" title="' + (o.id||'') + '">' + (o.id||'-') + '</td>' +
         '</tr>'
       ).join('') + '</tbody></table>';

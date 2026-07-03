@@ -388,18 +388,11 @@ const DB_HANDLERS = [
   },
 
   // ── Collections Search (POST) ────────────────────────────────────────────
-  // syncIconik utilise wfdFetchAllCollectionsSearch → POST /API/search/v1/search/
+  // POST /API/search/v1/search/ — toujours en direct (WFD + Recherche APS)
   {
     match: (m, p) => m === 'POST' && p === '/API/search/v1/search/',
-    handle: async ({ snapshotId, body }) => {
-      // On ne sert depuis DB que si doc_types inclut 'collections'
-      const docTypes = body?.doc_types || [];
-      if (!docTypes.includes('collections')) return { handled: false };
-      const rows = await prisma.ikonCollection.findMany({
-        where:   { snapshotId, dateDeleted: null },
-        orderBy: { path: 'asc' },
-      });
-      return { handled: true, status: 200, data: ikonPage(rawList(rows)) };
+    handle: async () => {
+      return { handled: false }; // WFD : toujours temps réel
     },
   },
 
