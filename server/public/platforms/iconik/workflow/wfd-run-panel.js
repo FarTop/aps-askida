@@ -118,9 +118,8 @@ function _rpSwitchTab(tab) {
     const pane = document.getElementById('wfd-rp-pane-' + t);
     if (!btn || !pane) return;
     const active = t === tab;
-    btn.style.color             = active ? '#e67e22' : '#555';
-    btn.style.borderBottomColor = active ? '#e67e22' : 'transparent';
-    pane.style.display          = active ? 'flex'    : 'none';
+    btn.classList.toggle('active', active);
+    pane.style.display = active ? 'flex' : 'none';
   });
   // Rendre le contenu de l'onglet actif
   if (tab === 'assets')  _rpRenderAssets();

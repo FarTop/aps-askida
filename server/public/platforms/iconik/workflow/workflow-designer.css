@@ -1548,3 +1548,58 @@ nav { display: flex; gap: 2px; }
 
 /* ── Run panel header info ──────────────────────────────────────────────── */
 #wfd-rp-header-info { flex: 1; margin-left: 8px; }
+
+/* ── Jobs panel — conteneurs ────────────────────────────────────────────── */
+#wfd-jobs-live         { flex: 1; overflow-y: auto; padding: 8px; }
+#wfd-jobs-live-empty   { color: #444; font-size: 12px; text-align: center; padding: 32px 16px; }
+#wfd-jobs-history-count { font-size: 10px; color: #555; }
+
+/* ── Run Panel — conteneurs ─────────────────────────────────────────────── */
+#wfd-run-panel-empty   { padding: 32px 16px; text-align: center; color: #444; font-size: 12px; }
+#wfd-rp-pane-assets    { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+#wfd-rp-assets-list    { flex: 1; overflow-y: auto; padding: 8px; }
+#wfd-rp-action-detail  { flex: 1; padding: 8px; }
+#wfd-rp-bulk-btns      { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* ── Export Picker — conteneurs ─────────────────────────────────────────── */
+#expick-list { flex: 1; overflow-y: auto; padding: 8px 14px; display: flex; flex-direction: column; gap: 6px; }
+
+/* ── Modal Templates body override ──────────────────────────────────────── */
+#modal-templates-body.wfd-modal-body { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── Script editor — sidebar ────────────────────────────────────────────── */
+.wfd-script-sidebar {
+  width: 220px; flex-shrink: 0;
+  background: #0a0a0a; border-left: 1px solid #222;
+  overflow-y: auto; padding: 14px;
+}
+
+/* ── Onglets bar ressources ─────────────────────────────────────────────── */
+.wfd-res-tabs {
+  display: flex; gap: 2px;
+  padding: 0 16px;
+  border-bottom: 1px solid #1e1e1e;
+  flex-shrink: 0;
+}
+
+/* ── Run panel — tabs container ─────────────────────────────────────────── */
+.wfd-rp-tabs {
+  display: flex;
+  border-bottom: 1px solid #1e1e1e;
+  flex-shrink: 0;
+}
+
+/* ── Modale Import — labels ─────────────────────────────────────────────── */
+.wfd-label-muted  { color: #555; }
+.wfd-label-light  { color: #fff; font-weight: 600; }
+.wfd-label-dim    { color: #aaa; }
+
+/* ── Import stats grid ───────────────────────────────────────────────────── */
+#import-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 16px; }
+
+/* ── Export picker — filter bar ─────────────────────────────────────────── */
+.wfd-expick-filter { padding: 10px 14px; border-bottom: 1px solid #1e1e1e; flex-shrink: 0; }
+.wfd-expick-actions { padding: 8px 14px; border-bottom: 1px solid #1e1e1e; flex-shrink: 0; display: flex; gap: 8px; align-items: center; }
+
+/* ── Vars panel search bar ──────────────────────────────────────────────── */
+.wfd-vars-search-bar { display: flex; gap: 6px; align-items: center; }

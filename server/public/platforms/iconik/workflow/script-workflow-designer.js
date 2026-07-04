@@ -632,18 +632,12 @@ function wfdJobsTab(tab) {
   const history = document.getElementById('wfd-jobs-history');
   const tabLive = document.getElementById('wfd-jobs-tab-live');
   const tabHist = document.getElementById('wfd-jobs-tab-history');
-  if (tab === 'live') {
-    if (live)    live.style.display    = '';
-    if (history) history.style.display = 'none';
-    if (tabLive) { tabLive.style.borderBottomColor = '#9b59b6'; tabLive.style.color = '#fff'; }
-    if (tabHist) { tabHist.style.borderBottomColor = 'transparent'; tabHist.style.color = '#555'; }
-  } else {
-    if (live)    live.style.display    = 'none';
-    if (history) history.style.display = '';
-    if (tabLive) { tabLive.style.borderBottomColor = 'transparent'; tabLive.style.color = '#555'; }
-    if (tabHist) { tabHist.style.borderBottomColor = '#9b59b6'; tabHist.style.color = '#fff'; }
-    _wfdRenderHistory();
-  }
+  const isLive = tab === 'live';
+  if (live)    live.style.display    = isLive ? '' : 'none';
+  if (history) history.style.display = isLive ? 'none' : '';
+  if (tabLive) tabLive.classList.toggle('active', isLive);
+  if (tabHist) tabHist.classList.toggle('active', !isLive);
+  if (!isLive) _wfdRenderHistory();
 }
 
 // ── Vider l'historique ────────────────────────────────────────────────────────
