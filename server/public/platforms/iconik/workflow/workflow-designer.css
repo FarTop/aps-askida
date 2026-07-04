@@ -1603,3 +1603,88 @@ nav { display: flex; gap: 2px; }
 
 /* ── Vars panel search bar ──────────────────────────────────────────────── */
 .wfd-vars-search-bar { display: flex; gap: 6px; align-items: center; }
+
+/* ── Ressources — tab panels ────────────────────────────────────────────── */
+#res-templates-body { display: flex; flex-direction: column; gap: 12px; }
+#res-variables-body { padding: 12px; }
+
+.res-tab-panel.gap-14 { gap: 14px; }
+.res-tab-panel.gap-12 { gap: 12px; }
+
+/* ── Classes utilitaires générées dynamiquement dans le JS ─────────────── */
+.wfd-empty-state  { color: #555; font-size: 13px; text-align: center; padding: 24px; }
+.wfd-item-title   { font-size: 13px; color: #fff; font-weight: 600; }
+.wfd-row          { display: flex; gap: 4px; align-items: center; width: 100%; }
+.wfd-row-gap6     { display: flex; gap: 6px; align-items: center; }
+.wfd-row-gap8     { display: flex; align-items: center; gap: 8px; width: 100%; }
+.wfd-col-gap6     { display: flex; flex-direction: column; gap: 6px; }
+.wfd-mono         { font-family: var(--font-mono); }
+.wfd-mono-muted   { font-family: var(--font-mono); color: #555; }
+.wfd-mono-sm      { font-family: var(--font-mono); font-size: 11px; }
+.wfd-label-sm     { color: #444; font-size: 9px; }
+.wfd-label-sm-555 { color: #555; font-size: 9px; }
+.wfd-flex1        { flex: 1; }
+.wfd-flex1-min0   { flex: 1; min-width: 0; }
+.wfd-btn-auto-lg  { width: auto; padding: 5px 12px; }
+.wfd-btn-auto-md  { width: auto; padding: 5px 10px; }
+.wfd-mb6          { margin-bottom: 6px; }
+.wfd-input-inline { padding: 3px 6px; background: var(--wfd-panel); color: var(--wfd-text); border: 1px solid var(--wfd-border2); border-radius: 3px; font-family: var(--font-mono); font-size: 11px; }
+
+/* ── Classes utilitaires JS — lot 2 ────────────────────────────────────── */
+.wfd-row-gap6b    { display: flex; gap: 6px; }
+.wfd-row-gap5     { display: flex; gap: 5px; }
+.wfd-row-gap6-shrink { display: flex; gap: 6px; flex-shrink: 0; }
+.wfd-row-sb       { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--wfd-panel); border-bottom: 1px solid var(--wfd-border2); }
+.wfd-row-gap10-mb4 { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.wfd-cursor       { cursor: pointer; }
+.wfd-btn-sm-pad   { padding: 4px 10px; }
+.wfd-btn-pad-3-10 { padding: 3px 10px; font-size: 11px; }
+.wfd-btn-pad-3-8  { padding: 3px 8px; font-size: 11px; }
+.wfd-btn-pad-6-10 { padding: 6px 10px; }
+.wfd-input-dark   { font-size: 11px; background: #0a0a0f; border-color: #1a1a2a; }
+.wfd-input-mono   { padding: 3px 6px; background: var(--wfd-panel); color: var(--wfd-text); border: 1px solid #1a1a2a; border-radius: 3px; font-family: var(--font-mono); font-size: 11px; }
+.wfd-tag-green    { background: #0d1a0d; border: 1px solid #2d5a2d; border-radius: 3px; color: #5dbb6b; cursor: pointer; font-size: 11px; padding: 2px 6px; white-space: nowrap; flex-shrink: 0; }
+.wfd-section-hdr  { text-align: left; padding: 5px 8px; color: #555; font-weight: 600; }
+.wfd-mono-sm-muted { font-size: 11px; color: #555; margin-top: 2px; font-family: var(--font-mono); }
+.wfd-text-sm      { font-size: 12px; color: #ccc; }
+.wfd-text-muted-sm { color: #444; font-size: 11px; padding: 6px 0; }
+.wfd-flex1-bold   { flex: 1; font-weight: 600; }
+.wfd-hint-sm      { font-size: 10px; color: #444; margin-top: 3px; }
+.wfd-hint-sm-555  { font-size: 10px; color: #555; margin-bottom: 6px; }
+.wfd-hint-sm-555t { font-size: 10px; color: #555; margin-top: 3px; }
+.wfd-mono-xs      { font-size: 10px; font-family: var(--font-mono); }
+.wfd-mono-xs-muted { font-size: 9px; color: #444; font-family: var(--font-mono); }
+.wfd-row-click    { display: flex; align-items: center; gap: 3px; cursor: pointer; font-size: 10px; color: #555; white-space: nowrap; }
+.wfd-flex1-fs11   { font-size: 11px; flex: 1; }
+
+/* ── Classes utilitaires JS — lot 3 ────────────────────────────────────── */
+.wfd-card         { background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 8px; padding: 14px 16px; }
+.wfd-card-title   { font-size: 14px; color: #fff; font-weight: 600; margin-bottom: 4px; }
+.wfd-card-sub     { font-size: 11px; color: #555; line-height: 1.5; }
+.wfd-grid-2       { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.wfd-tags-row     { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.wfd-empty-center { color: #555; padding: 20px; text-align: center; }
+.wfd-label-333-xs { color: #333; font-size: 9px; }
+.wfd-label-white  { font-weight: 600; color: #fff; flex: 1; }
+.wfd-mono-555     { color: #555; font-family: var(--font-mono); }
+.wfd-close-sm     { cursor: pointer; color: #888; font-size: 11px; line-height: 1; }
+.wfd-center-sm    { font-size: 10px; color: #444; align-self: center; }
+.wfd-c-555        { color: #555; }
+.wfd-c-444        { color: #444; }
+.wfd-hint-8mb     { font-size: 11px; color: #555; margin-bottom: 8px; }
+.wfd-text-muted-10 { font-size: 10px; color: #444; }
+.wfd-text-555-10  { font-size: 10px; color: #555; }
+.wfd-pad-5-8      { padding: 5px 8px; color: #555; }
+.wfd-c-333        { color: #333; }
+
+/* ── Classes utilitaires JS — cartes et rows spécifiques ───────────────── */
+.wfd-row-sb-plain { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; }
+.wfd-row-sb-card  { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 6px; }
+.wfd-row-sb-card-gap { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 6px; gap: 10px; }
+.wfd-card-flex    { background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 8px; padding: 14px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+
+/* ── Classes utilitaires JS — cartes et rows spécifiques ───────────────── */
+.wfd-row-sb-plain { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; }
+.wfd-row-sb-card  { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 6px; }
+.wfd-row-sb-card-gap { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 6px; gap: 10px; }
+.wfd-card-flex    { background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 8px; padding: 14px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
