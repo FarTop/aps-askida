@@ -752,7 +752,7 @@ function renderApiOpsVars(flux) {
     // Cible
     if (info.targets.length) {
       inner += sectionLabel('Cible')
-        + '<div style="display:flex;flex-wrap:wrap;gap:1px;">'
+        + '<div class="wfd-flex-wrap-1">'
         + info.targets.map(function(x){ return pill(x.v, x.src); }).join('')
         + '</div>';
     }
@@ -760,7 +760,7 @@ function renderApiOpsVars(flux) {
     // Stockage
     if (info.stores.length) {
       inner += sectionLabel('Stockage')
-        + '<div style="display:flex;flex-wrap:wrap;gap:1px;">'
+        + '<div class="wfd-flex-wrap-1">'
         + info.stores.map(function(x){ return pill(x.v, x.src); }).join('')
         + '</div>';
     }
@@ -822,7 +822,7 @@ function renderApiOpsDetail(nodeId) {
     return `<div class="api-detail-op">
       <div class="api-detail-op-line">
         <span class="api-op-method ${methodClass}">${op.method}</span>
-        <span style="font-size:10px;color:#888;">${escHtmlOps(op.desc)}</span>
+        <span class="wfd-c-888-10">${escHtmlOps(op.desc)}</span>
       </div>
       <div class="api-detail-op-ep">${escHtmlOps(op.ep)}</div>
       ${bodyStr ? `<div class="api-detail-body-label">BODY</div><pre class="api-detail-body-code">${escHtmlOps(bodyStr)}</pre>` : ''}
@@ -1081,7 +1081,7 @@ function exportApiOpsHTML() {
       return '<div style="margin-bottom:8px;padding:8px 10px;background:#F8F8F8;border:1px solid #E0E0E0;border-radius:4px;">' +
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
         '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;background:' + (methodColor[op.method]||'#555') + '22;color:' + (methodColor[op.method]||'#555') + ';border:1px solid ' + (methodColor[op.method]||'#555') + '44;font-family:monospace;">' + op.method + '</span>' +
-        '<span style="font-size:10px;color:#888;">' + escHtmlOps(op.desc) + '</span></div>' +
+        '<span class="wfd-c-888-10">' + escHtmlOps(op.desc) + '</span></div>' +
         '<div style="font-family:monospace;font-size:10px;color:#0F4761;background:#EEF3F8;padding:4px 8px;border-radius:3px;word-break:break-all;">' + escHtmlOps(op.ep) + '</div>' +
         bodyHtml + '</div>';
     }).join('');

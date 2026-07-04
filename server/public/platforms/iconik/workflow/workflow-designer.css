@@ -1802,3 +1802,15 @@ nav { display: flex; gap: 2px; }
 .wfd-c-blue3       { color: #2980b9; }
 .wfd-text-shrink   { font-size: 11px; color: #555; flex-shrink: 0; }
 .wfd-tab-seg       { flex: 1; padding: 5px 2px; font-size: 11px; border: none; border-left: 0.5px solid var(--color-border-tertiary); background: transparent; color: var(--color-text-secondary); cursor: pointer; }
+
+/* ── Classes utilitaires wfd-run-panel et wfd-api-ops ──────────────────── */
+.wfd-c-aaa        { color: #aaa; }
+.wfd-label-9-555b { color: #555; font-size: 9px; }
+.wfd-border-bot   { border-bottom: 1px solid #111; }
+.wfd-c-444-9      { color: #444; font-size: 9px; }
+.wfd-c-gold       { color: #e8c97a; }
+.wfd-c-555-10b    { color: #555; font-size: 10px; }
+.wfd-align-start  { align-items: flex-start; }
+.wfd-border-top-mt { border-top: 1px solid #1a1a1a; margin-top: 4px; padding-top: 4px; }
+.wfd-flex-wrap-1  { display: flex; flex-wrap: wrap; gap: 1px; }
+.wfd-c-888-10     { font-size: 10px; color: #888; }

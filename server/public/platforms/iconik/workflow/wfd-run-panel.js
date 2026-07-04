@@ -393,7 +393,7 @@ function _rpRenderNodeDetail(node) {
             'Métadonnées chargées (' + mvKeys.length + ')',
             rows +
             '<div style="text-align:right;margin-top:4px;">' +
-            '<span style="color:#444;font-size:9px;">Variables disponibles via {NomDuChamp}</span>' +
+            '<span class="wfd-c-444-9">Variables disponibles via {NomDuChamp}</span>' +
             '</div>'
           );
         }
@@ -432,14 +432,14 @@ function _rpRenderNodeDetail(node) {
           let srcPart = '';
           if (varSrc && vars[varSrc] !== undefined) {
             const srcVal = fmtSrc ? fmtSrc(vars[varSrc]) : vars[varSrc];
-            srcPart = '<span style="color:#555;font-size:9px;">' + _rpEsc(labelSrc) +
+            srcPart = '<span class="wfd-label-9-555b">' + _rpEsc(labelSrc) +
                       ' [' + _rpEsc(String(srcVal).slice(0, 30)) + '] → </span>';
           } else if (labelSrc) {
-            srcPart = '<span style="color:#444;font-size:9px;">' + _rpEsc(labelSrc) + ' → </span>';
+            srcPart = '<span class="wfd-c-444-9">' + _rpEsc(labelSrc) + ' → </span>';
           }
-          return '<div class="wfd-rp-kv" style="border-bottom:1px solid #111;">' +
+          return '<div class="wfd-rp-kv" class="wfd-border-bot">' +
             '<span style="color:#7ec8e3;font-family:var(--font-mono);">' + _rpEsc(labelFinal) + '</span>' +
-            '<span>' + srcPart + '<span style="color:#e8c97a;">' + _rpEsc(String(finalVal)) + '</span></span>' +
+            '<span>' + srcPart + '<span class="wfd-c-gold">' + _rpEsc(String(finalVal)) + '</span></span>' +
             '</div>';
         });
 
@@ -464,7 +464,7 @@ function _rpRenderNodeDetail(node) {
           '<div class="wfd-rp-pause-msg">' +
           '<div style="font-size:20px;margin-bottom:8px;">⏸</div>' +
           '<div style="color:#ccc;font-size:12px;font-weight:600;margin-bottom:4px;">' + _rpEsc(msg || 'En attente') + '</div>' +
-          '<div style="color:#555;font-size:10px;">' + (node.assets?.length || 0) + ' asset(s) en attente de décision</div>' +
+          '<div class="wfd-c-555-10b">' + (node.assets?.length || 0) + ' asset(s) en attente de décision</div>' +
           '</div>';
       } else if (pauseData?.resumedAt) {
         html += _rpSection('Décision prise',
@@ -547,14 +547,14 @@ function _rpRenderNodeDetail(node) {
             const matched = children.find(c => (c.key || c.src || '').trim() === srcVal);
             if (matched) {
               const tgtVal = (matched.value || matched.tgt || '').trim();
-              translationNote = ' <span style="color:#555;font-size:9px;">(' + _rpEsc(srcVal) + ' → ' + _rpEsc(tgtVal) + ')</span>';
+              translationNote = ' <span class="wfd-label-9-555b">(' + _rpEsc(srcVal) + ' → ' + _rpEsc(tgtVal) + ')</span>';
             }
           }
           const srcHint = srcVal && !translationNote
-            ? ' <span style="color:#555;font-size:9px;">[' + _rpEsc(srcVal.slice(0, 30)) + ']</span>'
+            ? ' <span class="wfd-label-9-555b">[' + _rpEsc(srcVal.slice(0, 30)) + ']</span>'
             : '';
 
-          return '<div class="wfd-rp-kv" style="border-bottom:1px solid #111;">' +
+          return '<div class="wfd-rp-kv" class="wfd-border-bot">' +
             '<span style="color:#7ec8e3;">' + _rpEsc(fromKey) + srcHint + '</span>' +
             '<span style="color:#5dbb6b;">→ ' + _rpEsc(toKey) + translationNote + '</span>' +
             '</div>';
@@ -571,9 +571,9 @@ function _rpRenderNodeDetail(node) {
         html += _rpSection(
           'Champs mappés (' + entries.length + ')',
           entries.map(([k, v]) =>
-            '<div class="wfd-rp-kv" style="border-bottom:1px solid #111;">' +
+            '<div class="wfd-rp-kv" class="wfd-border-bot">' +
             '<span style="color:#888;">' + _rpEsc(k) + '</span>' +
-            '<span style="color:#e8c97a;">' + _rpEsc(String(v).slice(0, 80)) + '</span>' +
+            '<span class="wfd-c-gold">' + _rpEsc(String(v).slice(0, 80)) + '</span>' +
             '</div>'
           ).join('')
         );
@@ -620,10 +620,10 @@ function _rpRenderNodeDetail(node) {
           const ok = c.status < 300 || c.ignored;
           const color = ok ? '#2ecc71' : '#e74c3c';
           const icon  = ok ? '✅' : '❌';
-          return '<div class="wfd-rp-kv" style="align-items:flex-start;">' +
+          return '<div class="wfd-rp-kv" class="wfd-align-start">' +
             '<span style="font-family:var(--font-mono);color:#aaa;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _rpEsc(c.val) + '">' + _rpEsc(c.val) + '</span>' +
             '<span style="color:' + color + ';font-family:var(--font-mono);">' + icon + ' ' + c.status +
-            (c.external_id ? ' <span style="color:#555;font-size:10px;">→ ' + _rpEsc(String(c.external_id)) + '</span>' : '') +
+            (c.external_id ? ' <span class="wfd-c-555-10b">→ ' + _rpEsc(String(c.external_id)) + '</span>' : '') +
             (c.ignored ? ' <span style="color:#f39c12;font-size:9px;">ignoré</span>' : '') +
             '</span></div>';
         }).join('');
@@ -642,10 +642,10 @@ function _rpRenderNodeDetail(node) {
         const icon  = ok ? '✅' : '❌';
         html += _rpSection(req.method + ' ' + req.endpoint,
           '<div class="wfd-rp-kv">' +
-          '<span style="color:#aaa;">Statut</span>' +
+          '<span class="wfd-c-aaa">Statut</span>' +
           '<span style="color:' + color + ';font-weight:600;font-family:var(--font-mono);">' + icon + ' ' + req.status + '</span>' +
           '</div>' +
-          (req.body ? '<div class="wfd-rp-kv" style="align-items:flex-start;"><span style="color:#aaa;">Réponse</span><span style="font-family:var(--font-mono);font-size:10px;color:#888;word-break:break-all;">' + _rpEsc(req.body) + '</span></div>' : '')
+          (req.body ? '<div class="wfd-rp-kv" class="wfd-align-start"><span class="wfd-c-aaa">Réponse</span><span style="font-family:var(--font-mono);font-size:10px;color:#888;word-break:break-all;">' + _rpEsc(req.body) + '</span></div>' : '')
         );
       } else {
         html += '<div class="wfd-rp-empty">HTTP Request — résultat non disponible</div>';
@@ -677,8 +677,8 @@ function _rpRenderNodeDetail(node) {
         };
         html += _rpSection('ID généré',
           _rpKv('Type', typeLabels[ig.type] || ig.type) +
-          '<div class="wfd-rp-kv" style="border-top:1px solid #1a1a1a;margin-top:4px;padding-top:4px;">' +
-          '<span style="color:#aaa;">Valeur</span>' +
+          '<div class="wfd-rp-kv" class="wfd-border-top-mt">' +
+          '<span class="wfd-c-aaa">Valeur</span>' +
           '<span style="color:#1abc9c;font-family:var(--font-mono);font-weight:600;font-size:13px;">' + _rpEsc(String(ig.id)) + '</span>' +
           '</div>' +
           _rpKv('Variable', '{' + ig.varName + '}')
@@ -709,8 +709,8 @@ function _rpRenderNodeDetail(node) {
           _rpKv('Variable', d.field) +
           _rpKv('Valeur', d.actual != null ? String(d.actual) : '(vide)') +
           '<div class="wfd-rp-kv"><span>Condition</span><span>' + condLine + '</span></div>' +
-          '<div class="wfd-rp-kv" style="border-top:1px solid #1a1a1a;margin-top:4px;padding-top:4px;">' +
-          '<span style="color:#aaa;">Port emprunté</span>' +
+          '<div class="wfd-rp-kv" class="wfd-border-top-mt">' +
+          '<span class="wfd-c-aaa">Port emprunté</span>' +
           '<span style="color:#2ecc71;font-weight:600;">→ ' + _rpEsc(d.matchedLabel) + '</span>' +
           '</div>'
         );
@@ -783,7 +783,7 @@ function _rpResultCard(key, val) {
   if (status)  html += '<div class="wfd-rp-kv"><span>Statut</span><span>' + _rpEsc(status) + '</span></div>';
   if (created) html += '<div class="wfd-rp-kv"><span>Créé le</span><span>' + created + '</span></div>';
   if (mdKeys.length) {
-    html += '<div class="wfd-rp-kv" style="cursor:pointer;" onclick="wfdRpToggle(\'md-' + key + '\')">' +
+    html += '<div class="wfd-rp-kv" class="wfd-cursor" onclick="wfdRpToggle(\'md-' + key + '\')">' +
       '<span>Métadonnées</span><span>' + mdKeys.length + ' champ(s) ▶</span></div>';
     html += '<div id="wfd-rp-md-' + key + '" style="display:none;">';
     mdKeys.forEach(k => {
@@ -866,7 +866,7 @@ function _rpRenderDebug() {
       const id  = 'dbg-res-' + k.replace(/[^a-z0-9]/gi, '_');
       const val = JSON.stringify(results[k], null, 0).slice(0, 500);
       html += '<div style="margin-bottom:4px;">' +
-        '<div class="wfd-rp-dbg-key" style="cursor:pointer;" onclick="wfdRpToggle(\'' + id + '\')">' +
+        '<div class="wfd-rp-dbg-key" class="wfd-cursor" onclick="wfdRpToggle(\'' + id + '\')">' +
         '▶ ' + _rpEsc(k) + '</div>' +
         '<pre id="wfd-rp-' + id + '" class="wfd-rp-dbg-pre" style="display:none;">' + _rpEsc(val) + '</pre>' +
         '</div>';
