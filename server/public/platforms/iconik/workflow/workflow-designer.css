@@ -1718,3 +1718,61 @@ nav { display: flex; gap: 2px; }
 .wfd-grid-contacts { display: grid; grid-template-columns: 1fr 1fr 100px 72px auto auto auto 28px; gap: 4px; align-items: center; }
 .wfd-input-warn   { font-size: 10px; font-family: var(--font-mono); color: #f39c12; background: #0d0a00; border-color: #2a2000; }
 .wfd-tag-blue     { background: #0d0d1a; border: 1px solid #1a1a3a; border-radius: 3px; color: #7ec8e3; cursor: pointer; font-size: 11px; padding: 2px 6px; white-space: nowrap; flex-shrink: 0; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 1 ──────────────────────── */
+.wfd-hint-top3    { font-size: 10px; color: #555; margin-top: 3px; }
+.wfd-hint-sec     { font-size: 11px; color: var(--color-text-secondary, #555); margin-bottom: 3px; }
+.wfd-m0           { margin: 0; }
+.wfd-fs9          { font-size: 9px; }
+.wfd-fs11         { font-size: 11px; }
+.wfd-mono-sm2     { font-family: var(--font-mono); font-size: 11px; }
+.wfd-row-sb-mb6   { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.wfd-c-blue2      { color: #3498db; }
+.wfd-pad-3-5      { padding: 3px 5px; }
+.wfd-row-gap8b    { display: flex; align-items: center; gap: 8px; }
+.wfd-grid-2-gap8  { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wfd-pad-6-8      { padding: 6px 8px; }
+.wfd-pad-3-10b    { padding: 3px 10px; }
+.wfd-mt8          { margin-top: 8px; }
+.wfd-flex2b       { flex: 2; }
+.wfd-flex1-mono   { flex: 1; font-family: var(--font-mono); }
+.wfd-row-sb-mb8b  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.wfd-label-9-555  { color: #555; font-size: 9px; }
+.wfd-code-block   { background: #080808; border: 1px solid #1a1a1a; border-radius: 4px; padding: 8px 10px; }
+.wfd-flex1-mono10 { flex: 1; font-family: var(--font-mono); font-size: 10px; }
+.wfd-col-gap5     { display: flex; flex-direction: column; gap: 5px; }
+.wfd-c-555-10     { color: #555; font-size: 10px; }
+.wfd-c-green2     { color: #2ecc71; }
+.wfd-text-555-11b { font-size: 11px; color: #555; }
+.wfd-section-up   { font-size: 9px; color: #444; margin-bottom: 6px; text-transform: uppercase; }
+.wfd-col-gap4-fs11 { font-size: 11px; display: flex; flex-direction: column; gap: 4px; }
+.wfd-hint-mb6     { font-size: 10px; color: #555; margin-bottom: 6px; }
+.wfd-grid-3-24    { display: grid; grid-template-columns: 1fr 1fr 24px; gap: 5px; align-items: center; }
+.wfd-swatch       { width: 14px; height: 14px; cursor: pointer; }
+.wfd-icon-ptr     { font-size: 12px; color: #ccc; cursor: pointer; }
+.wfd-grid-2-gap6b { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.wfd-w140-fs11    { width: 140px; font-size: 11px; }
+.wfd-w100pct      { width: 100%; }
+.wfd-hint-top4b   { font-size: 10px; color: #555; margin-top: 4px; }
+.wfd-date-dark    { flex: 1; color-scheme: dark; }
+.wfd-mt4          { margin-top: 4px; }
+.wfd-mb8          { margin-bottom: 8px; }
+.wfd-mb6b         { margin-bottom: 6px; }
+.wfd-mono-green   { font-family: var(--font-mono); color: #16a085; font-size: 14px; }
+.wfd-w90-fs10     { width: 90px; flex-shrink: 0; font-size: 10px; }
+.wfd-w120-mono    { width: 120px; font-family: var(--font-mono); font-size: 10px; }
+.wfd-del-btn      { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 14px; line-height: 1; }
+.wfd-hint-mb3     { font-size: 10px; color: #555; margin-bottom: 3px; }
+.wfd-row-click2   { display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; }
+.wfd-mono-sec-12  { font-family: var(--font-mono); font-size: 12px; color: var(--color-text-secondary, #555); }
+.wfd-hint-left    { font-size: 10px; color: #555; padding-left: 18px; }
+
+/* ── Boutons supprimer variantes ────────────────────────────────────────── */
+.wfd-del-btn-p2   { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+.wfd-del-btn-p0   { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 14px; padding: 0; }
+.wfd-del-btn-p2s  { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 14px; padding: 0 2px; flex-shrink: 0; }
+.wfd-del-btn-p4   { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 14px; padding: 0 4px; }
+
+/* ── Blocs code variantes ───────────────────────────────────────────────── */
+.wfd-code-block-ov { background: #080808; border: 1px solid #1a1a1a; border-radius: 5px; overflow: hidden; }
+.wfd-code-block-mt { background: #080808; border: 1px solid #1a1a1a; border-radius: 4px; padding: 8px 10px; margin-top: 4px; }
