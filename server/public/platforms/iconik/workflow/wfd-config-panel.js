@@ -1706,10 +1706,28 @@ function ouvrirConfigPanel(node) {
   }
 
   // Passer en mode large pour trigger/listener (plus de champs)
-  if (['trigger','listener','watchfolder'].includes(node.family)) {
+  if (['trigger','listener','watchfolder','aps_search'].includes(node.family)) {
     panel.classList.add('panel-wide');
   } else {
     panel.classList.remove('panel-wide');
+  }
+  // Pour aps_search : remplir les placeholders de trees de collection après rendu du DOM
+  if (node.family === 'aps_search') {
+    setTimeout(() => {
+      document.querySelectorAll('[id$="-col-tree-placeholder"]').forEach(placeholder => {
+        const prefix = placeholder.id.replace('-col-tree-placeholder', '');
+        const hiddenSel = document.getElementById(prefix + '-col-selected');
+        const selVal = hiddenSel ? (hiddenSel.value || '[]') : '[]';
+        if (typeof wfdColTreeHtml !== 'function') return;
+        const freshHtml = wfdColTreeHtml(prefix, selVal);
+        const tmp = document.createElement('div');
+        tmp.innerHTML = freshHtml;
+        const freshTree = tmp.querySelector('[id$="-col-tree"]');
+        if (freshTree && placeholder.parentElement) {
+          placeholder.parentElement.replaceChild(freshTree, placeholder);
+        }
+      });
+    }, 50);
   }
   panel.classList.add('open');
   configDirty = false;
@@ -3139,20 +3157,34 @@ function buildCfgFields(pfx, family, cfg) {
             + '<input type="hidden" class="sr-crit-val" value="' + (crit.value||'') + '">';
         } else if (_isDate2) {
           valHtml2 = '<input type="date" class="cfg-input sr-crit-val sr-date-input" ' + _dp2 + ' value="' + (crit.value||'') + '" style="flex:2;color-scheme:dark;">';
+        } else if (crit.field === '__collection__') {
+          const _colId2 = crit.value || '';
+          const _colName2 = _colId2 ? ((wfdData.collections||[]).find(c=>c.id===_colId2)?.title||(wfdData.collections||[]).find(c=>c.id===_colId2)?.nom||_colId2.slice(0,8)+'...') : '';
+          valHtml2 = '<div style="flex:4;display:flex;flex-direction:column;gap:4px;">'
+            + '<span style="font-size:10px;color:#8e44ad;font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _colId2 + '">' + escHtml(_colName2||'— aucune —') + '</span>'
+            + '<label style="display:flex;align-items:center;gap:6px;font-size:10px;color:#aaa;cursor:pointer;">'
+            + '<input type="checkbox" class="sr-crit-col-op" data-bidx="' + idx + '" data-cidx="' + ci + '"'
+            + ((crit.op||'in_branch')==='in_branch' ? ' checked' : '')
+            + ' onchange="srAutoSave(\'' + pfx + '\')" style="cursor:pointer;">'
+            + 'Inclure les sous-dossiers</label>'
+            + '<div style="max-height:150px;overflow-y:auto;background:#050505;border:1px solid #2a2a2a;border-radius:3px;">'
+            + '<div id="' + pfx+'-sr-col-'+idx+'-'+ci + '-col-tree-placeholder" style="max-height:150px;overflow-y:auto;"></div>'
+            + '</div><input type="hidden" class="sr-crit-val" value="' + escHtml(_colId2) + '"></div>';
         } else {
           valHtml2 = '<input class="cfg-input sr-crit-val" value="' + (crit.value||'').replace(/"/g,'&quot;') + '" placeholder="valeur" style="flex:2;font-family:var(--font-mono);font-size:10px;" data-pfx="' + pfx + '" oninput="srAutoSave(this.dataset.pfx)">';
         }
+        const _isColField2 = crit.field === '__collection__';
         return `<div class="sr-crit-row" data-bidx="${idx}" data-cidx="${ci}"
-           style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:4px;">
+           style="display:flex;flex-wrap:wrap;gap:4px;align-items:${_isColField2?'flex-start':'center'};margin-bottom:4px;">
         ${joinBtn ? joinBtn : '<span style="min-width:44px;"></span>'}
         <select class="cfg-select sr-crit-field" data-bidx="${idx}" data-cidx="${ci}"
                 style="flex:2;" onchange="srFieldChange('${pfx}',${idx},${ci},this.value)">
           ${ALL_FIELDS.map(f => `<option value="${escHtml(f.name||f)}" ${crit.field===(f.name||f)?'selected':''}>${escHtml(f.label||f)}</option>`).join('')}
         </select>
-        <select class="cfg-select sr-crit-op" data-bidx="${idx}" data-cidx="${ci}"
+        ${_isColField2 ? '' : `<select class="cfg-select sr-crit-op" data-bidx="${idx}" data-cidx="${ci}"
                 style="flex:2;" onchange="srOpChange('${pfx}',${idx},${ci},this.value,'${crit.op||'equals'}')">
           ${opsHtml2}
-        </select>
+        </select>`}
         <button onclick="srRemoveCrit('${pfx}',${idx},${ci})"
                 style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0;">×</button>
         ${valHtml2}

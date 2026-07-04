@@ -1526,7 +1526,15 @@ function _wfdChargerSnapshotDB(envName) {
       }));
       if (snap.storages        && snap.storages.length)        wfdData.storages        = snap.storages;
       console.log('[WFD] wfdData peuplé depuis snapshot DB (' + slug + ')');
-      if (typeof renderCanvas === 'function') renderCanvas();
+      if (typeof renderCanvas === 'function') {
+        // Ne pas rouvrir le panel si aps_search est ouvert — évite d'écraser le tree collections
+        const _openPanel = document.getElementById('wfd-config-panel');
+        const _isApsSearch = _openPanel?.classList.contains('open') &&
+          typeof selectedNodeId !== 'undefined' && selectedNodeId &&
+          (typeof getFluxCourant === 'function') &&
+          getFluxCourant()?.nodes?.find(n => n.id === selectedNodeId)?.family === 'aps_search';
+        if (!_isApsSearch) renderCanvas();
+      }
     })
     .catch(e => console.warn('[WFD] snapshot DB indisponible:', e.message));
 }
