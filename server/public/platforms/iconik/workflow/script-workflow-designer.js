@@ -4894,7 +4894,7 @@ function renderTemplatesDansRessources() {
             }).join('')}
           </div>
         </div>
-        <button class="cfg-btn primary" style="flex-shrink:0;white-space:nowrap;"
+        <button class="cfg-btn primary" class="wfd-shrink-nowrap"
           onclick="chargerTemplate('${key}')">Charger ce template</button>
       </div>`).join('') || '<div class="wfd-empty-state">Aucun template disponible.</div>';
   } else if (typeof renderListeTemplates === 'function') {
@@ -4927,9 +4927,9 @@ function renderScriptsPartages() {
           <span class="wfd-item-title">⚡ ${escHtml(s.name)}</span>
           <span style="font-size:10px;color:${langColor};font-family:var(--font-mono);border:1px solid ${langColor};border-radius:3px;padding:1px 5px;">${s.lang||'js'}</span>
         </div>
-        <div style="font-size:11px;color:#555;margin-top:2px;">
+        <div class="wfd-hint-top2">
           ${escHtml(s.description||'')}
-          <span style="color:#3a3a3a;margin-left:8px;">${refCount} nœud${refCount>1?'s':''} référencent ce script</span>
+          <span class="wfd-sep-label">${refCount} nœud${refCount>1?'s':''} référencent ce script</span>
         </div>
       </div>
       <div class="wfd-row-gap6-shrink">
@@ -5027,7 +5027,7 @@ function renderConnexions() {
   if (!wfdConnexions.length) {
     body.innerHTML = `<div class="wfd-empty-state">
       Aucune connexion externe.<br>
-      <span style="font-size:11px;color:#444;">
+      <span class="wfd-text-444-11">
         Créez une connexion pour qu'une plateforme tierce puisse déclencher vos workflows.<br>
         Chaque connexion génère un endpoint unique et gère l'authentification entrante.
       </span>
@@ -5049,7 +5049,7 @@ function renderConnexions() {
         nd.config?.s3ConnexionId===c.id
       ).length, 0);
     return `
-    <div style="background:#0d0d0d;border:1px solid #2a2a2a;border-radius:6px;overflow:hidden;">
+    <div class="wfd-card-sm">
       <div class="wfd-row-sb-plain">
         <div class="wfd-flex1-min0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -5139,8 +5139,8 @@ function editerConnexion(id) {
   const headersHtml = (c.headers||[]).map((h,i) => `
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
       <input class="cfg-input conn-header-key" class="wfd-flex1" value="${escHtml(h.key)}" placeholder="Clé (ex: Accept-Language)">
-      <input class="cfg-input conn-header-val" style="flex:2;" value="${escHtml(h.value)}" placeholder="Valeur (ex: fr-FR)">
-      <button class="cfg-btn danger" style="padding:4px 8px;" onclick="this.parentElement.remove()">✕</button>
+      <input class="cfg-input conn-header-val" class="wfd-flex2" value="${escHtml(h.value)}" placeholder="Valeur (ex: fr-FR)">
+      <button class="cfg-btn danger" class="wfd-pad-4-8" onclick="this.parentElement.remove()">✕</button>
     </div>`).join('');
 
   body.innerHTML = `
@@ -5233,7 +5233,7 @@ function editerConnexion(id) {
         <label class="cfg-label">Headers fixes</label>
         <div id="conn-headers-list">${headersHtml}</div>
         <button class="cfg-btn" style="margin-top:6px;" onclick="connAjouterHeader()">+ Ajouter un header</button>
-        <div style="font-size:10px;color:#444;margin-top:4px;">
+        <div class="wfd-hint-top4">
           Ex: Accept-Language: fr-FR · Content-Type: application/json
         </div>
       </div>
@@ -5265,7 +5265,7 @@ function editerConnexion(id) {
               </div>
             </div>`).join('') || '<div class="wfd-text-muted-sm">Aucun mapping.</div>'}
         </div>
-        <button class="cfg-btn" style="margin-top:8px;width:100%;" onclick="ajouterMappingConnexion('${id}')">+ Ajouter un mapping</button>
+        <button class="cfg-btn" class="wfd-mt8-full" onclick="ajouterMappingConnexion('${id}')">+ Ajouter un mapping</button>
       </div>`}
 
       <!-- Actions de la connexion (sortantes) -->
@@ -5278,7 +5278,7 @@ function editerConnexion(id) {
               background:#111;border:1px solid #2a2a2a;border-radius:5px;">
               <div style="display:flex;flex-direction:column;gap:2px;">
                 <span class="wfd-text-sm">⚡ ${escHtml(a.name||'Sans nom')}</span>
-                <span style="font-size:10px;color:#555;font-family:var(--font-mono);">${escHtml(a.method)} ${escHtml(a.endpoint)} · ${escHtml(a.mode||'simple')}</span>
+                <span class="wfd-mono-555-10">${escHtml(a.method)} ${escHtml(a.endpoint)} · ${escHtml(a.mode||'simple')}</span>
               </div>
               <div class="wfd-row-gap5">
                 <button class="cfg-btn" class="wfd-btn-pad-3-10"
@@ -5302,11 +5302,11 @@ function editerConnexion(id) {
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
           <label class="cfg-label" style="margin:0;">Spec API</label>
           <div class="wfd-row-gap6b">
-            ${c.apiSpec ? `<button class="cfg-btn" style="font-size:10px;padding:3px 8px;"
+            ${c.apiSpec ? `<button class="cfg-btn" class="wfd-btn-sm2"
               onclick="connToggleApiSpec('${id}')">
               ${c._showApiSpec ? '▲ Masquer' : '▼ Voir les endpoints'}
             </button>
-            <button class="cfg-btn danger" style="font-size:10px;padding:3px 8px;"
+            <button class="cfg-btn danger" class="wfd-btn-sm2"
               onclick="connClearApiSpec('${id}')">✕ Supprimer</button>` : ''}
             <label class="cfg-btn" style="font-size:10px;padding:3px 8px;cursor:pointer;">
               ⬆ Importer
@@ -5346,7 +5346,7 @@ function editerConnexion(id) {
                     <span style="font-size:10px;font-weight:700;color:${e.method==='POST'?'#2ecc71':e.method==='PATCH'?'#f39c12':'#3498db'};
                       background:${e.method==='POST'?'#0d2b1a':e.method==='PATCH'?'#2b1a00':'#0a1a2b'};
                       padding:1px 6px;border-radius:3px;font-family:var(--font-mono);">${e.method}</span>
-                    <span style="font-size:11px;color:#aaa;font-family:var(--font-mono);">${escHtml(e.path)}</span>
+                    <span class="wfd-mono-aaa">${escHtml(e.path)}</span>
                     <span style="font-size:10px;color:#555;margin-left:auto;">${e.summary || ''}</span>
                   </div>
                   <div style="display:none;padding:8px 10px;">
@@ -5358,7 +5358,7 @@ function editerConnexion(id) {
                         <span class="wfd-c-444">${f.enum?.slice(0,4).join(' | ') || ''}</span>
                       </div>`).join('')}
                     ${(e.fields?.filter(f => !f.path.includes('.')).length || 0) > 15 ?
-                      `<div style="font-size:10px;color:#444;margin-top:4px;">+ ${e.fields.filter(f=>!f.path.includes('.')).length - 15} autres champs</div>` : ''}
+                      `<div class="wfd-hint-top4">+ ${e.fields.filter(f=>!f.path.includes('.')).length - 15} autres champs</div>` : ''}
                   </div>
                 </div>`).join('')}
             </div>
@@ -5466,8 +5466,8 @@ function connAjouterHeader() {
   div.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:4px;';
   div.innerHTML = `
     <input class="cfg-input conn-header-key" class="wfd-flex1" placeholder="Clé (ex: Accept-Language)">
-    <input class="cfg-input conn-header-val" style="flex:2;" placeholder="Valeur (ex: fr-FR)">
-    <button class="cfg-btn danger" style="padding:4px 8px;" onclick="this.parentElement.remove()">✕</button>`;
+    <input class="cfg-input conn-header-val" class="wfd-flex2" placeholder="Valeur (ex: fr-FR)">
+    <button class="cfg-btn danger" class="wfd-pad-4-8" onclick="this.parentElement.remove()">✕</button>`;
   list.appendChild(div);
 }
 
@@ -5742,7 +5742,7 @@ function editerActionConnexion(connId, actionId) {
     <div class="res-tab-panel gap-14">
       <div class="wfd-row-gap10-mb4">
         <button class="cfg-btn" class="wfd-btn-sm-pad" onclick="editerConnexion('${connId}')">← Retour</button>
-        <span style="font-size:13px;font-weight:600;color:#ccc;">Action</span>
+        <span class="wfd-title-ccc">Action</span>
       </div>
       <div class="cfg-field">
         <label class="cfg-label">Nom de l'action (métier)</label>
@@ -5792,7 +5792,7 @@ function editerActionConnexion(connId, actionId) {
       </div>
       <div class="cfg-field">
         <label class="cfg-label">Variable source <span class="wfd-label-sm-555">(payload du Lookup)</span></label>
-        <div style="display:flex;align-items:center;gap:6px;">
+        <div class="wfd-row-gap6c">
           <span class="wfd-mono-muted">{</span>
           <input id="conn-action-source-var-simple" class="cfg-input"
             value="${escHtml(a.sourceVar||'')}" placeholder="vodFactoryPayload"
@@ -5815,7 +5815,7 @@ function editerActionConnexion(connId, actionId) {
       </div>
       <div class="cfg-field">
         <label class="cfg-label">Stocker le résultat dans</label>
-        <div style="display:flex;align-items:center;gap:6px;">
+        <div class="wfd-row-gap6c">
           <span class="wfd-mono-muted">{</span>
           <input id="conn-action-result-var" class="cfg-input"
             value="${escHtml(a.resultVar||'')}" placeholder="personsPayload"
@@ -5905,8 +5905,8 @@ function connShowGeneratedActions(connId) {
     <div class="res-tab-panel gap-12">
       <div class="wfd-row-gap10-mb4">
         <button class="cfg-btn" class="wfd-btn-sm-pad" onclick="editerConnexion('${connId}')">← Retour</button>
-        <span style="font-size:13px;font-weight:600;color:#ccc;">Actions suggérées</span>
-        <span style="font-size:11px;color:#555;">${actions.length} endpoint(s) pertinent(s)</span>
+        <span class="wfd-title-ccc">Actions suggérées</span>
+        <span class="wfd-text-555-11">${actions.length} endpoint(s) pertinent(s)</span>
       </div>
       <div class="wfd-hint-8mb">
         Basé sur le croisement entre la spec API et les champs cibles de vos Tables de correspondance.
@@ -5925,7 +5925,7 @@ function connShowGeneratedActions(connId) {
               <span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;font-family:var(--font-mono);
                 color:${ep.method==='POST'?'#2ecc71':ep.method==='PATCH'?'#f39c12':'#3498db'};
                 background:${ep.method==='POST'?'#0d2b1a':ep.method==='PATCH'?'#2b1a00':'#0a1a2b'};">${ep.method}</span>
-              <span style="font-size:11px;color:#aaa;font-family:var(--font-mono);">${escHtml(ep.path)}</span>
+              <span class="wfd-mono-aaa">${escHtml(ep.path)}</span>
               ${ep._score > 0
                 ? `<span style="font-size:10px;color:#2ecc71;margin-left:auto;">${ep._score} champ(s)</span>`
                 : `<span style="font-size:10px;color:#e67e22;margin-left:auto;">Action système</span>`}
@@ -6025,12 +6025,12 @@ function editerMappingConnexion(connId, mapId) {
       <input class="cfg-input" class="wfd-mono-sm"
         placeholder="Champ Iconik (ex: metadata.titre)" value="${escHtml(r.tgt||'')}"
         onchange="majRegleMapping('${connId}','${mapId}',${i},'tgt',this.value)">
-      <button class="cfg-btn danger" style="padding:4px 6px;" onclick="supprimerRegleMapping('${connId}','${mapId}',${i})">×</button>
+      <button class="cfg-btn danger" class="wfd-pad-4-6" onclick="supprimerRegleMapping('${connId}','${mapId}',${i})">×</button>
     </div>`).join('');
 
   body.innerHTML = `
     <div class="res-tab-panel gap-12">
-      <div style="display:flex;align-items:center;gap:10px;">
+      <div class="wfd-row-gap10">
         <button class="cfg-btn" class="wfd-btn-sm-pad" onclick="editerConnexion('${connId}')">← Retour</button>
         <input id="cmap-name" class="cfg-input" value="${escHtml(m.name)}" class="wfd-flex1-bold" placeholder="Nom du mapping">
       </div>
@@ -6041,7 +6041,7 @@ function editerMappingConnexion(connId, mapId) {
       <div>
         <div class="cfg-label" class="wfd-mb6">Règles de mapping</div>
         <div class="wfd-col-gap6" id="cmap-rules">${rulesHtml()}</div>
-        <button class="cfg-btn" style="margin-top:8px;width:100%;" onclick="ajouterRegleMapping('${connId}','${mapId}')">+ Ajouter une règle</button>
+        <button class="cfg-btn" class="wfd-mt8-full" onclick="ajouterRegleMapping('${connId}','${mapId}')">+ Ajouter une règle</button>
       </div>
     </div>`;
 
@@ -6121,7 +6121,7 @@ function renderNommages() {
   if (!wfdNommages.length) {
     body.innerHTML = `<div class="wfd-empty-state">
       Aucune règle de nommage.<br>
-      <span style="font-size:11px;color:#444;">
+      <span class="wfd-text-444-11">
         Créez des règles réutilisables pour construire des noms de fichiers<br>
         à partir des métadonnées et de transformations empilables.
       </span>
@@ -6132,13 +6132,13 @@ function renderNommages() {
     const usedBy = wfdFlows.reduce((c, f) =>
       c + (f.nodes||[]).filter(nd => nd.family==='rename' && nd.config?.nommageId===n.id).length, 0);
     return `
-    <div style="background:#0d0d0d;border:1px solid #2a2a2a;border-radius:6px;overflow:hidden;">
+    <div class="wfd-card-sm">
       <div class="wfd-row-sb-plain">
         <div class="wfd-flex1-min0">
           <div class="wfd-item-title">🔤 ${escHtml(n.name)}</div>
-          <div style="font-size:11px;color:#555;margin-top:2px;">
+          <div class="wfd-hint-top2">
             ${(n.steps||[]).length} étape(s)
-            <span style="color:#3a3a3a;margin-left:8px;">${usedBy} nœud(s)</span>
+            <span class="wfd-sep-label">${usedBy} nœud(s)</span>
             ${n.description ? `<span style="color:#444;margin-left:8px;">— ${escHtml(n.description)}</span>` : ''}
           </div>
         </div>
@@ -6201,13 +6201,13 @@ function editerNommage(id) {
         value="${escHtml(String(s.value||''))}" placeholder="${escHtml(t.valuePlaceholder||'')}"
         class="wfd-mono-sm"
         onchange="nomStepValueChange(${i},'${id}',this.value)">` : '<span></span>'}
-      <button class="cfg-btn danger" style="padding:4px 6px;" onclick="supprimerEtapeNommage('${id}',${i})">×</button>
+      <button class="cfg-btn danger" class="wfd-pad-4-6" onclick="supprimerEtapeNommage('${id}',${i})">×</button>
     </div>`;
   }).join('');
 
   body.innerHTML = `
     <div class="res-tab-panel gap-12">
-      <div style="display:flex;align-items:center;gap:10px;">
+      <div class="wfd-row-gap10">
         <button class="cfg-btn" class="wfd-btn-sm-pad" onclick="resTab('nommage')">← Retour</button>
         <input id="nom-name" class="cfg-input" value="${escHtml(n.name)}" class="wfd-flex1-bold">
       </div>
@@ -6217,7 +6217,7 @@ function editerNommage(id) {
       </div>
 
       <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="wfd-row-sb-mb8">
           <span class="cfg-label">Étapes (appliquées dans l'ordre)</span>
           <button class="cfg-btn" style="padding:4px 12px;" onclick="ajouterEtapeNommage('${id}')">+ Étape</button>
         </div>
@@ -6231,8 +6231,8 @@ function editerNommage(id) {
         <div class="wfd-row-gap6">
           <input id="nom-preview-input" class="cfg-input" style="flex:1;font-family:var(--font-mono);font-size:11px;"
             placeholder="Texte de test (ex: Mon Film Titre.mxf)" oninput="nomPreview('${id}')">
-          <span style="color:#444;font-size:11px;">→</span>
-          <span style="color:#444;font-size:11px;">→</span>
+          <span class="wfd-text-444-11b">→</span>
+          <span class="wfd-text-444-11b">→</span>
           <div style="flex:1;display:flex;flex-direction:column;gap:3px;">
             <div id="nom-preview-output" style="font-family:var(--font-mono);font-size:11px;color:#27ae60;
               background:#0d150d;border:1px solid #1a2a1a;border-radius:4px;padding:6px 8px;min-height:30px;"></div>
@@ -6535,7 +6535,7 @@ function editerMapping(id) {
     </div>
 
     <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div class="wfd-row-sb-mb8">
         <span class="cfg-label">CORRESPONDANCES DE CHAMPS</span>
         <button class="btn-add-cond" onclick="ajouterLigneMapping()">+ Ligne</button>
       </div>
@@ -6574,11 +6574,11 @@ function buildMappingRow(i, row, metaFields) {
   const childrenHtml = (row.children||[]).map(function(c) {
     return '<div class="map-child-row" style="display:grid;grid-template-columns:1fr 20px 1fr 28px;gap:4px;margin-top:2px;margin-left:20px;">' +
       '<input type="text" class="map-src" value="' + escHtml(c.src||c.key||'') + '" placeholder="Si valeur..."' +
-      ' style="padding:3px 6px;background:var(--wfd-panel);color:var(--wfd-text);border:1px solid #1a1a2a;border-radius:4px;font-size:10px;">' +
+      ' class="wfd-input-panel">' +
       '<span class="mapping-arrow">\u2192</span>' +
       '<input type="text" class="map-tgt" value="' + escHtml(c.tgt||c.value||'') + '" placeholder="...traduire en"' +
-      ' style="padding:3px 6px;background:var(--wfd-panel);color:var(--wfd-text);border:1px solid #1a1a2a;border-radius:4px;font-size:10px;">' +
-      '<button onclick="this.closest(".map-child-row").remove()" style="background:#1a0a0a;border:1px solid #2a1a1a;border-radius:3px;color:#c0392b;cursor:pointer;font-size:12px;">\u00D7</button>' +
+      ' class="wfd-input-panel">' +
+      '<button onclick="this.closest(".map-child-row").remove()" class="wfd-tag-red">\u00D7</button>' +
       '</div>';
   }).join('');
 
@@ -6719,11 +6719,11 @@ function mapAddChildRow(btn) {
   child.style.cssText = 'display:grid;grid-template-columns:1fr 20px 1fr 28px;gap:4px;margin-top:2px;margin-left:20px;';
   child.innerHTML =
     '<input type="text" class="map-src" placeholder="Si valeur..."' +
-    ' style="padding:3px 6px;background:var(--wfd-panel);color:var(--wfd-text);border:1px solid #1a1a2a;border-radius:4px;font-size:10px;">' +
+    ' class="wfd-input-panel">' +
     '<span class="mapping-arrow">→</span>' +
     '<input type="text" class="map-tgt" placeholder="...traduire en"' +
-    ' style="padding:3px 6px;background:var(--wfd-panel);color:var(--wfd-text);border:1px solid #1a1a2a;border-radius:4px;font-size:10px;">' +
-    '<button onclick="this.closest(\'.map-child-row\').remove()" style="background:#1a0a0a;border:1px solid #2a1a1a;border-radius:3px;color:#c0392b;cursor:pointer;font-size:12px;">×</button>';
+    ' class="wfd-input-panel">' +
+    '<button onclick="this.closest(\'.map-child-row\').remove()" class="wfd-tag-red">×</button>';
   childWrap.appendChild(child);
   child.querySelector('.map-src').focus({ preventScroll: true });
 }
@@ -6859,7 +6859,7 @@ function renderExportPickerList() {
         <input type="checkbox" ${checked} onchange="expickToggle('${f.id}', this.checked)">
         <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
           <div style="color:#fff;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(f.name || f.id)}</div>
-          <div style="font-size:10px;color:#555;font-family:var(--font-mono);">
+          <div class="wfd-mono-555-10">
             ${nodesCount} nœud(s) · ${connsCount} connexion(s)
           </div>
         </div>
@@ -7297,7 +7297,7 @@ function ouvrirTemplates() {
             }).join('')}
           </div>
         </div>
-        <button class="cfg-btn primary" style="flex-shrink:0;white-space:nowrap;"
+        <button class="cfg-btn primary" class="wfd-shrink-nowrap"
           onclick="chargerTemplate('${key}')">Charger ce template</button>
       </div>`).join('');
   }
@@ -8261,13 +8261,13 @@ function lkRenderApiPanel() {
       ${apiFields.length ? `
       <div class="wfd-grid-2">
         <div>
-          <div style="font-size:10px;color:#555;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Champs mappés</div>
+          <div class="wfd-section-label">Champs mappés</div>
           ${Array.from(currentTargets).filter(t => t).map(t => `
             <div style="padding:2px 0;font-size:11px;color:#7ec8e3;font-family:var(--font-mono);">${escHtml(t)}</div>
           `).join('')}
         </div>
         <div>
-          <div style="font-size:10px;color:#555;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Disponibles (cliquer pour ajouter)</div>
+          <div class="wfd-section-label">Disponibles (cliquer pour ajouter)</div>
           ${apiFields.map(f => `
             <div style="padding:2px 0;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;"
               onclick="lkAddRowFromSpec('${escHtml(f.path)}', '${f.type}', ${!!f.required}, ${JSON.stringify(f.enum||[])})">
@@ -8278,7 +8278,7 @@ function lkRenderApiPanel() {
             </div>
           `).join('')}
         </div>
-      </div>` : '<div style="font-size:11px;color:#555;">Sélectionnez un endpoint pour voir ses champs.</div>'}
+      </div>` : '<div class="wfd-text-555-11">Sélectionnez un endpoint pour voir ses champs.</div>'}
       </div><!-- /pliable -->
     </div>`;
 }
@@ -8307,11 +8307,11 @@ function lkAddRowFromSpec(path, type, required, enumValues) {
   const rowType  = ['integer','float','boolean'].includes(type) ? type : 'string';
   const typeColors = { string:'#555', integer:'#e67e22', float:'#e67e22', boolean:'#9b59b6' };
   div.innerHTML =
-    '<div style="display:grid;grid-template-columns:1fr 1fr 100px 72px auto auto auto 28px;gap:4px;align-items:center;">' +
+    '<div class="wfd-grid-contacts">' +
     '<input class="cfg-input lk-key" value="" placeholder="Valeur source" list="wfd-lk-field-source">' +
     '<input class="cfg-input lk-value" value="' + escHtml(path) + '" placeholder="Champ cible">' +
     '<input class="cfg-input lk-fallback" value="" placeholder="Fallback {var}" ' +
-    'style="font-size:10px;font-family:var(--font-mono);color:#f39c12;background:#0d0a00;border-color:#2a2000;">' +
+    'class="wfd-input-warn">' +
     '<select class="lk-type" title="Type de la valeur cible" ' +
     'style="font-size:10px;background:#0a0a0a;border:1px solid #222;border-radius:3px;color:' + (typeColors[rowType]||'#555') + ';padding:2px 3px;cursor:pointer;" ' +
     'onchange="lkTypeChange(this)">' +
@@ -8442,7 +8442,7 @@ function lkBuildValueWidget(keyVal, currentValue) {
   }
 
   const editBtn = '<button type="button" onclick="lkToggleVarMode(this,true)" title="Saisir une variable dynamique {...}" ' +
-    'style="background:#0d0d1a;border:1px solid #1a1a3a;border-radius:3px;color:#7ec8e3;cursor:pointer;font-size:11px;padding:2px 6px;white-space:nowrap;flex-shrink:0;">✏️</button>';
+    'class="wfd-tag-blue">✏️</button>';
 
   return '<div class="wfd-row">' +
     selectHtml + editBtn + '</div>';
@@ -8516,12 +8516,12 @@ function _lkBuildParentRow(key, value, children, isList, fallback, rowType) {
   const _type = rowType || 'string';
   const _typeColors = { string:'#555', integer:'#e67e22', float:'#e67e22', boolean:'#9b59b6' };
   div.innerHTML =
-    '<div style="display:grid;grid-template-columns:1fr 1fr 100px 72px auto auto auto 28px;gap:4px;align-items:center;">' +
+    '<div class="wfd-grid-contacts">' +
     '<input class="cfg-input lk-key"   placeholder="Valeur source"  value="' + escHtml(key   ||'') + '" list="wfd-lk-field-source" onchange="lkUpdateValueWidget(this)">' +
     '<span class="lk-value-wrap" style="position:relative;">' + lkBuildValueWidget(key||'', value||'') + '</span>' +
     '<input class="cfg-input lk-fallback" placeholder="Fallback {var}" value="' + escHtml(fallback||'') + '" list="' + _listId + '" ' +
     'title="Si la valeur source est vide, utiliser cette variable" ' +
-    'style="font-size:10px;font-family:var(--font-mono);color:#f39c12;background:#0d0a00;border-color:#2a2000;">' +
+    'class="wfd-input-warn">' +
     '<select class="lk-type" title="Type de la valeur cible" onchange="lkTypeChange(this)" ' +
     'style="font-size:10px;background:#0a0a0a;border:1px solid #222;border-radius:3px;color:' + (_typeColors[_type]||'#555') + ';padding:2px 3px;cursor:pointer;">' +
     '<option value="string"  ' + (_type==='string' ?'selected':'') + '>str</option>' +
@@ -8921,7 +8921,7 @@ function lkBuildValueWidget(keyVal, currentValue) {
   }
 
   const editBtn = '<button type="button" onclick="lkToggleVarMode(this,true)" title="Saisir une variable dynamique {...}" ' +
-    'style="background:#0d0d1a;border:1px solid #1a1a3a;border-radius:3px;color:#7ec8e3;cursor:pointer;font-size:11px;padding:2px 6px;white-space:nowrap;flex-shrink:0;">✏️</button>';
+    'class="wfd-tag-blue">✏️</button>';
 
   return '<div class="wfd-row">' +
     selectHtml + editBtn + '</div>';
