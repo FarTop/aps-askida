@@ -29,7 +29,7 @@
           style="min-width:160px;" title="Environnement Iconik cible pour ce flux">
           <option value="">— Environnement —</option>
         </select>
-        <span id="wfd-env-dot" style="width:8px;height:8px;border-radius:50%;background:#555;display:inline-block;margin-left:2px;flex-shrink:0;"></span>
+        <span id="wfd-env-dot"></span>
         <button class="tb-btn" id="btn-refresh-data" onclick="wfdRefreshAllData()"
           title="Actualiser toutes les données depuis Iconik (saved searches, vues MD, collections...)"
           class="c-blue" style="padding:4px 7px;font-size:13px;">↺</button>
@@ -267,19 +267,12 @@
           <div class="wfd-logs-hdr with-border">
             <div class="wfd-logs-title-row">
               <span class="wfd-logs-title wfd-c-purple">⚡ JOBS</span>
-              <span id="wfd-jobs-live-badge" style="
-                padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;
-                background:rgba(155,89,182,0.2);color:#9b59b6;border:1px solid #9b59b644;
-                display:none;margin-left:8px;">0 actif(s)</span>
+              <span id="wfd-jobs-live-badge" style="display:none;">0 actif(s)</span>
               <button class="cfg-close" onclick="wfdToggleJobsPanel()" title="Fermer">×</button>
             </div>
             <div style="display:flex;border-top:1px solid #1a1a1a;margin-top:8px;">
-              <button id="wfd-jobs-tab-live" onclick="wfdJobsTab('live')"
-                style="flex:1;padding:7px;font-size:11px;background:transparent;border:none;
-                  border-bottom:2px solid #9b59b6;color:#fff;cursor:pointer;">⚡ Live</button>
-              <button id="wfd-jobs-tab-history" onclick="wfdJobsTab('history')"
-                style="flex:1;padding:7px;font-size:11px;background:transparent;border:none;
-                  border-bottom:2px solid transparent;color:#555;cursor:pointer;">📋 Historique</button>
+              <button id="wfd-jobs-tab-live" onclick="wfdJobsTab('live')" class="wfd-jobs-tab active">⚡ Live</button>
+              <button id="wfd-jobs-tab-history" onclick="wfdJobsTab('history')" class="wfd-jobs-tab">📋 Historique</button>
             </div>
           </div>
           <div id="wfd-jobs-live" style="flex:1;overflow-y:auto;padding:8px;">
@@ -310,7 +303,7 @@
                 oninput="wfdVarsFilter(this.value)"
                 style="width:110px;font-size:10px;padding:3px 7px;height:24px;">
               <button onclick="wfdToggleVarsPanel()"
-                style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;line-height:1;padding:2px;">×</button>
+                class="wfd-btn-close lg">×</button>
             </div>
           </div>
           <div class="wfd-vars-scopes" id="wfd-vars-filters">
@@ -320,7 +313,7 @@
           </div>
           <div id="wfd-vars-body"></div>
           <div class="wfd-vars-footer">
-            <button class="cfg-btn" style="width:100%;font-size:10px;" onclick="ouvrirRessources('variables')">
+            <button class="cfg-btn" style="width:100%;" onclick="ouvrirRessources('variables')">
               📊 Voir dans Ressources
             </button>
           </div>
@@ -347,7 +340,7 @@
             <input id="cfg-node-name" class="cfg-name-input" value="" placeholder="Nom du nœud" autocomplete="off">
           </div>
           <button onclick="wfdToggleFocusMode()" id="cfg-focus-btn" title="Mode focus (canvas réduit)"
-            style="background:none;border:none;color:#555;cursor:pointer;font-size:14px;padding:4px 6px;margin-right:4px;"
+            class="wfd-btn-icon"
             >⤢</button>
           <button onclick="fermerConfigPanel()" class="cfg-close">×</button>
         </div>
@@ -368,7 +361,7 @@
         <div class="wfd-logs-hdr with-border">
           <div class="wfd-logs-title-row">
             <span class="wfd-logs-title wfd-c-orange">⚡ RUN</span>
-            <span id="wfd-rp-header-info" style="flex:1;margin-left:8px;"></span>
+            <span id="wfd-rp-header-info"></span>
             <button onclick="wfdRunPanelClose()" class="wfd-btn-close">×</button>
           </div>
         </div>
@@ -557,7 +550,7 @@
         <button onclick="fermerModalImport()" class="cfg-close">×</button>
       </div>
       <div class="wfd-modal-body">
-        <div style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:8px;padding:14px 16px;margin-bottom:16px;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12px;">
+        <div class="wfd-import-info">
           <span style="color:#555;">Organisation</span>
           <span id="import-org-name" style="color:#fff;font-weight:600;"></span>
           <span style="color:#555;">Exporté le</span>
@@ -567,7 +560,7 @@
         </div>
         <div class="cfg-label" style="margin-bottom:8px;">CONTENU DU FICHIER</div>
         <div id="import-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;"></div>
-        <div style="background:rgba(243,156,18,0.08);border:1px solid rgba(243,156,18,0.3);border-radius:6px;padding:10px 14px;font-size:11px;color:#f39c12;margin-bottom:4px;">
+        <div class="wfd-warning-block">
           ⚠️ <strong>Remplacer</strong> écrase toute la configuration actuelle.<br>
           <strong>Fusionner</strong> ajoute le contenu sans supprimer l'existant (doublons renommés).
         </div>
@@ -646,10 +639,10 @@
           <div id="script-ports-hint" style="font-family:var(--font-mono);font-size:11px;display:flex;flex-direction:column;gap:4px;"></div>
           <div class="cfg-label" style="margin-top:16px;margin-bottom:8px;">SNIPPETS</div>
           <div style="display:flex;flex-direction:column;gap:4px;">
-            <button onclick="insererSnippet('history')"        class="pal-add-btn" style="text-align:left;">📋 Workflow History</button>
-            <button onclick="insererSnippet('metadata_write')" class="pal-add-btn" style="text-align:left;">📝 Écrire métadonnée</button>
-            <button onclick="insererSnippet('condition')"      class="pal-add-btn" style="text-align:left;">🔀 Condition</button>
-            <button onclick="insererSnippet('log')"            class="pal-add-btn" style="text-align:left;">🪵 Log</button>
+            <button onclick="insererSnippet('history')"        class="pal-add-btn left">📋 Workflow History</button>
+            <button onclick="insererSnippet('metadata_write')" class="pal-add-btn left">📝 Écrire métadonnée</button>
+            <button onclick="insererSnippet('condition')"      class="pal-add-btn left">🔀 Condition</button>
+            <button onclick="insererSnippet('log')"            class="pal-add-btn left">🪵 Log</button>
           </div>
         </div>
       </div>
@@ -685,10 +678,10 @@
       </div>
 
       <!-- Body -->
-      <div id="res-body" class="wfd-modal-body" style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;"></div>
+      <div id="res-body" class="wfd-modal-body"></div>
 
       <!-- Footer -->
-      <div id="res-footer" class="wfd-modal-footer" style="display:flex;gap:8px;justify-content:flex-end;"></div>
+      <div id="res-footer" class="wfd-modal-footer"></div>
 
     </div>
   </div>
