@@ -1711,7 +1711,9 @@ function ouvrirConfigPanel(node) {
   } else {
     panel.classList.remove('panel-wide');
   }
+  panel.classList.add('open');
   // Pour aps_search : remplir les placeholders de trees de collection après rendu du DOM
+  // Doit être APRÈS panel.classList.add('open') pour que le DOM soit prêt
   if (node.family === 'aps_search') {
     setTimeout(() => {
       document.querySelectorAll('[id$="-col-tree-placeholder"]').forEach(placeholder => {
@@ -1727,9 +1729,8 @@ function ouvrirConfigPanel(node) {
           placeholder.parentElement.replaceChild(freshTree, placeholder);
         }
       });
-    }, 50);
+    }, 100);
   }
-  panel.classList.add('open');
   configDirty = false;
 
   // ── Restaurer la case "Nouvelle page (export)" ─────────────
