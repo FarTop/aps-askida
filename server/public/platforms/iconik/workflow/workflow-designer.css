@@ -660,6 +660,16 @@ nav { display: flex; gap: 2px; }
 .cfg-btn.danger  { color: #e74c3c; border-color: rgba(231,76,60,0.3); background: rgba(231,76,60,0.08); }
 .cfg-btn.danger:hover  { background: rgba(231,76,60,0.18); }
 
+/* ── Modificateurs couleur — tb-btn et cfg-btn ─────────────────────────── */
+.tb-btn.c-green  { border-color: #00d4aa; color: #00d4aa; }
+.tb-btn.c-teal   { border-color: #1abc9c; color: #1abc9c; }
+.tb-btn.c-blue   { border-color: #3498db; color: #3498db; }
+.tb-btn.c-grass  { border-color: #27ae60; color: #27ae60; }
+.tb-btn.c-red    { border-color: #e74c3c; color: #e74c3c; }
+.tb-btn.c-orange { border-color: #f39c12; color: #f39c12; }
+.tb-btn.c-purple { border-color: #9b59b6; color: #9b59b6; }
+.tb-btn.c-muted  { border-color: #555;    color: #555;    }
+
 /* Champs config */
 .cfg-field   { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; isolation: isolate; }
 .cfg-label   { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.7px; font-weight: 600; font-family: var(--font-mono); }
@@ -726,6 +736,7 @@ nav { display: flex; gap: 2px; }
 /* Modales secondaires (contacts, mappings edit, liste-edit) — au-dessus de Ressources */
 #modal-contacts, #modal-mappings, #modal-liste-edit, #modal-script-editor, #modal-import { z-index: 9100; }
 .wfd-modal { background: var(--wfd-surface); border: 1px solid var(--wfd-border2); border-radius: 10px; width: 440px; max-width: 95vw; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 24px 80px rgba(0,0,0,0.9); overflow: hidden; }
+.wfd-modal-title  { font-size: 14px; font-weight: 600; color: #fff; }
 .wfd-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #1a1a1a; border-bottom: 1px solid var(--wfd-border2); font-size: 14px; font-weight: 600; color: #fff; flex-shrink: 0; }
 .wfd-modal-body   { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 13px; }
 .wfd-modal-footer { padding: 12px 18px; border-top: 1px solid var(--wfd-border2); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; }
@@ -1324,3 +1335,90 @@ nav { display: flex; gap: 2px; }
   flex-shrink: 0;
   cursor: help;
 }
+
+
+/* ── Run Panel — composants (déplacés depuis workflow.html) ─────────────── */
+    /* ── Run Panel — nouveaux composants ───────────────── */
+    .wfd-run-asset-row { display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;cursor:pointer;border:1px solid #1a1a1a;margin-bottom:4px;background:#0d0d0d;transition:background .1s; }
+    .wfd-run-asset-row:hover,.wfd-run-asset-row.selected { background:#1a1a1a; }
+    .wfd-run-asset-check { color:#555;font-size:14px;flex-shrink:0; }
+    .wfd-run-asset-info  { flex:1;min-width:0; }
+    .wfd-run-asset-title { color:#ccc;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .wfd-run-asset-id    { color:#444;font-size:9px;font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .wfd-run-asset-btns  { display:flex;gap:4px;flex-shrink:0; }
+    .wfd-run-port-btn    { font-size:9px;padding:2px 6px;border-radius:3px;background:transparent;cursor:pointer;border-width:1px;border-style:solid; }
+    .wfd-run-bulk-btn    { font-size:10px;padding:4px 10px;border-radius:4px;background:transparent;cursor:pointer;border-width:1px;border-style:solid; }
+    /* Timeline */
+    .wfd-rp-timeline-row { display:flex;align-items:flex-start;gap:8px;padding:6px 8px;cursor:pointer;border-radius:4px;transition:background .1s; }
+    .wfd-rp-timeline-row:hover,.wfd-rp-timeline-row.active { background:#1a1a1a; }
+    .wfd-rp-tl-icon  { font-size:12px;flex-shrink:0;margin-top:1px; }
+    .wfd-rp-tl-info  { flex:1;min-width:0; }
+    .wfd-rp-tl-name  { color:#ccc;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .wfd-rp-tl-summary { color:#555;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .wfd-rp-tl-time  { color:#333;font-size:9px;flex-shrink:0;font-family:var(--font-mono); }
+    /* Détail nœud */
+    .wfd-rp-detail        { padding:8px; }
+    .wfd-rp-detail-header { display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#0d0d0d;border-radius:4px;margin-bottom:8px; }
+    .wfd-rp-detail-name   { color:#ccc;font-size:11px;font-weight:600; }
+    .wfd-rp-detail-status { font-size:10px; }
+    .wfd-rp-detail-summary{ color:#888;font-size:10px;margin-bottom:8px;padding:0 2px; }
+    .wfd-rp-section       { margin-bottom:10px; }
+    .wfd-rp-section-title { font-size:9px;font-weight:600;color:#444;letter-spacing:.08em;margin-bottom:4px;text-transform:uppercase; }
+    .wfd-rp-section-body  { background:#0d0d0d;border-radius:4px;padding:6px 8px; }
+    .wfd-rp-kv            { display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid #111;font-size:10px; }
+    .wfd-rp-kv span:first-child { color:#666;flex-shrink:0; }
+    .wfd-rp-kv span:last-child  { color:#bbb;text-align:right;word-break:break-all; }
+    .wfd-rp-kv-indent     { padding-left:12px; }
+    .wfd-rp-result-card   { margin-bottom:6px; }
+    .wfd-rp-result-title  { color:#e8c97a;font-size:11px;font-weight:600;margin-bottom:4px; }
+    .wfd-rp-error         { color:#e74c3c;font-size:10px;padding:4px; }
+    .wfd-rp-pause-msg     { text-align:center;padding:24px 16px;color:#888; }
+    .wfd-rp-error-block   { margin-top:8px;background:#1a0500;border-radius:5px;padding:8px;border-left:3px solid #e74c3c; }
+    .wfd-rp-pause-msg     { text-align:center;padding:24px 16px;color:#888; }
+    .wfd-rp-error-block   { margin-top:8px;background:#1a0500;border-radius:5px;padding:8px;border-left:3px solid #e74c3c; }
+    .wfd-rp-empty         { color:#444;font-size:10px;text-align:center;padding:8px; }
+    /* Debug */
+    .wfd-rp-dbg-section { display:block;width:100%;margin-bottom:12px; }
+    .wfd-rp-dbg-title   { display:block;color:#444;font-size:9px;letter-spacing:.1em;margin-bottom:4px;text-transform:uppercase;border-bottom:1px solid #1a1a1a;padding-bottom:3px; }
+    .wfd-rp-dbg-row     { display:flex;gap:8px;padding:2px 0;border-bottom:1px solid #0d0d0d;width:100%; }
+    .wfd-rp-dbg-key     { color:#555;min-width:80px;max-width:80px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .wfd-rp-dbg-val     { color:#888;word-break:break-all;flex:1;min-width:0; }
+    .wfd-rp-dbg-pre     { display:block;background:#080808;border-radius:3px;padding:4px 6px;color:#7ec8e3;white-space:pre-wrap;word-break:break-all;max-height:150px;overflow-y:auto;margin:3px 0;width:100%;box-sizing:border-box; }
+    .wfd-rp-dbg-error   { display:block;font-size:9px;padding:2px 0; }
+    .wfd-rp-dbg-error.fatal { color:#e74c3c; }
+    .wfd-rp-dbg-error.warn  { color:#e67e22; }
+    /* Debug pane container */
+    #wfd-rp-pane-debug  { flex-direction:column; }
+    .wfd-job-cancel-btn {
+      background: transparent;
+      border: 1px solid #c0392b;
+      color: #c0392b;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 11px;
+      cursor: pointer;
+      margin-left: 6px;
+      line-height: 1.4;
+      transition: background .15s, color .15s;
+    }
+    .wfd-job-cancel-btn:hover {
+      background: #c0392b;
+      color: #fff;
+    }
+
+/* ── Modificateurs couleur — cfg-btn ───────────────────────────────────── */
+.cfg-btn.c-blue   { border-color: #3498db; color: #3498db; }
+.cfg-btn.c-orange { border-color: #f39c12; color: #f39c12; }
+.cfg-btn.c-green  { border-color: #00d4aa; color: #00d4aa; }
+.cfg-btn.c-grass  { border-color: #27ae60; color: #27ae60; }
+.cfg-btn.c-red    { border-color: #e74c3c; color: #e74c3c; }
+.cfg-btn.c-purple { border-color: #9b59b6; color: #9b59b6; }
+
+/* ── Libellés de panneaux colorés ──────────────────────────────────────── */
+.wfd-c-purple { color: #9b59b6; }
+.wfd-c-orange { color: #e67e22; }
+.wfd-c-blue   { color: #3498db; }
+.wfd-c-green  { color: #00d4aa; }
+
+/* ── Variables panel — titre ───────────────────────────────────────────── */
+.wfd-vars-title-label { color: #1abc9c; font-weight: 600; font-family: var(--font-mono); }

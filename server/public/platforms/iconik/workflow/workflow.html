@@ -7,75 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="workflow-designer.css">
-  <style>
-    /* ── Run Panel — nouveaux composants ───────────────── */
-    .wfd-run-asset-row { display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;cursor:pointer;border:1px solid #1a1a1a;margin-bottom:4px;background:#0d0d0d;transition:background .1s; }
-    .wfd-run-asset-row:hover,.wfd-run-asset-row.selected { background:#1a1a1a; }
-    .wfd-run-asset-check { color:#555;font-size:14px;flex-shrink:0; }
-    .wfd-run-asset-info  { flex:1;min-width:0; }
-    .wfd-run-asset-title { color:#ccc;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-    .wfd-run-asset-id    { color:#444;font-size:9px;font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-    .wfd-run-asset-btns  { display:flex;gap:4px;flex-shrink:0; }
-    .wfd-run-port-btn    { font-size:9px;padding:2px 6px;border-radius:3px;background:transparent;cursor:pointer;border-width:1px;border-style:solid; }
-    .wfd-run-bulk-btn    { font-size:10px;padding:4px 10px;border-radius:4px;background:transparent;cursor:pointer;border-width:1px;border-style:solid; }
-    /* Timeline */
-    .wfd-rp-timeline-row { display:flex;align-items:flex-start;gap:8px;padding:6px 8px;cursor:pointer;border-radius:4px;transition:background .1s; }
-    .wfd-rp-timeline-row:hover,.wfd-rp-timeline-row.active { background:#1a1a1a; }
-    .wfd-rp-tl-icon  { font-size:12px;flex-shrink:0;margin-top:1px; }
-    .wfd-rp-tl-info  { flex:1;min-width:0; }
-    .wfd-rp-tl-name  { color:#ccc;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-    .wfd-rp-tl-summary { color:#555;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-    .wfd-rp-tl-time  { color:#333;font-size:9px;flex-shrink:0;font-family:var(--font-mono); }
-    /* Détail nœud */
-    .wfd-rp-detail        { padding:8px; }
-    .wfd-rp-detail-header { display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#0d0d0d;border-radius:4px;margin-bottom:8px; }
-    .wfd-rp-detail-name   { color:#ccc;font-size:11px;font-weight:600; }
-    .wfd-rp-detail-status { font-size:10px; }
-    .wfd-rp-detail-summary{ color:#888;font-size:10px;margin-bottom:8px;padding:0 2px; }
-    .wfd-rp-section       { margin-bottom:10px; }
-    .wfd-rp-section-title { font-size:9px;font-weight:600;color:#444;letter-spacing:.08em;margin-bottom:4px;text-transform:uppercase; }
-    .wfd-rp-section-body  { background:#0d0d0d;border-radius:4px;padding:6px 8px; }
-    .wfd-rp-kv            { display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid #111;font-size:10px; }
-    .wfd-rp-kv span:first-child { color:#666;flex-shrink:0; }
-    .wfd-rp-kv span:last-child  { color:#bbb;text-align:right;word-break:break-all; }
-    .wfd-rp-kv-indent     { padding-left:12px; }
-    .wfd-rp-result-card   { margin-bottom:6px; }
-    .wfd-rp-result-title  { color:#e8c97a;font-size:11px;font-weight:600;margin-bottom:4px; }
-    .wfd-rp-error         { color:#e74c3c;font-size:10px;padding:4px; }
-    .wfd-rp-pause-msg     { text-align:center;padding:24px 16px;color:#888; }
-    .wfd-rp-error-block   { margin-top:8px;background:#1a0500;border-radius:5px;padding:8px;border-left:3px solid #e74c3c; }
-    .wfd-rp-pause-msg     { text-align:center;padding:24px 16px;color:#888; }
-    .wfd-rp-error-block   { margin-top:8px;background:#1a0500;border-radius:5px;padding:8px;border-left:3px solid #e74c3c; }
-    .wfd-rp-empty         { color:#444;font-size:10px;text-align:center;padding:8px; }
-    /* Debug */
-    .wfd-rp-dbg-section { display:block;width:100%;margin-bottom:12px; }
-    .wfd-rp-dbg-title   { display:block;color:#444;font-size:9px;letter-spacing:.1em;margin-bottom:4px;text-transform:uppercase;border-bottom:1px solid #1a1a1a;padding-bottom:3px; }
-    .wfd-rp-dbg-row     { display:flex;gap:8px;padding:2px 0;border-bottom:1px solid #0d0d0d;width:100%; }
-    .wfd-rp-dbg-key     { color:#555;min-width:80px;max-width:80px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-    .wfd-rp-dbg-val     { color:#888;word-break:break-all;flex:1;min-width:0; }
-    .wfd-rp-dbg-pre     { display:block;background:#080808;border-radius:3px;padding:4px 6px;color:#7ec8e3;white-space:pre-wrap;word-break:break-all;max-height:150px;overflow-y:auto;margin:3px 0;width:100%;box-sizing:border-box; }
-    .wfd-rp-dbg-error   { display:block;font-size:9px;padding:2px 0; }
-    .wfd-rp-dbg-error.fatal { color:#e74c3c; }
-    .wfd-rp-dbg-error.warn  { color:#e67e22; }
-    /* Debug pane container */
-    #wfd-rp-pane-debug  { flex-direction:column; }
-    .wfd-job-cancel-btn {
-      background: transparent;
-      border: 1px solid #c0392b;
-      color: #c0392b;
-      border-radius: 4px;
-      padding: 1px 6px;
-      font-size: 11px;
-      cursor: pointer;
-      margin-left: 6px;
-      line-height: 1.4;
-      transition: background .15s, color .15s;
-    }
-    .wfd-job-cancel-btn:hover {
-      background: #c0392b;
-      color: #fff;
-    }
-  </style>
 </head>
 <body>
   <div id="aps-header"></div>
@@ -101,24 +32,20 @@
         <span id="wfd-env-dot" style="width:8px;height:8px;border-radius:50%;background:#555;display:inline-block;margin-left:2px;flex-shrink:0;"></span>
         <button class="tb-btn" id="btn-refresh-data" onclick="wfdRefreshAllData()"
           title="Actualiser toutes les données depuis Iconik (saved searches, vues MD, collections...)"
-          style="padding:4px 7px;font-size:13px;color:#3498db;">↺</button>
+          class="c-blue" style="padding:4px 7px;font-size:13px;">↺</button>
       </div>
       <div class="tb-sep"></div>
       <div class="tb-group">
-        <button class="tb-btn accent" onclick="ouvrirRessources('mappings')"
-          title="Mappings, Connexions, Contacts, Templates, Scripts, Nommage"
-          style="border-color:#00d4aa;color:#00d4aa;">📦 Ressources</button>
-        <button class="tb-btn" id="btn-vars-panel" onclick="wfdToggleVarsPanel()"
-          title="Variables du flux — Quick Access"
-          style="border-color:#1abc9c;color:#1abc9c;font-family:var(--font-mono);">{x}</button>
+        <button class="tb-btn c-green" onclick="ouvrirRessources('mappings')"
+          title="Mappings, Connexions, Contacts, Templates, Scripts, Nommage">📦 Ressources</button>
+        <button class="tb-btn c-teal" id="btn-vars-panel" onclick="wfdToggleVarsPanel()"
+          title="Variables du flux — Quick Access" style="font-family:var(--font-mono);">{x}</button>
       </div>
 
       <div class="tb-group" style="margin-left:auto;">
-        <button class="tb-btn" onclick="declencherImport()"
-          style="border-color:#3498db;color:#3498db;"
+        <button class="tb-btn c-blue" onclick="declencherImport()"
           title="Importer une configuration organisation (JSON)">⬆ Import</button>
-        <button class="tb-btn" onclick="openExportPicker('json')"
-          style="border-color:#27ae60;color:#27ae60;"
+        <button class="tb-btn c-grass" onclick="openExportPicker('json')"
           title="Exporter toute la configuration (Settings + Automations + Workflow)">⬇ Export</button>
       </div>
       <div class="tb-sep"></div>
@@ -135,30 +62,26 @@
       <div class="tb-sep"></div>
       <div class="tb-group">
         <button class="tb-btn export" onclick="openExportPicker('word')">📄 Export Word</button>
-        <button class="tb-btn" id="btn-api-ops" onclick="toggleApiOpsDrawer()" title="Opérations API du flux" style="color:#3498db;">⚡ API Ops</button>
-        <button class="tb-btn" id="wfd-logs-btn" onclick="wfdToggleLogs()" title="Journal des événements" style="color:#f39c12;">🪵 Logs</button>
-        <button class="tb-btn" id="wfd-jobs-btn" onclick="wfdToggleJobsPanel()"
-          title="Panel Jobs — Exécutions en cours et historique"
-          style="color:#9b59b6;">⚡ Jobs</button>
+        <button class="tb-btn c-blue" id="btn-api-ops" onclick="toggleApiOpsDrawer()" title="Opérations API du flux">⚡ API Ops</button>
+        <button class="tb-btn c-orange" id="wfd-logs-btn" onclick="wfdToggleLogs()" title="Journal des événements">🪵 Logs</button>
+        <button class="tb-btn c-purple" id="wfd-jobs-btn" onclick="wfdToggleJobsPanel()"
+          title="Panel Jobs — Exécutions en cours et historique">⚡ Jobs</button>
       </div>
       <div class="tb-sep"></div>
       <div class="tb-group" id="tb-engine-group">
         <!-- Toggle activation flux -->
-        <button class="tb-btn" id="btn-flux-toggle"
+        <button class="tb-btn c-muted" id="btn-flux-toggle"
           onclick="wfdToggleFlux()"
-          style="border-color:#555;color:#555;"
           title="Activer / désactiver ce flux">⏸ Inactif</button>
         <!-- Bouton exécuter manuellement -->
-        <button class="tb-btn" id="btn-flux-run"
+        <button class="tb-btn c-grass" id="btn-flux-run"
           onclick="wfdRunManual()"
-          style="border-color:#27ae60;color:#27ae60;"
           title="Déclencher manuellement ce flux (test)">▶ Exécuter</button>
       </div>
       <div class="tb-sep"></div>
       <div class="tb-group">
-        <button class="tb-btn" id="btn-deploy-nr"
+        <button class="tb-btn c-red" id="btn-deploy-nr"
           onclick="deployerSurNodeRed(getFluxCourant())"
-          style="border-color:#e74c3c;color:#e74c3c;"
           title="Traduire et déployer le flux courant sur Node-RED">⚡ Déployer NR</button>
       </div>
       <div id="wfd-status" class="tb-status"></div>
@@ -343,7 +266,7 @@
         <div id="wfd-jobs-panel">
           <div class="wfd-logs-hdr" style="border-bottom:1px solid #1e1e1e;">
             <div class="wfd-logs-title-row">
-              <span class="wfd-logs-title" style="color:#9b59b6;">⚡ JOBS</span>
+              <span class="wfd-logs-title wfd-c-purple">⚡ JOBS</span>
               <span id="wfd-jobs-live-badge" style="
                 padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;
                 background:rgba(155,89,182,0.2);color:#9b59b6;border:1px solid #9b59b644;
@@ -381,7 +304,7 @@
         <!-- ══ QUICK ACCESS VARIABLES ══════════════════════════ -->
         <div id="wfd-vars-panel">
           <div class="wfd-vars-hdr">
-            <span style="color:#1abc9c;font-weight:600;font-family:var(--font-mono);" id="wfd-vars-title">{x} Variables</span>
+            <span class="wfd-vars-title-label" id="wfd-vars-title">{x} Variables</span>
             <div style="display:flex;gap:6px;align-items:center;">
               <input id="wfd-vars-search" class="cfg-input" placeholder="Filtrer..."
                 oninput="wfdVarsFilter(this.value)"
@@ -444,7 +367,7 @@
         <!-- Header -->
         <div class="wfd-logs-hdr" style="border-bottom:1px solid #1e1e1e;">
           <div class="wfd-logs-title-row">
-            <span class="wfd-logs-title" style="color:#e67e22;">⚡ RUN</span>
+            <span class="wfd-logs-title wfd-c-orange">⚡ RUN</span>
             <span id="wfd-rp-header-info" style="flex:1;margin-left:8px;"></span>
             <button onclick="wfdRunPanelClose()" style="background:transparent;border:none;color:#555;cursor:pointer;font-size:16px;">×</button>
           </div>
@@ -560,9 +483,9 @@
   <!-- ══ MODALE : Export Picker ══════════════════════════════ -->
   <div id="modal-export-picker" class="wfd-modal-overlay" style="display:none;">
     <div class="wfd-modal" style="max-width:520px;max-height:80vh;display:flex;flex-direction:column;">
-      <div class="wfd-modal-hdr">
+      <div class="wfd-modal-header">
         <span class="wfd-modal-title" id="expick-title">Exporter</span>
-        <button class="wfd-modal-close" onclick="closeExportPicker()">×</button>
+        <button class="cfg-close" onclick="closeExportPicker()">×</button>
       </div>
       <div style="padding:10px 14px;border-bottom:1px solid #1e1e1e;flex-shrink:0;">
         <input type="text" id="expick-filter" class="cfg-input"
@@ -581,7 +504,7 @@
       </div>
       <div id="expick-list" style="flex:1;overflow-y:auto;padding:8px 14px;display:flex;flex-direction:column;gap:6px;">
       </div>
-      <div class="wfd-modal-ftr">
+      <div class="wfd-modal-footer">
         <button class="cfg-btn" onclick="closeExportPicker()">Annuler</button>
         <button class="cfg-btn primary" onclick="confirmExportSelected()">⬇ Exporter la sélection</button>
       </div>
@@ -658,7 +581,7 @@
       <div class="wfd-modal-footer" style="justify-content:space-between;">
         <button class="cfg-btn" onclick="fermerModalImport()">Annuler</button>
         <div style="display:flex;gap:8px;">
-          <button class="cfg-btn" onclick="confirmerImport('merge')" style="border-color:#3498db;color:#3498db;">⊕ Fusionner</button>
+          <button class="cfg-btn c-blue" onclick="confirmerImport('merge')">⊕ Fusionner</button>
           <button class="cfg-btn danger" onclick="confirmerImport('replace')">↺ Remplacer</button>
         </div>
       </div>
@@ -687,7 +610,7 @@
       </div>
       <div class="wfd-modal-body" id="modal-liste-edit-body"></div>
       <div class="wfd-modal-footer" style="justify-content:space-between;">
-        <button class="cfg-btn" onclick="exporterCSVContacts()" style="border-color:#3498db;color:#3498db;">⬇ Export CSV</button>
+        <button class="cfg-btn c-blue" onclick="exporterCSVContacts()">⬇ Export CSV</button>
         <div style="display:flex;gap:8px;">
           <button class="cfg-btn" onclick="fermerEditionListe();ouvrirContacts();">Annuler</button>
           <button class="cfg-btn primary" onclick="sauvegarderListe()">✓ Sauvegarder</button>
@@ -739,7 +662,7 @@
       <div class="wfd-modal-footer" style="justify-content:space-between;">
         <div style="display:flex;gap:8px;">
           <button class="cfg-btn" onclick="fermerEditeurScript()">Annuler</button>
-          <button class="cfg-btn" onclick="testerSyntaxeScript()" style="border-color:#f39c12;color:#f39c12;">⚡ Tester la syntaxe</button>
+          <button class="cfg-btn c-orange" onclick="testerSyntaxeScript()">⚡ Tester la syntaxe</button>
         </div>
         <button class="cfg-btn primary" onclick="sauvegarderScript()">✓ Sauvegarder</button>
       </div>
@@ -753,7 +676,7 @@
       <!-- Header -->
       <div class="wfd-modal-header">
         <span>📦 Ressources</span>
-        <button class="wfd-modal-close" onclick="fermerRessources()">×</button>
+        <button class="cfg-close" onclick="fermerRessources()">×</button>
       </div>
 
       <!-- Onglets -->
