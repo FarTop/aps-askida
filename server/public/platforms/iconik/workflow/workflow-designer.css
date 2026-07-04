@@ -1422,3 +1422,66 @@ nav { display: flex; gap: 2px; }
 
 /* ── Variables panel — titre ───────────────────────────────────────────── */
 .wfd-vars-title-label { color: #1abc9c; font-weight: 600; font-family: var(--font-mono); }
+
+/* ── Largeurs modales ───────────────────────────────────────────────────── */
+.wfd-modal.wfd-modal-sm   { max-width: 520px; max-height: 80vh; display: flex; flex-direction: column; }
+.wfd-modal.wfd-modal-md   { width: 580px; max-width: 95vw; }
+.wfd-modal.wfd-modal-lg   { width: 680px; max-width: 95vw; max-height: 85vh; }
+.wfd-modal.wfd-modal-xl   { width: 820px; max-width: 96vw; max-height: 90vh; }
+.wfd-modal.wfd-modal-res  { width: 780px; max-width: 96vw; height: 80vh; display: flex; flex-direction: column; }
+.wfd-modal.wfd-modal-script { width: 90vw; max-width: 1100px; height: 85vh; max-height: 85vh; }
+.wfd-modal.wfd-modal-map  { width: 620px; max-width: 95vw; }
+.wfd-modal.wfd-modal-map-edit { width: 660px; max-width: 95vw; }
+.wfd-modal.wfd-modal-import { width: 540px; max-width: 95vw; }
+
+/* ── Footer modale — variante split ────────────────────────────────────── */
+.wfd-modal-footer.split { justify-content: space-between; }
+
+/* ── Onglets Ressources ─────────────────────────────────────────────────── */
+.res-tab {
+  padding: 8px 14px;
+  font-size: 11px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #555;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.res-tab:hover { color: #ccc; }
+.res-tab.active { color: #00d4aa; border-bottom-color: #00d4aa; }
+
+/* ── Onglets Run Panel ──────────────────────────────────────────────────── */
+.wfd-rp-tab {
+  flex: 1;
+  padding: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  border: none;
+  background: #111;
+  color: #555;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+}
+.wfd-rp-tab.active { color: #e67e22; border-bottom-color: #e67e22; }
+
+/* ── Bouton fermer générique ────────────────────────────────────────────── */
+.wfd-btn-close {
+  background: none;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px;
+  transition: color .15s;
+}
+.wfd-btn-close:hover { color: #ccc; }
+
+/* ── wfd-logs-hdr avec séparateur ──────────────────────────────────────── */
+.wfd-logs-hdr.with-border { border-bottom: 1px solid #1e1e1e; }
+
+/* ── cfg-btn petit ──────────────────────────────────────────────────────── */
+.cfg-btn.sm { font-size: 10px; padding: 3px 8px; }
