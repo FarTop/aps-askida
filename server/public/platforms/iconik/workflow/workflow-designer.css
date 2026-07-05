@@ -1853,3 +1853,34 @@ nav { display: flex; gap: 2px; }
 .hovered-danger { background: rgba(231,76,60,0.15) !important; }
 .wfd-hover-border:hover { border-color: #555; }
 .wfd-hover-bg:hover     { background: #1e1e1e; }
+
+/* ── Config panel — états dynamiques ───────────────────────────────────── */
+.hovered          { background: #1e2a30 !important; }
+.wfd-del-hover:hover { border-color: #e74c3c !important; color: #e74c3c !important; }
+
+/* ── Toggle Tree/Var ────────────────────────────────────────────────────── */
+.active-green { background: #1a2a1a; color: #5dbb6b; }
+.active-blue  { background: #1a2030; color: #3498db; }
+.inactive     { background: transparent; color: #555; }
+
+/* ── Color picker postit ────────────────────────────────────────────────── */
+.color-selected { border: 2px solid #fff !important; }
+
+/* ── Checkboxes états ───────────────────────────────────────────────────── */
+.unchecked      { background: #0d0d0d; border: 1px solid #2a2a2a; }
+.checked-green  { background: #1a2a1a; border: 1px solid #27ae60; }
+.checked-green-bg { background: #0d1a0d; }
+.checked-purple { background: #1a1a2a; border: 1px solid #9b59b6; }
+.checked-red    { background: #1a0a0a; border: 1px solid #c0392b; }
+.checked-dynamic { border: 1px solid var(--chk-color, #555) !important; }
+
+/* ── Color picker postit ────────────────────────────────────────────────── */
+.wfd-color-swatch {
+  width: 28px; height: 28px; border-radius: 5px;
+  background: var(--swatch-color, #888);
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border 0.15s;
+}
+.wfd-color-swatch.color-selected { border-color: #fff; }
+.wfd-color-swatch:hover          { border-color: rgba(255,255,255,0.5); }

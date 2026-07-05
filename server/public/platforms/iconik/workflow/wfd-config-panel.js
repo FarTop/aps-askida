@@ -113,8 +113,8 @@ function _ouvrirVarDropdown(input) {
       _fermerVarDropdown();
       input.focus();
     });
-    item.addEventListener('mouseover', () => { item.style.background = '#1e2a30'; });
-    item.addEventListener('mouseout',  () => { item.style.background = ''; });
+    item.addEventListener('mouseover', () => item.classList.add('hovered'));
+    item.addEventListener('mouseout',  () => item.classList.remove('hovered'));
     return item;
   }
 
@@ -884,8 +884,7 @@ function buildRecipientRow(i, r) {
       <button onclick="supprimerDestinataire(${i})"
         style="background:none;border:1px solid #2a2a2a;color:#444;border-radius:5px;
           padding:5px 9px;cursor:pointer;font-size:14px;transition:all 0.15s;flex-shrink:0;"
-        onmouseover="this.style.borderColor='#e74c3c';this.style.color='#e74c3c'"
-        onmouseout="this.style.borderColor='#2a2a2a';this.style.color='#444'">\uD83D\uDDD1</button>
+        class="wfd-del-hover">\uD83D\uDDD1</button>
     </div>
 
     <!-- Champs sp\u00E9cifiques au canal -->
@@ -1548,8 +1547,8 @@ function mnActionTargetMode(mode) {
   const isVar = mode === 'var';
   if (treeWrap) treeWrap.style.display = isVar ? 'none' : '';
   if (varWrap)  varWrap.style.display  = isVar ? '' : 'none';
-  if (btnTree)  { btnTree.style.background = isVar ? 'transparent' : '#1a2a1a'; btnTree.style.color = isVar ? '#555' : '#5dbb6b'; }
-  if (btnVar)   { btnVar.style.background  = isVar ? '#1a2030' : 'transparent'; btnVar.style.color  = isVar ? '#3498db' : '#555'; }
+  if (btnTree)  { btnTree.classList.toggle('active-green', !isVar); btnTree.classList.toggle('inactive', isVar); }
+  if (btnVar)   { btnVar.classList.toggle('active-blue',  isVar);  btnVar.classList.toggle('inactive', !isVar); }
 }
 
 function mnFetchVarPreview(val) {
@@ -1862,9 +1861,7 @@ function buildCfgFields(pfx, family, cfg) {
       <label class="cfg-label">Couleur</label>
       <div class="wfd-tags-wrap">
         ${['#f1c40f','#e74c3c','#3498db','#27ae60','#9b59b6','#e67e22','#95a5a6'].map(col=>
-          `<div onclick="selectPostitColor('${col}')" style="width:28px;height:28px;border-radius:5px;
-            background:${col};cursor:pointer;border:2px solid ${cfg.color===col?'#fff':'transparent'};
-            transition:border 0.15s;" data-color="${col}"></div>`
+          `<div onclick="selectPostitColor('${col}')" class="wfd-color-swatch${cfg.color===col?' color-selected':''}" style="--swatch-color:${col};" data-color="${col}"></div>`
         ).join('')}
       </div>
     </div>`;
@@ -5639,7 +5636,7 @@ function sauvegarderConfig() {
   } else if (node.family==='postit') {
     node.config.text  = document.getElementById('cfg-postit-text')?.value || '';
     // La couleur est stockée dans les divs data-color (pas dans un input)
-    const _selCol = document.querySelector('#wfd-config-body [data-color][style*="solid #fff"], #wfd-config-body [data-color][style*="solid white"], #wfd-config-body [data-color][style*="solid rgb(255"]');
+    const _selCol = document.querySelector('#wfd-config-body [data-color].color-selected');
     node.config.color = _selCol?.dataset.color || node.config.color || '#f1c40f';
   } else if (node.family==='cast') {
     node.config.ref         = g('ref');
@@ -5789,7 +5786,7 @@ function fermerConfigPanel() {
   panel.classList.remove('panel-focus');
   canvas?.classList.remove('panel-focus-mode');
   if (typeof _wfdFocusMode !== 'undefined') _wfdFocusMode = false;
-  if (btn) { btn.textContent = '⤢'; btn.style.color = '#555'; }
+  if (btn) { btn.textContent = '⤢'; btn.classList.remove('active'); }
 }
 
 // ── Transform helpers ────────────────────────────────────────
@@ -5881,8 +5878,15 @@ function mettreAJourApercu() {
 function selectPostitColor(col) {
   // Couvre la modale création ET le panneau config (cfg-)
   document.querySelectorAll('#wfd-config-body [data-color]').forEach(el => {
-    el.style.border = el.dataset.color===col ? '2px solid #fff' : '2px solid transparent';
+    el.classList.toggle('color-selected', el.dataset.color === col);
   });
+  // Mettre à jour le nœud canvas immédiatement
+  if (typeof selectedNodeId !== 'undefined' && selectedNodeId) {
+    const nodeEl = document.getElementById('wfd-node-' + selectedNodeId);
+    if (nodeEl) nodeEl.style.setProperty('--postit-color', col);
+  }
+  // Sauvegarder dans node.config
+  if (typeof sauvegarderConfig === 'function') sauvegarderConfig();
 }
 
 
@@ -6387,8 +6391,8 @@ function _lfTypeChange(pfx) {
     const lbl = el.closest('label');
     if (!lbl) return;
     const active = el.checked;
-    lbl.style.background = active ? '#1a2a1a' : '#0d0d0d';
-    lbl.style.border     = `1px solid ${active ? '#27ae60' : '#2a2a2a'}`;
+    lbl.classList.toggle('checked-green', active);
+    lbl.classList.toggle('unchecked', !active);
   });
 }
 
@@ -6599,8 +6603,8 @@ function _umTargetChange(pfx) {
   document.querySelectorAll(`input[name="${pfx}-um-target"]`).forEach(el => {
     const lbl = el.closest('label');
     if (!lbl) return;
-    lbl.style.background = el.checked ? '#1a1a2a' : '#0d0d0d';
-    lbl.style.border     = `1px solid ${el.checked ? '#9b59b6' : '#2a2a2a'}`;
+    lbl.classList.toggle('checked-purple', el.checked);
+    lbl.classList.toggle('unchecked', !el.checked);
   });
 }
 
@@ -6981,8 +6985,8 @@ function _aclTargetChange(pfx) {
   document.querySelectorAll(`input[name="${pfx}-acl-target"]`).forEach(el => {
     const lbl = el.closest('label');
     if (lbl) {
-      lbl.style.background = el.checked ? '#1a0a0a' : '#0d0d0d';
-      lbl.style.border = `1px solid ${el.checked ? '#c0392b' : '#2a2a2a'}`;
+      lbl.classList.toggle('checked-red', el.checked);
+      lbl.classList.toggle('unchecked', !el.checked);
     }
   });
 }
@@ -6991,7 +6995,7 @@ function _aclOpChange(pfx) {
   const colors = { add:'#27ae60', replace:'#e74c3c' };
   document.querySelectorAll(`input[name="${pfx}-acl-op"]`).forEach(el => {
     const lbl = el.closest('label');
-    if (lbl) lbl.style.border = `1px solid ${el.checked ? (colors[el.value]||'#555') : '#2a2a2a'}`;
+    if (lbl) { lbl.style.setProperty('--chk-color', el.checked ? (colors[el.value]||'#555') : '#2a2a2a'); lbl.classList.toggle('checked-dynamic', el.checked); }
   });
 }
 
@@ -6999,7 +7003,7 @@ function _aclPermChange(pfx, i, perm, color) {
   const cb  = document.querySelector(`.acl-perm[data-idx="${i}"][data-perm="${perm}"]`);
   const lbl = document.getElementById(`acl-lbl-${i}-${perm}`);
   if (!cb || !lbl) return;
-  lbl.style.background = cb.checked ? '#0d1a0d' : '#0a0a0a';
+  lbl.classList.toggle('checked-green-bg', cb.checked);
   lbl.style.border = `1px solid ${cb.checked ? color : '#2a2a2a'}`;
 }
 
