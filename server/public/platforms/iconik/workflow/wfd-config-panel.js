@@ -1711,24 +1711,22 @@ function ouvrirConfigPanel(node) {
     panel.classList.remove('panel-wide');
   }
   panel.classList.add('open');
-  // Pour aps_search : remplir les placeholders de trees de collection après rendu du DOM
-  // Doit être APRÈS panel.classList.add('open') pour que le DOM soit prêt
+  // Pour aps_search : écouter les sélections de collections et déclencher srAutoSave
   if (node.family === 'aps_search') {
-    setTimeout(() => {
-      document.querySelectorAll('[id$="-col-tree-placeholder"]').forEach(placeholder => {
-        const prefix = placeholder.id.replace('-col-tree-placeholder', '');
-        const hiddenSel = document.getElementById(prefix + '-col-selected');
-        const selVal = hiddenSel ? (hiddenSel.value || '[]') : '[]';
-        if (typeof wfdColTreeHtml !== 'function') return;
-        const freshHtml = wfdColTreeHtml(prefix, selVal);
-        const tmp = document.createElement('div');
-        tmp.innerHTML = freshHtml;
-        const freshTree = tmp.querySelector('[id$="-col-tree"]');
-        if (freshTree && placeholder.parentElement) {
-          placeholder.parentElement.replaceChild(freshTree, placeholder);
-        }
-      });
-    }, 100);
+    // Retirer le listener précédent si existant
+    if (panel._srColListener) panel.removeEventListener('wfd:col-selected', panel._srColListener);
+    panel._srColListener = (e) => {
+      // Synchroniser col-selected → sr-crit-val pour srReadBlocks
+      const { prefix, selIds } = e.detail;
+      const colSelected = document.getElementById(prefix + '-col-selected');
+      const critRow = colSelected?.closest('.sr-crit-row');
+      if (critRow) {
+        const srCritVal = critRow.querySelector('.sr-crit-val');
+        if (srCritVal) srCritVal.value = JSON.stringify(selIds);
+      }
+      if (typeof srAutoSave === 'function') srAutoSave('cfg');
+    };
+    panel.addEventListener('wfd:col-selected', panel._srColListener);
   }
   configDirty = false;
 
@@ -3148,18 +3146,22 @@ function buildCfgFields(pfx, family, cfg) {
         } else if (_isDate2) {
           valHtml2 = '<input type="date" class="cfg-input sr-crit-val sr-date-input" ' + _dp2 + ' value="' + (crit.value||'') + '" style="flex:2;color-scheme:dark;">';
         } else if (crit.field === '__collection__') {
-          const _colId2 = crit.value || '';
-          const _colName2 = _colId2 ? ((wfdData.collections||[]).find(c=>c.id===_colId2)?.title||(wfdData.collections||[]).find(c=>c.id===_colId2)?.nom||_colId2.slice(0,8)+'...') : '';
+          const _colVal2 = crit.value || '';
+          let _colIds2 = [];
+          try { _colIds2 = JSON.parse(_colVal2); if (!Array.isArray(_colIds2)) _colIds2 = _colVal2 ? [_colVal2] : []; } catch(e) { _colIds2 = _colVal2 ? [_colVal2] : []; }
+          const _colPrefix2 = pfx + '-sr-col-' + idx + '-' + ci;
+          const _colTreeHtml2 = typeof wfdColTreeHtml === 'function'
+            ? wfdColTreeHtml(_colPrefix2, JSON.stringify(_colIds2))
+            : '<div id="' + _colPrefix2 + '-col-selected" style="display:none"></div><div id="' + _colPrefix2 + '-col-tags"></div><div id="' + _colPrefix2 + '-col-tree"></div>';
           valHtml2 = '<div style="flex:4;display:flex;flex-direction:column;gap:4px;">'
-            + '<span style="font-size:10px;color:#8e44ad;font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _colId2 + '">' + escHtml(_colName2||'— aucune —') + '</span>'
             + '<label style="display:flex;align-items:center;gap:6px;font-size:10px;color:#aaa;cursor:pointer;">'
             + '<input type="checkbox" class="sr-crit-col-op" data-bidx="' + idx + '" data-cidx="' + ci + '"'
             + ((crit.op||'in_branch')==='in_branch' ? ' checked' : '')
             + ' onchange="srAutoSave(\'' + pfx + '\')" style="cursor:pointer;">'
             + 'Inclure les sous-dossiers</label>'
             + '<div style="max-height:150px;overflow-y:auto;background:#050505;border:1px solid #2a2a2a;border-radius:3px;">'
-            + '<div id="' + pfx+'-sr-col-'+idx+'-'+ci + '-col-tree-placeholder" style="max-height:150px;overflow-y:auto;"></div>'
-            + '</div><input type="hidden" class="sr-crit-val" value="' + escHtml(_colId2) + '"></div>';
+            + _colTreeHtml2
+            + '</div><input type="hidden" class="sr-crit-val" value="' + escHtml(JSON.stringify(_colIds2)) + '"></div>';
         } else {
           valHtml2 = '<input class="cfg-input sr-crit-val" value="' + (crit.value||'').replace(/"/g,'&quot;') + '" placeholder="valeur" style="flex:2;font-family:var(--font-mono);font-size:10px;" data-pfx="' + pfx + '" oninput="srAutoSave(this.dataset.pfx)">';
         }
@@ -9953,9 +9955,10 @@ function srReadBlocks(pfx) {
         const colPrefix = pfx + '-sr-col-' + bidx + '-' + cidx;
         const hiddenSel = document.getElementById(colPrefix + '-col-selected');
         if (hiddenSel) {
-          try { const ids = JSON.parse(hiddenSel.value||'[]'); val = ids[0]||''; } catch(e) {}
+          // Stocker le tableau JSON complet pour la multi-sélection
+          val = hiddenSel.value || '[]';
         } else {
-          val = critEl.querySelector('.sr-crit-val')?.value || '';
+          val = critEl.querySelector('.sr-crit-val')?.value || '[]';
         }
       } else {
         val = critEl.querySelector('.sr-crit-val')?.value || '';

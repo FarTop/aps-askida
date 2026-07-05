@@ -1700,6 +1700,8 @@ function wfdColSelect(e, prefix, id, name) {
   }
   hidden.value = JSON.stringify(selIds);
   _wfdColRefresh(prefix, selIds);
+  // Notifier les consommateurs via un événement custom
+  hidden.dispatchEvent(new CustomEvent('wfd:col-selected', { bubbles: true, detail: { prefix, selIds } }));
 }
 
 function wfdColRemove(prefix, id) {
