@@ -1912,3 +1912,16 @@ nav { display: flex; gap: 2px; }
 .checked-blue      { background: #0a0d14 !important; border: 1px solid #2980b9 !important; }
 .unchecked-dark    { background: #0a0a0a !important; border: 1px solid #1e1e1e !important; }
 .checked-blue-text { color: #2980b9 !important; }
+
+/* ── En cas d'erreur ────────────────────────────────────────────────────── */
+.wfd-onerror-wrap  { border-top: 1px solid #1a1a1a; margin-top: 12px; padding-top: 12px; }
+.wfd-onerror-btns  { display: flex; gap: 6px; margin-top: 6px; }
+.wfd-onerror-btn   { flex: 1; padding: 6px; border-radius: 5px; border: 1px solid #2a2a2a; background: #0d0d0d; color: #555; cursor: pointer; font-size: 10px; transition: all .15s; }
+.wfd-onerror-btn.active-status { border-color: var(--status-color); background: var(--status-bg, #0d0d0d); color: var(--status-color); }
+
+/* ── Update meta — labels cible ─────────────────────────────────────────── */
+.wfd-um-target-lbl { flex: 1; display: flex; align-items: center; gap: 6px; cursor: pointer; background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 5px; padding: 7px 10px; font-size: 12px; color: #ccc; transition: all .15s; }
+.wfd-um-target-lbl.checked-purple { background: #1a1a2a; border-color: #9b59b6; }
+
+/* ── Update meta — boutons opération W/R/C ──────────────────────────────── */
+.wfd-um-op-btn { padding: 2px 6px; font-size: 10px; border-radius: 3px; border: 1px solid; cursor: pointer; }

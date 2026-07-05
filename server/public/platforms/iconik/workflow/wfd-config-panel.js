@@ -6484,10 +6484,9 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
       class="wfd-mono-sm">
     <div style="display:flex;gap:2px;">
       ${[['write','W','Ecrire'],['reset','R','Effacer'],['copy','C','Copier']].map(([v,ic,lb]) =>
-        `<button class="um-field-op-btn ${_fop===v?'active-blue':'inactive-btn'}"
+        `<button class="wfd-um-op-btn um-field-op-btn ${_fop===v?'active-blue':'inactive-btn'}"
           data-idx="${i}" data-op="${v}" title="${lb}"
-          onclick="umFieldOpChange(this)"
-          style="padding:2px 6px;font-size:10px;border-radius:3px;border:1px solid;cursor:pointer;">${ic}</button>`
+          onclick="umFieldOpChange(this)">${ic}</button>`
       ).join('')}
       <input type="hidden" class="um-field-op" data-idx="${i}" value="${_fop}">
     </div>
@@ -6504,10 +6503,7 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
     <label class="cfg-label">Cible</label>
     <div class="wfd-row-gap6b">
       ${[['asset','🎬 Asset'],['collection','📁 Collection']].map(([k,lbl]) => `
-        <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;
-          background:${target===k?'#1a1a2a':'#0d0d0d'};
-          border:1px solid ${target===k?'#9b59b6':'#2a2a2a'};
-          border-radius:5px;padding:7px 10px;font-size:12px;color:#ccc;transition:all .15s;">
+        <label class="wfd-um-target-lbl${target===k?' checked-purple':''}">
           <input type="radio" name="${pfx}-um-target" value="${k}" ${target===k?'checked':''}
             style="accent-color:#9b59b6;" onchange="_umTargetChange('${pfx}')">
           ${lbl}
@@ -6612,7 +6608,6 @@ function _umTargetChange(pfx) {
     const lbl = el.closest('label');
     if (!lbl) return;
     lbl.classList.toggle('checked-purple', el.checked);
-    lbl.classList.toggle('unchecked', !el.checked);
   });
 }
 
@@ -6655,9 +6650,8 @@ function _umAddField(pfx) {
       + 'placeholder="Valeur ou {variable}" list="' + listId + '" class="wfd-mono-sm">';
     const opBtns = [['write','W','Ecrire'],['reset','R','Effacer'],['copy','C','Copier']].map(function(arr) {
       var v=arr[0], ic=arr[1], lb=arr[2];
-      var cls = 'um-field-op-btn ' + (v==='write' ? 'active-blue' : 'inactive-btn');
+      var cls = 'wfd-um-op-btn um-field-op-btn ' + (v==='write' ? 'active-blue' : 'inactive-btn');
       return '<button class="' + cls + '" data-idx="' + i + '" data-op="' + v + '" title="' + lb + '"'
-        + ' style="padding:2px 6px;font-size:10px;border-radius:3px;border:1px solid;cursor:pointer;"'
         + ' onclick="umFieldOpChange(this)">' + ic + '</button>';
     }).join('');
     return `
@@ -8604,14 +8598,16 @@ async function wfdRunManual() {
 function buildOnErrorField(pfx, cfg, family) {
   if (['trigger','watchfolder','listener','source','postit','timer'].includes(family)) return '';
   const val=cfg.onError||'stop';
-  return `<div class="cfg-field" style="border-top:1px solid #1a1a1a;margin-top:12px;padding-top:12px;">
+  const _oeColors = {'stop':'#e74c3c','continue_log':'#f39c12','continue':'#27ae60'};
+  const _oeBgs    = {'stop':'#1a0505','continue_log':'#1a1000','continue':'#001a05'};
+  return `<div class="cfg-field wfd-onerror-wrap">
     <label class="cfg-label">EN CAS D'ERREUR</label>
-    <div style="display:flex;gap:6px;margin-top:6px;">
-      ${[['stop','🛑 Arrêter','#e74c3c','#1a0505'],['continue_log','⚠️ Continuer + noter','#f39c12','#1a1000'],['continue','✅ Ignorer','#27ae60','#001a05']].map(([v,lb,col,bg])=>`
-        <button onclick="wfdSelectOnError('${pfx}','${v}',this)"
-          style="flex:1;padding:6px;border-radius:5px;border:1px solid ${val===v?col:'#2a2a2a'};
-          background:${val===v?bg:'#0d0d0d'};color:${val===v?col:'#555'};cursor:pointer;font-size:10px;"
-          data-onerror="${v}" data-pfx="${pfx}">
+    <div class="wfd-onerror-btns">
+      ${[['stop','🛑 Arrêter'],['continue_log','⚠️ Continuer + noter'],['continue','✅ Ignorer']].map(([v,lb])=>`
+        <button class="wfd-onerror-btn${val===v?' active-status':''}"
+          onclick="wfdSelectOnError('${pfx}','${v}',this)"
+          data-onerror="${v}" data-pfx="${pfx}"
+          style="${val===v?'--status-color:'+_oeColors[val]+';--status-bg:'+_oeBgs[val]+';':''}">
           ${lb}
         </button>`).join('')}
     </div>
