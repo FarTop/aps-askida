@@ -1,5 +1,13 @@
 # Méthode de travail APS — Guide pour Claude
 
+## 🎯 PRIORITÉ PROCHAINE SESSION
+
+**Finir la Phase 3 CSS — Nettoyage `buildCfgFields`**
+
+`wfd-config-panel.js` contient encore des centaines de `style=` inline dans le HTML généré par `buildCfgFields` et ses ~30 sous-fonctions. C'est le chantier principal avant tout nouveau développement. Approche : famille par famille (Gate → Timer → Notification → ACL → Lookup → HTTP...), valider visuellement + node --check + commit après chaque famille.
+
+---
+
 ## ⚠️ RÈGLES ABSOLUES — À LIRE EN PREMIER
 
 Ces règles ont été établies après des régressions répétées. Elles sont non négociables.
