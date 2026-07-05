@@ -8573,6 +8573,7 @@ function wfdToggleFlux() {
     }
   }
   _saveActiveFluxes(actives); wfdUpdateToggleBtn();
+  if (typeof peuplerSelectFlux === 'function') peuplerSelectFlux();
 }
 async function wfdRunManual() {
   const flux=getFluxCourant(); if (!flux) { toast('Aucun flux sélectionné'); return; }
