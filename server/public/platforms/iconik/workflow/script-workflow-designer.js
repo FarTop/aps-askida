@@ -619,10 +619,7 @@ function wfdToggleJobsPanel() {
   if (!panel) return;
   const open = panel.classList.toggle('open');
   const btn  = document.getElementById('wfd-jobs-btn');
-  if (btn) {
-    btn.style.color      = open ? '#c39bd3' : '#9b59b6';
-    btn.style.background = open ? 'rgba(155,89,182,0.15)' : '';
-  }
+  if (btn) btn.classList.toggle('active', open);
   if (open) _wfdRenderJobsPanel();
 }
 
@@ -1068,7 +1065,7 @@ function _wfdUpdateLiveBadge() {
     badge.style.display = count > 0 ? 'inline' : 'none';
   }
   if (btn) {
-    btn.style.color = count > 0 ? '#c39bd3' : '#9b59b6';
+    btn.classList.toggle('active', count > 0);
     btn.textContent = count > 0 ? '⚡ Jobs (' + count + ')' : '⚡ Jobs';
   }
 }
@@ -2026,7 +2023,7 @@ function majDotEnvironnement(envName) {
   const envs = getEnvironnements();
   const env  = envs.find(e => e.name === envName);
   const colors = { dev:'#3498db', qa:'#f39c12', prod:'#00d4aa' };
-  dot.style.background = env ? (colors[env.environment] || '#888') : '#555';
+  dot.style.setProperty('--dot-bg', env ? (colors[env.environment] || '#888') : '#555');
   dot.title = env ? (env.iconikUrl || '') : 'Aucun environnement s\u00e9lectionn\u00e9';
 }
 
@@ -3711,8 +3708,9 @@ function afficherPopoverInstant(cx, cy, px, py) {
       border-radius:6px;cursor:pointer;font-size:11px;color:${fam.color};text-align:center;
       transition:all 0.15s;`;
     btn.innerHTML = `<div style="font-size:16px;">${fam.icon}</div><div style="font-size:9px;margin-top:2px;">${fam.label}</div>`;
-    btn.onmouseover = () => { btn.style.background = fam.color+'22'; btn.style.borderColor = fam.color; };
-    btn.onmouseout  = () => { btn.style.background = '#0d0d0d'; btn.style.borderColor = fam.color+'44'; };
+    btn.style.setProperty('--fam-color', fam.color);
+    btn.onmouseover = () => btn.classList.add('hovered');
+    btn.onmouseout  = () => btn.classList.remove('hovered');
     btn.onclick = () => {
       const name = document.getElementById('instant-name')?.value.trim() || fam.label;
       creerNoeudInstant(key, name, cx, cy);
@@ -3901,8 +3899,8 @@ function creerCtxMenu(px, py, items) {
       font-family:var(--font-ui);transition:background 0.1s;`;
     btn.textContent = item.label;
     if (!item.disabled) {
-      btn.onmouseover = () => btn.style.background = item.danger?'rgba(231,76,60,0.15)':'#2a2a2a';
-      btn.onmouseout  = () => btn.style.background = 'transparent';
+      btn.onmouseover = () => btn.classList.add(item.danger ? 'hovered-danger' : 'hovered');
+      btn.onmouseout  = () => btn.classList.remove('hovered', 'hovered-danger');
       btn.onclick = e => { e.stopPropagation(); fermerCtxMenu(); item.action?.(); };
     }
     menu.appendChild(btn);
@@ -6498,7 +6496,7 @@ function editerMapping(id) {
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
         <label style="flex:1;padding:7px 12px;background:#161616;border:1px dashed #333;border-radius:5px;
           font-size:11px;color:#666;cursor:pointer;text-align:center;transition:all 0.15s;"
-          onmouseover="this.style.borderColor='#555'" onmouseout="this.style.borderColor='#333'">
+          class="wfd-hover-border">
           \uD83D\uDCC2 Charger un fichier JSON / XML
           <input type="file" accept=".json,.xml" style="display:none;" onchange="importerFichierMapping(this)">
         </label>
@@ -6637,7 +6635,7 @@ function afficherCheminsPalette(paths) {
   list.innerHTML = paths.slice(0,80).map(({path, example}) => `
     <div onclick="insererCheminSource('${path.replace(/'/g,"\'")}')"
       style="padding:3px 8px;border-radius:3px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background 0.1s;"
-      onmouseover="this.style.background='#1e1e1e'" onmouseout="this.style.background='transparent'">
+      class="wfd-hover-bg">
       <span style="color:#00d4aa;flex:1;">${path}</span>
       ${example ? `<span style="color:#333;font-size:10px;overflow:hidden;text-overflow:ellipsis;max-width:120px;white-space:nowrap;">${example}</span>` : ''}
     </div>`).join('');

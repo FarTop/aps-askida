@@ -1841,3 +1841,15 @@ nav { display: flex; gap: 2px; }
 .wfd-border-top-mt { border-top: 1px solid #1a1a1a; margin-top: 4px; padding-top: 4px; }
 .wfd-flex-wrap-1  { display: flex; flex-wrap: wrap; gap: 1px; }
 .wfd-c-888-10     { font-size: 10px; color: #888; }
+
+/* ── Bouton Jobs — état actif ───────────────────────────────────────────── */
+#wfd-jobs-btn.active { color: #c39bd3; background: rgba(155,89,182,0.15); }
+
+/* ── Dot environnement — custom property ────────────────────────────────── */
+#wfd-env-dot { background: var(--dot-bg, #555); }
+
+/* ── Context menu — hover états ─────────────────────────────────────────── */
+.hovered        { background: color-mix(in srgb, var(--fam-color, #888) 13%, transparent) !important; border-color: var(--fam-color, #888) !important; }
+.hovered-danger { background: rgba(231,76,60,0.15) !important; }
+.wfd-hover-border:hover { border-color: #555; }
+.wfd-hover-bg:hover     { background: #1e1e1e; }
