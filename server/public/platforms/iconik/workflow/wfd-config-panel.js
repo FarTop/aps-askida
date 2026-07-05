@@ -8073,9 +8073,10 @@ function _relTypeChange(pfx) {
   document.querySelectorAll(`input[name="${pfx}-rel-type"]`).forEach(el => {
     const lbl = el.closest('label');
     if (!lbl) return;
-    lbl.style.background = el.checked ? '#0a0d14' : '#0a0a0a';
-    lbl.style.border = `1px solid ${el.checked ? '#2980b9' : '#1e1e1e'}`;
-    lbl.querySelector('div > div:first-child').style.color = el.checked ? '#2980b9' : '#aaa';
+    lbl.classList.toggle('checked-blue', el.checked);
+    lbl.classList.toggle('unchecked-dark', !el.checked);
+    const child = lbl.querySelector('div > div:first-child');
+    if (child) child.classList.toggle('checked-blue-text', el.checked);
   });
 }
 
@@ -8089,8 +8090,8 @@ function _relDirChange(pfx) {
   document.querySelectorAll(`input[name="${pfx}-rel-dir"]`).forEach(el => {
     const lbl = el.closest('label');
     if (!lbl) return;
-    lbl.style.background = el.checked ? '#0a0d14' : '#0a0a0a';
-    lbl.style.border = `1px solid ${el.checked ? '#2980b9' : '#1e1e1e'}`;
+    lbl.classList.toggle('checked-blue', el.checked);
+    lbl.classList.toggle('unchecked-dark', !el.checked);
   });
 }
 

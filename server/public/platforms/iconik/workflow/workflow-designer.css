@@ -1924,3 +1924,8 @@ nav { display: flex; gap: 2px; }
 .active-blue     { border-color: #3498db !important; background: #0a1a2a !important; color: #3498db !important; }
 .active-blue-tab { background: #0a1a2a !important; color: #3498db !important; font-weight: 500; border-bottom: 2px solid #3498db !important; }
 .inactive-tab    { background: transparent !important; color: var(--color-text-secondary, #555) !important; font-weight: 400; border-bottom: 2px solid transparent !important; }
+
+/* ── Checkboxes bleues (relate) ─────────────────────────────────────────── */
+.checked-blue      { background: #0a0d14 !important; border: 1px solid #2980b9 !important; }
+.unchecked-dark    { background: #0a0a0a !important; border: 1px solid #1e1e1e !important; }
+.checked-blue-text { color: #2980b9 !important; }
