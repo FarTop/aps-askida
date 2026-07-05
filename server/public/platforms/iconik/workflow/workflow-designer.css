@@ -1912,3 +1912,10 @@ nav { display: flex; gap: 2px; }
   background: rgba(142,68,173,0.2);
   color: #c39bd3;
 }
+
+/* ── Boutons statuts dynamiques (msg-rule, on-error) ───────────────────── */
+.active-status {
+  border-color: var(--status-color, #888) !important;
+  background: var(--status-bg, color-mix(in srgb, var(--status-color, #888) 13%, #0d0d0d)) !important;
+  color: var(--status-color, #888) !important;
+}

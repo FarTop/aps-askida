@@ -2077,7 +2077,6 @@ function buildCfgFields(pfx, family, cfg) {
   : (cfg.qcCollection ? [cfg.qcCollection] : []);
 
     html += buildEnvSelector(pfx, cfg);
-    html += buildEnvSelector(pfx, cfg);
   html += `
     <div>
       <div class="wfd-row-sb-mb8b">
@@ -2195,13 +2194,6 @@ function buildCfgFields(pfx, family, cfg) {
   const rules   = Array.isArray(cfg.rules)      ? cfg.rules      : [];
   const autoMode= cfg.autoMode !== false; // true par défaut
 
-    html += buildEnvSelector(pfx, cfg);
-    html += buildEnvSelector(pfx, cfg);
-    html += buildEnvSelector(pfx, cfg);
-    html += buildEnvSelector(pfx, cfg);
-    html += buildEnvSelector(pfx, cfg);
-    html += buildEnvSelector(pfx, cfg);
-    html += buildEnvSelector(pfx, cfg);
     html += buildEnvSelector(pfx, cfg);
   html += `
     <!-- ── Mode automatique ─────────────────────────────── -->
@@ -2736,7 +2728,7 @@ function buildCfgFields(pfx, family, cfg) {
         <label class="cfg-label">Jobs simultanés maximum</label>
         <div style="display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;">
           <input id="${pfx}-gate-max-concurrent" type="number" min="1" max="50"
-            class="cfg-input" value="${_gMax}">
+            class="cfg-input" value="${_gMax}" oninput="wfdGateUpdateSummary('${pfx}')">
           <span class="wfd-text-555-11b">en parallèle</span>
         </div>
         <div class="cfg-hint">Si la limite est atteinte, les jobs suivants attendent. Port <strong>Bloqué</strong> pour les jobs retenus.</div>
@@ -8292,6 +8284,19 @@ function igReadActions(pfx) {
 }
 
 // ── Gate ─────────────────────────────────────────────────────────────────────
+function wfdGateUpdateSummary(pfx) {
+  const mode = ['throttle','delay','pause'].find(m => {
+    const b = document.getElementById(pfx+'-gate-mode-'+m);
+    return b && b.dataset.active === '1';
+  }) || 'throttle';
+  const sumEl = document.getElementById(pfx+'-gate-summary-text');
+  if (!sumEl) return;
+  const max  = parseInt(document.getElementById(pfx+'-gate-max-concurrent')?.value||'3');
+  const del  = parseFloat(document.getElementById(pfx+'-gate-delay-sec')?.value||'5');
+  const auto = !!document.getElementById(pfx+'-gate-pause-auto')?.checked;
+  const autoS= parseInt(document.getElementById(pfx+'-gate-pause-auto-sec')?.value||'60');
+  sumEl.innerHTML = _wfdGateSummary(mode, max, del, '', auto, autoS);
+}
 function wfdGateModeChange(pfx,mode){
   ['throttle','delay','pause'].forEach(function(m){
     var btn=document.getElementById(pfx+'-gate-mode-'+m);
@@ -8589,7 +8594,9 @@ function wfdSelectOnError(pfx, val, el) {
   const bgs={'stop':'#1a0505','continue_log':'#1a1000','continue':'#001a05'};
   el.closest('.cfg-field').querySelectorAll('[data-onerror]').forEach(btn => {
     const bv=btn.dataset.onerror; const a=bv===val;
-    btn.style.borderColor=a?colors[bv]:'#2a2a2a'; btn.style.background=a?bgs[bv]:'#0d0d0d'; btn.style.color=a?colors[bv]:'#555';
+    btn.classList.toggle('active-status', a);
+    btn.classList.toggle('inactive-btn', !a);
+    if (a) { btn.style.setProperty('--status-color', colors[bv]); btn.style.setProperty('--status-bg', bgs[bv]); }
   });
   const hidden=document.getElementById(pfx+'-onerror-val');
   if (hidden) hidden.value=val;
@@ -8693,9 +8700,9 @@ function wfdMsgRuleStatus(btn, status) {
   row.querySelectorAll('[data-status]').forEach(b => {
     const st = b.dataset.status;
     const active = st === status;
-    b.style.borderColor = active ? statusColors[st] : '#2a2a2a';
-    b.style.background  = active ? statusColors[st] + '22' : '#0d0d0d';
-    b.style.color       = active ? statusColors[st] : '#555';
+    b.classList.toggle('active-status', active);
+    b.classList.toggle('inactive-btn', !active);
+    if (active) b.style.setProperty('--status-color', statusColors[st]);
   });
   const hidden = row.querySelector('.msg-rule-status');
   if (hidden) hidden.value = status;
