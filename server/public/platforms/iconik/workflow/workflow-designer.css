@@ -1,23 +1,6 @@
 /* WFD — workflow-designer.css — modifié le 2026-06-18 11:48 */
 /* ══ WORKFLOW DESIGNER — CSS ══════════════════════════════════ */
-:root {
-  --wfd-bg:       #0a0a0a;
-  --wfd-surface:  #111111;
-  --wfd-panel:    #161616;
-  --wfd-border:   #222222;
-  --wfd-border2:  #2a2a2a;
-  --wfd-text:     #e0e0e0;
-  --wfd-muted:    #555555;
-  --wfd-accent:   #00d4aa;
-  --c-source:     #e84393;
-  --c-lookup:     #3498db;
-  --c-decision:   #f39c12;
-  --c-action:     #00d4aa;
-  --c-cast:       #9b59b6;
-  --c-export:     #e67e22;
-  --font-mono:    'JetBrains Mono', 'Courier New', monospace;
-  --font-ui:      'DM Sans', sans-serif;
-}
+@import url('wfd-tokens.css');
 
 /* ── Reset + base ── */
 *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -468,6 +451,8 @@ nav { display: flex; gap: 2px; }
   font-family: var(--font-ui);
 }
 .wfd-node:hover   { box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+.wfd-node         { border-color: color-mix(in srgb, var(--node-color, #888) 40%, transparent); }
+.wfd-node-draft   { border-style: dashed; border-color: color-mix(in srgb, var(--node-color, #888) 60%, transparent); opacity: 0.9; }
 .wfd-node.selected {
   border-color: var(--wfd-accent) !important;
   box-shadow:
@@ -507,6 +492,8 @@ nav { display: flex; gap: 2px; }
   padding: 8px 10px 7px;
   border-radius: 7px 7px 0 0;
   border-bottom: 1px solid var(--wfd-border);
+  background: color-mix(in srgb, var(--node-color, #888) 9%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--node-color, #888) 20%, transparent);
 }
 .wfd-node-icon   { font-size: 14px; flex-shrink: 0; }
 .wfd-node-name   { font-size: 12px; font-weight: 600; color: #fff; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -520,7 +507,7 @@ nav { display: flex; gap: 2px; }
   position: absolute;
   width: 12px; height: 12px;
   border-radius: 50%;
-  border: 2px solid var(--wfd-border2);
+  border: 2px solid var(--port-color, var(--wfd-border2));
   background: var(--wfd-panel);
   cursor: crosshair;
   transition: all 0.15s;
@@ -551,10 +538,50 @@ nav { display: flex; gap: 2px; }
 .wfd-connection:hover { stroke-opacity: 1 !important; stroke-width: 3 !important; }
 .wfd-conn-label { font-size: 10px; fill: #555; font-family: var(--font-mono); pointer-events: none; }
 
+/* Draft badge */
+.wfd-draft-badge {
+  display: inline-block;
+  font-size: 8px;
+  background: color-mix(in srgb, var(--node-color, #888) 13%, transparent);
+  color: var(--node-color, #888);
+  border: 1px solid color-mix(in srgb, var(--node-color, #888) 33%, transparent);
+  padding: 1px 5px;
+  border-radius: 3px;
+  vertical-align: middle;
+  animation: wfd-pulse 1.5s ease-in-out infinite;
+}
+
 /* Post-it */
-.wfd-postit { cursor: move; user-select: none; font-family: var(--font-ui); transition: box-shadow 0.15s; }
+.wfd-postit {
+  cursor: move; user-select: none; font-family: var(--font-ui); transition: box-shadow 0.15s;
+  background: color-mix(in srgb, var(--postit-color, #f1c40f) 9%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--postit-color, #f1c40f) 40%, transparent);
+  border-radius: 8px;
+  width: 200px; min-height: 60px;
+}
 .wfd-postit:hover    { box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
 .wfd-postit.selected { box-shadow: 0 0 0 2px rgba(255,255,255,0.3); }
+.wfd-postit-body {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--postit-color, #f1c40f);
+  font-family: var(--font-ui);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.wfd-port-label {
+  position: absolute;
+  font-size: 9px;
+  white-space: nowrap;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  pointer-events: none;
+  color: var(--port-color, #555);
+}
+.wfd-port.port-in  .wfd-port-label { left: 14px; color: #555; }
+.wfd-port.port-out .wfd-port-label { right: 14px; }
 
 /* Context menu */
 #wfd-ctx-menu { font-family: var(--font-ui); }

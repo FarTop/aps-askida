@@ -2697,13 +2697,8 @@ function renderNode(layer, node) {
   if (node.family === 'postit') {
     const col = node.config?.color || '#f1c40f';
     div.className = 'wfd-node wfd-postit' + (isSelected?' selected':'');
-    div.style.cssText = `left:${node.x}px;top:${node.y}px;width:200px;min-height:60px;
-      background:${col}18;border:1.5px solid ${col}66;border-radius:8px;
-      border-style:${node.draft?'dashed':'solid'};`;
-    div.innerHTML = `<div style="padding:10px 12px;font-size:12px;color:${col};
-      font-family:var(--font-ui);line-height:1.5;white-space:pre-wrap;word-break:break-word;">
-      <span style="font-size:14px;margin-right:5px;">\uD83D\uDCDD</span>${node.config?.text||node.name||'Note'}
-    </div>`;
+    div.style.cssText = `left:${node.x}px;top:${node.y}px;--postit-color:${col};border-style:${node.draft?'dashed':'solid'};`;
+    div.innerHTML = `<div class="wfd-postit-body">📝 ${node.config?.text||node.name||'Note'}</div>`;
     div.addEventListener('mousedown', e => { if(e.button===0) startDragNode(e, node); });
     div.addEventListener('dblclick',  e => {
       e.stopPropagation();
@@ -2735,31 +2730,18 @@ function renderNode(layer, node) {
   }
 
   const _isReadOnly = document.getElementById('wfd-canvas-wrap')?.dataset?.readonly === '1';
-  div.className = 'wfd-node' + (isSelected ? ' selected' : '') + (_isReadOnly ? ' wfd-node-readonly' : '');
-  div.style.left  = node.x+'px';
-  div.style.top   = node.y+'px';
-  // Brouillon = bord en pointillés
-  if (node.draft) {
-    div.style.borderStyle = 'dashed';
-    div.style.borderColor = isSelected ? '#fff' : fam.color+'99';
-    div.style.opacity     = '0.9';
-  } else {
-    div.style.borderColor = isSelected ? '#fff' : fam.color+'66';
-  }
+  div.className = 'wfd-node' + (isSelected ? ' selected' : '') + (_isReadOnly ? ' wfd-node-readonly' : '') + (node.draft ? ' wfd-node-draft' : '');
+  div.style.cssText = `left:${node.x}px;top:${node.y}px;--node-color:${fam.color};`;
 
   // Header couleur famille
   const header = document.createElement('div');
   header.className = 'wfd-node-header';
-  header.style.background = fam.color+'18';
-  header.style.borderBottomColor = fam.color+'33';
 
   const detail = getNodeDetail(node);
   header.innerHTML = `
     <span class="wfd-node-icon">${fam.icon}</span>
     <div class="wfd-flex1-min0">
-      <div class="wfd-node-name">${node.name}${node.draft
-        ? ' <span style="font-size:8px;background:'+fam.color+'22;color:'+fam.color+';border:1px solid '+fam.color+'55;padding:1px 5px;border-radius:3px;vertical-align:middle;animation:wfd-pulse 1.5s ease-in-out infinite;">⚙ à configurer</span>'
-        : ''}</div>
+      <div class="wfd-node-name">${node.name}${node.draft ? ' <span class="wfd-draft-badge">⚙ à configurer</span>' : ''}</div>
       <div class="wfd-node-family">${fam.label}${detail.sub?' · '+detail.sub:''}</div>
     </div>`;
 
@@ -2786,8 +2768,7 @@ function renderNode(layer, node) {
     const el = document.createElement('div');
     el.className = 'wfd-port port-in';
     el.title = port.label;
-    el.style.top = (14 + i*22)+'px';
-    el.style.borderColor = fam.color;
+    el.style.cssText = `top:${14+i*22}px;--port-color:${fam.color};`;
     el.dataset.nodeId   = node.id;
     el.dataset.portType = 'in';
     el.dataset.portIdx  = i;
@@ -2795,9 +2776,8 @@ function renderNode(layer, node) {
     el.setAttribute('data-port-type','in');
     el.setAttribute('data-port-idx', i);
     setupPortDrag(el, node.id, 'in', i, fam.color);
-    // Label port
     const lbl = document.createElement('span');
-    lbl.style.cssText = 'position:absolute;left:14px;font-size:9px;color:#555;white-space:nowrap;top:50%;transform:translateY(-50%);font-family:var(--font-mono);pointer-events:none;';
+    lbl.className = 'wfd-port-label';
     lbl.textContent = port.label;
     el.appendChild(lbl);
     portsDiv.appendChild(el);
@@ -2809,8 +2789,7 @@ function renderNode(layer, node) {
     el.className = 'wfd-port port-out';
     const portColor = port.color || fam.color;
     el.title = port.label + ' \u2014 Glisser pour connecter';
-    el.style.top = (14 + i*22)+'px';
-    el.style.borderColor = portColor;
+    el.style.cssText = `top:${14+i*22}px;--port-color:${portColor};`;
     el.dataset.nodeId   = node.id;
     el.dataset.portType = 'out';
     el.dataset.portIdx  = i;
@@ -2818,10 +2797,8 @@ function renderNode(layer, node) {
     el.setAttribute('data-port-type','out');
     el.setAttribute('data-port-idx', i);
     setupPortDrag(el, node.id, 'out', i, portColor);
-    // Label
     const lbl = document.createElement('span');
-    lbl.style.cssText = 'position:absolute;right:14px;font-size:9px;white-space:nowrap;top:50%;transform:translateY(-50%);font-family:var(--font-mono);pointer-events:none;';
-    lbl.style.color = portColor;
+    lbl.className = 'wfd-port-label';
     lbl.textContent = port.label;
     el.appendChild(lbl);
     portsDiv.appendChild(el);

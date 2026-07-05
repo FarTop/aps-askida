@@ -1,0 +1,72 @@
+/**
+ * wfd-tokens.css — Design tokens APS Workflow Designer
+ * Source unique de vérité pour les valeurs de design
+ * Importé par workflow-designer.css
+ */
+
+:root {
+  /* ── Couleurs UI ─────────────────────────────────────────── */
+  --wfd-bg:       #0a0a0a;
+  --wfd-surface:  #111111;
+  --wfd-panel:    #161616;
+  --wfd-border:   #222222;
+  --wfd-border2:  #2a2a2a;
+  --wfd-text:     #e0e0e0;
+  --wfd-muted:    #555555;
+  --wfd-accent:   #00d4aa;
+
+  /* ── Couleurs sémantiques ───────────────────────────────── */
+  --wfd-danger:   #e74c3c;
+  --wfd-warning:  #f39c12;
+  --wfd-success:  #27ae60;
+  --wfd-info:     #3498db;
+
+  /* ── Couleurs familles nœuds ────────────────────────────── */
+  --fam-trigger:     #e84393;
+  --fam-watchfolder: #d35400;
+  --fam-timer:       #8e44ad;
+  --fam-listener:    #c0392b;
+  --fam-fetch:       #3498db;
+  --fam-lookup:      #2980b9;
+  --fam-set-var:     #16a085;
+  --fam-transform:   #8e44ad;
+  --fam-script:      #e74c3c;
+  --fam-id-gen:      #1abc9c;
+  --fam-decision:    #f39c12;
+  --fam-loop:        #16a085;
+  --fam-qc:          #27ae60;
+  --fam-approval:    #e67e22;
+  --fam-action:      #00d4aa;
+  --fam-update-meta: #9b59b6;
+  --fam-http:        #2ecc71;
+  --fam-notification:#1abc9c;
+  --fam-export:      #e67e22;
+  --fam-publish:     #27ae60;
+  --fam-postit:      #f1c40f;
+  --fam-aws:         #ff9900;
+  --fam-gate:        #e67e22;
+  --fam-aps-search:  #8e44ad;
+  --fam-misc:        #95a5a6;
+
+  /* ── Typographie ────────────────────────────────────────── */
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --font-ui:   'DM Sans', sans-serif;
+
+  /* ── Espacements ────────────────────────────────────────── */
+  --gap-xs: 4px;
+  --gap-sm: 6px;
+  --gap-md: 8px;
+  --gap-lg: 12px;
+  --gap-xl: 16px;
+
+  /* ── Rayons de bordure ──────────────────────────────────── */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+
+  /* ── Nœuds canvas ───────────────────────────────────────── */
+  --node-width:    180px;
+  --node-color:    #888888;  /* surchargé par JS via style="--node-color:${fam.color}" */
+  --port-color:    #888888;  /* surchargé par JS via style="--port-color:${port.color}" */
+}
