@@ -3040,7 +3040,6 @@ function buildCfgFields(pfx, family, cfg) {
         <span class="wfd-mono-green">}</span>
       </div>
     </div>
-    ${buildOnErrorField(pfx, cfg, family)}
     <div class="cfg-field">
       <label class="cfg-label">Description</label>
       <textarea id="${pfx}-description" class="cfg-textarea" rows="2"
@@ -5161,6 +5160,8 @@ function buildCfgFields(pfx, family, cfg) {
     </div>`;
   }
 
+  // ── En cas d'erreur — commun à tous les nœuds sauf exclus ──────────────
+  html += buildOnErrorField(pfx, cfg, family);
   return html;
 }
 
@@ -5184,6 +5185,9 @@ function sauvegarderConfig() {
   // ── Export Word — saut de page avant ce nœud (commun à tous) ─
   const _pbEl = document.getElementById('cfg-page-break-before');
   if (_pbEl !== null) node.config.pageBreakBefore = _pbEl.checked;
+  // ── En cas d'erreur (commun à tous les nœuds qui l'affichent) ──
+  const _oeEl = document.getElementById('cfg-onerror-val');
+  if (_oeEl !== null) node.config.onError = _oeEl.value || 'stop';
 
   // Lire les champs cfg-
   const g = id => document.getElementById('cfg-'+id)?.value || '';
@@ -5305,7 +5309,6 @@ function sauvegarderConfig() {
     node.config = { ...node.config, ...d };
   } else if (node.family==='fetch') {
     node.config.description     = g('description');
-    const _oeFetch = document.getElementById('cfg-onerror-val'); if (_oeFetch) node.config.onError = _oeFetch.value;
     node.config.storeAs         = g('fetch-store-as') || 'asset';
     node.config.resultVar       = node.config.storeAs;
     node.config.fetchVar        = node.config.storeAs;
@@ -5393,7 +5396,6 @@ function sauvegarderConfig() {
     node.config.template    = g('rename-template');
     node.config.backupField = g('rename-backup');
     node.config.description = g('description');
-    const _oe = document.getElementById('cfg-onerror-val'); if (_oe) node.config.onError = _oe.value;
   } else if (node.family==='listener') {
     node.config.connexionId  = g('listener-conn');
     node.config.mappingId    = g('listener-mapping');
@@ -5664,7 +5666,6 @@ function sauvegarderConfig() {
     const d = _readTranscodeConfig('cfg'); node.config = { ...node.config, ...d };
   } else if (node.family==='notification') {
     node.config.description  = g('description');
-    const _oeN = document.getElementById('cfg-onerror-val'); if (_oeN) node.config.onError = _oeN.value;
     node.config.autoMode     = document.getElementById('cfg-auto-mode')?.checked !== false;
     node.config.title        = g('msg-title')  || '';
     node.config.bodyTemplate = g('msg-body')   || '';
@@ -8590,7 +8591,7 @@ async function wfdRunManual() {
 
 // ── buildOnErrorField ─────────────────────────────────────────────
 function buildOnErrorField(pfx, cfg, family) {
-  if (['trigger','watchfolder','listener','source','postit','notification'].includes(family)) return '';
+  if (['trigger','watchfolder','listener','source','postit','timer'].includes(family)) return '';
   const val=cfg.onError||'stop';
   return `<div class="cfg-field" style="border-top:1px solid #1a1a1a;margin-top:12px;padding-top:12px;">
     <label class="cfg-label">EN CAS D'ERREUR</label>
