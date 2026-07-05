@@ -785,19 +785,7 @@ nav { display: flex; gap: 2px; }
 ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
 
 /* ── Modale Ressources — onglets ─────────────────────────── */
-.res-tab {
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: #555;
-  cursor: pointer;
-  font-size: 12px;
-  font-family: var(--font-sans);
-  padding: 10px 16px;
-  transition: color .15s, border-color .15s;
-}
-.res-tab:hover  { color: #aaa; }
-.res-tab.active { color: #fff; border-bottom-color: #9b59b6; }
+
 .res-tab-panel  { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
 
 /* ══ PANEL LOGS — overlay slide depuis la gauche ════════════ */
@@ -1365,7 +1353,7 @@ nav { display: flex; gap: 2px; }
 
 
 /* ── Run Panel — composants (déplacés depuis workflow.html) ─────────────── */
-    /* ── Run Panel — nouveaux composants ───────────────── */
+    /* ── Run Panel — suite ─────────────────────────────── */
     .wfd-run-asset-row { display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;cursor:pointer;border:1px solid #1a1a1a;margin-bottom:4px;background:#0d0d0d;transition:background .1s; }
     .wfd-run-asset-row:hover,.wfd-run-asset-row.selected { background:#1a1a1a; }
     .wfd-run-asset-check { color:#555;font-size:14px;flex-shrink:0; }
@@ -1710,11 +1698,7 @@ nav { display: flex; gap: 2px; }
 .wfd-row-sb-card-gap { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 6px; gap: 10px; }
 .wfd-card-flex    { background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 8px; padding: 14px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 
-/* ── Classes utilitaires JS — cartes et rows spécifiques ───────────────── */
-.wfd-row-sb-plain { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; }
-.wfd-row-sb-card  { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 6px; }
-.wfd-row-sb-card-gap { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 6px; gap: 10px; }
-.wfd-card-flex    { background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 8px; padding: 14px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+
 
 /* ── Classes utilitaires JS — lot 4 ────────────────────────────────────── */
 .wfd-shrink-nowrap { flex-shrink: 0; white-space: nowrap; }
@@ -1863,8 +1847,6 @@ nav { display: flex; gap: 2px; }
 .active-blue  { background: #1a2030; color: #3498db; }
 .inactive     { background: transparent; color: #555; }
 
-/* ── Color picker postit ────────────────────────────────────────────────── */
-.color-selected { border: 2px solid #fff !important; }
 
 /* ── Checkboxes états ───────────────────────────────────────────────────── */
 .unchecked      { background: #0d0d0d; border: 1px solid #2a2a2a; }
