@@ -1099,6 +1099,7 @@ nav { display: flex; gap: 2px; }
 .wfd-job-badge.success  { background:#27ae60; color:#fff; }
 .wfd-job-badge.error    { background:#c0392b; color:#fff; }
 .wfd-job-badge.warn     { background:#e67e22; color:#fff; }
+.wfd-job-badge.paused   { background:#e67e22; color:#fff; animation: wfd-pulse 1.5s ease-in-out infinite; }
 .wfd-job-badge.entering { animation: wfd-badge-enter .2s ease-out; }
 .wfd-job-badge.exiting  { animation: wfd-badge-exit  .2s ease-in forwards; }
 .wfd-job-badge.transit  { animation: wfd-badge-transit .35s ease-in-out; }

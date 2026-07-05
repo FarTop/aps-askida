@@ -1161,6 +1161,18 @@ function _initWfdEngineExpress() {
   if (window.WfdEngineInstance.getPaused) {
     window.WfdEngineInstance.getPaused().then(function(paused) {
       if (paused && paused.length > 0) {
+        // Injecter les jobs en pause dans _wfdJobs.live pour que _wfdRestoreBadges fonctionne
+        paused.forEach(function(p) {
+          _wfdJobs.live[p.runId] = {
+            runId  : p.runId,
+            nodeId : p.nodeId,
+            fluxId : p.fluxId || null,
+            nodes  : { [p.nodeId]: { status: 'paused' } },
+          };
+        });
+        // Restaurer les badges sur le canvas
+        if (typeof _wfdRestoreBadges === 'function') _wfdRestoreBadges();
+        // Ouvrir le Run Panel sur le premier job en pause
         const p = paused[0];
         console.log('[WFD Jobs] Nœud suspendu trouvé au démarrage :', p.nodeId);
         wfdRunPanelOpen(p.runId, p.nodeId, { ports:p.ports||[], assets:p.assets||[], timeoutMs:p.timeoutMs||null, ctxSnapshot:p.ctxSnapshot||null });
