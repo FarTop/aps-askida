@@ -3377,15 +3377,15 @@ function buildCfgFields(pfx, family, cfg) {
   <!-- Onglets -->
   <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid #1a1a1a;">
     <button onclick="awsTabSwitch('${pfx}','operation')" id="${pfx}-aws-tab-operation"
-      style="padding:6px 14px;background:${_awsTab==='operation'?'#0F4761':'none'};border:none;color:${_awsTab==='operation'?'#fff':'#555'};cursor:pointer;font-size:11px;border-radius:4px 4px 0 0;">
+      class="wfd-sub-tab${_awsTab==='operation'?' active':''}">
       Opération
     </button>
     <button onclick="awsTabSwitch('${pfx}','s3post')" id="${pfx}-aws-tab-s3post"
-      style="padding:6px 14px;background:${_awsTab==='s3post'?'#0F4761':'none'};border:none;color:${_awsTab==='s3post'?'#fff':'#555'};cursor:pointer;font-size:11px;border-radius:4px 4px 0 0;${_awsOp==='artwork_s3'?'display:none':''}">
+      class="wfd-sub-tab${_awsTab==='s3post'?' active':''}" style="${_awsOp==='artwork_s3'?'display:none':''}">
       Post-action
     </button>
     <button onclick="awsTabSwitch('${pfx}','artworks')" id="${pfx}-aws-tab-artworks"
-      style="padding:6px 14px;background:${_awsTab==='artworks'?'#0F4761':'none'};border:none;color:${_awsTab==='artworks'?'#fff':'#555'};cursor:pointer;font-size:11px;border-radius:4px 4px 0 0;${_awsOp!=='artwork_s3'?'display:none':''}">
+      class="wfd-sub-tab${_awsTab==='artworks'?' active':''}" style="${_awsOp!=='artwork_s3'?'display:none':''}">
       Artworks
     </button>
   </div>
@@ -3582,11 +3582,11 @@ function buildCfgFields(pfx, family, cfg) {
   <!-- Onglets -->
   <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid #1a1a1a;">
     <button onclick="wfTabSwitch('${pfx}','polling')" id="${pfx}-wf-tab-polling"
-      style="padding:6px 14px;background:${_wfTab==='polling'?'#0F4761':'none'};border:none;color:${_wfTab==='polling'?'#fff':'#555'};cursor:pointer;font-size:11px;border-radius:4px 4px 0 0;">
+      class="wfd-sub-tab${_wfTab==='polling'?' active':''}">
       Polling
     </button>
     <button onclick="wfTabSwitch('${pfx}','s3')" id="${pfx}-wf-tab-s3"
-      style="padding:6px 14px;background:${_wfTab==='s3'?'#0F4761':'none'};border:none;color:${_wfTab==='s3'?'#fff':'#555'};cursor:pointer;font-size:11px;border-radius:4px 4px 0 0;">
+      class="wfd-sub-tab${_wfTab==='s3'?' active':''}">
       Post-action S3
     </button>
   </div>
@@ -4807,10 +4807,7 @@ function buildCfgFields(pfx, family, cfg) {
         <div style="display:flex;gap:5px;flex-wrap:wrap;">
           ${_daysLabels.map((d,i) => `
             <button onclick="wfdCronDayToggle('${pfx}',${i})" id="${pfx}-cron-day-${i}"
-              style="width:38px;height:38px;border-radius:50%;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;
-                border:2px solid ${_cronDays.includes(i)?'#8e44ad':'#2a2a2a'};
-                background:${_cronDays.includes(i)?'rgba(142,68,173,0.2)':'transparent'};
-                color:${_cronDays.includes(i)?'#c39bd3':'#555'};">
+              class="wfd-cron-day ${_cronDays.includes(i)?'active-purple':'inactive-btn'}">
               ${d}
             </button>`).join('')}
         </div>
@@ -8301,10 +8298,9 @@ function wfdGateModeChange(pfx,mode){
     var wrap=document.getElementById(pfx+'-gate-'+m+'-wrap');
     var active=m===mode;
     if(btn){
-      btn.style.borderColor=active?'#e67e22':'#2a2a2a';
-      btn.style.background=active?'rgba(230,126,34,0.15)':'transparent';
-      btn.style.color=active?'#e67e22':'#666';
-      btn.dataset.active=active?'1':'';  // ← indicateur fiable
+      btn.classList.toggle('active-orange', active);
+      btn.classList.toggle('inactive-btn', !active);
+      btn.dataset.active=active?'1':'';
     }
     if(wrap)wrap.style.display=active?'':'none';
   });
@@ -8327,19 +8323,18 @@ function wfdTimerModeChange(pfx,mode){
   ['interval','cron','oneshot'].forEach(function(m){
     var btn=document.getElementById(pfx+'-timer-mode-'+m),wrap=document.getElementById(pfx+'-timer-'+m+'-wrap'),active=m===mode;
     if(btn){
-      btn.style.borderColor=active?'#8e44ad':'#2a2a2a';
-      btn.style.background=active?'rgba(142,68,173,0.15)':'transparent';
-      btn.style.color=active?'#c39bd3':'#666';
-      btn.dataset.active=active?'1':'';  // ← indicateur fiable
+      btn.classList.toggle('active-purple', active);
+      btn.classList.toggle('inactive-btn', !active);
+      btn.dataset.active=active?'1':'';
     }
     if(wrap)wrap.style.display=active?'':'none';
   });
   if(pfx==='cfg'&&typeof sauvegarderConfig==='function') sauvegarderConfig();
 }
-function wfdCronFreqChange(pfx,freq){['hourly','daily','weekly','monthly'].forEach(function(f){var b=document.getElementById(pfx+'-cron-freq-'+f),active=f===freq;if(b){b.style.borderColor=active?'#8e44ad':'#2a2a2a';b.style.background=active?'rgba(142,68,173,0.12)':'transparent';b.style.color=active?'#c39bd3':'#666';}});var dw=document.getElementById(pfx+'-cron-days-wrap'),mw=document.getElementById(pfx+'-cron-mday-wrap'),tw=document.getElementById(pfx+'-cron-time-wrap');if(dw)dw.style.display=freq==='weekly'?'':'none';if(mw)mw.style.display=freq==='monthly'?'':'none';if(tw)tw.style.display=freq==='hourly'?'none':'';wfdCronUpdateSummary(pfx);}
-function wfdCronDayToggle(pfx,dayIdx){var btn=document.getElementById(pfx+'-cron-day-'+dayIdx);if(!btn)return;var active=btn.style.borderColor.includes('8e44ad');btn.style.borderColor=active?'#2a2a2a':'#8e44ad';btn.style.background=active?'transparent':'rgba(142,68,173,0.2)';btn.style.color=active?'#555':'#c39bd3';wfdCronUpdateSummary(pfx);}
-function _wfdReadCronFreq(pfx){for(var f of['hourly','daily','weekly','monthly']){var b=document.getElementById(pfx+'-cron-freq-'+f);if(b&&b.style.borderColor.includes('8e44ad'))return f;}return 'daily';}
-function _wfdReadCronDays(pfx){var d=[];for(var i=0;i<7;i++){var b=document.getElementById(pfx+'-cron-day-'+i);if(b&&b.style.borderColor.includes('8e44ad'))d.push(i);}return d.length?d:[1,2,3,4,5];}
+function wfdCronFreqChange(pfx,freq){['hourly','daily','weekly','monthly'].forEach(function(f){var b=document.getElementById(pfx+'-cron-freq-'+f),active=f===freq;if(b){b.classList.toggle('active-purple',active);b.classList.toggle('inactive-btn',!active);}});var dw=document.getElementById(pfx+'-cron-days-wrap'),mw=document.getElementById(pfx+'-cron-mday-wrap'),tw=document.getElementById(pfx+'-cron-time-wrap');if(dw)dw.style.display=freq==='weekly'?'':'none';if(mw)mw.style.display=freq==='monthly'?'':'none';if(tw)tw.style.display=freq==='hourly'?'none':'';wfdCronUpdateSummary(pfx);}
+function wfdCronDayToggle(pfx,dayIdx){var btn=document.getElementById(pfx+'-cron-day-'+dayIdx);if(!btn)return;var active=btn.classList.contains('active-purple');btn.classList.toggle('active-purple',!active);btn.classList.toggle('inactive-btn',active);wfdCronUpdateSummary(pfx);}
+function _wfdReadCronFreq(pfx){for(var f of['hourly','daily','weekly','monthly']){var b=document.getElementById(pfx+'-cron-freq-'+f);if(b&&b.classList.contains('active-purple'))return f;}return 'daily';}
+function _wfdReadCronDays(pfx){var d=[];for(var i=0;i<7;i++){var b=document.getElementById(pfx+'-cron-day-'+i);if(b&&b.classList.contains('active-purple'))d.push(i);}return d.length?d:[1,2,3,4,5];}
 function _wfdBuildCronExpr(freq,days,hour,min,mday){var h=String(hour||0).padStart(2,'0'),m=String(min||0).padStart(2,'0');if(freq==='hourly')return m+' * * * *';if(freq==='daily')return m+' '+h+' * * *';if(freq==='weekly')return m+' '+h+' * * '+(days||[1,2,3,4,5]).sort().join(',');return m+' '+h+' '+(mday||1)+' * *';}
 function _wfdCronSummaryText(freq,days,hour,min,mday){var names=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'],t=String(hour).padStart(2,'0')+'h'+String(min).padStart(2,'0');if(freq==='hourly')return 'Toutes les heures à la minute '+String(min).padStart(2,'0');if(freq==='daily')return 'Tous les jours à '+t;if(freq==='weekly'){var ns=days.sort().map(function(d){return names[d];}),l=ns.pop();return 'Chaque '+(ns.length?ns.join(', ')+' et '+l:l)+' à '+t;}return 'Le '+(mday||1)+(mday===1?'er':'')+' de chaque mois à '+t;}
 function wfdCronUpdateSummary(pfx){var freq=_wfdReadCronFreq(pfx),days=_wfdReadCronDays(pfx),h=parseInt(document.getElementById(pfx+'-cron-hour')?.value||'9'),m=parseInt(document.getElementById(pfx+'-cron-minute')?.value||'0'),md=parseInt(document.getElementById(pfx+'-cron-mday')?.value||'1'),s=document.getElementById(pfx+'-cron-summary-text'),e=document.getElementById(pfx+'-cron-expr-display');if(s)s.textContent=_wfdCronSummaryText(freq,days,h,m,md);if(e)e.textContent=_wfdBuildCronExpr(freq,days,h,m,md);}
@@ -8481,9 +8476,8 @@ function wfdUpdateToggleBtn() {
   if (group) group.style.display='';
   const active=_getActiveFluxes().has(flux.id);
   btn.textContent=active?'■ Actif':'▷ Inactif';
-  btn.style.borderColor=active?'#27ae60':'#555';
-  btn.style.color=active?'#27ae60':'#555';
-  btn.style.background=active?'#001a05':'';
+  btn.classList.toggle('active-green', active);
+  btn.classList.toggle('inactive-btn', !active);
   _wfdSetReadOnly(active);
 }
 
@@ -9578,15 +9572,12 @@ function awsOpChange(pfx, op) {
   else awsTabSwitch(pfx, 'operation');
 }
 function awsTabSwitch(pfx, tab) {
-  document.getElementById(pfx + '-aws-panel-operation').style.display = tab === 'operation' ? '' : 'none';
-  document.getElementById(pfx + '-aws-panel-s3post').style.display    = tab === 's3post'    ? '' : 'none';
-  document.getElementById(pfx + '-aws-tab-operation').style.background = tab === 'operation' ? '#0F4761' : 'none';
-  document.getElementById(pfx + '-aws-tab-s3post').style.background    = tab === 's3post'    ? '#0F4761' : 'none';
-  document.getElementById(pfx + '-aws-tab-operation').style.color = tab === 'operation' ? '#fff' : '#555';
-  document.getElementById(pfx + '-aws-tab-s3post').style.color    = tab === 's3post'    ? '#fff' : '#555';
-  document.getElementById(pfx + '-aws-panel-artworks').style.display  = tab === 'artworks'  ? '' : 'none';
-  document.getElementById(pfx + '-aws-tab-artworks').style.background  = tab === 'artworks'  ? '#0F4761' : 'none';
-  document.getElementById(pfx + '-aws-tab-artworks').style.color       = tab === 'artworks'  ? '#fff' : '#555';
+  ['operation','s3post','artworks'].forEach(t => {
+    const panel = document.getElementById(pfx + '-aws-panel-' + t);
+    const btn   = document.getElementById(pfx + '-aws-tab-'   + t);
+    if (panel) panel.style.display = t === tab ? '' : 'none';
+    if (btn)   btn.classList.toggle('active', t === tab);
+  });
 }
 
 // ── S3 Post Action — gestion des lignes de mapping ────────────────────────────
@@ -9639,12 +9630,12 @@ function awsS3ReadMappings(pfx) {
 }
 
 function wfTabSwitch(pfx, tab) {
-  document.getElementById(pfx + '-wf-panel-polling').style.display = tab === 'polling' ? '' : 'none';
-  document.getElementById(pfx + '-wf-panel-s3').style.display      = tab === 's3'      ? '' : 'none';
-  document.getElementById(pfx + '-wf-tab-polling').style.background = tab === 'polling' ? '#0F4761' : 'none';
-  document.getElementById(pfx + '-wf-tab-s3').style.background      = tab === 's3'      ? '#0F4761' : 'none';
-  document.getElementById(pfx + '-wf-tab-polling').style.color = tab === 'polling' ? '#fff' : '#555';
-  document.getElementById(pfx + '-wf-tab-s3').style.color      = tab === 's3'      ? '#fff' : '#555';
+  ['polling','s3'].forEach(t => {
+    const panel = document.getElementById(pfx + '-wf-panel-' + t);
+    const btn   = document.getElementById(pfx + '-wf-tab-'   + t);
+    if (panel) panel.style.display = t === tab ? '' : 'none';
+    if (btn)   btn.classList.toggle('active', t === tab);
+  });
 }
 
 function chkAddRow(pfx) {

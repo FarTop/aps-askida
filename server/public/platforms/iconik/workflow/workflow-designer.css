@@ -1884,3 +1884,31 @@ nav { display: flex; gap: 2px; }
 }
 .wfd-color-swatch.color-selected { border-color: #fff; }
 .wfd-color-swatch:hover          { border-color: rgba(255,255,255,0.5); }
+
+/* ── Onglets AWS S3 et wait_for ─────────────────────────────────────────── */
+.wfd-sub-tab {
+  padding: 6px 14px; background: none; border: none;
+  color: #555; cursor: pointer; font-size: 11px;
+  border-radius: 4px 4px 0 0;
+  transition: background .15s, color .15s;
+}
+.wfd-sub-tab.active { background: #0F4761; color: #fff; }
+
+/* ── Boutons toggle mode (Gate, Timer, Cron, flux actif) ───────────────── */
+.inactive-btn  { border-color: #2a2a2a !important; background: transparent !important; color: #666 !important; }
+.active-orange { border-color: #e67e22 !important; background: rgba(230,126,34,0.15) !important; color: #e67e22 !important; }
+.active-purple { border-color: #8e44ad !important; background: rgba(142,68,173,0.15) !important; color: #c39bd3 !important; }
+.active-green  { border-color: #27ae60 !important; background: #001a05 !important; color: #27ae60 !important; }
+
+/* ── Boutons jours semaine (Timer/Cron) ─────────────────────────────────── */
+.wfd-cron-day {
+  width: 38px; height: 38px; border-radius: 50%;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: all .15s; border: 2px solid #2a2a2a;
+  background: transparent; color: #555;
+}
+.wfd-cron-day.active-purple {
+  border-color: #8e44ad;
+  background: rgba(142,68,173,0.2);
+  color: #c39bd3;
+}
