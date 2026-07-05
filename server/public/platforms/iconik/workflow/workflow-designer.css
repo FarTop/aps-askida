@@ -1919,3 +1919,8 @@ nav { display: flex; gap: 2px; }
   background: var(--status-bg, color-mix(in srgb, var(--status-color, #888) 13%, #0d0d0d)) !important;
   color: var(--status-color, #888) !important;
 }
+
+/* ── Boutons toggle bleus ───────────────────────────────────────────────── */
+.active-blue     { border-color: #3498db !important; background: #0a1a2a !important; color: #3498db !important; }
+.active-blue-tab { background: #0a1a2a !important; color: #3498db !important; font-weight: 500; border-bottom: 2px solid #3498db !important; }
+.inactive-tab    { background: transparent !important; color: var(--color-text-secondary, #555) !important; font-weight: 400; border-bottom: 2px solid transparent !important; }
