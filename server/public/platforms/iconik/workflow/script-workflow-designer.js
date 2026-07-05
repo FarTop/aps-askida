@@ -2696,39 +2696,28 @@ function _wfdRestoreBadges() {
   });
 }
 
-function renderNode(layer, node) {
-  const fam    = FAMILIES[node.family] || FAMILIES.action;
-  const isSelected = node.id === selectedNodeId;
-  const NODE_W = 180;
+// ── _attachNodeListeners — tous les event listeners du nœud canvas ──────────
+function _attachNodeListeners(div, node) {
 
-  const div = document.createElement('div');
-  div.id = 'wfd-node-'+node.id;
-
-  // ── Post-it : rendu spécial sans ports ──────────────────
+  // ── Post-it ─────────────────────────────────────────────────────────────
   if (node.family === 'postit') {
-    const col = node.config?.color || '#f1c40f';
-    div.className = 'wfd-node wfd-postit' + (isSelected?' selected':'');
-    div.style.cssText = `left:${node.x}px;top:${node.y}px;--postit-color:${col};border-style:${node.draft?'dashed':'solid'};`;
-    div.innerHTML = `<div class="wfd-postit-body">📝 ${node.config?.text||node.name||'Note'}</div>`;
-    div.addEventListener('mousedown', e => { if(e.button===0) startDragNode(e, node); });
-    div.addEventListener('dblclick',  e => {
+    div.addEventListener('mousedown', e => { if (e.button === 0) startDragNode(e, node); });
+    div.addEventListener('dblclick', e => {
       e.stopPropagation();
       const _wrap = document.getElementById('wfd-canvas-wrap');
       if (_wrap && _wrap.dataset.readonly === '1') {
-        // Mode actif : ouvrir Run Panel
         window.WfdEngineInstance?.getPaused?.().then(paused => {
-          const p = paused?.find(p => p.nodeId === node.id);
+          const p   = paused?.find(p => p.nodeId === node.id);
           const job = Object.values(_wfdJobs.live).find(j => j.nodes?.[node.id]);
           const runId = p?.runId || job?.runId || null;
           if (runId) {
             wfdRunPanelOpen(runId, node.id, { ports:p?.ports||[], assets:p?.assets||[], timeoutMs:p?.timeoutMs||null, ctxSnapshot:p?.ctxSnapshot||null });
           } else {
-            // Aucun run actif — ouvrir depuis l'historique
             window.WfdEngineInstance?.getRunsByNode?.(node.id, 1).then(runs => {
               const r = runs?.[0];
               if (r) wfdRunPanelOpen(r.runId, node.id, {});
-              else { const panel = document.getElementById('wfd-run-panel'); if(panel) panel.classList.add('open'); }
-            }).catch(() => { const panel = document.getElementById('wfd-run-panel'); if(panel) panel.classList.add('open'); });
+              else { const panel = document.getElementById('wfd-run-panel'); if (panel) panel.classList.add('open'); }
+            }).catch(() => { const panel = document.getElementById('wfd-run-panel'); if (panel) panel.classList.add('open'); });
           }
         }).catch(() => {});
         return;
@@ -2736,197 +2725,117 @@ function renderNode(layer, node) {
       selectNode(node.id);
       ouvrirConfigPanel(node);
     });
-    layer.appendChild(div);
     return;
   }
 
-  const _isReadOnly = document.getElementById('wfd-canvas-wrap')?.dataset?.readonly === '1';
-  div.className = 'wfd-node' + (isSelected ? ' selected' : '') + (_isReadOnly ? ' wfd-node-readonly' : '') + (node.draft ? ' wfd-node-draft' : '');
-  div.style.cssText = `left:${node.x}px;top:${node.y}px;--node-color:${fam.color};`;
-
-  // Header couleur famille
-  const header = document.createElement('div');
-  header.className = 'wfd-node-header';
-
-  const detail = getNodeDetail(node);
-  header.innerHTML = `
-    <span class="wfd-node-icon">${fam.icon}</span>
-    <div class="wfd-flex1-min0">
-      <div class="wfd-node-name">${node.name}${node.draft ? ' <span class="wfd-draft-badge">⚙ à configurer</span>' : ''}</div>
-      <div class="wfd-node-family">${fam.label}${detail.sub?' · '+detail.sub:''}</div>
-    </div>`;
-
-  div.appendChild(header);
-
-  if (detail.body) {
-    const body = document.createElement('div');
-    body.className = 'wfd-node-body';
-    body.innerHTML = `<div class="wfd-node-detail">${detail.body}</div>`;
-    div.appendChild(body);
-  }
-
-  // Ports
-  const ports = node.ports || buildPortsDef(node.family, node.config||{});
-  const portH = Math.max(ports.outputs.length, ports.inputs.length||1) * 22 + 12;
-
-  const portsDiv = document.createElement('div');
-  portsDiv.className = 'wfd-node-ports';
-  portsDiv.style.height = portH+'px';
-  portsDiv.style.position = 'relative';
-
-  // Entrées
-  ports.inputs.forEach((port, i) => {
-    const el = document.createElement('div');
-    el.className = 'wfd-port port-in';
-    el.title = port.label;
-    el.style.cssText = `top:${14+i*22}px;--port-color:${fam.color};`;
-    el.dataset.nodeId   = node.id;
-    el.dataset.portType = 'in';
-    el.dataset.portIdx  = i;
-    el.setAttribute('data-node-id',  node.id);
-    el.setAttribute('data-port-type','in');
-    el.setAttribute('data-port-idx', i);
-    setupPortDrag(el, node.id, 'in', i, fam.color);
-    const lbl = document.createElement('span');
-    lbl.className = 'wfd-port-label';
-    lbl.textContent = port.label;
-    el.appendChild(lbl);
-    portsDiv.appendChild(el);
+  // ── Nœud standard — drag ─────────────────────────────────────────────────
+  div.addEventListener('mousedown', e => {
+    if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) startDragNode(e, node);
   });
 
-  // Sorties
-  ports.outputs.forEach((port, i) => {
-    const el = document.createElement('div');
-    el.className = 'wfd-port port-out';
-    const portColor = port.color || fam.color;
-    el.title = port.label + ' \u2014 Glisser pour connecter';
-    el.style.cssText = `top:${14+i*22}px;--port-color:${portColor};`;
-    el.dataset.nodeId   = node.id;
-    el.dataset.portType = 'out';
-    el.dataset.portIdx  = i;
-    el.setAttribute('data-node-id',  node.id);
-    el.setAttribute('data-port-type','out');
-    el.setAttribute('data-port-idx', i);
-    setupPortDrag(el, node.id, 'out', i, portColor);
-    const lbl = document.createElement('span');
-    lbl.className = 'wfd-port-label';
-    lbl.textContent = port.label;
-    el.appendChild(lbl);
-    portsDiv.appendChild(el);
-  });
-
-  div.appendChild(portsDiv);
-
-// Interactions
-
-div.addEventListener('mousedown', e => {
-  // Ne pas démarrer un drag si on est en mode multi (Ctrl/Meta/Shift)
-  if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-    startDragNode(e, node);
-  }
-});
-
-
-div.addEventListener('click', e => {
-  e.stopPropagation();
-
-  
-// 0) Ignorer seulement le premier clic *simple* post-lasso.
-//    Laisse passer Ctrl/Meta/Shift pour permettre le toggle immédiat.
+  // ── Clic — sélection ─────────────────────────────────────────────────────
+  div.addEventListener('click', e => {
+    e.stopPropagation();
     if (typeof _suppressNextNodeClick !== 'undefined' && _suppressNextNodeClick) {
-    if (!(e.ctrlKey || e.metaKey || e.shiftKey)) {
-     _suppressNextNodeClick = false;
-     return;
-   }
-    _suppressNextNodeClick = false; // on consomme et on continue (toggle OK)
-   }
-
-
-  // 1) Ctrl/Cmd‑clic : toggle d'appartenance à la sélection (comme un explorateur)
-  if (e.ctrlKey || e.metaKey) {
-    if (selectedNodeIds.has(node.id)) {
-      selectedNodeIds.delete(node.id);
-    } else {
-      selectedNodeIds.add(node.id);
+      if (!(e.ctrlKey || e.metaKey || e.shiftKey)) { _suppressNextNodeClick = false; return; }
+      _suppressNextNodeClick = false;
     }
-    selectedNodeId = (selectedNodeIds.size === 1) ? [...selectedNodeIds][0] : null;
-
-    // Appliquer .selected
-    document.querySelectorAll('.wfd-node').forEach(nEl => {
-      const nid = nEl.id.replace('wfd-node-','');
-      nEl.classList.toggle('selected', selectedNodeIds.has(nid));
-    });
-    return;
-  }
-
-  // 2) Clic simple sur un nœud déjà sélectionné : garder la multi-sélection
-  if (selectedNodeIds.has(node.id) && !e.shiftKey) {
-    selectedNodeId = node.id; // nœud actif dans le groupe
-    return;
-  }
-
-  // 3) Clic simple hors multi : mono‑sélection
-  selectedNodeIds.clear();
-  selectedNodeIds.add(node.id);
-  selectedNodeId = node.id;
-
-  document.querySelectorAll('.wfd-node').forEach(nEl => {
-    const nid = nEl.id.replace('wfd-node-','');
-    nEl.classList.toggle('selected', selectedNodeIds.has(nid));
-  });
-});
-
-div.addEventListener('dblclick', e => {
-  e.stopPropagation();
-
-  // Ignorer le premier double‑clic post-lasso
-  if (typeof _suppressNextNodeClick !== 'undefined' && _suppressNextNodeClick) {
-    _suppressNextNodeClick = false;
-    return;
-  }
-
-  // Mode actif (lecture seule) → ouvrir Run Panel
-  const _wrapRO = document.getElementById('wfd-canvas-wrap');
-  if (_wrapRO && _wrapRO.dataset.readonly === '1') {
-    window.WfdEngineInstance?.getPaused?.().then(paused => {
-      const p = paused?.find(p => p.nodeId === node.id);
-      const job2 = Object.values(_wfdJobs.live).find(j => j.nodes?.[node.id]);
-      const runId2 = p?.runId || job2?.runId || null;
-      if (p || runId2) {
-        wfdRunPanelOpen(p?.runId || runId2, node.id, { ports:p?.ports||[], assets:p?.assets||[], timeoutMs:p?.timeoutMs||null, ctxSnapshot:p?.ctxSnapshot||null });
-      } else {
-        // Aucun run actif — chercher dans l'historique
-        window.WfdEngineInstance?.getRunsByNode?.(node.id, 1).then(runs => {
-          const r = runs?.[0];
-          if (r) wfdRunPanelOpen(r.runId, node.id, {});
-          else { const panel = document.getElementById('wfd-run-panel'); if(panel) panel.classList.add('open'); }
-        }).catch(() => {});
-        const cfgPanel = document.getElementById('wfd-config-panel');
-        if (cfgPanel) cfgPanel.classList.remove('open');
-        const nameEl = document.getElementById('wfd-run-node-name');
-        if (nameEl) nameEl.textContent = node.name || '';
-      }
-    }).catch(() => {});
-    return;
-  }
-
-  // Ouvrir la config sans casser une éventuelle multi‑sélection
-  if (!selectedNodeIds.has(node.id)) {
+    // Ctrl/Cmd — toggle multi-sélection
+    if (e.ctrlKey || e.metaKey) {
+      if (selectedNodeIds.has(node.id)) selectedNodeIds.delete(node.id);
+      else selectedNodeIds.add(node.id);
+      selectedNodeId = (selectedNodeIds.size === 1) ? [...selectedNodeIds][0] : null;
+      document.querySelectorAll('.wfd-node').forEach(nEl => {
+        nEl.classList.toggle('selected', selectedNodeIds.has(nEl.id.replace('wfd-node-', '')));
+      });
+      return;
+    }
+    // Clic sur nœud déjà dans la sélection — garder multi
+    if (selectedNodeIds.has(node.id) && !e.shiftKey) { selectedNodeId = node.id; return; }
+    // Mono-sélection
     selectedNodeIds.clear();
     selectedNodeIds.add(node.id);
     selectedNodeId = node.id;
     document.querySelectorAll('.wfd-node').forEach(nEl => {
-      const nid = nEl.id.replace('wfd-node-','');
-      nEl.classList.toggle('selected', selectedNodeIds.has(nid));
+      nEl.classList.toggle('selected', selectedNodeIds.has(nEl.id.replace('wfd-node-', '')));
     });
-  } else {
-    selectedNodeId = node.id;
-  }
-  ouvrirConfigPanel(node);
-});
+  });
 
-layer.appendChild(div);
+  // ── Double-clic — config ou run panel ────────────────────────────────────
+  div.addEventListener('dblclick', e => {
+    e.stopPropagation();
+    if (typeof _suppressNextNodeClick !== 'undefined' && _suppressNextNodeClick) {
+      _suppressNextNodeClick = false; return;
+    }
+    const _wrapRO = document.getElementById('wfd-canvas-wrap');
+    if (_wrapRO && _wrapRO.dataset.readonly === '1') {
+      window.WfdEngineInstance?.getPaused?.().then(paused => {
+        const p     = paused?.find(p => p.nodeId === node.id);
+        const job2  = Object.values(_wfdJobs.live).find(j => j.nodes?.[node.id]);
+        const runId2 = p?.runId || job2?.runId || null;
+        if (p || runId2) {
+          wfdRunPanelOpen(p?.runId || runId2, node.id, { ports:p?.ports||[], assets:p?.assets||[], timeoutMs:p?.timeoutMs||null, ctxSnapshot:p?.ctxSnapshot||null });
+        } else {
+          window.WfdEngineInstance?.getRunsByNode?.(node.id, 1).then(runs => {
+            const r = runs?.[0];
+            if (r) wfdRunPanelOpen(r.runId, node.id, {});
+            else { const panel = document.getElementById('wfd-run-panel'); if (panel) panel.classList.add('open'); }
+          }).catch(() => {});
+          const cfgPanel = document.getElementById('wfd-config-panel');
+          if (cfgPanel) cfgPanel.classList.remove('open');
+          const nameEl = document.getElementById('wfd-run-node-name');
+          if (nameEl) nameEl.textContent = node.name || '';
+        }
+      }).catch(() => {});
+      return;
+    }
+    if (!selectedNodeIds.has(node.id)) {
+      selectedNodeIds.clear();
+      selectedNodeIds.add(node.id);
+      selectedNodeId = node.id;
+      document.querySelectorAll('.wfd-node').forEach(nEl => {
+        nEl.classList.toggle('selected', selectedNodeIds.has(nEl.id.replace('wfd-node-', '')));
+      });
+    } else {
+      selectedNodeId = node.id;
+    }
+    ouvrirConfigPanel(node);
+  });
+
+  // ── Ports — drag ─────────────────────────────────────────────────────────
+  const fam = FAMILIES[node.family] || FAMILIES.action;
+  const ports = node.ports || buildPortsDef(node.family, node.config || {});
+  div.querySelectorAll('.wfd-port').forEach(el => {
+    const type  = el.dataset.portType;
+    const idx   = parseInt(el.dataset.portIdx);
+    const portDef = type === 'in' ? ports.inputs[idx] : ports.outputs[idx];
+    const color = portDef?.color || fam.color;
+    setupPortDrag(el, node.id, type, idx, color);
+  });
 }
+
+// ── renderNode — utilise WfdComponents + _attachNodeListeners ────────────────
+function renderNode(layer, node) {
+  const fam        = FAMILIES[node.family] || FAMILIES.action;
+  const isSelected = node.id === selectedNodeId;
+  const isReadOnly = document.getElementById('wfd-canvas-wrap')?.dataset?.readonly === '1';
+  const detail     = getNodeDetail(node);
+  const ports      = node.ports || buildPortsDef(node.family, node.config || {});
+
+  // Générer le HTML via WfdComponents
+  const html = WfdComponents.node(node, fam, isSelected, isReadOnly, detail, ports);
+
+  // Créer le div et injecter le HTML
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  const div = wrapper.firstElementChild;
+
+  // Attacher les event listeners
+  _attachNodeListeners(div, node);
+
+  layer.appendChild(div);
+}
+
 
 function getNodeDetail(node) {
   const c = node.config || {};
