@@ -5316,7 +5316,12 @@ function sauvegarderConfig() {
       return btn && btn.dataset.active === '1';
     }) || node.config.fetchSubType || 'asset';
     // Source
-    node.config.fetchSource    = g('fetch-source-asset') || g('fetch-source-col') || 'triggered';
+    // Lire la source selon le sous-type actif (évite de lire un select caché)
+    if (node.config.fetchSubType === 'collection') {
+      node.config.fetchSource = g('fetch-source-col') || 'triggered';
+    } else {
+      node.config.fetchSource = g('fetch-source-asset') || 'triggered';
+    }
     node.config.fetchValue     = g('fetch-value') || g('fetch-col-value') || '';
     const withMetaEl = document.getElementById('cfg-with-meta');
     node.config.withMetadata   = withMetaEl ? withMetaEl.checked : false;
@@ -8823,7 +8828,7 @@ function wfdFetchSubTypeEx(pfx, subType) {
     var btn   = document.getElementById(pfx + '-subtype-' + st);
     var panel = document.getElementById(pfx + '-fetch-' + st);
     var a = st === subType;
-    if (btn)   { btn.classList.toggle('active-blue', a); btn.classList.toggle('inactive-btn', !a); }
+    if (btn)   { btn.classList.toggle('active-blue', a); btn.classList.toggle('inactive-btn', !a); btn.dataset.active = a ? '1' : ''; }
     if (panel) panel.style.display = a ? '' : 'none';
   });
 }
