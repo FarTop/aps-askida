@@ -5185,9 +5185,9 @@ function sauvegarderConfig() {
   // ── Export Word — saut de page avant ce nœud (commun à tous) ─
   const _pbEl = document.getElementById('cfg-page-break-before');
   if (_pbEl !== null) node.config.pageBreakBefore = _pbEl.checked;
-  // ── En cas d'erreur (commun à tous les nœuds qui l'affichent) ──
   const _oeEl = document.getElementById('cfg-onerror-val');
   if (_oeEl !== null) node.config.onError = _oeEl.value || 'stop';
+  // ── En cas d'erreur (commun à tous les nœuds qui l'affichent) ──
 
   // Lire les champs cfg-
   const g = id => document.getElementById('cfg-'+id)?.value || '';
@@ -6473,17 +6473,28 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
          class="wfd-mono-sm">`;
 };
 
-  const fields = (cfg.fields||[]).map((f,i) => `
-  <div class="wfd-grid-3-24">
+  const fields = (cfg.fields||[]).map((f,i) => {
+    const _fop = f.op || 'write';
+    return `
+  <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:5px;align-items:center;margin-bottom:4px;">
     ${fieldKeyCtrl(f,i)}
-    
-      <input class="cfg-input um-field-val" data-idx="${i}"
+    <input class="cfg-input um-field-val" data-idx="${i}"
       list="${pfx}-wfd-var-list"
       value="${escHtml(f.value||'')}" placeholder="Valeur ou {variable}"
       class="wfd-mono-sm">
-    <button class="cfg-btn danger" class="wfd-pad-3-5"
-      onclick="${pfx}RemoveUmField(${i})">×</button>
-  </div>`).join('');
+    <div style="display:flex;gap:2px;">
+      ${[['write','W','Ecrire'],['reset','R','Effacer'],['copy','C','Copier']].map(([v,ic,lb]) =>
+        `<button class="um-field-op-btn ${_fop===v?'active-blue':'inactive-btn'}"
+          data-idx="${i}" data-op="${v}" title="${lb}"
+          onclick="umFieldOpChange(this)"
+          style="padding:2px 6px;font-size:10px;border-radius:3px;border:1px solid;cursor:pointer;">${ic}</button>`
+      ).join('')}
+      <input type="hidden" class="um-field-op" data-idx="${i}" value="${_fop}">
+    </div>
+    <button class="cfg-btn danger" style="padding:3px 6px;"
+      onclick="${pfx}RemoveUmField(${i})">x</button>
+  </div>`;
+  }).join('');
   return `
   ${buildWfdVarDatalist(`${pfx}-wfd-var-list`)}
   <datalist id="${pfx}-um-meta-list">${allMeta.map(m=>`<option value="${m}">`).join('')}</datalist>
@@ -6626,44 +6637,42 @@ function _umAddField(pfx) {
   if (empty) empty.remove();
   const i = wrap.querySelectorAll('.um-field-key').length;
   const div = document.createElement('div');
-  div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 24px;gap:5px;align-items:center;';
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto auto;gap:5px;align-items:center;margin-bottom:4px;';
   div.innerHTML = (() => {
-  const names = (wfdData.metadata || [])
-    .map(m => m.nom || m.name || '')
-    .filter(Boolean)
-    .sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
-
-  const keyCtrl = names.length
-    ? `<select class="cfg-select um-field-key" data-idx="${i}" onchange="umUpdateValueWidget(this)">
-         <option value="">— Champ méta —</option>
-         ${names.map(n => `<option value="${n}">${escHtml(n)}</option>`).join('')}
-       </select>`
-    : `<input class="cfg-input um-field-key" data-idx="${i}"
-         value="" placeholder="Champ" list="${pfx}-um-meta-list"
-         class="wfd-mono-sm">`;
-
-  // Widget valeur — input simple avec list pour suggestions variables
-  const listId = `${pfx}-wfd-var-list`;
-  const valWidget = '<input class="cfg-input um-field-val" data-idx="' + i + '" value="" ' +
-    'placeholder="Valeur ou {variable}" list="' + listId + '" ' +
-    'class="wfd-mono-sm">';
-
-  return `
-    ${keyCtrl}
-    ${valWidget}
-    <button class="cfg-btn danger" class="wfd-pad-3-5"
-      onclick="${pfx}RemoveUmField(${i})">×</button>`;
-})();
-
+    const names = (wfdData.metadata || [])
+      .map(m => m.nom || m.name || '')
+      .filter(Boolean)
+      .sort((a,b) => a.localeCompare(b, 'fr', {sensitivity:'base'}));
+    const keyCtrl = names.length
+      ? `<select class="cfg-select um-field-key" data-idx="${i}" onchange="umUpdateValueWidget(this)">
+           <option value="">— Champ meta —</option>
+           ${names.map(n => `<option value="${n}">${escHtml(n)}</option>`).join('')}
+         </select>`
+      : `<input class="cfg-input um-field-key" data-idx="${i}"
+           value="" placeholder="Champ" list="${pfx}-um-meta-list" class="wfd-mono-sm">`;
+    const listId = pfx + '-wfd-var-list';
+    const valWidget = '<input class="cfg-input um-field-val" data-idx="' + i + '" value="" '
+      + 'placeholder="Valeur ou {variable}" list="' + listId + '" class="wfd-mono-sm">';
+    const opBtns = [['write','W','Ecrire'],['reset','R','Effacer'],['copy','C','Copier']].map(function(arr) {
+      var v=arr[0], ic=arr[1], lb=arr[2];
+      var cls = 'um-field-op-btn ' + (v==='write' ? 'active-blue' : 'inactive-btn');
+      return '<button class="' + cls + '" data-idx="' + i + '" data-op="' + v + '" title="' + lb + '"'
+        + ' style="padding:2px 6px;font-size:10px;border-radius:3px;border:1px solid;cursor:pointer;"'
+        + ' onclick="umFieldOpChange(this)">' + ic + '</button>';
+    }).join('');
+    return `
+      ${keyCtrl}
+      ${valWidget}
+      <div style="display:flex;gap:2px;">${opBtns}<input type="hidden" class="um-field-op" data-idx="${i}" value="write"></div>
+      <button class="cfg-btn danger" style="padding:3px 6px;" onclick="${pfx}RemoveUmField(${i})">x</button>`;
+  })();
   wrap.appendChild(div);
-// ➕ assure le menu des variables sur la nouvelle ligne
-try {
-  const val = div.querySelector('.um-field-val');
-  if (val && !(val.getAttribute('list') || '').endsWith('-wfd-var-list')) {
-    val.setAttribute('list', pfx + '-wfd-var-list');
-  }
-} catch (_) { /* no-op */ }
-
+  try {
+    const val = div.querySelector('.um-field-val');
+    if (val && !(val.getAttribute('list') || '').endsWith('-wfd-var-list')) {
+      val.setAttribute('list', pfx + '-wfd-var-list');
+    }
+  } catch (_) {}
 }
 
 function mnRemoveUmField(i)  { _umRemoveField('mn',  i); }
@@ -6828,7 +6837,9 @@ function _readUpdateMetaConfig(pfx) {
     const i     = el.dataset.idx;
     const valEl = document.querySelector('#' + pfx + '-um-fields .um-field-val[data-idx="' + i + '"]');
     const val   = valEl?.value ?? '';
-    if (el.value) fields.push({ key: el.value, value: val });
+    const opEl  = document.querySelector('#' + pfx + '-um-fields .um-field-op[data-idx="' + i + '"]');
+    const op    = opEl?.value || 'write';
+    if (el.value) fields.push({ key: el.value, value: val, op });
   });
 
   // Construire la sortie en n’ajoutant que les clés définies quand le panneau n’est pas monté
@@ -8893,6 +8904,20 @@ function wfdActionTypeChange(pfx) {
   if (!sel) return;
   if (tgt) tgt.style.display=sel.value==='delete_asset'?'none':'';
   if (src) src.style.display=sel.value==='move_to_collection'?'':'none';
+}
+function umFieldOpChange(btn) {
+  const op  = btn.dataset.op;
+  const row = btn.closest('div');
+  row.querySelectorAll('.um-field-op-btn').forEach(b => {
+    b.classList.toggle('active-blue', b.dataset.op === op);
+    b.classList.toggle('inactive-btn', b.dataset.op !== op);
+  });
+  const hidden = row.querySelector('.um-field-op');
+  if (hidden) hidden.value = op;
+  const container = btn.closest('[style*="grid"]');
+  const valInput = container ? container.querySelector('.um-field-val') : null;
+  if (valInput) valInput.disabled = (op === 'reset');
+  if (typeof sauvegarderConfig === 'function') sauvegarderConfig();
 }
 function wfdMetaOp(pfx, op) {
   ['write','reset','copy'].forEach(v => {
