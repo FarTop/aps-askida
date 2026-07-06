@@ -1263,8 +1263,8 @@ function _triggerEventChange(pfx) {
   const val = document.getElementById(pfx+'-event-type')?.value;
   const ev  = TRIGGER_EVENTS[val];
   const fields = ev?.fields || [];
-  const show = id => { const el=document.getElementById(pfx+'-'+id); if(el) el.style.display=''; };
-  const hide = id => { const el=document.getElementById(pfx+'-'+id); if(el) el.style.display='none'; };
+  const show = id => { const el=document.getElementById(pfx+'-'+id); if(el) el.classList.remove('wfd-hidden'); };
+  const hide = id => { const el=document.getElementById(pfx+'-'+id); if(el) el.classList.add('wfd-hidden'); };
 
   hide('trigger-field-wrap');
   hide('trigger-cond-wrap');
@@ -1288,7 +1288,7 @@ function _triggerEventChange(pfx) {
 function _triggerCondChange(pfx) {
   const cond  = document.getElementById(pfx+'-trigger-condition')?.value;
   const valEl = document.getElementById(pfx+'-trigger-value');
-  if (valEl) valEl.style.display = TRIGGER_CONDITIONS_NO_VALUE.has(cond) ? 'none' : '';
+  if (valEl) valEl.classList.toggle('wfd-hidden', TRIGGER_CONDITIONS_NO_VALUE.has(cond));
 }
 
 function mnListenerConnChange() { _listenerConnChange('mn'); }
@@ -4673,29 +4673,28 @@ function buildCfgFields(pfx, family, cfg) {
         ${eventOpts}
       </select>
     </div>
-    <div id="${pfx}-trigger-field-wrap" class="cfg-field" style="${fields.includes('field')?'':'display:none'}">
+    <div id="${pfx}-trigger-field-wrap" class="cfg-field${fields.includes('field')?'':' wfd-hidden'}">
       <label class="cfg-label">Champ metadata</label>
       <input id="${pfx}-trigger-field" class="cfg-input" list="${pfx}-meta-list"
         value="${cfg.triggerField||''}" placeholder="Filtrer les champs… (ex: pad, titre, statut)" autocomplete="off">
       <div class="wfd-hint-top3">${allMeta.length} champs disponibles</div>
     </div>
-    <div id="${pfx}-trigger-cond-wrap" class="cfg-field" style="${fields.includes('condition')?'':'display:none'}">
+    <div id="${pfx}-trigger-cond-wrap" class="cfg-field${fields.includes('condition')?'':' wfd-hidden'}">
       <label class="cfg-label">Condition</label>
       <div class="wfd-row-gap6b">
         <select id="${pfx}-trigger-condition" class="cfg-select wfd-flex1" onchange="_triggerCondChange('${pfx}')">
           ${Object.entries(TRIGGER_CONDITIONS).map(([k,v])=>
             `<option value="${k}" ${cfg.triggerCondition===k?'selected':''}>${v}</option>`).join('')}
         </select>
-        <input id="${pfx}-trigger-value" class="cfg-input wfd-flex1"
-          value="${cfg.triggerValue||''}" placeholder="Valeur…"
-          ${TRIGGER_CONDITIONS_NO_VALUE.has(cfg.triggerCondition)?'style="display:none"':''}>
+        <input id="${pfx}-trigger-value" class="cfg-input wfd-flex1${TRIGGER_CONDITIONS_NO_VALUE.has(cfg.triggerCondition)?' wfd-hidden':''}"
+          value="${cfg.triggerValue||''}" placeholder="Valeur…">
       </div>
     </div>
-    <div id="${pfx}-trigger-col-wrap" class="cfg-field" style="${fields.includes('collection')?'':'display:none'}">
+    <div id="${pfx}-trigger-col-wrap" class="cfg-field${fields.includes('collection')?'':' wfd-hidden'}">
       <label class="cfg-label">Collection</label>
       ${wfdColTreeHtml(`${pfx}-trig`, JSON.stringify(cfg.collectionIds||(cfg.collectionId?[cfg.collectionId]:[])))};
     </div>
-    <div id="${pfx}-trigger-ca-wrap" class="cfg-field" style="${fields.includes('custom_action_id')?'':'display:none'}">
+    <div id="${pfx}-trigger-ca-wrap" class="cfg-field${fields.includes('custom_action_id')?'':' wfd-hidden'}">
       <label class="cfg-label">Custom Action</label>
       <div class="wfd-row-gap6b">
         <select id="${pfx}-custom-action-id" class="cfg-select wfd-flex1">
@@ -4704,7 +4703,7 @@ function buildCfgFields(pfx, family, cfg) {
         <button class="cfg-btn wfd-pad-6-8" onclick="syncTriggerRefs()" title="Synchroniser depuis Iconik">↺</button>
       </div>
     </div>
-    <div id="${pfx}-trigger-wh-wrap" class="cfg-field" style="${fields.includes('webhook_id')?'':'display:none'}">
+    <div id="${pfx}-trigger-wh-wrap" class="cfg-field${fields.includes('webhook_id')?'':' wfd-hidden'}">
       <label class="cfg-label">Webhook Iconik</label>
       <div class="wfd-row-gap6b">
         <select id="${pfx}-webhook-id" class="cfg-select wfd-flex1">
@@ -4713,22 +4712,22 @@ function buildCfgFields(pfx, family, cfg) {
         <button class="cfg-btn wfd-pad-6-8" onclick="syncTriggerRefs()" title="Synchroniser depuis Iconik">↺</button>
       </div>
     </div>
-    <div id="${pfx}-trigger-status-wrap" class="cfg-field" style="${fields.includes('status_value')?'':'display:none'}">
+    <div id="${pfx}-trigger-status-wrap" class="cfg-field${fields.includes('status_value')?'':' wfd-hidden'}">
       <label class="cfg-label">Nouveau statut</label>
       <input id="${pfx}-trigger-status" class="cfg-input" value="${cfg.statusValue||''}" placeholder="ex: APPROVED, REJECTED…">
     </div>
-    <div id="${pfx}-trigger-job-wrap" class="cfg-field" style="${fields.includes('job_type')?'':'display:none'}">
+    <div id="${pfx}-trigger-job-wrap" class="cfg-field${fields.includes('job_type')?'':' wfd-hidden'}">
       <label class="cfg-label">Type de job</label>
       <input id="${pfx}-trigger-job" class="cfg-input" value="${cfg.jobType||''}" placeholder="ex: TRANSCODING, KEYFRAME…">
     </div>
-    <div id="${pfx}-trigger-mdview-wrap" class="cfg-field" style="${fields.includes('mdview')?'':'display:none'}">
+    <div id="${pfx}-trigger-mdview-wrap" class="cfg-field${fields.includes('mdview')?'':' wfd-hidden'}">
       <label class="cfg-label">${cfg.eventType==='saved_search'?'Vue métadonnées des résultats':'Vue metadata (contexte complet)'}</label>
       <select id="${pfx}-trigger-mdview" class="cfg-select">
         <option value="">— Aucune —</option>
         ${(wfdData.mdViews||[]).map(v=>`<option value="${v.id||v.name}" ${cfg.mdViewId===(v.id||v.name)?'selected':''}>${v.name||v.id}</option>`).join('')}
       </select>
     </div>
-    <div id="${pfx}-trigger-ss-wrap" class="cfg-field" style="${fields.includes('saved_search_id')?'':'display:none'}">
+    <div id="${pfx}-trigger-ss-wrap" class="cfg-field${fields.includes('saved_search_id')?'':' wfd-hidden'}">
       <label class="cfg-label">Saved Search</label>
       ${(wfdData.savedSearches||[]).length ? `
       <div class="wfd-row-gap6b">
@@ -4744,10 +4743,10 @@ function buildCfgFields(pfx, family, cfg) {
         <button class="cfg-btn wfd-pad-6-8" onclick="syncTriggerRefs()">↺</button>
       </div>`}
     </div>
-    <div id="${pfx}-trigger-poll-wrap" style="${fields.includes('poll_interval')?'':'display:none'}">
+    <div id="${pfx}-trigger-poll-wrap" class="${fields.includes('poll_interval')?'':'wfd-hidden'}">
       <div class="cfg-field">
         <label class="cfg-label">Intervalle de polling</label>
-        <div style="display:grid;grid-template-columns:1fr 120px;gap:6px;">
+        <div class="wfd-trig-poll-grid">
           <input id="${pfx}-poll-interval" class="cfg-input" type="number" min="1"
             value="${cfg.pollInterval||'15'}" placeholder="15">
           <select id="${pfx}-poll-unit" class="cfg-select">
@@ -4774,38 +4773,34 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
 
     <!-- ── ENDPOINT WFD ── -->
-    <div class="cfg-field" style="margin-top:8px;padding:10px 12px;
-      background:#0a1a0a;border:1px solid #1a3a1a;border-radius:6px;">
+    <div class="cfg-field wfd-trig-endpoint-card">
       <label class="cfg-label wfd-c-green2">🔗 ENDPOINT WFD</label>
-      <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-        <span style="font-size:11px;color:#555;font-family:var(--font-mono);white-space:nowrap;">/wfd/action/</span>
-        <input id="${pfx}-wfd-slug" class="cfg-input"
-          style="font-family:var(--font-mono);font-size:13px;font-weight:600;
-            color:#2ecc71;background:#0a140a;border-color:#2d5a2d;"
+      <div class="wfd-trig-endpoint-row">
+        <span class="wfd-trig-endpoint-prefix">/wfd/action/</span>
+        <input id="${pfx}-wfd-slug" class="cfg-input wfd-ss-var-input"
           value="${escHtml(cfg.wfdSlug||'')}"
           placeholder="mon-workflow"
           oninput="wfdSlugUpdate('${pfx}')">
       </div>
       <div class="wfd-hint-mt6">
         URL complète :
-        <span id="${pfx}-wfd-slug-preview" style="color:#27ae60;font-family:var(--font-mono);">
+        <span id="${pfx}-wfd-slug-preview" class="wfd-trig-slug-preview">
           ${cfg.wfdSlug ? '/wfd/action/'+escHtml(cfg.wfdSlug) : '—'}
         </span>
       </div>
-      <div style="margin-top:4px;font-size:10px;color:#444;">
+      <div class="wfd-trig-copy-hint">
         À copier dans Iconik → Admin → Custom Actions ou Webhooks
       </div>
     </div>
 
     <!-- ── SIMULATION PAYLOAD ── -->
-    <div style="margin-top:12px;border-top:1px solid #1e1e1e;padding-top:12px;">
+    <div class="wfd-listener-test-wrap">
       <div class="wfd-row-sb-mb8b">
         <span class="cfg-label wfd-m0">🧪 TESTER CE DÉCLENCHEUR</span>
         <button onclick="wfdTriggerSimToggle('${pfx}')" id="${pfx}-sim-toggle"
-          style="font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid #2a2a2a;
-            background:transparent;color:#8e44ad;cursor:pointer;">Afficher</button>
+          class="wfd-trig-sim-toggle-btn">Afficher</button>
       </div>
-      <div id="${pfx}-sim-wrap" style="display:none;">
+      <div id="${pfx}-sim-wrap" class="wfd-hidden">
         <div class="cfg-hint wfd-mb8">
           Simule un appel webhook entrant avec le payload ci-dessous.
           Le workflow s'exécute exactement comme en production, sans envoyer quoi que ce soit à Iconik.
@@ -4827,25 +4822,20 @@ function buildCfgFields(pfx, family, cfg) {
               <option value="manual_empty">🧪 Contexte vide (timer/manuel)</option>
             </select>
             <button onclick="wfdTriggerSimLoadTemplate('${pfx}')"
-              style="font-size:10px;padding:4px 8px;border-radius:3px;border:1px solid #2a2a2a;
-                background:transparent;color:#555;cursor:pointer;" title="Recharger">↺</button>
+              class="wfd-trig-sim-reload-btn" title="Recharger">↺</button>
           </div>
         </div>
         <div class="cfg-field">
           <label class="cfg-label">Payload JSON</label>
           <textarea id="${pfx}-sim-payload" class="cfg-textarea wfd-mono-sm2" rows="12" placeholder="{}"></textarea>
-          <div id="${pfx}-sim-error" style="font-size:10px;color:#e74c3c;margin-top:3px;display:none;"></div>
+          <div id="${pfx}-sim-error" class="wfd-trig-sim-error wfd-hidden"></div>
         </div>
         <button onclick="wfdTriggerSimRun('${pfx}')"
-          style="width:100%;padding:10px;border-radius:5px;border:1px solid #8e44ad;
-            background:rgba(142,68,173,0.15);color:#c39bd3;font-size:12px;font-weight:600;
-            cursor:pointer;">▶ Exécuter ce flux avec ce payload</button>
-        <div id="${pfx}-sim-result" style="display:none;margin-top:10px;padding:10px;
-          background:#0a0a0a;border:1px solid #2a2a2a;border-radius:5px;">
+          class="wfd-trig-sim-run-btn">▶ Exécuter ce flux avec ce payload</button>
+        <div id="${pfx}-sim-result" class="wfd-trig-sim-result-box wfd-hidden">
           <div class="wfd-hint-mb6">RÉSULTAT D'EXÉCUTION</div>
-          <div id="${pfx}-sim-result-status" style="font-size:12px;font-weight:600;margin-bottom:6px;"></div>
-          <div id="${pfx}-sim-result-body" style="font-family:var(--font-mono);font-size:10px;
-            color:#888;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;"></div>
+          <div id="${pfx}-sim-result-status" class="wfd-trig-sim-result-status"></div>
+          <div id="${pfx}-sim-result-body" class="wfd-trig-sim-result-body"></div>
         </div>
       </div>
     </div>
@@ -8693,8 +8683,8 @@ function wfdTriggerSimToggle(pfx) {
   const wrap = document.getElementById(pfx + '-sim-wrap');
   const btn  = document.getElementById(pfx + '-sim-toggle');
   if (!wrap) return;
-  const open = wrap.style.display === 'none';
-  wrap.style.display = open ? '' : 'none';
+  const open = wrap.classList.contains('wfd-hidden');
+  wrap.classList.toggle('wfd-hidden', !open);
   if (btn) btn.textContent = open ? 'Masquer' : 'Afficher';
   if (open && !document.getElementById(pfx + '-sim-payload')?.value) wfdTriggerSimLoadTemplate(pfx);
 }
