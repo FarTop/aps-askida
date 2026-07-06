@@ -726,33 +726,27 @@ function buildRecipientRow(i, r) {
   const listesOpts = wfdContacts.length
     ? `<div class="cfg-field">
         <label class="cfg-label wfd-fs9">CHARGER UNE LISTE DE CONTACTS</label>
-        <select onchange="chargerListeNotif(this.value,${i})"
-          style="padding:6px 10px;background:#0d0d0d;color:#888;border:1px solid var(--wfd-border2);
-            border-radius:5px;font-size:12px;cursor:pointer;width:100%;font-family:var(--font-ui);">
+        <select onchange="chargerListeNotif(this.value,${i})" class="wfd-select-contacts">
           <option value="">\uD83D\uDC65 S\u00E9lectionner une liste...</option>
           ${wfdContacts.map(l=>`<option value="${l.id}">${l.name} — ${l.contacts.length} contact(s)</option>`).join('')}
         </select>
       </div>` : '';
 
   return `
-  <div id="recip-row-${i}"
-    style="background:#0d0d0d;border:1px solid #2a2a2a;border-radius:8px;
-      padding:12px 14px;display:flex;flex-direction:column;gap:10px;margin-bottom:8px;">
+  <div id="recip-row-${i}" class="wfd-recip-card">
 
     <!-- En-t\u00EAte : canal + supprimer -->
-    <div style="display:flex;align-items:center;gap:10px;">
-      <span style="font-size:16px;">${fam.icon}</span>
+    <div class="wfd-row-gap10">
+      <span class="wfd-recip-icon">${fam.icon}</span>
       <div class="wfd-flex1">
-        <div class="cfg-label" style="font-size:9px;margin-bottom:4px;">CANAL</div>
+        <div class="cfg-label wfd-fs9 wfd-mb4">CANAL</div>
         <select class="cfg-select notif-channel-sel" data-idx="${i}"
           onchange="changerCanalNotif(${i}, this.value)">
           ${channelOpts}
         </select>
       </div>
       <button onclick="supprimerDestinataire(${i})"
-        style="background:none;border:1px solid #2a2a2a;color:#444;border-radius:5px;
-          padding:5px 9px;cursor:pointer;font-size:14px;transition:all 0.15s;flex-shrink:0;"
-        class="wfd-del-hover">\uD83D\uDDD1</button>
+        class="wfd-del-hover wfd-recip-del-btn">\uD83D\uDDD1</button>
     </div>
 
     <!-- Champs sp\u00E9cifiques au canal -->
@@ -766,13 +760,11 @@ function buildRecipientRow(i, r) {
     <!-- Message -->
     <div class="cfg-field">
       <label class="cfg-label wfd-fs9">MESSAGE / CORPS</label>
-      <textarea class="cfg-textarea notif-field" data-key="message"
-        placeholder="Corps du message. Variables : {asset.title}, {workflow}, {date}..."
-        style="min-height:70px;">${cfg.message||''}</textarea>
+      <textarea class="cfg-textarea notif-field wfd-textarea-70" data-key="message"
+        placeholder="Corps du message. Variables : {asset.title}, {workflow}, {date}...">${cfg.message||''}</textarea>
     </div>
 
-    ${recipSummary ? `<div style="font-size:10px;color:#00d4aa;font-family:var(--font-mono);
-      padding:4px 8px;background:rgba(0,212,170,0.06);border-radius:4px;">
+    ${recipSummary ? `<div class="wfd-recip-summary">
       ✓ ${recipSummary}</div>` : ''}
   </div>`;
 }
@@ -884,7 +876,7 @@ function changerCanalNotif(i, channel) {
   if (!row) return;
 
   // Mettre à jour l'icône dans l'en-tête
-  const iconEl = row.querySelector('span[style*="font-size:16px"]');
+  const iconEl = row.querySelector('span.wfd-recip-icon');
   if (iconEl) iconEl.textContent = NOTIF_CHANNELS[channel]?.icon || '\uD83D\uDD14';
 
   // Reconstruire uniquement la zone des champs — pas toute la carte

@@ -1858,6 +1858,15 @@ nav { display: flex; gap: 2px; }
 .wfd-hint-notif-color   { font-size: 9px; color: #555; margin-top: 3px; }
 .wfd-notif-textarea-mono { min-height: 70px; font-family: var(--font-mono); font-size: 11px; }
 
+/* ── Classes utilitaires wfd-config-panel — lot 6 (recipient row) ───────── */
+.wfd-select-contacts { padding: 6px 10px; background: #0d0d0d; color: #888; border: 1px solid var(--wfd-border2); border-radius: 5px; font-size: 12px; cursor: pointer; width: 100%; font-family: var(--font-ui); }
+.wfd-recip-card      { background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.wfd-recip-icon      { font-size: 16px; }
+.wfd-mb4             { margin-bottom: 4px; }
+.wfd-recip-del-btn   { background: none; border: 1px solid #2a2a2a; color: #444; border-radius: 5px; padding: 5px 9px; cursor: pointer; font-size: 14px; transition: all 0.15s; flex-shrink: 0; }
+.wfd-textarea-70     { min-height: 70px; }
+.wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
+
 /* ── Classes utilitaires wfd-run-panel et wfd-api-ops ──────────────────── */
 .wfd-c-aaa        { color: #aaa; }
 .wfd-label-9-555b { color: #555; font-size: 9px; }
