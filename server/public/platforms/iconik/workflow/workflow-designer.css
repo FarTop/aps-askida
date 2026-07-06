@@ -2054,6 +2054,14 @@ nav { display: flex; gap: 2px; }
 .wfd-notif-auto-label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .wfd-notif-auto-title { font-size: 12px; color: #5dbb6b; font-weight: 600; }
 .wfd-notif-auto-desc  { font-size: 10px; color: #4a7a4a; margin-top: 2px; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 39 (workflow_history) ───── */
+.wfd-wh-checks-col   { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.wfd-wh-runid-hint   { font-size: 9px; color: #555; }
+.wfd-wh-wfname-input { font-size: 10px; margin-left: 4px; flex: 1; }
+.wfd-wh-statut-col   { display: flex; gap: 6px; align-items: flex-start; flex-direction: column; }
+.wfd-wh-preview-hdr  { font-size: 9px; color: #444; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .05em; }
+.wfd-wh-preview-text { font-family: var(--font-mono); font-size: 10px; color: #888; word-break: break-all; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

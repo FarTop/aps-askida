@@ -3569,24 +3569,23 @@ function buildCfgFields(pfx, family, cfg) {
   <!-- Champs à inclure -->
   <div class="cfg-field">
     <label class="cfg-label">Champs à inclure</label>
-    <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
+    <div class="wfd-wh-checks-col">
       <label class="wfd-row-click2">
         <input type="checkbox" id="${pfx}-wh-show-date"   ${cfg.whShowDate  !==false?'checked':''} onchange="whUpdatePreview('${pfx}')">
         📅 Date &amp; heure
       </label>
       <label class="wfd-row-click2">
         <input type="checkbox" id="${pfx}-wh-show-runid"  ${cfg.whShowRunId ===true ?'checked':''} onchange="whUpdatePreview('${pfx}')">
-        <span style="font-size:9px;color:#555;">(requis pour le mode Mettre à jour)</span>
+        <span class="wfd-wh-runid-hint">(requis pour le mode Mettre à jour)</span>
         🔑 Inclure le Run ID
       </label>
       <label class="wfd-row-click2">
         <input type="checkbox" id="${pfx}-wh-show-wf" ${cfg.whShowWf!==false?'checked':''} onchange="whUpdatePreview('${pfx}')">
         ⚡ Nom du workflow
-        <input id="${pfx}-wh-wf-name" class="cfg-input"
+        <input id="${pfx}-wh-wf-name" class="cfg-input wfd-wh-wfname-input"
           value="${escHtml(cfg.whWfName||'')}"
           placeholder="Nom affiché (vide = nom technique)"
-          oninput="whUpdatePreview('${pfx}')"
-          style="font-size:10px;margin-left:4px;flex:1;">
+          oninput="whUpdatePreview('${pfx}')">
       </label>
       <label class="wfd-row-click2">
         <input type="checkbox" id="${pfx}-wh-show-user"   ${cfg.whShowUser  !==false?'checked':''} onchange="whUpdatePreview('${pfx}')">
@@ -3598,7 +3597,7 @@ function buildCfgFields(pfx, family, cfg) {
   <!-- Statut -->
   <div class="cfg-field">
     <label class="cfg-label">Statut</label>
-    <div style="display:flex;gap:6px;align-items:flex-start;flex-direction:column;">
+    <div class="wfd-wh-statut-col">
       <select id="${pfx}-wh-statut-preset" class="cfg-select wfd-w100pct"
         onchange="whStatutPresetChange('${pfx}')">
         <option value="🔄 En cours"    ${_whStatut==='🔄 En cours'   ?'selected':''}>🔄 En cours</option>
@@ -3608,11 +3607,10 @@ function buildCfgFields(pfx, family, cfg) {
         <option value="__custom__"     ${!['🔄 En cours','✅ Succès','⚠️ Incomplet','❌ Échec',''].includes(_whStatut)?'selected':''}>✏️ Personnalisé...</option>
         <option value=""               ${_whStatut===''              ?'selected':''}>— Aucun —</option>
       </select>
-      <input id="${pfx}-wh-statut" class="cfg-input" list="${pfx}-wfd-var-list"
+      <input id="${pfx}-wh-statut" class="cfg-input${!['🔄 En cours','✅ Succès','⚠️ Incomplet','❌ Échec',''].includes(_whStatut)?'':' wfd-hidden'}" list="${pfx}-wfd-var-list"
         value="${escHtml(!['🔄 En cours','✅ Succès','⚠️ Incomplet','❌ Échec',''].includes(_whStatut)?_whStatut:'')}"
         placeholder="{variable} ou texte libre"
-        oninput="whUpdatePreview('${pfx}')"
-        style="display:${!['🔄 En cours','✅ Succès','⚠️ Incomplet','❌ Échec',''].includes(_whStatut)?'block':'none'};">
+        oninput="whUpdatePreview('${pfx}')">
     </div>
   </div>
 
@@ -3637,8 +3635,8 @@ function buildCfgFields(pfx, family, cfg) {
 
   <!-- Aperçu -->
   <div class="wfd-code-block-mt">
-    <div style="font-size:9px;color:#444;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Aperçu de la ligne</div>
-    <div id="${pfx}-wh-preview" style="font-family:var(--font-mono);font-size:10px;color:#888;word-break:break-all;">
+    <div class="wfd-wh-preview-hdr">Aperçu de la ligne</div>
+    <div id="${pfx}-wh-preview" class="wfd-wh-preview-text">
       ${new Date().toISOString().slice(0,10)}_${new Date().toTimeString().slice(0,5)} | ${(typeof getFluxCourant==='function'?getFluxCourant()?.name:'workflow')||'workflow'} | ${_whStatut||'statut'} | ${_whMessage||'message'}
     </div>
   </div>`;
@@ -6453,10 +6451,10 @@ function whStatutPresetChange(pfx) {
   const customInput = document.getElementById(pfx + '-wh-statut');
   if (!customInput) return;
   if (preset === '__custom__') {
-    customInput.style.display = 'block';
+    customInput.classList.remove('wfd-hidden');
     customInput.focus();
   } else {
-    customInput.style.display = 'none';
+    customInput.classList.add('wfd-hidden');
     customInput.value = '';
   }
   whUpdatePreview(pfx);
