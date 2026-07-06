@@ -3659,9 +3659,8 @@ function buildCfgFields(pfx, family, cfg) {
       `<option value="${ac.id}" ${a.actionId===ac.id?'selected':''}>${escHtml(ac.name)}</option>`
     ).join('');
     return `
-    <div class="ig-api-row" data-i="${i}"
-      style="background:#0d0d0d;border:1px solid #2a2a2a;border-radius:5px;padding:8px;margin-bottom:6px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 28px;gap:5px;align-items:center;">
+    <div class="ig-api-row wfd-ig-row-card" data-i="${i}">
+      <div class="wfd-ig-row-grid">
         <select class="cfg-select ig-conn" data-i="${i}" onchange="igConnChange(${i},'${pfx}')">
           <option value="">— Connexion —</option>${_igConnOpts.replace(
             `value="${a.connexionId}"`, `value="${a.connexionId}" selected`)}
@@ -3696,7 +3695,7 @@ function buildCfgFields(pfx, family, cfg) {
   </div>
 
   <!-- Longueur (masqué pour UUID et timestamp) -->
-  <div class="cfg-field" id="${pfx}-ig-length-wrap" style="${['uuid','timestamp'].includes(_igType)?'display:none':''}">
+  <div id="${pfx}-ig-length-wrap" class="cfg-field${['uuid','timestamp'].includes(_igType)?' wfd-hidden':''}">
     <label class="cfg-label">Longueur</label>
     <input id="${pfx}-ig-length" class="cfg-input wfd-w80" type="number" min="1" max="64"
       value="${_igLength}">
@@ -3704,7 +3703,7 @@ function buildCfgFields(pfx, family, cfg) {
   </div>
 
   <!-- Préfixe (visible uniquement si type "prefixed") -->
-  <div class="cfg-field" id="${pfx}-ig-prefix-wrap" style="${_igType!=='prefixed'?'display:none':''}">
+  <div id="${pfx}-ig-prefix-wrap" class="cfg-field${_igType!=='prefixed'?' wfd-hidden':''}">
     <label class="cfg-label">Préfixe</label>
     <input id="${pfx}-ig-prefix" class="cfg-input wfd-mono"
       value="${escHtml(_igPrefix)}" placeholder="ex: PRIME- ou VOD-">
@@ -3733,11 +3732,11 @@ function buildCfgFields(pfx, family, cfg) {
   </div>
 
   <!-- Écriture API -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;margin-top:8px;">
+  <div class="wfd-ig-api-hdr">
     <span class="cfg-label">Écriture vers API <span class="wfd-label-9-555">(optionnel)</span></span>
     <button class="cfg-btn wfd-pad-3-10b" onclick="igAddAction('${pfx}')">+ Ajouter</button>
   </div>
-  <div style="font-size:10px;color:#555;margin-bottom:8px;">
+  <div class="wfd-ig-api-hint">
     Pour chaque action : l'ID généré sera injecté dans le champ spécifié du body
   </div>
   <div id="${pfx}-ig-actions">${_igActionRows || '<div style=\"color:#444;font-size:11px;padding:4px 0;\">— Aucune action API configurée</div>'}</div>
@@ -7989,8 +7988,8 @@ function igTypeChange(pfx) {
   const type = document.getElementById(pfx+'-ig-type')?.value || 'numeric';
   const lengthWrap = document.getElementById(pfx+'-ig-length-wrap');
   const prefixWrap = document.getElementById(pfx+'-ig-prefix-wrap');
-  if (lengthWrap) lengthWrap.style.display = ['uuid','timestamp'].includes(type) ? 'none' : '';
-  if (prefixWrap) prefixWrap.style.display = type === 'prefixed' ? '' : 'none';
+  if (lengthWrap) lengthWrap.classList.toggle('wfd-hidden', ['uuid','timestamp'].includes(type));
+  if (prefixWrap) prefixWrap.classList.toggle('wfd-hidden', type !== 'prefixed');
 }
 
 function igAddAction(pfx) {

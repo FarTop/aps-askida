@@ -2068,6 +2068,10 @@ nav { display: flex; gap: 2px; }
 .wfd-w90-shrink   { width: 90px; flex-shrink: 0; }
 .wfd-hint-sec-mb12 { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 12px; }
 .wfd-hint-sec-10-mb6 { font-size: 10px; color: var(--color-text-secondary); margin-bottom: 6px; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 41 (id_generator) ───────── */
+.wfd-ig-api-hdr  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; margin-top: 8px; }
+.wfd-ig-api-hint { font-size: 10px; color: #555; margin-bottom: 8px; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */
