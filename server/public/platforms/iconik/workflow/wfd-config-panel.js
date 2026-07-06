@@ -580,9 +580,8 @@ function buildApproverRow(i, a) {
   const listesOpts = wfdContacts.length
     ? wfdContacts.map(l=>`<option value="list:${l.id}" ${a.ref==='list:'+l.id?'selected':''}>${l.name} (${l.contacts.length})</option>`).join('')
     : '';
-  return `<div id="appr-row-${i}" style="display:flex;align-items:center;gap:8px;
-      padding:8px 10px;background:#111;border:1px solid #2a2a2a;border-radius:6px;margin-bottom:4px;">
-    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+  return `<div id="appr-row-${i}" class="wfd-approver-card">
+    <div class="wfd-flex1 wfd-grid-2-gap6b">
       <div class="cfg-field wfd-m0">
         <label class="cfg-label wfd-fs9">TYPE</label>
         <select class="cfg-select appr-type" data-idx="${i}" onchange="changerTypeApprobateur(${i},this.value)">
@@ -629,112 +628,40 @@ function lireApprobateurs(prefix) {
   })).filter(a => a.ref);
 }
 
-function changerCanalNotif(i, channel) {
-  const row = (lbl, key, ph, type='text') => `
-    <div class="cfg-field">
-      <label class="cfg-label wfd-fs9">${lbl}</label>
-      <input id="notif-${i}-${key}" type="${type}" class="cfg-input notif-field" data-key="${key}"
-        value="${(cfg[key]||'').replace(/"/g,'&quot;')}" placeholder="${ph}">
-    </div>`;
-  const pw = (lbl, key, ph) => row(lbl, key, ph, 'password');
 
-  if (ch === 'email') return `
-    <div style="display:grid;grid-template-columns:1fr 70px;gap:8px;">
-      ${row('Serveur SMTP','smtp_host','smtp.example.com')}
-      ${row('Port','smtp_port','587')}
-    </div>
-    <div class="wfd-grid-2-gap8">
-      ${row('Utilisateur SMTP','smtp_user','user@example.com')}
-      ${pw('Mot de passe SMTP','smtp_pass','••••••••')}
-    </div>
-    ${row('Destinataires (To:)','to','alice@example.com, bob@example.com')}
-    ${row('Sujet','subject','[Iconik] Notification workflow')}`;
-
-  if (ch === 'teams') return `
-    ${row('Webhook URL Teams','webhook_url','https://outlook.office.com/webhook/...')}
-    ${row('Titre de la carte (optionnel)','teams_title','Notification Iconik')}
-    <div class="cfg-field">
-      <label class="cfg-label">COULEUR DE LA CARTE</label>
+function buildNotifColorPicker(chanIdx, cfg, label, withHint) {
+  return `<div class="cfg-field">
+      <label class="cfg-label wfd-fs9">${label}</label>
       <div class="wfd-row-gap8b">
-        <select id="notif-color-mode-${i}" class="cfg-select wfd-w140-fs11"
-          onchange="toggleNotifColorVar(${i})">
+        <select id="notif-color-mode-${chanIdx}" class="cfg-select wfd-w140-fs11"
+          onchange="toggleNotifColorVar(${chanIdx})">
           <option value="fixed" ${(cfg.color_mode||'fixed')==='fixed'?'selected':''}>🎨 Fixe</option>
           <option value="var"   ${(cfg.color_mode||'fixed')==='var'  ?'selected':''}>📌 Variable</option>
         </select>
-        <div id="notif-color-fixed-${i}" style="display:${(cfg.color_mode||'fixed')==='fixed'?'flex':'none'};gap:6px;">
+        <div id="notif-color-fixed-${chanIdx}" class="wfd-notif-color-fixed${(cfg.color_mode||'fixed')==='fixed'?'':' wfd-hidden'}">
           ${['#27ae60','#f39c12','#e74c3c','#3498db','#9b59b6','#1abc9c'].map(col=>
-            `<div onclick="setNotifColor(${i},'${col}')" data-color="${col}"
-              style="width:20px;height:20px;border-radius:4px;background:${col};cursor:pointer;
-              border:2px solid ${(cfg.color||'#27ae60')===col?'#fff':'transparent'};transition:border .15s;"></div>`
+            `<div class="wfd-notif-color-swatch${(cfg.color||'#27ae60')===col?' selected':''}"
+              onclick="setNotifColor(${chanIdx},'${col}')" data-color="${col}"
+              style="--swatch-color:${col};"></div>`
           ).join('')}
         </div>
-        <div id="notif-color-var-${i}" style="display:${(cfg.color_mode||'fixed')==='var'?'flex':'none'};flex:1;">
-          <input class="cfg-input" id="notif-color-var-input-${i}"
-            placeholder="{wf_status}  →  success|partial|failed"
-            value="${escHtml(cfg.color_var||'{wf_status}')}"
-            style="font-family:var(--font-mono);font-size:11px;width:100%;">
+        <div id="notif-color-var-${chanIdx}" class="wfd-notif-color-var${(cfg.color_mode||'fixed')==='var'?'':' wfd-hidden'}">
+          <input class="cfg-input wfd-w100pct" id="notif-color-var-input-${chanIdx}"
+            placeholder="{wf_status} → success|partial|failed"
+            value="${escHtml(cfg.color_var||'{wf_status}')}">
         </div>
-      </div>
-      <div style="font-size:9px;color:#555;margin-top:4px;">
-        Variable : <code>success</code>=🟢 · <code>partial</code>=🟡 · <code>failed</code>=🔴
-      </div>
-    </div>
-    <div class="cfg-field">
-      <label class="cfg-label">MESSAGE</label>
-      <textarea id="notif-teams-message-${i}" class="cfg-textarea wfd-textarea-mono"
-        placeholder="{asset.title}, {wf_errors}, {wf_fatal}, {wf_status}...">${escHtml(cfg.message||'')}</textarea>
+      </div>${withHint ? `
+      <div class="wfd-hint-notif-color">success=🟢 · partial=🟡 · failed=🔴</div>` : ''}
     </div>`;
-
-  if (ch === 'slack') return `
-    ${row('Webhook URL Slack','webhook_url','https://hooks.slack.com/services/...')}
-    ${row('Canal (optionnel, override)','channel','#general')}
-    ${row('Nom affiché (optionnel)','username','Iconik Bot')}
-    <div class="cfg-field">
-      <label class="cfg-label">COULEUR DE LA BARRE</label>
-      <div class="wfd-row-gap8b">
-        <select id="notif-color-mode-${i}" class="cfg-select wfd-w140-fs11"
-          onchange="toggleNotifColorVar(${i})">
-          <option value="fixed" ${(cfg.color_mode||'fixed')==='fixed'?'selected':''}>🎨 Fixe</option>
-          <option value="var"   ${(cfg.color_mode||'fixed')==='var'  ?'selected':''}>📌 Variable</option>
-        </select>
-        <div id="notif-color-fixed-${i}" style="display:${(cfg.color_mode||'fixed')==='fixed'?'flex':'none'};gap:6px;">
-          ${['#27ae60','#f39c12','#e74c3c','#3498db','#9b59b6','#1abc9c'].map(col=>
-            `<div onclick="setNotifColor(${i},'${col}')" data-color="${col}"
-              style="width:20px;height:20px;border-radius:4px;background:${col};cursor:pointer;
-              border:2px solid ${(cfg.color||'#27ae60')===col?'#fff':'transparent'};transition:border .15s;"></div>`
-          ).join('')}
-        </div>
-        <div id="notif-color-var-${i}" style="display:${(cfg.color_mode||'fixed')==='var'?'flex':'none'};flex:1;">
-          <input class="cfg-input" id="notif-color-var-input-${i}"
-            placeholder="{wf_status}  →  success|partial|failed"
-            value="${escHtml(cfg.color_var||'{wf_status}')}"
-            style="font-family:var(--font-mono);font-size:11px;width:100%;">
-        </div>
-      </div>
-    </div>
-    <div class="cfg-field">
-      <label class="cfg-label">MESSAGE</label>
-      <textarea id="notif-slack-message-${i}" class="cfg-textarea wfd-textarea-mono"
-        placeholder="{asset.title}, {wf_errors}, {wf_fatal}, {wf_status}...">${escHtml(cfg.message||'')}</textarea>
-    </div>`;
-
-  if (ch === 'webhook_out') return `
-    ${row('URL du webhook','webhook_url','https://api.example.com/notify')}
-    ${row('Header Authorization (optionnel)','auth_header','Bearer xxxxx')}`;
-
-  if (ch === 'sms') return `
-    <div class="wfd-grid-2-gap8">
-      ${row('Twilio Account SID','twilio_sid','ACxxxxxxxxxxxxxxxx')}
-      ${pw('Twilio Auth Token','twilio_token','••••••••')}
-    </div>
-    <div class="wfd-grid-2-gap8">
-      ${row('De (numéro Twilio)','from','+15550001234')}
-      ${row('Vers','to','+33600000000')}
-    </div>`;
-
-  return '';
 }
 
+function buildNotifMessageField(chanIdx, cfg, channel) {
+  return `<div class="cfg-field">
+      <label class="cfg-label wfd-fs9">MESSAGE</label>
+      <textarea id="notif-${channel}-message-${chanIdx}" class="cfg-textarea notif-field wfd-notif-textarea-mono" data-key="message"
+        placeholder="{asset.title}, {wf_errors}, {wf_fatal}, {wf_status}...">${escHtml(cfg.message||'')}</textarea>
+    </div>`;
+}
 
 function buildChannelFields(channel, cfg, chanIdx) {
   chanIdx = chanIdx !== undefined ? chanIdx : 0;
@@ -750,7 +677,7 @@ function buildChannelFields(channel, cfg, chanIdx) {
            + f('EXPÉDITEUR (optionnel)', 'from', 'workflow@maboite.com')
            + f('SUJET', 'subject', 'Asset prêt : {asset.metadata.titre}')
            + `<div class="cfg-field"><label class="cfg-label wfd-fs9">SERVEUR SMTP</label>
-              <div style="display:grid;grid-template-columns:1fr 80px;gap:6px;">
+              <div class="wfd-grid-1fr-80-gap6">
                 ${v('smtp_host','smtp.example.com')}
                 ${v('smtp_port','587')}
               </div></div>`
@@ -760,68 +687,15 @@ function buildChannelFields(channel, cfg, chanIdx) {
     case 'teams':
       return f('WEBHOOK URL Teams', 'webhook_url', 'https://outlook.office.com/webhook/...')
            + f('TITRE DE LA CARTE', 'teams_title', 'Notification Iconik')
-           + `<div class="cfg-field">
-               <label class="cfg-label wfd-fs9">COULEUR DE LA CARTE</label>
-               <div class="wfd-row-gap8b">
-                 <select id="notif-color-mode-${chanIdx}" class="cfg-select wfd-w140-fs11"
-                   onchange="toggleNotifColorVar(${chanIdx})">
-                   <option value="fixed" ${(cfg.color_mode||'fixed')==='fixed'?'selected':''}>🎨 Fixe</option>
-                   <option value="var"   ${(cfg.color_mode||'fixed')==='var'  ?'selected':''}>📌 Variable</option>
-                 </select>
-                 <div id="notif-color-fixed-${chanIdx}" style="display:${(cfg.color_mode||'fixed')==='fixed'?'flex':'none'};gap:6px;">
-                   ${['#27ae60','#f39c12','#e74c3c','#3498db','#9b59b6','#1abc9c'].map(col=>
-                     `<div onclick="setNotifColor(${chanIdx},'${col}')" data-color="${col}"
-                       style="width:20px;height:20px;border-radius:4px;background:${col};cursor:pointer;
-                       border:2px solid ${(cfg.color||'#27ae60')===col?'#fff':'transparent'};"></div>`
-                   ).join('')}
-                 </div>
-                 <div id="notif-color-var-${chanIdx}" style="display:${(cfg.color_mode||'fixed')==='var'?'flex':'none'};flex:1;">
-                   <input class="cfg-input wfd-w100pct" id="notif-color-var-input-${chanIdx}"
-                     placeholder="{wf_status} → success|partial|failed"
-                     value="${escHtml(cfg.color_var||'{wf_status}')}">
-                 </div>
-               </div>
-               <div style="font-size:9px;color:#555;margin-top:3px;">success=🟢 · partial=🟡 · failed=🔴</div>
-             </div>`
-           + `<div class="cfg-field">
-               <label class="cfg-label wfd-fs9">MESSAGE</label>
-               <textarea id="notif-teams-message-${chanIdx}" class="cfg-textarea notif-field" data-key="message"
-                 style="min-height:70px;font-family:var(--font-mono);font-size:11px;"
-                 placeholder="{asset.title}, {wf_errors}, {wf_fatal}, {wf_status}...">${escHtml(cfg.message||'')}</textarea>
-             </div>`;
+           + buildNotifColorPicker(chanIdx, cfg, 'COULEUR DE LA CARTE', true)
+           + buildNotifMessageField(chanIdx, cfg, 'teams');
 
     case 'slack':
       return f('WEBHOOK URL Slack', 'webhook_url', 'https://hooks.slack.com/services/...')
            + f('CANAL (optionnel)', 'channel', '#notifications')
            + f('NOM DU BOT (optionnel)', 'username', 'Workflow Bot')
-           + `<div class="cfg-field">
-               <label class="cfg-label wfd-fs9">COULEUR DE LA BARRE</label>
-               <div class="wfd-row-gap8b">
-                 <select id="notif-color-mode-${chanIdx}" class="cfg-select wfd-w140-fs11"
-                   onchange="toggleNotifColorVar(${chanIdx})">
-                   <option value="fixed" ${(cfg.color_mode||'fixed')==='fixed'?'selected':''}>🎨 Fixe</option>
-                   <option value="var"   ${(cfg.color_mode||'fixed')==='var'  ?'selected':''}>📌 Variable</option>
-                 </select>
-                 <div id="notif-color-fixed-${chanIdx}" style="display:${(cfg.color_mode||'fixed')==='fixed'?'flex':'none'};gap:6px;">
-                   ${['#27ae60','#f39c12','#e74c3c','#3498db','#9b59b6','#1abc9c'].map(col=>
-                     `<div onclick="setNotifColor(${chanIdx},'${col}')" data-color="${col}"
-                       style="width:20px;height:20px;border-radius:4px;background:${col};cursor:pointer;
-                       border:2px solid ${(cfg.color||'#27ae60')===col?'#fff':'transparent'};"></div>`
-                   ).join('')}
-                 </div>
-                 <div id="notif-color-var-${chanIdx}" style="display:${(cfg.color_mode||'fixed')==='var'?'flex':'none'};flex:1;">
-                   <input class="cfg-input wfd-w100pct" id="notif-color-var-input-${chanIdx}"
-                     placeholder="{wf_status} → success|partial|failed"
-                     value="${escHtml(cfg.color_var||'{wf_status}')}">
-                 </div>
-               </div>
-             </div>`
-           + `<div class="cfg-field">
-               <label class="cfg-label wfd-fs9">MESSAGE</label>
-               <textarea id="notif-slack-message-${chanIdx}" class="cfg-textarea notif-field" data-key="message"
-                 style="min-height:70px;font-family:var(--font-mono);font-size:11px;"
-                 placeholder="{asset.title}, {wf_errors}, {wf_fatal}, {wf_status}...">${escHtml(cfg.message||'')}</textarea>
-             </div>`;
+           + buildNotifColorPicker(chanIdx, cfg, 'COULEUR DE LA BARRE', false)
+           + buildNotifMessageField(chanIdx, cfg, 'slack');
 
     case 'sms':
       return f('COMPTE TWILIO (SID)', 'account_sid', 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
@@ -830,7 +704,7 @@ function buildChannelFields(channel, cfg, chanIdx) {
            + f('DESTINATAIRE(S)', 'to', '+33611223344');
 
     default:
-      return `<div style="color:#555;font-size:11px;">Canal non reconnu : ${escHtml(channel)}</div>`;
+      return `<div class="wfd-text-555-11">Canal non reconnu : ${escHtml(channel)}</div>`;
   }
 }
 
@@ -8081,15 +7955,15 @@ function toggleNotifColorVar(i) {
   const mode    = document.getElementById('notif-color-mode-' + i)?.value;
   const fixedEl = document.getElementById('notif-color-fixed-' + i);
   const varEl   = document.getElementById('notif-color-var-' + i);
-  if (fixedEl) fixedEl.style.display = mode === 'fixed' ? 'flex' : 'none';
-  if (varEl)   varEl.style.display   = mode === 'var'   ? 'flex' : 'none';
+  if (fixedEl) fixedEl.classList.toggle('wfd-hidden', mode !== 'fixed');
+  if (varEl)   varEl.classList.toggle('wfd-hidden', mode !== 'var');
 }
 
 function setNotifColor(i, color) {
   const fixedEl = document.getElementById('notif-color-fixed-' + i);
   if (!fixedEl) return;
   fixedEl.querySelectorAll('[data-color]').forEach(el => {
-    el.style.border = el.dataset.color === color ? '2px solid #fff' : '2px solid transparent';
+    el.classList.toggle('selected', el.dataset.color === color);
   });
 }
 
