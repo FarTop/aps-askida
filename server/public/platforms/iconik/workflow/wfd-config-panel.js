@@ -2913,8 +2913,7 @@ function buildCfgFields(pfx, family, cfg) {
     const critHtml = (block.criteria||[]).map((crit, ci) => {
       const hasVal = srNeedsValue(crit.op||'equals');
       const joinBtn = ci > 0
-        ? `<button onclick="srToggleJoin('${pfx}',${idx},${ci})" class="cfg-btn"
-             style="padding:2px 8px;font-size:10px;width:44px;flex:0 0 44px;"
+        ? `<button onclick="srToggleJoin('${pfx}',${idx},${ci})" class="cfg-btn wfd-sr-join-btn"
              title="Cliquer pour basculer AND/OR">${escHtml(crit.join||'AND')}</button>`
         : '';
       return `
@@ -2938,15 +2937,15 @@ function buildCfgFields(pfx, family, cfg) {
         const _noVal2 = ['is_empty','is_not_empty','is_true','is_false'].includes(crit.op||'equals');
         let valHtml2 = '';
         if (_noVal2) {
-          valHtml2 = '<input class="cfg-input sr-crit-val" style="display:none;">';
+          valHtml2 = '<input class="cfg-input sr-crit-val wfd-hidden">';
         } else if (_isDate2 && crit.op === 'between') {
           const _parts2 = (crit.value||'|').split('|');
-          valHtml2 = '<input type="date" class="cfg-input sr-crit-val-from sr-date-input" ' + _dp2 + ' value="' + (_parts2[0]||'') + '" class="wfd-date-dark">'
-            + '<span style="color:#555;font-size:10px;padding:0 3px;">&#8594;</span>'
-            + '<input type="date" class="cfg-input sr-crit-val-to sr-date-input" ' + _dp2 + ' value="' + (_parts2[1]||'') + '" class="wfd-date-dark">'
+          valHtml2 = '<input type="date" class="cfg-input sr-crit-val-from sr-date-input wfd-date-dark" ' + _dp2 + ' value="' + (_parts2[0]||'') + '">'
+            + '<span class="wfd-arrow-sep">&#8594;</span>'
+            + '<input type="date" class="cfg-input sr-crit-val-to sr-date-input wfd-date-dark" ' + _dp2 + ' value="' + (_parts2[1]||'') + '">'
             + '<input type="hidden" class="sr-crit-val" value="' + (crit.value||'') + '">';
         } else if (_isDate2) {
-          valHtml2 = '<input type="date" class="cfg-input sr-crit-val sr-date-input" ' + _dp2 + ' value="' + (crit.value||'') + '" style="flex:2;color-scheme:dark;">';
+          valHtml2 = '<input type="date" class="cfg-input sr-crit-val sr-date-input wfd-date-dark-flex2" ' + _dp2 + ' value="' + (crit.value||'') + '">';
         } else if (crit.field === '__collection__') {
           const _colVal2 = crit.value || '';
           let _colIds2 = [];
@@ -2954,23 +2953,22 @@ function buildCfgFields(pfx, family, cfg) {
           const _colPrefix2 = pfx + '-sr-col-' + idx + '-' + ci;
           const _colTreeHtml2 = typeof wfdColTreeHtml === 'function'
             ? wfdColTreeHtml(_colPrefix2, JSON.stringify(_colIds2))
-            : '<div id="' + _colPrefix2 + '-col-selected" style="display:none"></div><div id="' + _colPrefix2 + '-col-tags"></div><div id="' + _colPrefix2 + '-col-tree"></div>';
-          valHtml2 = '<div style="flex:4;display:flex;flex-direction:column;gap:4px;">'
-            + '<label style="display:flex;align-items:center;gap:6px;font-size:10px;color:#aaa;cursor:pointer;">'
+            : '<div id="' + _colPrefix2 + '-col-selected" class="wfd-hidden"></div><div id="' + _colPrefix2 + '-col-tags"></div><div id="' + _colPrefix2 + '-col-tree"></div>';
+          valHtml2 = '<div class="wfd-sr-col-wrap">'
+            + '<label class="wfd-sr-col-cb-label">'
             + '<input type="checkbox" class="sr-crit-col-op" data-bidx="' + idx + '" data-cidx="' + ci + '"'
             + ((crit.op||'in_branch')==='in_branch' ? ' checked' : '')
-            + ' onchange="srAutoSave(\'' + pfx + '\')" style="cursor:pointer;">'
+            + ' onchange="srAutoSave(\'' + pfx + '\')">'
             + 'Inclure les sous-dossiers</label>'
-            + '<div style="max-height:150px;overflow-y:auto;background:#050505;border:1px solid #2a2a2a;border-radius:3px;">'
+            + '<div class="wfd-sr-col-tree-wrap">'
             + _colTreeHtml2
             + '</div><input type="hidden" class="sr-crit-val" value="' + escHtml(JSON.stringify(_colIds2)) + '"></div>';
         } else {
-          valHtml2 = '<input class="cfg-input sr-crit-val" value="' + (crit.value||'').replace(/"/g,'&quot;') + '" placeholder="valeur" style="flex:2;font-family:var(--font-mono);font-size:10px;" data-pfx="' + pfx + '" oninput="srAutoSave(this.dataset.pfx)">';
+          valHtml2 = '<input class="cfg-input sr-crit-val wfd-input-flex2-mono10" value="' + (crit.value||'').replace(/"/g,'&quot;') + '" placeholder="valeur" data-pfx="' + pfx + '" oninput="srAutoSave(this.dataset.pfx)">';
         }
         const _isColField2 = crit.field === '__collection__';
-        return `<div class="sr-crit-row" data-bidx="${idx}" data-cidx="${ci}"
-           style="display:flex;flex-wrap:wrap;gap:4px;align-items:${_isColField2?'flex-start':'center'};margin-bottom:4px;">
-        ${joinBtn ? joinBtn : '<span style="min-width:44px;"></span>'}
+        return `<div class="sr-crit-row wfd-sr-crit-row${_isColField2?' wfd-sr-crit-row-col':''}" data-bidx="${idx}" data-cidx="${ci}">
+        ${joinBtn ? joinBtn : '<span class="wfd-sr-joinspacer"></span>'}
         <select class="cfg-select sr-crit-field wfd-flex2b" data-bidx="${idx}" data-cidx="${ci}" onchange="srFieldChange('${pfx}',${idx},${ci},this.value)">
           ${ALL_FIELDS.map(f => `<option value="${escHtml(f.name||f)}" ${crit.field===(f.name||f)?'selected':''}>${escHtml(f.label||f)}</option>`).join('')}
         </select>
@@ -2985,10 +2983,9 @@ function buildCfgFields(pfx, family, cfg) {
     }).join('');
 
     return `
-    <div class="sr-block" data-bidx="${idx}"
-         style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:5px;padding:10px;margin-bottom:8px;">
+    <div class="sr-block wfd-sr-block" data-bidx="${idx}">
       <div class="wfd-row-gap8-mb8">
-        <span style="font-size:10px;font-weight:700;color:#8e44ad;min-width:52px;">Bloc ${block.id}</span>
+        <span class="wfd-sr-block-label">Bloc ${block.id}</span>
         <select class="cfg-select sr-obj-type wfd-flex2b" data-bidx="${idx}"
                 onchange="srAutoSave('${pfx}')">
           ${OBJECT_TYPES.map(o => `<option value="${o.value}" ${block.objectType===o.value?'selected':''}>${o.label}</option>`).join('')}
@@ -2999,13 +2996,13 @@ function buildCfgFields(pfx, family, cfg) {
           ${parentOpts}
         </select>` : ''}
         <button onclick="srRemoveBlock('${pfx}',${idx})"
-                style="background:none;border:none;color:#555;cursor:pointer;font-size:14px;padding:0 2px;margin-left:auto;">×</button>
+                class="wfd-sr-block-del-btn">×</button>
       </div>
-      <div class="sr-crits" data-bidx="${idx}" style="padding-left:4px;">
+      <div class="sr-crits wfd-sr-crits-wrap" data-bidx="${idx}">
         ${critHtml}
       </div>
       <button onclick="srAddCrit('${pfx}',${idx})"
-              style="font-size:10px;padding:3px 8px;margin-top:4px;width:100%;" class="cfg-btn">
+              class="cfg-btn wfd-sr-addcrit-btn">
         + Critère
       </button>
     </div>`;
@@ -3028,7 +3025,7 @@ function buildCfgFields(pfx, family, cfg) {
   <!-- Charger une recherche sauvegardée -->
   <div class="cfg-field">
     <label class="cfg-label">Recherche sauvegardée</label>
-    <div style="display:flex;gap:4px;">
+    <div class="wfd-flex-gap4">
       <select id="${pfx}-sr-saved" class="cfg-select wfd-flex1"
               onchange="srChargerSearch('${pfx}', this.value)">
         <option value="">— Charger une recherche —</option>
@@ -3036,10 +3033,10 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
   </div>
   <!-- En-tête résultat -->
-  <div style="font-size:9px;color:#e67e22;margin-bottom:6px;padding:5px 8px;background:#1a1000;border-radius:3px;border:1px solid #3a2800;">
+  <div class="wfd-sr-refresh-hint">
     💡 Les champs MD proviennent du snapshot. Cliquez sur <b>Actualiser</b> (⟳) dans la toolbar pour obtenir les champs à jour depuis Iconik.
   </div>
-  <div class="cfg-field" style="display:flex;gap:8px;align-items:center;">
+  <div class="cfg-field wfd-flex-gap8c">
     <div class="wfd-flex1">
       <label class="cfg-label">Variable de stockage</label>
       <input id="${pfx}-sr-result-var" class="cfg-input wfd-mono"
@@ -3051,7 +3048,7 @@ function buildCfgFields(pfx, family, cfg) {
   <div class="cfg-field">
     <label class="cfg-label">Blocs de recherche</label>
     <div id="${pfx}-sr-blocks" class="wfd-mb6b">${blocksHtml}</div>
-    <button class="cfg-btn" onclick="srAddBlock('${pfx}')" style="width:100%;padding:6px;">
+    <button class="cfg-btn wfd-sr-addblock-btn" onclick="srAddBlock('${pfx}')">
       + Ajouter un bloc
     </button>
   </div>
@@ -3063,13 +3060,13 @@ function buildCfgFields(pfx, family, cfg) {
            value="${escHtml(cfg.expression||'')}"
            placeholder="ex : 1 AND 2 AND (3 OR 4)"
            oninput="srAutoSave('${pfx}')">
-    <div style="font-size:9px;color:#555;margin-top:3px;">
+    <div class="wfd-hint-notif-color">
       Numéros de blocs + AND · OR · NOT · parenthèses. Vide = tous les blocs actifs.
     </div>
   </div>
 
   <!-- Résultat -->
-  <div class="cfg-field" style="display:flex;gap:8px;align-items:center;">
+  <div class="cfg-field wfd-flex-gap8c">
     <div class="wfd-flex2b">
       <label class="cfg-label">Retourner le résultat de</label>
       <select id="${pfx}-sr-return-block" class="cfg-select" onchange="srAutoSave('${pfx}')">

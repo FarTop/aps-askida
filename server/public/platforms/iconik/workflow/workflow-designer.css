@@ -2122,6 +2122,26 @@ nav { display: flex; gap: 2px; }
 .wfd-gate-summary-box { margin-top: 10px; padding: 10px 14px; background: rgba(230,126,34,0.08); border: 1px solid rgba(230,126,34,0.2); border-radius: 6px; font-size: 12px; color: #e67e22; }
 .wfd-gate-summary-lbl { font-size: 10px; color: #666; display: block; margin-bottom: 3px; }
 .wfd-gate-summary-text { font-weight: 600; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 48 (aps_search / srBlockHtml) */
+.wfd-sr-join-btn     { padding: 2px 8px; font-size: 10px; width: 44px; flex: 0 0 44px; }
+.wfd-sr-joinspacer   { min-width: 44px; }
+.wfd-sr-col-wrap     { flex: 4; display: flex; flex-direction: column; gap: 4px; }
+.wfd-sr-col-cb-label { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #aaa; cursor: pointer; }
+.wfd-sr-col-tree-wrap { max-height: 150px; overflow-y: auto; background: #050505; border: 1px solid #2a2a2a; border-radius: 3px; }
+.wfd-sr-crit-row      { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 4px; }
+.wfd-sr-crit-row-col  { align-items: flex-start; }
+.wfd-sr-block         { background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 5px; padding: 10px; margin-bottom: 8px; }
+.wfd-sr-block-label   { font-size: 10px; font-weight: 700; color: #8e44ad; min-width: 52px; }
+.wfd-sr-block-del-btn { background: none; border: none; color: #555; cursor: pointer; font-size: 14px; padding: 0 2px; margin-left: auto; }
+.wfd-sr-crits-wrap    { padding-left: 4px; }
+.wfd-sr-addcrit-btn   { font-size: 10px; padding: 3px 8px; margin-top: 4px; width: 100%; }
+
+/* ── lot 48 (suite) ──────────────────────────────────────────────────────── */
+.wfd-flex-gap4    { display: flex; gap: 4px; }
+.wfd-flex-gap8c    { display: flex; gap: 8px; align-items: center; }
+.wfd-sr-refresh-hint { font-size: 9px; color: #e67e22; margin-bottom: 6px; padding: 5px 8px; background: #1a1000; border-radius: 3px; border: 1px solid #3a2800; }
+.wfd-sr-addblock-btn { width: 100%; padding: 6px; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */
