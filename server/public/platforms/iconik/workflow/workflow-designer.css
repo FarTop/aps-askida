@@ -2107,6 +2107,21 @@ nav { display: flex; gap: 2px; }
 /* ── Classes utilitaires wfd-config-panel — lot 46 (aws_s3) ─────────────── */
 .wfd-hint-555-mb12 { font-size: 11px; color: #555; margin-bottom: 12px; }
 .wfd-aws-art-grid  { display: grid; grid-template-columns: 1fr 1fr 1fr 24px; gap: 4px; align-items: center; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 47 (gate) ────────────────── */
+.wfd-gate-mode-grid  { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+.wfd-gate-mode-btn   { padding: 8px 4px; border-radius: 6px; cursor: pointer; text-align: center; transition: all .15s; border: 2px solid #2a2a2a; background: transparent; color: #666; }
+.wfd-gate-mode-icon  { font-size: 18px; }
+.wfd-gate-mode-label { font-size: 11px; font-weight: 600; margin-top: 3px; }
+.wfd-gate-mode-hint  { font-size: 9px; color: #555; margin-top: 2px; }
+.wfd-gate-grid-1-120 { display: grid; grid-template-columns: 1fr 120px; gap: 8px; align-items: center; }
+.wfd-gate-auto-row   { display: flex; gap: 10px; align-items: center; }
+.wfd-gate-cb-label   { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.wfd-gate-cb         { width: 14px; height: 14px; }
+.wfd-gate-cb-text    { font-size: 12px; color: #ccc; }
+.wfd-gate-summary-box { margin-top: 10px; padding: 10px 14px; background: rgba(230,126,34,0.08); border: 1px solid rgba(230,126,34,0.2); border-radius: 6px; font-size: 12px; color: #e67e22; }
+.wfd-gate-summary-lbl { font-size: 10px; color: #666; display: block; margin-bottom: 3px; }
+.wfd-gate-summary-text { font-weight: 600; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

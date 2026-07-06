@@ -2515,24 +2515,21 @@ function buildCfgFields(pfx, family, cfg) {
   html += `
     <div class="cfg-field">
       <label class="cfg-label">Mode</label>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+      <div class="wfd-gate-mode-grid">
         ${_gModes.map(([val,icon,label,hint]) => `
           <button onclick="wfdGateModeChange('${pfx}','${val}')" id="${pfx}-gate-mode-${val}"
-            style="padding:8px 4px;border-radius:6px;cursor:pointer;text-align:center;transition:all .15s;
-              border:2px solid ${_gMode===val?'#e67e22':'#2a2a2a'};
-              background:${_gMode===val?'rgba(230,126,34,0.15)':'transparent'};
-              color:${_gMode===val?'#e67e22':'#666'};">
-            <div style="font-size:18px;">${icon}</div>
-            <div style="font-size:11px;font-weight:600;margin-top:3px;">${label}</div>
-            <div style="font-size:9px;color:#555;margin-top:2px;">${hint}</div>
+            class="wfd-gate-mode-btn ${_gMode===val?'active-orange':'inactive-btn'}"${_gMode===val?' data-active="1"':''}>
+            <div class="wfd-gate-mode-icon">${icon}</div>
+            <div class="wfd-gate-mode-label">${label}</div>
+            <div class="wfd-gate-mode-hint">${hint}</div>
           </button>`).join('')}
       </div>
     </div>
 
-    <div id="${pfx}-gate-throttle-wrap" style="${_gMode==='throttle'?'':'display:none'}">
+    <div id="${pfx}-gate-throttle-wrap" class="${_gMode==='throttle'?'':'wfd-hidden'}">
       <div class="cfg-field">
         <label class="cfg-label">Jobs simultanés maximum</label>
-        <div style="display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;">
+        <div class="wfd-gate-grid-1-120">
           <input id="${pfx}-gate-max-concurrent" type="number" min="1" max="50"
             class="cfg-input" value="${_gMax}" oninput="wfdGateUpdateSummary('${pfx}')">
           <span class="wfd-text-555-11b">en parallèle</span>
@@ -2549,10 +2546,10 @@ function buildCfgFields(pfx, family, cfg) {
       </div>
     </div>
 
-    <div id="${pfx}-gate-delay-wrap" style="${_gMode==='delay'?'':'display:none'}">
+    <div id="${pfx}-gate-delay-wrap" class="${_gMode==='delay'?'':'wfd-hidden'}">
       <div class="cfg-field">
         <label class="cfg-label">Durée de l'attente</label>
-        <div style="display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;">
+        <div class="wfd-gate-grid-1-120">
           <input id="${pfx}-gate-delay-sec" type="number" min="0" step="0.5"
             class="cfg-input" value="${_gDel}">
           <span class="wfd-text-555-11b">secondes</span>
@@ -2561,7 +2558,7 @@ function buildCfgFields(pfx, family, cfg) {
       </div>
     </div>
 
-    <div id="${pfx}-gate-pause-wrap" style="${_gMode==='pause'?'':'display:none'}">
+    <div id="${pfx}-gate-pause-wrap" class="${_gMode==='pause'?'':'wfd-hidden'}">
       <div class="cfg-field">
         <label class="cfg-label">Message à l'opérateur</label>
         <textarea id="${pfx}-gate-pause-msg" class="cfg-textarea" rows="3"
@@ -2570,12 +2567,12 @@ function buildCfgFields(pfx, family, cfg) {
       </div>
       <div class="cfg-field">
         <label class="cfg-label">Reprise automatique</label>
-        <div style="display:flex;gap:10px;align-items:center;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <div class="wfd-gate-auto-row">
+          <label class="wfd-gate-cb-label">
             <input type="checkbox" id="${pfx}-gate-pause-auto" ${_gAuto?'checked':''}
-              style="width:14px;height:14px;"
+              class="wfd-gate-cb"
               onchange="wfdGatePauseAutoToggle('${pfx}')">
-            <span style="font-size:12px;color:#ccc;">Reprendre après</span>
+            <span class="wfd-gate-cb-text">Reprendre après</span>
           </label>
           <input id="${pfx}-gate-pause-auto-sec" type="number" min="10"
             class="cfg-input wfd-w80" value="${_gAutoS}" ${_gAuto?'':'disabled'}>
@@ -2584,10 +2581,9 @@ function buildCfgFields(pfx, family, cfg) {
       </div>
     </div>
 
-    <div style="margin-top:10px;padding:10px 14px;background:rgba(230,126,34,0.08);
-      border:1px solid rgba(230,126,34,0.2);border-radius:6px;font-size:12px;color:#e67e22;">
-      <span style="font-size:10px;color:#666;display:block;margin-bottom:3px;">CE NŒUD VA</span>
-      <span id="${pfx}-gate-summary-text" style="font-weight:600;">
+    <div class="wfd-gate-summary-box">
+      <span class="wfd-gate-summary-lbl">CE NŒUD VA</span>
+      <span id="${pfx}-gate-summary-text" class="wfd-gate-summary-text">
         ${_wfdGateSummary(_gMode,_gMax,_gDel,_gPMsg,_gAuto,_gAutoS)}
       </span>
     </div>
@@ -8060,7 +8056,7 @@ function wfdGateModeChange(pfx,mode){
       btn.classList.toggle('inactive-btn', !active);
       btn.dataset.active=active?'1':'';
     }
-    if(wrap)wrap.style.display=active?'':'none';
+    if(wrap)wrap.classList.toggle('wfd-hidden', !active);
   });
   // Mettre à jour le résumé
   var sumEl=document.getElementById(pfx+'-gate-summary-text');
