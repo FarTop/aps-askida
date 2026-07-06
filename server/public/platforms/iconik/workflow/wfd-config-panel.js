@@ -6121,14 +6121,11 @@ function _buildLinkFilePanel(pfx, cfg, wfdData) {
     <label class="cfg-label">Type de fichier</label>
     <div class="wfd-row-gap6b">
       ${Object.entries(LINK_FILE_TYPES).map(([k,v]) => `
-        <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;
-          background:${(cfg.fileType||'original')===k?'#1a2a1a':'#0d0d0d'};
-          border:1px solid ${(cfg.fileType||'original')===k?'#27ae60':'#2a2a2a'};
-          border-radius:5px;padding:7px 10px;font-size:11px;color:#ccc;transition:all .15s;">
+        <label class="wfd-lf-type-label${(cfg.fileType||'original')===k?' checked-green':' unchecked'}">
           <input type="radio" name="${pfx}-lf-type" value="${k}"
             ${(cfg.fileType||'original')===k?'checked':''}
             style="accent-color:#27ae60;" onchange="_lfTypeChange('${pfx}')">
-          <span style="font-size:14px;">${v.icon}</span>
+          <span class="wfd-fs14">${v.icon}</span>
           <span>${v.label}</span>
         </label>`).join('')}
     </div>
@@ -6146,8 +6143,7 @@ function _buildLinkFilePanel(pfx, cfg, wfdData) {
         <option value="">— Détecter depuis l'extension —</option>
         ${fmtOpts}
       </select>
-      <input id="${pfx}-lf-format-custom" class="cfg-input"
-        style="flex:1;font-family:var(--font-mono);${cfg.format?'display:none':''}"
+      <input id="${pfx}-lf-format-custom" class="cfg-input wfd-flex1-mono${cfg.format?' wfd-hidden':''}"
         value="${escHtml(cfg.formatCustom||'')}" placeholder="ou format libre…">
     </div>
   </div>
@@ -6220,7 +6216,7 @@ function _lfTypeChange(pfx) {
 function _lfFormatChange(pfx) {
   const sel    = document.getElementById(pfx+'-lf-format')?.value;
   const custom = document.getElementById(pfx+'-lf-format-custom');
-  if (custom) custom.style.display = sel ? 'none' : '';
+  if (custom) custom.classList.toggle('wfd-hidden', !!sel);
 }
 
 function _readLinkFileConfig(pfx) {
