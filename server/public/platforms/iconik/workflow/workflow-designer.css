@@ -2082,6 +2082,15 @@ nav { display: flex; gap: 2px; }
 /* ── Classes utilitaires wfd-config-panel — lot 43 (checker) ────────────── */
 .wfd-chk-rows-wrap { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .wfd-chk-add-btn   { width: 100%; padding: 6px; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 44 (listener) ───────────── */
+.wfd-listener-test-wrap  { margin-top: 12px; border-top: 1px solid #1e1e1e; padding-top: 12px; }
+.wfd-lsim-toggle-btn     { font-size: 10px; padding: 3px 8px; border-radius: 3px; border: 1px solid #2a2a2a; background: transparent; color: #c0392b; cursor: pointer; }
+.wfd-lsim-error          { font-size: 10px; color: #e74c3c; margin-top: 3px; }
+.wfd-lsim-send-btn       { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #c0392b; background: rgba(192,57,43,0.12); color: #e74c3c; font-size: 12px; font-weight: 600; cursor: pointer; }
+.wfd-lsim-result-box     { margin-top: 10px; padding: 10px; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 5px; }
+.wfd-lsim-result-status  { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.wfd-lsim-result-body    { font-family: var(--font-mono); font-size: 10px; color: #888; white-space: pre-wrap; word-break: break-all; max-height: 150px; overflow-y: auto; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

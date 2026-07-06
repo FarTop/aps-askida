@@ -1299,7 +1299,7 @@ function _listenerConnChange(pfx) {
   const wrap = document.getElementById(pfx+'-listener-map-wrap');
   const sel  = document.getElementById(pfx+'-listener-mapping');
   if (!wrap || !sel) return;
-  wrap.style.display = conn ? '' : 'none';
+  wrap.classList.toggle('wfd-hidden', !conn);
   // Sauvegarder la valeur actuelle avant de reconstruire
   const prevVal = sel.value;
   sel.innerHTML = '<option value="">— Aucun (payload brut) —</option>' +
@@ -4461,10 +4461,10 @@ function buildCfgFields(pfx, family, cfg) {
         </select>
         <button class="cfg-btn wfd-pad-6-8" onclick="ouvrirRessources('connexions')" title="Gérer les connexions">⚙</button>
       </div>
-      ${!wfdConnexions.length ? `<div style="font-size:10px;color:#e67e22;margin-top:4px;">
+      ${!wfdConnexions.length ? `<div class="wfd-http-noconn">
         Aucune connexion configurée — créez-en une dans Ressources → Connexions</div>` : ''}
     </div>
-    <div id="${pfx}-listener-map-wrap" class="cfg-field" style="${selConn?'':'display:none'}">
+    <div id="${pfx}-listener-map-wrap" class="cfg-field${selConn?'':' wfd-hidden'}">
       <label class="cfg-label">Mapping de payload</label>
       <select id="${pfx}-listener-mapping" class="cfg-select">
         <option value="">— Aucun (payload brut) —</option>${mapOpts}
@@ -4476,14 +4476,13 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
 
     <!-- ── TEST LISTENER ── -->
-    <div style="margin-top:12px;border-top:1px solid #1e1e1e;padding-top:12px;">
+    <div class="wfd-listener-test-wrap">
       <div class="wfd-row-sb-mb8b">
         <span class="cfg-label wfd-m0">🧪 TESTER CE LISTENER</span>
         <button onclick="wfdListenerSimToggle('${pfx}')" id="${pfx}-lsim-toggle"
-          style="font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid #2a2a2a;
-            background:transparent;color:#c0392b;cursor:pointer;">Afficher</button>
+          class="wfd-lsim-toggle-btn">Afficher</button>
       </div>
-      <div id="${pfx}-lsim-wrap" style="display:none;">
+      <div id="${pfx}-lsim-wrap" class="wfd-hidden">
         <div class="cfg-hint wfd-mb8">
           Envoie un POST réel vers <code>localhost:2880${selConn?.endpoint || '/wfd/listener/...'}</code>
           avec le token configuré. Le workflow s'exécute exactement comme si le système tiers avait appelé.
@@ -4494,19 +4493,16 @@ function buildCfgFields(pfx, family, cfg) {
             placeholder='{ "asset_id": "TEST-123" }'>${
               JSON.stringify({ asset_id:'ASSET-ID-TEST', action:'test', timestamp: new Date().toISOString() }, null, 2)
             }</textarea>
-          <div id="${pfx}-lsim-error" style="font-size:10px;color:#e74c3c;margin-top:3px;display:none;"></div>
+          <div id="${pfx}-lsim-error" class="wfd-lsim-error wfd-hidden"></div>
         </div>
         <button onclick="wfdListenerSimRun('${pfx}')"
-          style="width:100%;padding:10px;border-radius:5px;border:1px solid #c0392b;
-            background:rgba(192,57,43,0.12);color:#e74c3c;font-size:12px;font-weight:600;cursor:pointer;">
+          class="wfd-lsim-send-btn">
           📡 Envoyer la requête vers localhost:2880
         </button>
-        <div id="${pfx}-lsim-result" style="display:none;margin-top:10px;padding:10px;
-          background:#0a0a0a;border:1px solid #2a2a2a;border-radius:5px;">
+        <div id="${pfx}-lsim-result" class="wfd-lsim-result-box wfd-hidden">
           <div class="wfd-hint-mb6">RÉPONSE HTTP</div>
-          <div id="${pfx}-lsim-result-status" style="font-size:12px;font-weight:600;margin-bottom:4px;"></div>
-          <div id="${pfx}-lsim-result-body" style="font-family:var(--font-mono);font-size:10px;
-            color:#888;white-space:pre-wrap;word-break:break-all;max-height:150px;overflow-y:auto;"></div>
+          <div id="${pfx}-lsim-result-status" class="wfd-lsim-result-status"></div>
+          <div id="${pfx}-lsim-result-body" class="wfd-lsim-result-body"></div>
         </div>
       </div>
     </div>
@@ -8670,8 +8666,8 @@ function wfdListenerSimToggle(pfx) {
   const wrap = document.getElementById(pfx + '-lsim-wrap');
   const btn  = document.getElementById(pfx + '-lsim-toggle');
   if (!wrap) return;
-  const open = wrap.style.display === 'none';
-  wrap.style.display = open ? '' : 'none';
+  const open = wrap.classList.contains('wfd-hidden');
+  wrap.classList.toggle('wfd-hidden', !open);
   if (btn) btn.textContent = open ? 'Masquer' : 'Afficher';
 }
 const WFD_SIM_TEMPLATES = {
