@@ -9330,7 +9330,7 @@ function hseqReadSteps(pfx) {
   if (!container) return [];
   return Array.from(container.querySelectorAll('.hseq-step')).map(function(step) {
     const body    = step.querySelector('.hseq-step-body');
-    const modeBtn = body?.querySelector('.hseq-mode-btn.active');
+    const modeBtn = body?.querySelector('.hseq-mode-btn.active-blue-tab');
     const mode    = modeBtn?.dataset?.mode || 'simple';
     const s = {
       name      : body?.querySelector('.hseq-name')?.value    || '',
