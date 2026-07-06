@@ -1891,6 +1891,14 @@ nav { display: flex; gap: 2px; }
 .wfd-um-method-label.checked-dynamic { background: #0d0d0d; }
 .wfd-um-method-row    { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .wfd-um-method-code   { font-size: 12px; font-weight: 700; color: var(--method-color, #ccc); }
+
+/* ── Classes utilitaires wfd-config-panel — lot 15 (subflow) ────────────── */
+.wfd-sf-noflow-msg    { font-size: 10px; color: #e74c3c; margin-top: 3px; }
+.wfd-sf-mode-label    { flex: 1; cursor: pointer; border-radius: 5px; padding: 8px 10px; transition: all .15s; }
+.wfd-sf-mode-label.checked-dynamic { background: #0d0d0d; }
+.wfd-sf-mode-row      { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.wfd-sf-mode-text     { font-size: 12px; font-weight: 600; color: var(--mode-color, #ccc); }
+.wfd-sf-summary       { font-size: 11px; color: #666; line-height: 1.6; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

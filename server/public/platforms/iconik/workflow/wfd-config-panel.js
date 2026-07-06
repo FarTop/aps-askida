@@ -7379,7 +7379,7 @@ function _buildSubflowPanel(pfx, cfg) {
       <button class="cfg-btn wfd-pad-6-8" title="Rafraîchir"
         onclick="_sfRefreshFlows('${pfx}')">↺</button>
     </div>
-    ${!availableFlows.length ? `<div style="font-size:10px;color:#e74c3c;margin-top:3px;">
+    ${!availableFlows.length ? `<div class="wfd-sf-noflow-msg">
       Créez d'abord d'autres workflows dans l'espace de travail.</div>` : ''}
   </div>
 
@@ -7391,14 +7391,12 @@ function _buildSubflowPanel(pfx, cfg) {
         ['sync',  '⏱ Synchrone',  'Le workflow parent attend la fin de l\'enfant avant de continuer', '#8e44ad'],
         ['async', '⚡ Asynchrone', 'L\'enfant est déclenché, le parent continue immédiatement',       '#3498db'],
       ].map(([k,lbl,desc,color]) => `
-        <label style="flex:1;cursor:pointer;
-          background:${execMode===k?'#0d0d0d':'#0a0a0a'};
-          border:1px solid ${execMode===k?color:'#2a2a2a'};
-          border-radius:5px;padding:8px 10px;transition:all .15s;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+        <label class="wfd-sf-mode-label${execMode===k?' checked-dynamic':' unchecked'}"
+          style="--chk-color:${execMode===k?color:'#2a2a2a'};">
+          <div class="wfd-sf-mode-row">
             <input type="radio" name="${pfx}-sf-mode" value="${k}" ${execMode===k?'checked':''}
               style="accent-color:${color};" onchange="_sfModeChange('${pfx}')">
-            <span style="font-size:12px;color:${color};font-weight:600;">${lbl}</span>
+            <span class="wfd-sf-mode-text" style="--mode-color:${color};">${lbl}</span>
           </div>
           <div class="wfd-hint-left">${desc}</div>
         </label>`).join('')}
@@ -7416,13 +7414,12 @@ function _buildSubflowPanel(pfx, cfg) {
   </div>
 
   <!-- Variables explicites à transmettre -->
-  <div id="${pfx}-sf-ivars-wrap" style="${ctxMode!=='explicit'?'display:none':''}">
+  <div id="${pfx}-sf-ivars-wrap"${ctxMode!=='explicit'?' class="wfd-hidden"':''}>
     <div class="wfd-row-sb-mb6">
       <label class="cfg-label wfd-m0">Variables à transmettre</label>
       <button class="cfg-btn wfd-pad-3-10b" onclick="${pfx}AddSfVar()">+ Variable</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 24px;gap:5px;
-      font-size:10px;color:#555;margin-bottom:4px;padding:0 2px;">
+    <div class="wfd-um-fields-hdr">
       <span>Source (parent)</span><span>Nom dans l'enfant</span><span></span>
     </div>
     <div id="${pfx}-sf-ivars" class="wfd-col-gap5">
@@ -7431,7 +7428,7 @@ function _buildSubflowPanel(pfx, cfg) {
   </div>
 
   <!-- Retour de données (sync seulement) -->
-  <div id="${pfx}-sf-return-wrap" style="${execMode==='async'?'display:none':''}">
+  <div id="${pfx}-sf-return-wrap"${execMode==='async'?' class="wfd-hidden"':''}>
     <div class="wfd-row-sb-mb6">
       <label class="cfg-label wfd-m0">Variables retournées vers le parent</label>
       <button class="cfg-btn wfd-pad-3-10b" onclick="${pfx}AddSfRetVar()">+ Variable</button>
@@ -7439,8 +7436,7 @@ function _buildSubflowPanel(pfx, cfg) {
     <div class="wfd-hint-mb6">
       Laisser vide pour ne rien récupérer. Disponibles uniquement en mode synchrone.
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 24px;gap:5px;
-      font-size:10px;color:#555;margin-bottom:4px;padding:0 2px;">
+    <div class="wfd-um-fields-hdr">
       <span>Variable dans l'enfant</span><span>Nom dans le parent</span><span></span>
     </div>
     <div id="${pfx}-sf-rvars" class="wfd-col-gap5">
@@ -7451,7 +7447,7 @@ function _buildSubflowPanel(pfx, cfg) {
   <!-- Résumé visuel -->
   <div class="wfd-card-sm2">
     <div class="cfg-label wfd-mb6b">Comportement</div>
-    <div id="${pfx}-sf-summary" style="font-size:11px;color:#666;line-height:1.6;">
+    <div id="${pfx}-sf-summary" class="wfd-sf-summary">
       ${_sfSummaryText(execMode, ctxMode)}
     </div>
   </div>
@@ -7483,7 +7479,7 @@ function _sfModeChange(pfx) {
   const retWrap = document.getElementById(pfx+'-sf-return-wrap');
   const sumEl   = document.getElementById(pfx+'-sf-summary');
   const ctxMode = document.getElementById(pfx+'-sf-ctx')?.value || 'all';
-  if (retWrap) retWrap.style.display = mode === 'async' ? 'none' : '';
+  if (retWrap) retWrap.classList.toggle('wfd-hidden', mode === 'async');
   if (sumEl)   sumEl.innerHTML = _sfSummaryText(mode, ctxMode);
   // Styles radio
   const colors = { sync:'#8e44ad', async:'#3498db' };
@@ -7502,7 +7498,7 @@ function _sfCtxChange(pfx) {
   const iWrap   = document.getElementById(pfx+'-sf-ivars-wrap');
   const sumEl   = document.getElementById(pfx+'-sf-summary');
   const execMode= document.querySelector(`input[name="${pfx}-sf-mode"]:checked`)?.value || 'sync';
-  if (iWrap) iWrap.style.display = ctx === 'explicit' ? '' : 'none';
+  if (iWrap) iWrap.classList.toggle('wfd-hidden', ctx !== 'explicit');
   if (sumEl) sumEl.innerHTML = _sfSummaryText(execMode, ctx);
 }
 
