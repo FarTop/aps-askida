@@ -850,10 +850,9 @@ function ajouterNotifOverride() {
 
 function buildScriptPortRow(i, p) {
   return `<div class="decision-condition" id="sport-row-${i}">
-    <span style="font-size:10px;color:#555;font-family:var(--font-mono);min-width:16px;">${i}</span>
-    <input type="text" class="sport-label" value="${p.label||('port'+i)}" placeholder="nom du port"
-      style="flex:1;padding:4px 7px;background:var(--wfd-panel);color:var(--wfd-text);border:1px solid var(--wfd-border2);border-radius:4px;font-size:11px;outline:none;">
-    <span style="font-size:10px;color:#444;font-family:var(--font-mono);">\u2192 return { port: '${p.label||('port'+i)}' }</span>
+    <span class="wfd-sport-idx">${i}</span>
+    <input type="text" class="sport-label wfd-input-flex1-basic" value="${p.label||('port'+i)}" placeholder="nom du port">
+    <span class="wfd-mono-10-444">\u2192 return { port: '${p.label||('port'+i)}' }</span>
     <button class="btn-del-cond" onclick="supprimerPortScript(${i})">\u00D7</button>
   </div>`;
 }
@@ -899,22 +898,20 @@ function buildConditionRow(i, c, pfx) {
     .map(([k,v]) => `<option value="${k}" ${(c.op||'equals')===k?'selected':''}>${v}</option>`).join('');
   const colors = ['#2ecc71','#e74c3c','#3498db','#f39c12','#9b59b6','#1abc9c','#e67e22','#1abc9c'];
   const color  = colors[i % colors.length];
-  return `<div class="decision-condition" id="cond-row-${i}"
-    style="display:grid;grid-template-columns:10px 140px 1fr 140px 28px;gap:5px;align-items:center;">
-    <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0;"></span>
+  return `<div class="decision-condition wfd-cond-grid" id="cond-row-${i}">
+    <span class="wfd-cond-dot" style="--dot-color:${color};"></span>
     <select class="cfg-select cond-op wfd-fs11" data-idx="${i}"
       onchange="condOpChange(${i})">
       ${opOpts}
     </select>
-    <input class="cfg-input cond-val" data-idx="${i}"
+    <input class="cfg-input cond-val wfd-mono-sm${noVal?' wfd-hidden':''}" data-idx="${i}"
   list="${pfx}-wfd-var-list"
   value="${escHtml(c.value||'')}" placeholder="valeur ou {variable}"
-  style="font-family:var(--font-mono);font-size:11px;${noVal?'display:none;':''}"
   id="cond-val-${i}">
-    <span id="cond-val-empty-${i}" style="${noVal?'':'display:none;'}"></span>
+    <span id="cond-val-empty-${i}" class="${noVal?'':'wfd-hidden'}"></span>
     <input class="cfg-input cond-label wfd-fs11" data-idx="${i}"
       value="${escHtml(c.label||('Sortie '+(i+1)))}" placeholder="Nom du port">
-    <button class="cfg-btn danger" style="padding:4px 6px;" onclick="supprimerCondition(${i})">×</button>
+    <button class="cfg-btn danger wfd-pad-4-6" onclick="supprimerCondition(${i})">×</button>
   </div>`;
 }
 function ajouterCondition() {
@@ -961,8 +958,8 @@ function condOpChange(i) {
   const emEl  = document.getElementById('cond-val-empty-'+i);
   if (!sel) return;
   const noVal = DECISION_OPS_NO_VALUE.has(sel.value);
-  if (valEl) valEl.style.display = noVal ? 'none' : '';
-  if (emEl)  emEl.style.display  = noVal ? '' : 'none';
+  if (valEl) valEl.classList.toggle('wfd-hidden', noVal);
+  if (emEl)  emEl.classList.toggle('wfd-hidden', !noVal);
 }
 
 
