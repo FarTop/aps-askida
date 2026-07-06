@@ -8443,36 +8443,33 @@ function buildMsgRuleRow(pfx, i, rule) {
   const statusEmojis = { success:'🟢', partial:'🟡', failed:'🔴' };
 
   return `
-  <div class="msg-rule-row" style="background:#0d0d0d;border:1px solid #2a2a2a;border-radius:6px;
-    padding:10px 12px;margin-bottom:6px;">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+  <div class="msg-rule-row wfd-msgrule-card">
+    <div class="wfd-msgrule-hdr-row">
       <span class="wfd-text-shrink">Si</span>
-      <select class="cfg-select msg-rule-src" style="flex:1;font-size:10px;"
+      <select class="cfg-select msg-rule-src wfd-msgrule-src-sel"
         onchange="wfdMsgRuleNodeChange(this, '${pfx}')">
         <option value="">— Choisir un nœud —</option>
         ${nodeOpts}
       </select>
       <span class="wfd-text-shrink">sort par</span>
-      <select class="cfg-select msg-rule-port" style="width:130px;font-size:10px;">
+      <select class="cfg-select msg-rule-port wfd-msgrule-port-sel">
         ${portOpts}
       </select>
       <button onclick="this.closest('.msg-rule-row').remove()"
-        style="background:#1a0a0a;border:1px solid #3a1a1a;border-radius:3px;
-        color:#e74c3c;cursor:pointer;font-size:14px;padding:2px 6px;flex-shrink:0;">×</button>
+        class="wfd-msgrule-del-btn">×</button>
     </div>
     <div class="wfd-row-gap6c">
       <span class="wfd-text-shrink">Statut</span>
-      <div style="display:flex;gap:4px;">
+      <div class="wfd-msgrule-status-wrap">
         ${['success','partial','failed'].map(st => `
           <button onclick="wfdMsgRuleStatus(this, '${st}')"
             data-status="${st}"
-            style="padding:4px 8px;border-radius:4px;border:1px solid ${st===status?statusColors[st]:'#2a2a2a'};
-            background:${st===status?statusColors[st]+'22':'#0d0d0d'};
-            color:${st===status?statusColors[st]:'#555'};cursor:pointer;font-size:12px;">
+            class="wfd-msgrule-status-btn${st===status?' active-status':' inactive-btn'}"
+            style="--status-color:${statusColors[st]};">
             ${statusEmojis[st]}</button>`).join('')}
         <input type="hidden" class="msg-rule-status" value="${status}">
       </div>
-      <input class="cfg-input msg-rule-text" style="flex:1;font-size:11px;"
+      <input class="cfg-input msg-rule-text wfd-msgrule-text-input"
         list="${pfx}-wfd-var-list"
         value="${escHtml(rule.message||'')}"
         placeholder="Message pour ce cas...">
