@@ -4426,13 +4426,13 @@ function buildCfgFields(pfx, family, cfg) {
         ${!conds.length ? '<div style="color:#444;font-size:11px;padding:4px 0;">— Aucune condition, ajoutez des sorties.</div>' : ''}
       </div>
     </div>
-    <div style="background:#0d0d0d;border:1px solid #2a2a2a;border-radius:5px;padding:8px 12px;display:flex;align-items:center;gap:8px;margin-top:4px;">
-      <span style="width:10px;height:10px;border-radius:50%;background:#95a5a6;flex-shrink:0;display:inline-block;"></span>
+    <div class="wfd-decision-default-card">
+      <span class="wfd-decision-default-dot"></span>
       <div class="wfd-flex1">
-        <div style="font-size:12px;color:#ccc;font-weight:600;">Port par défaut</div>
-        <div style="font-size:10px;color:#555;margin-top:2px;">Activé si aucune condition n'est remplie — toujours présent, non supprimable</div>
+        <div class="wfd-decision-default-title">Port par défaut</div>
+        <div class="wfd-rel-type-desc">Activé si aucune condition n'est remplie — toujours présent, non supprimable</div>
       </div>
-      <input id="${pfx}-default-label" class="cfg-input" style="width:120px;font-size:11px;"
+      <input id="${pfx}-default-label" class="cfg-input wfd-decision-default-input"
         value="${escHtml(cfg.defaultLabel||'Par défaut')}" placeholder="Par défaut">
     </div>
     <div class="cfg-field">
