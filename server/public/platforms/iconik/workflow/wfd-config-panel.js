@@ -384,7 +384,7 @@ function buildLoopSourceFields(pfx, cfg) {
   if (src === 'list') return `
     <div class="cfg-field">
       <label class="cfg-label">Liste JSON</label>
-      <textarea id="${pfx}-loop-list" class="cfg-textarea" style="min-height:60px;font-family:var(--font-mono);font-size:11px;">${cfg.loopList||''}</textarea>
+      <textarea id="${pfx}-loop-list" class="cfg-textarea wfd-mono-sm">${cfg.loopList||''}</textarea>
     </div>`;
   if (src === 'metadata') return `
     <div class="cfg-field">
@@ -1094,7 +1094,7 @@ function supprimerCondition(i) {
   if (!container) return;
   const rows = container.querySelectorAll('.decision-condition');
   if (!rows.length) {
-    container.innerHTML = '<div style="color:#444;font-size:11px;padding:4px 0;">\u2014 Aucune condition, ajoutez des sorties.</div>';
+    container.innerHTML = '<div class="wfd-empty-msg-xs">\u2014 Aucune condition, ajoutez des sorties.</div>';
   }
 }
 
@@ -8518,11 +8518,7 @@ function _wfdSetReadOnly(readonly) {
     if (!banner) {
       const b = document.createElement('div');
       b.id = 'wfd-readonly-banner';
-      b.style.cssText = 'position:absolute;top:0;left:0;right:0;z-index:300;' +
-        'background:rgba(39,174,96,0.12);border-bottom:1px solid #27ae6044;' +
-        'padding:5px 14px;display:flex;align-items:center;gap:8px;' +
-        'font-size:11px;color:#27ae60;pointer-events:none;';
-      b.innerHTML = '<span style="font-size:14px;">🔒</span>' +
+      b.innerHTML = '<span class="wfd-readonly-icon">🔒</span>' +
         '<span>Flux actif — <strong>désactiver</strong> pour modifier</span>';
       if (wrap) wrap.appendChild(b);
     }
@@ -8531,8 +8527,7 @@ function _wfdSetReadOnly(readonly) {
     // Fermer et griser le config panel
     if (cfgPanel) {
       cfgPanel.classList.remove('open');
-      cfgPanel.style.pointerEvents = 'none';
-      cfgPanel.style.opacity = '0.4';
+      cfgPanel.classList.add('wfd-dimmed-disabled');
     }
   } else {
     // Retirer le bandeau
@@ -8540,8 +8535,7 @@ function _wfdSetReadOnly(readonly) {
     // Réactiver
     if (wrap) delete wrap.dataset.readonly;
     if (cfgPanel) {
-      cfgPanel.style.pointerEvents = '';
-      cfgPanel.style.opacity = '';
+      cfgPanel.classList.remove('wfd-dimmed-disabled');
     }
   }
 }
@@ -8847,11 +8841,11 @@ function httpAjouterHeader(pfx) {
   const list = document.getElementById(pfx + '-http-headers-list');
   if (!list) return;
   const div = document.createElement('div');
-  div.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:4px;';
+  div.className = 'wfd-row-gap6-mb4';
   div.innerHTML = `
-    <input class="cfg-input http-xhdr-key" class="wfd-flex1" placeholder="Clé">
-    <input class="cfg-input http-xhdr-val" class="wfd-flex2b" placeholder="Valeur ou {var}">
-    <button class="cfg-btn danger" style="padding:4px 8px;" onclick="this.parentElement.remove()">✕</button>`;
+    <input class="cfg-input http-xhdr-key wfd-flex1" placeholder="Clé">
+    <input class="cfg-input http-xhdr-val wfd-flex2b" placeholder="Valeur ou {var}">
+    <button class="cfg-btn danger wfd-pad-4-8" onclick="this.parentElement.remove()">✕</button>`;
   list.appendChild(div);
 }
 
@@ -9557,21 +9551,18 @@ function wfS3AddMapping(pfx) {
   if (!container) return;
   const idx = container.querySelectorAll('.s3-mapping-row').length;
   const row = document.createElement('div');
-  row.className = 's3-mapping-row';
-  row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+  row.className = 's3-mapping-row wfd-row-gap6c';
   row.dataset.idx = idx;
   row.innerHTML = `
-    <select class="cfg-select s3-map-type" class="wfd-w90-fs10">
+    <select class="cfg-select s3-map-type wfd-w90-fs10">
       <option value="video">🎬 Vidéo</option>
       <option value="image">🖼 Image</option>
       <option value="subtitle">💬 SRT</option>
       <option value="custom" selected>✏️ Custom</option>
     </select>
-    <input class="cfg-input s3-map-filter" placeholder="filtre (.ext, _nom…)"
-      class="wfd-flex1-mono10">
-    <span style="font-size:10px;color:var(--color-text-secondary);flex-shrink:0;">→</span>
-    <input class="cfg-input s3-map-var" placeholder="nom_variable"
-      class="wfd-w120-mono">
+    <input class="cfg-input s3-map-filter wfd-flex1-mono10" placeholder="filtre (.ext, _nom…)">
+    <span class="wfd-text-shrink-10">→</span>
+    <input class="cfg-input s3-map-var wfd-w120-mono" placeholder="nom_variable">
     <button onclick="wfS3RemoveMapping('${pfx}',${idx})"
       class="wfd-del-btn-p2">×</button>`;
   container.appendChild(row);
@@ -9628,21 +9619,19 @@ function awsS3AddMapping(pfx) {
   if (!container) return;
   const idx = container.querySelectorAll('.s3-mapping-row').length;
   const row = document.createElement('div');
-  row.className = 's3-mapping-row';
-  row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+  row.className = 's3-mapping-row wfd-row-gap6c';
   row.dataset.idx = idx;
   row.innerHTML = `
-    <select class="cfg-select s3-map-type" class="wfd-w90-fs10">
+    <select class="cfg-select s3-map-type wfd-w90-fs10">
       <option value="video">🎬 Vidéo</option>
       <option value="image">🖼 Image</option>
       <option value="subtitle">💬 SRT</option>
       <option value="custom" selected>✏️ Custom</option>
     </select>
-    <input class="cfg-input s3-map-filter" placeholder="filtre (.ext, _nom…)"
-      class="wfd-flex1-mono10" title="Extensions ou fragments de nom séparés par des virgules">
-    <span style="font-size:10px;color:#555;flex-shrink:0;">→</span>
-    <input class="cfg-input s3-map-var" placeholder="nom_variable"
-      class="wfd-w120-mono">
+    <input class="cfg-input s3-map-filter wfd-flex1-mono10" placeholder="filtre (.ext, _nom…)"
+      title="Extensions ou fragments de nom séparés par des virgules">
+    <span class="wfd-text-shrink-10">→</span>
+    <input class="cfg-input s3-map-var wfd-w120-mono" placeholder="nom_variable">
     <button onclick="awsS3RemoveMapping('${pfx}',${idx})"
       class="wfd-del-btn-p2">×</button>`;
   container.appendChild(row);
