@@ -1139,16 +1139,14 @@ const _colTree = wfdColTreeHtml(prefix, preselected);
                   || document.getElementById(prefix+'-target-wrap')?.dataset?.savedTargetVar
                   || prevTargetVal || '';
     tmp.innerHTML = `
-      <div style="display:flex;gap:0;margin-bottom:8px;border:1px solid #2a2a2a;border-radius:4px;overflow:hidden;">
+      <div class="wfd-atm-toggle-wrap">
         <button onclick="mnActionTargetMode('tree')" id="${prefix}-atm-tree"
-          style="flex:1;padding:5px;font-size:10px;border:none;cursor:pointer;
-            background:#1a2a1a;color:#5dbb6b;">🌳 Choisir dans l'arbre</button>
+          class="wfd-atm-btn active-green">🌳 Choisir dans l'arbre</button>
         <button onclick="mnActionTargetMode('var')" id="${prefix}-atm-var"
-          style="flex:1;padding:5px;font-size:10px;border:none;border-left:1px solid #2a2a2a;cursor:pointer;
-            background:transparent;color:#555;">⚙ Variable / Chemin</button>
+          class="wfd-atm-btn wfd-atm-btn-r inactive">⚙ Variable / Chemin</button>
       </div>
       <div id="${prefix}-atm-tree-wrap">${_colTree}</div>
-      <div id="${prefix}-atm-var-wrap" style="display:none">
+      <div id="${prefix}-atm-var-wrap" class="wfd-hidden">
         <input id="${prefix}-target-var" class="cfg-input wfd-mono"
           value="${_prevVar}" placeholder="{targetColPath} ou Bayard Audio/En attente PAD">
         <div class="wfd-hint-top4b">
@@ -1172,18 +1170,18 @@ const _colTree = wfdColTreeHtml(prefix, preselected);
         <option value="">— Choisir une Export Location —</option>
         ${elOpts}
       </select>
-      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
-        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;">
+      <div class="wfd-col-gap6-mt8">
+        <label class="wfd-checkbox-label">
           <input type="checkbox" id="${prefix}-create-folder-asset" ${_createFolder?'checked':''}>
           Créer un sous-dossier par asset (recommandé)
         </label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;">
+        <label class="wfd-checkbox-label">
           <input type="checkbox" id="${prefix}-overwrite" ${_overwrite?'checked':''}>
           Écraser si déjà présent
         </label>
       </div>
       <div class="cfg-field wfd-mt8">
-        <div style="font-size:10px;color:#888;margin-bottom:3px;">Nom du fichier exporté <span class="wfd-c-555">(optionnel — supporte les variables)</span></div>
+        <div class="wfd-c-888-10-mb3">Nom du fichier exporté <span class="wfd-c-555">(optionnel — supporte les variables)</span></div>
         <input id="${prefix}-file-name" class="cfg-input wfd-mono-xs" list="${prefix}-wfd-var-list"
           value="${escHtml(_cfgNode?.config?.fileName||'')}"
           placeholder="{Titre} ou nom fixe">
@@ -1191,7 +1189,7 @@ const _colTree = wfdColTreeHtml(prefix, preselected);
           Si renseigné, renomme le fichier exporté avec cette valeur
         </div>
       </div>
-      <div style="font-size:10px;color:#555;margin-top:6px;">
+      <div class="wfd-hint-mt6">
         Le job_id est stocké dans <code>{exportJobId}</code>
       </div>`;
   } else {
@@ -1398,8 +1396,8 @@ function mnActionTargetMode(mode) {
   const btnTree  = document.getElementById('mn-atm-tree') || document.getElementById('cfg-atm-tree');
   const btnVar   = document.getElementById('mn-atm-var')  || document.getElementById('cfg-atm-var');
   const isVar = mode === 'var';
-  if (treeWrap) treeWrap.style.display = isVar ? 'none' : '';
-  if (varWrap)  varWrap.style.display  = isVar ? '' : 'none';
+  if (treeWrap) treeWrap.classList.toggle('wfd-hidden', isVar);
+  if (varWrap)  varWrap.classList.toggle('wfd-hidden', !isVar);
   if (btnTree)  { btnTree.classList.toggle('active-green', !isVar); btnTree.classList.toggle('inactive', isVar); }
   if (btnVar)   { btnVar.classList.toggle('active-blue',  isVar);  btnVar.classList.toggle('inactive', !isVar); }
 }
