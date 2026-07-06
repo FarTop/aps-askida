@@ -2670,18 +2670,15 @@ function buildCfgFields(pfx, family, cfg) {
     ${buildWfdVarDatalist(`${pfx}-wfd-var-list`)}
     <div class="cfg-field">
       <label class="cfg-label">QUE VOULEZ-VOUS RÉCUPÉRER ?</label>
-      <div style="display:flex;gap:6px;margin-top:4px;">
+      <div class="wfd-fetch-subtype-wrap">
         ${[['asset','🎬','Un asset'],['collection','📁','Une collection'],['metadata','🏷️','Des métadonnées'],['savedsearch','🔍','Saved Search']].map(([val,icon,lbl])=>`
           <button onclick="wfdFetchSubType('${pfx}','${val}')" id="${pfx}-subtype-${val}"
-            style="flex:1;padding:8px 6px;border-radius:6px;cursor:pointer;font-size:11px;text-align:center;
-            border:1px solid ${subType===val?'#3498db':'#2a2a2a'};
-            background:${subType===val?'#0a1a2a':'#0d0d0d'};
-            color:${subType===val?'#3498db':'#555'};">
-            <div style="font-size:16px;margin-bottom:3px;">${icon}</div>${lbl}
+            class="wfd-fetch-subtype-btn ${subType===val?'active-blue':'inactive-btn'}"${subType===val?' data-active="1"':''}>
+            <div class="wfd-fetch-subtype-icon">${icon}</div>${lbl}
           </button>`).join('')}
       </div>
     </div>
-    <div id="${pfx}-fetch-asset" style="${subType==='asset'?'':'display:none'}">
+    <div id="${pfx}-fetch-asset" class="${subType==='asset'?'':'wfd-hidden'}">
       <div class="cfg-field">
         <label class="cfg-label">LEQUEL ?</label>
         <select id="${pfx}-fetch-source-asset" class="cfg-select" onchange="wfdFetchSourceChange('${pfx}')">
@@ -2690,7 +2687,7 @@ function buildCfgFields(pfx, family, cfg) {
           <option value="title"     ${source==='title'?'selected':''}>Un asset par son titre</option>
         </select>
       </div>
-      <div id="${pfx}-fetch-value-wrap" style="${!cfg.fetchValue?'display:none':''}">
+      <div id="${pfx}-fetch-value-wrap" class="${!cfg.fetchValue?'wfd-hidden':''}">
         <div class="cfg-field">
           <label class="cfg-label">ID / TITRE</label>
           <input id="${pfx}-fetch-value" class="cfg-input" list="${pfx}-wfd-var-list"
@@ -2698,30 +2695,30 @@ function buildCfgFields(pfx, family, cfg) {
         </div>
       </div>
       <div class="cfg-field wfd-mt4">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:4px;">
+        <label class="wfd-fetch-cb-label wfd-mb4">
           <input type="checkbox" id="${pfx}-with-meta" ${cfg.withMetadata?'checked':''} onchange="wfdFetchOptionsChange('${pfx}')">
           <span class="wfd-fs11">Charger ses métadonnées</span>
         </label>
-        <div id="${pfx}-meta-view-wrap" style="${cfg.withMetadata?'':'display:none'}">
+        <div id="${pfx}-meta-view-wrap" class="${cfg.withMetadata?'':'wfd-hidden'}">
           <select id="${pfx}-meta-view" class="cfg-select wfd-mt4">
             <option value="">— Toutes les vues —</option>${viewOpts}
           </select>
         </div>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <label class="wfd-fetch-cb-label">
           <input type="checkbox" id="${pfx}-with-cols" ${cfg.withCollections?'checked':''}>
           <span class="wfd-fs11">Charger ses collections parentes</span>
         </label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:4px;">
+        <label class="wfd-fetch-cb-label wfd-mt4b">
           <input type="checkbox" id="${pfx}-with-keyframes" ${cfg.withKeyframes?'checked':''}>
           <span class="wfd-fs11">Charger ses keyframes (vignettes)</span>
         </label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:4px;">
+        <label class="wfd-fetch-cb-label wfd-mt4b">
           <input type="checkbox" id="${pfx}-with-formats" ${cfg.withFormats?'checked':''}>
           <span class="wfd-fs11">Charger les métadonnées techniques (durée, qualité vidéo, codec…)</span>
         </label>
       </div>
     </div>
-    <div id="${pfx}-fetch-collection" style="${subType==='collection'?'':'display:none'}">
+    <div id="${pfx}-fetch-collection" class="${subType==='collection'?'':'wfd-hidden'}">
       <div class="cfg-field">
         <label class="cfg-label">LAQUELLE ?</label>
         <select id="${pfx}-fetch-source-col" class="cfg-select">
@@ -2736,7 +2733,7 @@ function buildCfgFields(pfx, family, cfg) {
           value="${escHtml(cfg.fetchValue||'')}" placeholder="{collection.id} ou /SECTEURS/BJ">
       </div>
     </div>
-    <div id="${pfx}-fetch-metadata" style="${subType==='metadata'?'':'display:none'}">
+    <div id="${pfx}-fetch-metadata" class="${subType==='metadata'?'':'wfd-hidden'}">
       <div class="cfg-field">
         <label class="cfg-label">LIRE SUR</label>
         <select id="${pfx}-fetch-meta-target" class="cfg-select">
@@ -2753,17 +2750,13 @@ function buildCfgFields(pfx, family, cfg) {
       <div class="cfg-field">
         <label class="cfg-label">CHAMPS À LIRE <span class="wfd-label-9-555">(vide = tous)</span></label>
         <!-- Tags sélectionnés -->
-        <div id="${pfx}-meta-tags" style="display:flex;flex-wrap:wrap;gap:5px;min-height:28px;
-          padding:6px;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:5px;margin-bottom:6px;">
+        <div id="${pfx}-meta-tags" class="wfd-meta-tags-wrap">
           ${(cfg.metadataFields||[]).map(f => `
-            <span class="wfd-meta-tag" data-field="${escHtml(f)}"
-              style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;
-                background:#1a2a1a;border:1px solid #2d5a2d;border-radius:12px;
-                font-size:11px;color:#2ecc71;cursor:pointer;"
+            <span class="wfd-meta-tag wfd-meta-tag-pill" data-field="${escHtml(f)}"
               onclick="wfdFetchRemoveTag(this,'${pfx}')">
               ${escHtml(f)} <span class="wfd-c-555-10">×</span>
             </span>`).join('')}
-          ${(cfg.metadataFields||[]).length===0 ? '<span style="color:#444;font-size:10px;line-height:26px;">Tous les champs (aucun filtre)</span>' : ''}
+          ${(cfg.metadataFields||[]).length===0 ? '<span class="wfd-meta-empty">Tous les champs (aucun filtre)</span>' : ''}
         </div>
         <!-- Dropdown pour ajouter un champ -->
         <div class="wfd-row-gap6b">
@@ -2774,42 +2767,37 @@ function buildCfgFields(pfx, family, cfg) {
             ).join('')}
           </select>
           <button onclick="wfdFetchAddTag('${pfx}')"
-            style="padding:6px 10px;border-radius:4px;border:1px solid #2a2a2a;
-              background:transparent;color:#3498db;cursor:pointer;font-size:12px;">
+            class="wfd-fetch-addtag-btn">
             + Ajouter
           </button>
         </div>
       </div>
     </div>
-    <div id="${pfx}-fetch-savedsearch" style="${subType==='savedsearch'?'':'display:none'}">
+    <div id="${pfx}-fetch-savedsearch" class="${subType==='savedsearch'?'':'wfd-hidden'}">
       <div class="cfg-field">
         <label class="cfg-label">Saved Search Iconik</label>
-        <div style="display:flex;gap:6px;align-items:flex-start;">
+        <div class="wfd-ss-row">
           <div class="wfd-flex1">
-            <select id="${pfx}-ss-id" class="cfg-select"
-              style="${(wfdData.savedSearches||[]).length ? '' : 'display:none'}">
+            <select id="${pfx}-ss-id" class="cfg-select${(wfdData.savedSearches||[]).length ? '' : ' wfd-hidden'}">
               <option value="">— Sélectionner une Saved Search —</option>
               ${(wfdData.savedSearches||[]).map(s =>
                 `<option value="${s.id}" ${cfg.savedSearchId===s.id?'selected':''}>${escHtml(s.name||s.nom||s.id)}</option>`
               ).join('')}
             </select>
-            <input id="${pfx}-ss-id-manual" class="cfg-input"
-              style="font-family:var(--font-mono);${(wfdData.savedSearches||[]).length ? 'display:none' : ''}"
+            <input id="${pfx}-ss-id-manual" class="cfg-input wfd-ss-manual-input${(wfdData.savedSearches||[]).length ? ' wfd-hidden' : ''}"
               value="${escHtml(cfg.savedSearchId||'')}"
               placeholder="ID de la Saved Search Iconik">
           </div>
           <button onclick="wfdRefreshSavedSearches('${pfx}')"
             id="${pfx}-ss-refresh"
             title="Actualiser depuis Iconik"
-            style="flex-shrink:0;padding:6px 8px;border-radius:4px;border:1px solid #2a2a2a;
-              background:transparent;color:#3498db;cursor:pointer;font-size:13px;
-              transition:transform .3s;">↺</button>
+            class="wfd-ss-refresh-btn">↺</button>
         </div>
         <div id="${pfx}-ss-status" class="wfd-hint-top3"></div>
       </div>
       <div class="cfg-field">
         <label class="cfg-label">Nombre de résultats max</label>
-        <div style="display:grid;grid-template-columns:1fr 80px;gap:8px;align-items:center;">
+        <div class="wfd-ss-limit-grid">
           <input id="${pfx}-ss-limit" type="number" min="1" max="1000"
             class="cfg-input" value="${cfg.savedSearchLimit||'100'}">
           <span class="wfd-text-555-11b">résultats</span>
@@ -2818,13 +2806,11 @@ function buildCfgFields(pfx, family, cfg) {
       <div class="cfg-field">
         <label class="cfg-label">Stocker les résultats dans</label>
         <div class="wfd-row-gap6c">
-          <span style="font-family:var(--font-mono);color:#2ecc71;font-size:14px;">{</span>
-          <input id="${pfx}-ss-var" class="cfg-input"
-            style="font-family:var(--font-mono);font-size:13px;font-weight:600;
-              color:#2ecc71;background:#0a140a;border-color:#2d5a2d;"
+          <span class="wfd-mono-green-14">{</span>
+          <input id="${pfx}-ss-var" class="cfg-input wfd-ss-var-input"
             value="${escHtml(cfg.savedSearchVar||'search_results')}"
             placeholder="search_results">
-          <span style="font-family:var(--font-mono);color:#2ecc71;font-size:14px;">}</span>
+          <span class="wfd-mono-green-14">}</span>
         </div>
         <div class="cfg-hint">
           Après exécution : <code>{vars.search_results}</code> contiendra la liste d'assets,
@@ -2834,7 +2820,7 @@ function buildCfgFields(pfx, family, cfg) {
       </div>
     </div>
 
-    <div class="cfg-field" style="background:#0d1a0d;border:1px solid #1a3a1a;border-radius:5px;padding:10px 12px;margin-top:8px;">
+    <div class="cfg-field wfd-fetch-storecard">
       <label class="cfg-label wfd-c-green4-mb6">STOCKER LE RÉSULTAT DANS</label>
       <div class="wfd-row-gap6c">
         <span class="wfd-mono-green">{</span>
@@ -8162,8 +8148,8 @@ async function wfdRefreshSavedSearches(pfx) {
       const currentVal = sel.value || manual?.value || '';
       sel.innerHTML = '<option value="">— Sélectionner une Saved Search —</option>' +
         searches.map(s => `<option value="${s.id}" ${currentVal===s.id?'selected':''}>${escHtml(s.title||s.name||s.id)}</option>`).join('');
-      sel.style.display = '';
-      if (manual) manual.style.display = 'none';
+      sel.classList.remove('wfd-hidden');
+      if (manual) manual.classList.add('wfd-hidden');
     }
 
     if (status) {
@@ -8491,9 +8477,8 @@ function wfdFetchAddTag(pfx) {
   if (placeholder) placeholder.remove();
   // Créer le tag
   var tag = document.createElement('span');
-  tag.className = 'wfd-meta-tag';
+  tag.className = 'wfd-meta-tag wfd-meta-tag-pill';
   tag.dataset.field = field;
-  tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#1a2a1a;border:1px solid #2d5a2d;border-radius:12px;font-size:11px;color:#2ecc71;cursor:pointer;';
   tag.innerHTML = field + ' <span class="wfd-c-555-10">×</span>';
   tag.setAttribute('onclick', 'wfdFetchRemoveTag(this,"' + pfx + '")');
   tags.appendChild(tag);
@@ -8581,7 +8566,7 @@ function wfdFetchSubType(pfx, subType) {
       btn.classList.toggle('inactive-btn', !a);
       btn.dataset.active = a?'1':'';
     }
-    if (panel) panel.style.display = a ? '' : 'none';
+    if (panel) panel.classList.toggle('wfd-hidden', !a);
   });
   if (pfx === 'cfg' && typeof sauvegarderConfig === 'function') sauvegarderConfig();
   // Si on active le sous-type metadata et qu'une vue est déjà sélectionnée, filtrer les champs
@@ -8593,12 +8578,12 @@ function wfdFetchSubType(pfx, subType) {
 function wfdFetchSourceChange(pfx) {
   const sel=document.getElementById(pfx+'-fetch-source-asset');
   const wrap=document.getElementById(pfx+'-fetch-value-wrap');
-  if (sel&&wrap) wrap.style.display=sel.value==='triggered'?'none':'';
+  if (sel&&wrap) wrap.classList.toggle('wfd-hidden', sel.value==='triggered');
 }
 function wfdFetchOptionsChange(pfx) {
   const cb=document.getElementById(pfx+'-with-meta');
   const wrap=document.getElementById(pfx+'-meta-view-wrap');
-  if (cb&&wrap) wrap.style.display=cb.checked?'':'none';
+  if (cb&&wrap) wrap.classList.toggle('wfd-hidden', !cb.checked);
 }
 function wfdActionTypeChange(pfx) {
   const sel=document.getElementById(pfx+'-action-type');
