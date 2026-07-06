@@ -2078,6 +2078,10 @@ nav { display: flex; gap: 2px; }
 .wfd-decision-default-dot  { width: 10px; height: 10px; border-radius: 50%; background: #95a5a6; flex-shrink: 0; display: inline-block; }
 .wfd-decision-default-title { font-size: 12px; color: #ccc; font-weight: 600; }
 .wfd-decision-default-input { width: 120px; font-size: 11px; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 43 (checker) ────────────── */
+.wfd-chk-rows-wrap { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.wfd-chk-add-btn   { width: 100%; padding: 6px; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

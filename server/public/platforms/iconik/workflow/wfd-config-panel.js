@@ -3116,18 +3116,18 @@ function buildCfgFields(pfx, family, cfg) {
   <!-- Liste des vérifications -->
   <div class="cfg-field">
     <label class="cfg-label">Endpoints à vérifier</label>
-    <div id="${pfx}-chk-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+    <div id="${pfx}-chk-rows" class="wfd-chk-rows-wrap">
       ${_chkChecks.map((chk, i) => `
-      <div class="chk-row" data-idx="${i}" style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;padding:8px;">
-        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-          <select class="cfg-select chk-method" style="width:80px;flex-shrink:0;">
+      <div class="chk-row wfd-chk-row-card" data-idx="${i}">
+        <div class="wfd-chk-hdr-row">
+          <select class="cfg-select chk-method wfd-chk-method-sel">
             ${['GET','POST'].map(m => `<option ${(chk.method||'GET')===m?'selected':''}>${m}</option>`).join('')}
           </select>
           <input class="cfg-input chk-endpoint wfd-flex1-mono10" list="${pfx}-wfd-var-list"
             value="${escHtml(chk.endpoint||'')}" placeholder="/api/contents/{external_id}">
           <button onclick="chkRemoveRow('${pfx}',${i})" class="wfd-del-btn-p4">×</button>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 120px 1fr;gap:6px;align-items:center;">
+        <div class="wfd-chk-grid-3col">
           <input class="cfg-input chk-path wfd-mono-xs" list="${pfx}-wfd-var-list"
             value="${escHtml(chk.path||'')}" placeholder="results.amazon.status" title="Chemin de la valeur à vérifier">
           <select class="cfg-select chk-op">
@@ -3139,7 +3139,7 @@ function buildCfgFields(pfx, family, cfg) {
         <input class="cfg-input chk-label wfd-hint-mt6" value="${escHtml(chk.label||'')}" placeholder="Label (optionnel)">
       </div>`).join('')}
     </div>
-    <button class="cfg-btn" onclick="chkAddRow('${pfx}')" style="width:100%;padding:6px;">+ Ajouter une vérification</button>
+    <button class="cfg-btn wfd-chk-add-btn" onclick="chkAddRow('${pfx}')">+ Ajouter une vérification</button>
   </div>
 
   <!-- Ports -->
