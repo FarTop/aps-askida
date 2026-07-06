@@ -7222,11 +7222,11 @@ function _buildTranscodePanel(pfx, cfg) {
       </select>
     </div>
   </div>
-  <div id="${pfx}-tc-custom-wrap" class="cfg-field" style="${cfg.preset==='custom'?'':'display:none'}">
+  <div id="${pfx}-tc-custom-wrap" class="cfg-field${cfg.preset==='custom'?'':' wfd-hidden'}">
     <label class="cfg-label">Options FFmpeg personnalis\u00e9es</label>
     <textarea id="${pfx}-tc-custom" class="cfg-textarea wfd-mono-sm2"
       placeholder="-c:v prores_ks -profile:v 3 -c:a pcm_s24le">${escHtml(cfg.customOptions||'')}</textarea>
-    <div style="font-size:10px;color:#f39c12;margin-top:3px;">
+    <div class="wfd-tc-warning">
       \u26a0 Options avanc\u00e9es — la traduction Node-RED utilisera un noeud FFmpeg d\u00e9di\u00e9
     </div>
   </div>
@@ -7242,7 +7242,7 @@ function _buildTranscodePanel(pfx, cfg) {
   <label class="cfg-label">Collection de destination (optionnel)</label>
   <input id="${pfx}-tc-collection" class="cfg-input wfd-mono"
          value="${escHtml(cfg.collection||'')}" placeholder="{collection.id}  ou  ID fixe">
-  <div id="${pfx}-tc-col-wrap" style="position:relative;margin-top:6px;">
+  <div id="${pfx}-tc-col-wrap" class="wfd-tc-col-wrap">
     ${typeof wfdColTreeHtml==='function'
         ? wfdColTreeHtml(
             `${pfx}-tc`,
@@ -7275,7 +7275,7 @@ function _buildTranscodePanel(pfx, cfg) {
 function _tcPresetChange(pfx) {
   const val  = document.getElementById(pfx+'-tc-preset')?.value;
   const wrap = document.getElementById(pfx+'-tc-custom-wrap');
-  if (wrap) wrap.style.display = val === 'custom' ? '' : 'none';
+  if (wrap) wrap.classList.toggle('wfd-hidden', val !== 'custom');
 }
 
 function _readTranscodeConfig(pfx) {
@@ -8043,9 +8043,8 @@ function igAddAction(pfx) {
   ).join('');
   const div = document.createElement('div');
   div.innerHTML = `
-    <div class="ig-api-row" data-i="${i}"
-      style="background:#0d0d0d;border:1px solid #2a2a2a;border-radius:5px;padding:8px;margin-bottom:6px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 28px;gap:5px;align-items:center;">
+    <div class="ig-api-row wfd-ig-row-card" data-i="${i}">
+      <div class="wfd-ig-row-grid">
         <select class="cfg-select ig-conn" data-i="${i}" onchange="igConnChange(${i},'${pfx}')">
           <option value="">— Connexion —</option>${connOpts}
         </select>
@@ -8701,10 +8700,9 @@ function wfdMetaOp(pfx, op) {
 }
 function wfdUmAddRow(pfx) {
   const c=document.getElementById(pfx+'-um-rows'); if (!c) return;
-  const row=document.createElement('div'); row.className='um-row';
-  row.style.cssText='display:grid;grid-template-columns:1fr 1fr 24px;gap:4px;margin-bottom:4px;';
+  const row=document.createElement('div'); row.className='um-row wfd-umrow-grid';
   const allMeta=(wfdData.metadata||[]).map(m=>m.nom||m.name||'').filter(Boolean).sort();
-  row.innerHTML=`<select class="cfg-select um-key" style="font-size:10px;"><option value="">— Champ —</option>${allMeta.map(m=>`<option value="${m}">${escHtml(m)}</option>`).join('')}</select><input class="cfg-input um-value" placeholder="valeur ou {variable}"><button onclick="this.closest('.um-row').remove()" style="background:#1a0a0a;border:1px solid #3a1a1a;border-radius:3px;color:#e74c3c;cursor:pointer;">×</button>`;
+  row.innerHTML=`<select class="cfg-select um-key wfd-fs10"><option value="">— Champ —</option>${allMeta.map(m=>`<option value="${m}">${escHtml(m)}</option>`).join('')}</select><input class="cfg-input um-value" placeholder="valeur ou {variable}"><button onclick="this.closest('.um-row').remove()" class="wfd-umrow-del-btn">×</button>`;
   c.appendChild(row);
 }
 function wfdListenerSimToggle(pfx) {
