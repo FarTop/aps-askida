@@ -2243,73 +2243,58 @@ function buildCfgFields(pfx, family, cfg) {
             placeholder="/api/contents/{asset_id}">
         </div>
       </div>
-      <div class="cfg-field" id="${pfx}-http-body-wrap"
-        style="${['GET','DELETE'].includes(cfg.method||'GET')?'display:none':''}">
+      <div id="${pfx}-http-body-wrap"
+        class="cfg-field${['GET','DELETE'].includes(cfg.method||'GET')?' wfd-hidden':''}">
         <div class="wfd-row-sb-mb6">
           <label class="cfg-label wfd-m0">Body JSON</label>
           <div class="wfd-row-gap6c">
             <button onclick="httpBodyDetectVars('${pfx}')"
-              style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid #2d5a2d;
-                background:#0d1a0d;color:#5dbb6b;cursor:pointer;">
+              class="wfd-http-detect-btn">
               ⚡ Détecter les variables
             </button>
             <button onclick="httpBodyToggleRaw('${pfx}')"
               id="${pfx}-body-raw-btn"
-              style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid #2a2a2a;
-                background:transparent;color:#555;cursor:pointer;">
+              class="wfd-http-rawtoggle-btn ${cfg.bodyRaw?'active-blue':'inactive-btn'}">
               { } JSON brut
             </button>
           </div>
         </div>
 
         <!-- Zone tags (mode builder) -->
-        <div id="${pfx}-body-builder" style="${cfg.bodyRaw?'display:none':''}">
+        <div id="${pfx}-body-builder" class="${cfg.bodyRaw?'wfd-hidden':''}">
           <!-- Tags des variables sélectionnées -->
-          <div id="${pfx}-body-tags"
-            style="min-height:38px;padding:6px 8px;background:#0a0a0a;
-              border:1px solid #2a2a2a;border-radius:5px 5px 0 0;
-              display:flex;flex-wrap:wrap;gap:5px;align-items:flex-start;">
+          <div id="${pfx}-body-tags" class="wfd-body-tags-wrap">
             ${(cfg.bodyTags||[]).map((t,i) => `
-              <div class="http-body-tag" data-idx="${i}"
-                style="display:inline-flex;align-items:center;gap:4px;padding:3px 6px;
-                  background:${t.spread?'#0a1a0a':'#0a0d14'};
-                  border:1px solid ${t.spread?'#2d5a2d':'#1e3a5a'};
-                  border-radius:4px;font-size:11px;cursor:default;">
-                <span style="color:${t.spread?'#5dbb6b':'#7ec8e3'};font-family:var(--font-mono);">${escHtml(t.var)}</span>
+              <div class="http-body-tag wfd-http-tag" data-idx="${i}" data-var="${escHtml(t.var)}" data-spread="${t.spread?'1':'0'}"
+                style="--tag-bg:${t.spread?'#0a1a0a':'#0a0d14'};--tag-border:${t.spread?'#2d5a2d':'#1e3a5a'};">
+                <span class="wfd-http-tag-name" style="--tag-color:${t.spread?'#5dbb6b':'#7ec8e3'};">${escHtml(t.var)}</span>
                 ${!t.spread ? `<span class="wfd-c-555-10">→</span>
-                  <input class="http-tag-alias" data-idx="${i}" value="${escHtml(t.alias||t.var)}"
+                  <input class="http-tag-alias wfd-http-tag-alias-input" data-idx="${i}" value="${escHtml(t.alias||t.var)}"
                     title="Nom de clé dans le JSON"
-                    style="width:${Math.max(40,(t.alias||t.var).length*7)}px;font-size:11px;
-                      font-family:var(--font-mono);background:transparent;border:none;
-                      border-bottom:1px solid #2a2a2a;color:#3498db;outline:none;padding:0 2px;">` : ''}
-                ${t.spread ? '<span style="color:#2d5a2d;font-size:9px;">étendu</span>' : ''}
+                    style="--alias-width:${Math.max(40,(t.alias||t.var).length*7)}px;"
+                    oninput="httpBodyPreview('${pfx}')">` : ''}
+                ${t.spread ? '<span class="wfd-http-tag-spread-badge">étendu</span>' : ''}
                 <button onclick="httpBodyRemoveTag('${pfx}',${i})"
-                  style="background:none;border:none;color:#444;cursor:pointer;font-size:12px;
-                    padding:0 2px;line-height:1;">&times;</button>
+                  class="wfd-http-tag-del-btn">&times;</button>
               </div>`).join('')}
             ${!(cfg.bodyTags||[]).length ?
               '<span style="color:#444;font-size:11px;line-height:26px;">Cliquez sur ⚡ pour détecter les variables disponibles</span>' : ''}
           </div>
 
           <!-- Aperçu JSON généré -->
-          <div style="border:1px solid #2a2a2a;border-top:none;border-radius:0 0 5px 5px;
-            background:#0d0d0d;padding:6px 8px;">
-            <div style="font-size:9px;color:#444;margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+          <div class="wfd-body-preview-wrap">
+            <div class="wfd-body-preview-hdr">
               <span>APERÇU</span>
               <span id="${pfx}-body-preview-status" class="wfd-c-555"></span>
             </div>
-            <pre id="${pfx}-body-preview"
-              style="font-family:var(--font-mono);font-size:10px;color:#888;
-                margin:0;white-space:pre-wrap;word-break:break-all;max-height:120px;
-                overflow-y:auto;">${escHtml(cfg.bodyPreview||'{ }')}</pre>
+            <pre id="${pfx}-body-preview" class="wfd-body-preview-pre">${escHtml(cfg.bodyPreview||'{ }')}</pre>
           </div>
         </div>
 
         <!-- Zone JSON brut (mode avancé) -->
-        <div id="${pfx}-body-raw" style="${!cfg.bodyRaw?'display:none':''}">
-          <textarea id="${pfx}-http-body" class="cfg-textarea" rows="6"
-            placeholder='{"title":"{title}","external_id":"{asset_id}"}'
-            style="font-family:var(--font-mono);font-size:11px;border-radius:5px;">${escHtml(cfg.body||'')}</textarea>
+        <div id="${pfx}-body-raw" class="${!cfg.bodyRaw?'wfd-hidden':''}">
+          <textarea id="${pfx}-http-body" class="cfg-textarea wfd-body-raw-textarea" rows="6"
+            placeholder='{"title":"{title}","external_id":"{asset_id}"}'>${escHtml(cfg.body||'')}</textarea>
           <div class="wfd-hint-top3">
             Mode avancé — les variables <code>{varName}</code> sont interpolées à l'exécution.
           </div>
@@ -2516,7 +2501,7 @@ function buildCfgFields(pfx, family, cfg) {
     if (e.target && e.target.id === `${pfx}-http-method`) {
       const noBody = ['GET','DELETE'].includes(e.target.value);
       const wrap = document.getElementById(`${pfx}-http-body-wrap`);
-      if (wrap) wrap.style.display = noBody ? 'none' : '';
+      if (wrap) wrap.classList.toggle('wfd-hidden', noBody);
       document.removeEventListener('change', _httpMethodChange);
     }
   });
@@ -5066,22 +5051,15 @@ function sauvegarderConfig() {
         if (key) node.config.extraHeaders.push({ key, value });
       });
       // Body : lire depuis le builder (tags) ou le mode JSON brut
-      const _rawMode = document.getElementById('cfg-body-raw')?.style.display !== 'none';
+      const _bodyRawEl = document.getElementById('cfg-body-raw');
+      const _rawMode = _bodyRawEl ? !_bodyRawEl.classList.contains('wfd-hidden') : false;
       node.config.bodyRaw = _rawMode;
       if (_rawMode) {
         node.config.body = document.getElementById('cfg-http-body')?.value || '';
         node.config.bodyTags = node.config.bodyTags || [];
       } else {
-        // Lire les tags et leurs alias depuis le DOM
-        const _tags = [];
-        document.querySelectorAll('#cfg-body-tags .http-body-tag').forEach((tagEl, i) => {
-          const varName = tagEl.querySelector('span')?.textContent?.trim() || '';
-          const aliasEl = tagEl.querySelector('.http-tag-alias');
-          const alias   = aliasEl ? aliasEl.value.trim() : varName;
-          const spread  = tagEl.style.borderColor.includes('2d5a2d') ||
-                         tagEl.querySelector('span[style*="2d5a2d"]') !== null;
-          if (varName) _tags.push({ var: varName, alias, spread });
-        });
+        // Lire les tags et leurs alias/spread depuis le DOM (source unique : httpBodyReadTags)
+        const _tags = httpBodyReadTags('cfg');
         node.config.bodyTags = _tags;
         // Générer le body JSON depuis les tags pour le moteur
         node.config.body = httpBodyBuildFromTags(_tags);
@@ -8928,6 +8906,8 @@ function httpBodyAddTag(pfx, varName, alias, spread) {
   const tag = document.createElement('div');
   tag.className = 'http-body-tag wfd-http-tag';
   tag.dataset.idx = idx;
+  tag.dataset.var = varName;
+  tag.dataset.spread = spread ? '1' : '0';
   tag.style.setProperty('--tag-bg', spread ? '#0a1a0a' : '#0a0d14');
   tag.style.setProperty('--tag-border', spread ? '#2d5a2d' : '#1e3a5a');
   tag.innerHTML =
@@ -8974,9 +8954,9 @@ function httpBodyToggleRaw(pfx) {
   const raw     = document.getElementById(pfx + '-body-raw');
   const btn     = document.getElementById(pfx + '-body-raw-btn');
   if (!builder || !raw) return;
-  const isRaw = raw.style.display !== 'none';
-  builder.style.display = isRaw ? '' : 'none';
-  raw.style.display     = isRaw ? 'none' : '';
+  const isRaw = !raw.classList.contains('wfd-hidden');
+  builder.classList.toggle('wfd-hidden', isRaw);
+  raw.classList.toggle('wfd-hidden', !isRaw);
   if (btn) {
     btn.classList.toggle('active-blue', !isRaw);
     btn.classList.toggle('inactive-btn', isRaw);
