@@ -6690,22 +6690,18 @@ function _buildAclPanel(pfx, cfg, wfdData) {
       `<option value="${t.id||t.name}" ${e.teamId===(t.id||t.name)?'selected':''}>${escHtml(t.name||t.id)}</option>`
     ).join('');
     return `
-    <div class="acl-entry" id="acl-entry-${i}"
-      style="background:#0d0d0d;border:1px solid #1e1e1e;border-radius:5px;padding:8px 10px;">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-        <select class="cfg-select acl-team" data-idx="${i}" style="flex:1;font-size:12px;">
+    <div class="acl-entry wfd-acl-entry-card" id="acl-entry-${i}">
+      <div class="wfd-acl-entry-row">
+        <select class="cfg-select acl-team wfd-acl-team-select" data-idx="${i}">
           <option value="">— Team / Groupe —</option>${teamOpts}
         </select>
-        <button class="cfg-btn danger" style="padding:3px 8px;"
+        <button class="cfg-btn danger wfd-acl-del-btn"
           onclick="${pfx}RemoveAclEntry(${i})">×</button>
       </div>
       <div class="wfd-tags-wrap">
         ${[['read','Lecture','#27ae60'],['write','Écriture','#3498db'],['delete','Suppression','#e74c3c']].map(([k,lbl,color]) => `
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;
-            background:${e[k]?'#0d1a0d':'#0a0a0a'};
-            border:1px solid ${e[k]?color:'#2a2a2a'};
-            border-radius:4px;padding:5px 10px;font-size:11px;color:#ccc;
-            transition:all .15s;" id="acl-lbl-${i}-${k}">
+          <label class="wfd-acl-perm-label${e[k]?' checked-green-bg checked-dynamic':' unchecked'}"
+            style="--chk-color:${e[k]?color:'#2a2a2a'};" id="acl-lbl-${i}-${k}">
             <input type="checkbox" class="acl-perm" data-idx="${i}" data-perm="${k}"
               ${e[k]?'checked':''}
               style="accent-color:${color};"
@@ -6723,10 +6719,7 @@ function _buildAclPanel(pfx, cfg, wfdData) {
     <label class="cfg-label">Cible</label>
     <div class="wfd-row-gap6b">
       ${[['asset','\uD83C\uDFAC Asset'],['collection','\uD83D\uDCC1 Collection']].map(([k,lbl]) => `
-        <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;
-          background:${target===k?'#1a0a0a':'#0d0d0d'};
-          border:1px solid ${target===k?'#c0392b':'#2a2a2a'};
-          border-radius:5px;padding:7px 10px;font-size:12px;color:#ccc;transition:all .15s;">
+        <label class="wfd-acl-target-label${target===k?' checked-red':' unchecked'}">
           <input type="radio" name="${pfx}-acl-target" value="${k}" ${target===k?'checked':''}
             style="accent-color:#c0392b;" onchange="_aclTargetChange('${pfx}')">
           ${lbl}
@@ -6750,14 +6743,12 @@ function _buildAclPanel(pfx, cfg, wfdData) {
         ['add',     'Ajouter',        'Ajoute les ACL sans toucher aux existantes', '#27ae60'],
         ['replace', 'Remplacer tout', 'Supprime toutes les ACL existantes puis applique les nouvelles', '#e74c3c'],
       ].map(([k,lbl,desc,color]) => `
-        <label style="flex:1;cursor:pointer;
-          background:${op===k?'#0d0d0d':'#0a0a0a'};
-          border:1px solid ${op===k?color:'#2a2a2a'};
-          border-radius:5px;padding:8px 10px;transition:all .15s;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+        <label class="wfd-acl-op-label${op===k?' checked-dynamic':''}"
+          style="--op-bg:${op===k?'#0d0d0d':'#0a0a0a'};--chk-color:${op===k?color:'#2a2a2a'};">
+          <div class="wfd-acl-op-row">
             <input type="radio" name="${pfx}-acl-op" value="${k}" ${op===k?'checked':''}
               style="accent-color:${color};" onchange="_aclOpChange('${pfx}')">
-            <span style="font-size:12px;color:${color};font-weight:600;">${lbl}</span>
+            <span class="wfd-acl-op-label-text" style="--op-color:${color};">${lbl}</span>
           </div>
           <div class="wfd-hint-left">${desc}</div>
         </label>`).join('')}
@@ -6770,14 +6761,13 @@ function _buildAclPanel(pfx, cfg, wfdData) {
       <label class="cfg-label wfd-m0">Teams et permissions</label>
       <button class="cfg-btn wfd-pad-3-10b" onclick="${pfx}AddAclEntry()">+ Team</button>
     </div>
-    <div id="${pfx}-acl-entries" style="display:flex;flex-direction:column;gap:6px;">
+    <div id="${pfx}-acl-entries" class="wfd-acl-entries-wrap">
       ${entriesHtml || '<div class="wfd-text-444-11b">Aucune team \u2014 ajoutez-en une.</div>'}
     </div>
   </div>
 
   <!-- Propager (collections seulement) -->
-  <div id="${pfx}-acl-propagate-wrap" class="cfg-field"
-    style="${target==='asset'?'display:none':''}">
+  <div id="${pfx}-acl-propagate-wrap" class="cfg-field${target==='asset'?' wfd-hidden':''}">
     <div class="wfd-row-gap8b">
       <input type="checkbox" id="${pfx}-acl-propagate"
         class="wfd-swatch" ${cfg.propagate?'checked':''}>
@@ -6785,7 +6775,7 @@ function _buildAclPanel(pfx, cfg, wfdData) {
         Propager aux sous-collections et assets enfants
       </label>
     </div>
-    <div style="font-size:10px;color:#555;margin-top:3px;padding-left:22px;">
+    <div class="wfd-acl-propagate-hint">
       Applique les ACL récursivement à tout le contenu de la collection
     </div>
   </div>
@@ -6807,7 +6797,7 @@ function _aclTargetChange(pfx) {
   const propW = document.getElementById(pfx+'-acl-propagate-wrap');
   if (label) label.textContent = 'Identifiant cible';
   if (input) input.placeholder = t === 'collection' ? '{collection.id}' : '{asset.id}';
-  if (propW) propW.style.display = t === 'asset' ? 'none' : '';
+  if (propW) propW.classList.toggle('wfd-hidden', t === 'asset');
   document.querySelectorAll(`input[name="${pfx}-acl-target"]`).forEach(el => {
     const lbl = el.closest('label');
     if (lbl) {
@@ -6840,28 +6830,25 @@ function cfgAddAclEntry()    { _aclAddEntry('cfg'); }
 function _aclAddEntry(pfx) {
   const wrap  = document.getElementById(pfx+'-acl-entries');
   if (!wrap) return;
-  const empty = wrap.querySelector('div[style*="color:#444"]');
+  const empty = wrap.querySelector('.wfd-text-444-11b');
   if (empty) empty.remove();
   const i     = wrap.querySelectorAll('.acl-entry').length;
   const teams = wfdData.teams || [];
   const teamOpts = teams.map(t =>
     `<option value="${t.id||t.name}">${escHtml(t.name||t.id)}</option>`).join('');
   const div = document.createElement('div');
-  div.className = 'acl-entry';
+  div.className = 'acl-entry wfd-acl-entry-card';
   div.id = `acl-entry-${i}`;
-  div.style.cssText = 'background:#0d0d0d;border:1px solid #1e1e1e;border-radius:5px;padding:8px 10px;';
   div.innerHTML = `
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-      <select class="cfg-select acl-team" data-idx="${i}" style="flex:1;font-size:12px;">
+    <div class="wfd-acl-entry-row">
+      <select class="cfg-select acl-team wfd-acl-team-select" data-idx="${i}">
         <option value="">— Team / Groupe —</option>${teamOpts}
       </select>
-      <button class="cfg-btn danger" style="padding:3px 8px;" onclick="${pfx}RemoveAclEntry(${i})">×</button>
+      <button class="cfg-btn danger wfd-acl-del-btn" onclick="${pfx}RemoveAclEntry(${i})">×</button>
     </div>
     <div class="wfd-tags-wrap">
       ${[['read','Lecture','#27ae60'],['write','\u00c9criture','#3498db'],['delete','Suppression','#e74c3c']].map(([k,lbl,color]) => `
-        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;
-          background:#0a0a0a;border:1px solid #2a2a2a;
-          border-radius:4px;padding:5px 10px;font-size:11px;color:#ccc;" id="acl-lbl-${i}-${k}">
+        <label class="wfd-acl-perm-label unchecked" id="acl-lbl-${i}-${k}">
           <input type="checkbox" class="acl-perm" data-idx="${i}" data-perm="${k}"
             style="accent-color:${color};"
             onchange="_aclPermChange('${pfx}',${i},'${k}','${color}')">
