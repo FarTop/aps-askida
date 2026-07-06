@@ -2062,6 +2062,12 @@ nav { display: flex; gap: 2px; }
 .wfd-wh-statut-col   { display: flex; gap: 6px; align-items: flex-start; flex-direction: column; }
 .wfd-wh-preview-hdr  { font-size: 9px; color: #444; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .05em; }
 .wfd-wh-preview-text { font-family: var(--font-mono); font-size: 10px; color: #888; word-break: break-all; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 40 (wait_for) ────────────── */
+.wfd-wf-tabs-wrap { display: flex; gap: 0; margin-bottom: 12px; border-bottom: 1px solid #1a1a1a; }
+.wfd-w90-shrink   { width: 90px; flex-shrink: 0; }
+.wfd-hint-sec-mb12 { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 12px; }
+.wfd-hint-sec-10-mb6 { font-size: 10px; color: var(--color-text-secondary); margin-bottom: 6px; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

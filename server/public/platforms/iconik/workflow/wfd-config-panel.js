@@ -3369,7 +3369,7 @@ function buildCfgFields(pfx, family, cfg) {
 
   html += `
   <!-- Onglets -->
-  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid #1a1a1a;">
+  <div class="wfd-wf-tabs-wrap">
     <button onclick="wfTabSwitch('${pfx}','polling')" id="${pfx}-wf-tab-polling"
       class="wfd-sub-tab${_wfTab==='polling'?' active':''}">
       Polling
@@ -3381,7 +3381,7 @@ function buildCfgFields(pfx, family, cfg) {
   </div>
 
   <!-- Onglet Polling -->
-  <div id="${pfx}-wf-panel-polling" style="${_wfTab==='polling'?'':'display:none'}">
+  <div id="${pfx}-wf-panel-polling" class="${_wfTab==='polling'?'':'wfd-hidden'}">
     <div class="cfg-field">
       <label class="cfg-label">Connexion API</label>
       <select id="${pfx}-wf-conn" class="cfg-select">
@@ -3393,7 +3393,7 @@ function buildCfgFields(pfx, family, cfg) {
     <div class="cfg-field">
       <label class="cfg-label">Endpoint à interroger</label>
       <div class="wfd-row-gap6c">
-        <select id="${pfx}-wf-method" class="cfg-select" style="width:90px;flex-shrink:0;">
+        <select id="${pfx}-wf-method" class="cfg-select wfd-w90-shrink">
           ${_wfMethods.map(m => `<option ${_wfMethod===m?'selected':''}>${m}</option>`).join('')}
         </select>
         <input id="${pfx}-wf-endpoint" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
@@ -3456,8 +3456,8 @@ function buildCfgFields(pfx, family, cfg) {
   </div>
 
   <!-- Onglet Post-action S3 -->
-  <div id="${pfx}-wf-panel-s3" style="${_wfTab==='s3'?'':'display:none'}">
-    <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:12px;">
+  <div id="${pfx}-wf-panel-s3" class="${_wfTab==='s3'?'':'wfd-hidden'}">
+    <div class="wfd-hint-sec-mb12">
       Après condition remplie, liste le dossier S3 et stocke les URLs des fichiers exportés dans des variables.
     </div>
     <div class="cfg-field">
@@ -3474,7 +3474,7 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
     <div class="cfg-field">
       <label class="cfg-label">Mappings d'essences</label>
-      <div style="font-size:10px;color:var(--color-text-secondary);margin-bottom:6px;">
+      <div class="wfd-hint-sec-10-mb6">
         Pour chaque essence, définir un filtre sur le nom du fichier S3 et la variable de stockage.
       </div>
       <div id="${pfx}-wf-s3-mappings-rows" class="wfd-col-gap4-mb8">
@@ -3494,7 +3494,7 @@ function buildCfgFields(pfx, family, cfg) {
               </select>
               <input class="cfg-input s3-map-filter wfd-flex1-mono10" placeholder="filtre (.mp4, _poster…)"
                 value="${escHtml(row.filter||'')}">
-              <span style="font-size:10px;color:var(--color-text-secondary);flex-shrink:0;">→</span>
+              <span class="wfd-text-shrink-10">→</span>
               <input class="cfg-input s3-map-var wfd-w120-mono" placeholder="nom_variable"
                 value="${escHtml(row.variable||'')}">
               <button onclick="wfS3RemoveMapping('${pfx}',${i})"
@@ -9393,7 +9393,7 @@ function wfTabSwitch(pfx, tab) {
   ['polling','s3'].forEach(t => {
     const panel = document.getElementById(pfx + '-wf-panel-' + t);
     const btn   = document.getElementById(pfx + '-wf-tab-'   + t);
-    if (panel) panel.style.display = t === tab ? '' : 'none';
+    if (panel) panel.classList.toggle('wfd-hidden', t !== tab);
     if (btn)   btn.classList.toggle('active', t === tab);
   });
 }
@@ -9403,8 +9403,6 @@ function chkAddRow(pfx) {
   if (!container) return;
   const i = container.querySelectorAll('.chk-row').length;
   const div = document.createElement('div');
-  div.className = 'chk-row';
-  div.dataset.idx = i;
   div.className = 'chk-row wfd-chk-row-card';
   div.dataset.idx = i;
   div.innerHTML = `
