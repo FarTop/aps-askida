@@ -9377,6 +9377,46 @@ function awsS3ReadMappings(pfx) {
   }).filter(function(r) { return r.variable; }); // ignorer les lignes sans variable
 }
 
+// ── AWS S3 Artworks — gestion des lignes artwork (même pattern que les mappings S3 ci-dessus) ──
+function awsArtAddRow(pfx) {
+  const container = document.getElementById(pfx + '-aws-art-rows');
+  if (!container) return;
+  const idx = container.querySelectorAll('.aws-art-row').length;
+  const row = document.createElement('div');
+  row.className = 'aws-art-row wfd-aws-art-grid';
+  row.dataset.idx = idx;
+  row.innerHTML = `
+    <input class="cfg-input aws-art-name wfd-mono-xs2" data-idx="${idx}" placeholder="Cover" title="Nom dans Iconik">
+    <input class="cfg-input aws-art-md wfd-mono-xs2" data-idx="${idx}" placeholder="URLCoverArt" title="Champ MD Iconik">
+    <input class="cfg-input aws-art-var wfd-mono-xs2" data-idx="${idx}" placeholder="s3_cover_url" title="Variable contexte">
+    <button onclick="awsArtRemoveRow('${pfx}',${idx})"
+      class="wfd-del-btn-p0">×</button>`;
+  container.appendChild(row);
+  if (typeof sauvegarderConfig === 'function') sauvegarderConfig();
+}
+
+function awsArtRemoveRow(pfx, idx) {
+  const container = document.getElementById(pfx + '-aws-art-rows');
+  if (!container) return;
+  const rows = container.querySelectorAll('.aws-art-row');
+  if (rows.length <= 1) return; // garder au moins une ligne
+  if (rows[idx]) rows[idx].remove();
+  if (typeof sauvegarderConfig === 'function') sauvegarderConfig();
+}
+
+// Lit les lignes artwork depuis le DOM → retourne cfg.artworks[]
+function awsArtReadRows(pfx) {
+  const container = document.getElementById(pfx + '-aws-art-rows');
+  if (!container) return [];
+  return Array.from(container.querySelectorAll('.aws-art-row')).map(function(row) {
+    return {
+      iconikName: row.querySelector('.aws-art-name')?.value || '',
+      mdField:    row.querySelector('.aws-art-md')?.value   || '',
+      variable:   row.querySelector('.aws-art-var')?.value  || '',
+    };
+  }).filter(function(r) { return r.variable; }); // ignorer les lignes sans variable
+}
+
 function wfTabSwitch(pfx, tab) {
   ['polling','s3'].forEach(t => {
     const panel = document.getElementById(pfx + '-wf-panel-' + t);
