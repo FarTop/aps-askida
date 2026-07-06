@@ -1937,6 +1937,13 @@ nav { display: flex; gap: 2px; }
 .wfd-fe-prev-val      { color: #3498db; margin-bottom: 2px; }
 .wfd-fe-prev-body     { color: #888; font-size: 10px; margin-top: 2px; word-break: break-all; }
 .wfd-fe-prev-hdr       { color: #5dbb6b; margin-bottom: 6px; font-weight: 600; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 21 (http body tag) ──────── */
+.wfd-http-tag       { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 4px; font-size: 11px; cursor: default; background: var(--tag-bg); border: 1px solid var(--tag-border); }
+.wfd-http-tag-name  { font-family: var(--font-mono); color: var(--tag-color); }
+.wfd-http-tag-alias-input { width: var(--alias-width, 40px); font-size: 11px; font-family: var(--font-mono); background: transparent; border: none; border-bottom: 1px solid #2a2a2a; color: #3498db; outline: none; padding: 0 2px; }
+.wfd-http-tag-spread-badge { color: #2d5a2d; font-size: 9px; }
+.wfd-http-tag-del-btn { background: none; border: none; color: #444; cursor: pointer; font-size: 12px; padding: 0 2px; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

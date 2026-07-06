@@ -8948,24 +8948,20 @@ function httpBodyAddTag(pfx, varName, alias, spread) {
 
   const idx = tagsWrap.querySelectorAll('.http-body-tag').length;
   const tag = document.createElement('div');
-  tag.className = 'http-body-tag';
+  tag.className = 'http-body-tag wfd-http-tag';
   tag.dataset.idx = idx;
-  tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 6px;' +
-    `background:${spread?'#0a1a0a':'#0a0d14'};` +
-    `border:1px solid ${spread?'#2d5a2d':'#1e3a5a'};` +
-    'border-radius:4px;font-size:11px;cursor:default;';
+  tag.style.setProperty('--tag-bg', spread ? '#0a1a0a' : '#0a0d14');
+  tag.style.setProperty('--tag-border', spread ? '#2d5a2d' : '#1e3a5a');
   tag.innerHTML =
-    `<span style="color:${spread?'#5dbb6b':'#7ec8e3'};font-family:var(--font-mono);">${escHtml(varName)}</span>` +
+    `<span class="wfd-http-tag-name" style="--tag-color:${spread?'#5dbb6b':'#7ec8e3'};">${escHtml(varName)}</span>` +
     (!spread ? `<span class="wfd-c-555-10">→</span>
-      <input class="http-tag-alias" data-idx="${idx}" value="${escHtml(alias)}"
+      <input class="http-tag-alias wfd-http-tag-alias-input" data-idx="${idx}" value="${escHtml(alias)}"
         title="Nom de clé dans le JSON"
-        style="width:${Math.max(40,alias.length*7)}px;font-size:11px;
-          font-family:var(--font-mono);background:transparent;border:none;
-          border-bottom:1px solid #2a2a2a;color:#3498db;outline:none;padding:0 2px;"
+        style="--alias-width:${Math.max(40,alias.length*7)}px;"
         oninput="httpBodyPreview('${pfx}')">` : '') +
-    (spread ? '<span style="color:#2d5a2d;font-size:9px;">étendu</span>' : '') +
+    (spread ? '<span class="wfd-http-tag-spread-badge">étendu</span>' : '') +
     `<button onclick="httpBodyRemoveTag('${pfx}',${idx})"
-      style="background:none;border:none;color:#444;cursor:pointer;font-size:12px;padding:0 2px;">&times;</button>`;
+      class="wfd-http-tag-del-btn">&times;</button>`;
 
   // Stocker les données dans des data-attributes pour lecture fiable
   tag.dataset.var    = varName;
