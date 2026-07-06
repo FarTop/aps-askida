@@ -5823,7 +5823,7 @@ function cfgAddMetaField()    { _caAddMetaField('cfg'); }
 function _caAddMetaField(pfx) {
   const wrap = document.getElementById(pfx+'-ca-meta-fields');
   if (!wrap) return;
-  const empty = wrap.querySelector('div[style*="color:#444"]');
+  const empty = wrap.querySelector('.wfd-text-444-11b');
   if (empty) empty.remove();
   const i = wrap.querySelectorAll('.ca-meta-key').length;
   const div = document.createElement('div');
@@ -6001,7 +6001,7 @@ function cfgAddColMetaField()    { _ccAddMetaField('cfg'); }
 function _ccAddMetaField(pfx) {
   const wrap = document.getElementById(pfx+'-cc-meta-fields');
   if (!wrap) return;
-  const empty = wrap.querySelector('div[style*="color:#444"]');
+  const empty = wrap.querySelector('.wfd-text-444-11b');
   if (empty) empty.remove();
   const i = wrap.querySelectorAll('.cc-meta-key').length;
   const div = document.createElement('div');
@@ -6440,11 +6440,11 @@ function cfgAddUmField()    { _umAddField('cfg'); }
 function _umAddField(pfx) {
   const wrap = document.getElementById(pfx+'-um-fields');
   if (!wrap) return;
-  const empty = wrap.querySelector('div[style*="color:#444"]');
+  const empty = wrap.querySelector('.wfd-text-444-11b');
   if (empty) empty.remove();
   const i = wrap.querySelectorAll('.um-field-key').length;
   const div = document.createElement('div');
-  div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto auto;gap:5px;align-items:center;margin-bottom:4px;';
+  div.className = 'wfd-um-field-grid';
   div.innerHTML = (() => {
     const names = (wfdData.metadata || [])
       .map(m => m.nom || m.name || '')
@@ -6458,8 +6458,8 @@ function _umAddField(pfx) {
       : `<input class="cfg-input um-field-key wfd-mono-sm" data-idx="${i}"
            value="" placeholder="Champ" list="${pfx}-um-meta-list">`;
     const listId = pfx + '-wfd-var-list';
-    const valWidget = '<input class="cfg-input um-field-val" data-idx="' + i + '" value="" '
-      + 'placeholder="Valeur ou {variable}" list="' + listId + '" class="wfd-mono-sm">';
+    const valWidget = '<input class="cfg-input um-field-val wfd-mono-sm" data-idx="' + i + '" value="" '
+      + 'placeholder="Valeur ou {variable}" list="' + listId + '">';
     const opBtns = [['write','W','Ecrire'],['reset','R','Effacer'],['copy','C','Copier']].map(function(arr) {
       var v=arr[0], ic=arr[1], lb=arr[2];
       var cls = 'wfd-um-op-btn um-field-op-btn ' + (v==='write' ? 'active-blue' : 'inactive-btn');
@@ -6469,8 +6469,8 @@ function _umAddField(pfx) {
     return `
       ${keyCtrl}
       ${valWidget}
-      <div style="display:flex;gap:2px;">${opBtns}<input type="hidden" class="um-field-op" data-idx="${i}" value="write"></div>
-      <button class="cfg-btn danger" style="padding:3px 6px;" onclick="${pfx}RemoveUmField(${i})">x</button>`;
+      <div class="wfd-um-ops-wrap">${opBtns}<input type="hidden" class="um-field-op" data-idx="${i}" value="write"></div>
+      <button class="cfg-btn danger wfd-um-del-btn" onclick="${pfx}RemoveUmField(${i})">x</button>`;
   })();
   wrap.appendChild(div);
   try {
@@ -7514,7 +7514,7 @@ function cfgAddSfRetVar()  { _sfAddVar('cfg', 'rvars', 'sf-rvar-src', 'sf-rvar-d
 function _sfAddVar(pfx, wrId, srcCls, dstCls, removeFn) {
   const wrap  = document.getElementById(pfx+'-sf-'+wrId);
   if (!wrap) return;
-  const empty = wrap.querySelector('div[style*="color:#444"]');
+  const empty = wrap.querySelector('.wfd-text-444-11b');
   if (empty) empty.remove();
   const i = wrap.querySelectorAll('.'+srcCls).length;
   const div = document.createElement('div');
