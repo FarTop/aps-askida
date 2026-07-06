@@ -111,8 +111,8 @@ function _ouvrirVarDropdown(input) {
       _fermerVarDropdown();
       input.focus();
     });
-    item.addEventListener('mouseover', () => item.classList.add('hovered'));
-    item.addEventListener('mouseout',  () => item.classList.remove('hovered'));
+    item.addEventListener('mouseover', () => item.classList.add('hovered-dropdown'));
+    item.addEventListener('mouseout',  () => item.classList.remove('hovered-dropdown'));
     return item;
   }
 
@@ -1141,7 +1141,7 @@ const _colTree = wfdColTreeHtml(prefix, preselected);
     tmp.innerHTML = `
       <div class="wfd-atm-toggle-wrap">
         <button onclick="mnActionTargetMode('tree')" id="${prefix}-atm-tree"
-          class="wfd-atm-btn active-green">🌳 Choisir dans l'arbre</button>
+          class="wfd-atm-btn active-green-soft">🌳 Choisir dans l'arbre</button>
         <button onclick="mnActionTargetMode('var')" id="${prefix}-atm-var"
           class="wfd-atm-btn wfd-atm-btn-r inactive">⚙ Variable / Chemin</button>
       </div>
@@ -1398,8 +1398,8 @@ function mnActionTargetMode(mode) {
   const isVar = mode === 'var';
   if (treeWrap) treeWrap.classList.toggle('wfd-hidden', isVar);
   if (varWrap)  varWrap.classList.toggle('wfd-hidden', !isVar);
-  if (btnTree)  { btnTree.classList.toggle('active-green', !isVar); btnTree.classList.toggle('inactive', isVar); }
-  if (btnVar)   { btnVar.classList.toggle('active-blue',  isVar);  btnVar.classList.toggle('inactive', !isVar); }
+  if (btnTree)  { btnTree.classList.toggle('active-green-soft', !isVar); btnTree.classList.toggle('inactive', isVar); }
+  if (btnVar)   { btnVar.classList.toggle('active-blue-soft',  isVar);  btnVar.classList.toggle('inactive', !isVar); }
 }
 
 function mnFetchVarPreview(val) {

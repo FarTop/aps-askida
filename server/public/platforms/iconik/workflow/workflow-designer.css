@@ -1060,11 +1060,6 @@ nav { display: flex; gap: 2px; }
 }
 
 /* ── Modale Ressources — onglets ─────────────────────────────── */
-.res-tab         { padding:8px 14px;font-size:11px;background:transparent;border:none;
-                   border-bottom:2px solid transparent;color:#555;cursor:pointer;
-                   transition:color .15s, border-color .15s; font-family:var(--font-ui); }
-.res-tab:hover   { color:#aaa; }
-.res-tab.active  { color:#fff;border-bottom-color:var(--wfd-accent); }
 
 /* ── Panel config — adaptation petites fenêtres ──────────────── */
 @media (max-width: 700px) {
@@ -1398,8 +1393,6 @@ nav { display: flex; gap: 2px; }
     .wfd-rp-error         { color:#e74c3c;font-size:10px;padding:4px; }
     .wfd-rp-pause-msg     { text-align:center;padding:24px 16px;color:#888; }
     .wfd-rp-error-block   { margin-top:8px;background:#1a0500;border-radius:5px;padding:8px;border-left:3px solid #e74c3c; }
-    .wfd-rp-pause-msg     { text-align:center;padding:24px 16px;color:#888; }
-    .wfd-rp-error-block   { margin-top:8px;background:#1a0500;border-radius:5px;padding:8px;border-left:3px solid #e74c3c; }
     .wfd-rp-empty         { color:#444;font-size:10px;text-align:center;padding:8px; }
     /* Debug */
     .wfd-rp-dbg-section { display:block;width:100%;margin-bottom:12px; }
@@ -1471,6 +1464,7 @@ nav { display: flex; gap: 2px; }
   color: #555;
   cursor: pointer;
   transition: color .15s, border-color .15s;
+  font-family: var(--font-ui);
 }
 .res-tab:hover { color: #ccc; }
 .res-tab.active { color: #00d4aa; border-bottom-color: #00d4aa; }
@@ -2062,12 +2056,12 @@ nav { display: flex; gap: 2px; }
 .wfd-hover-bg:hover     { background: #1e1e1e; }
 
 /* ── Config panel — états dynamiques ───────────────────────────────────── */
-.hovered          { background: #1e2a30 !important; }
+.hovered-dropdown { background: #1e2a30 !important; }
 .wfd-del-hover:hover { border-color: #e74c3c !important; color: #e74c3c !important; }
 
 /* ── Toggle Tree/Var ────────────────────────────────────────────────────── */
-.active-green { background: #1a2a1a; color: #5dbb6b; }
-.active-blue  { background: #1a2030; color: #3498db; }
+.active-green-soft { background: #1a2a1a; color: #5dbb6b; }
+.active-blue-soft  { background: #1a2030; color: #3498db; }
 .inactive     { background: transparent; color: #555; }
 
 
