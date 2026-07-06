@@ -2114,17 +2114,13 @@ function buildCfgFields(pfx, family, cfg) {
     ${buildWfdVarDatalist(`${pfx}-wfd-var-list`)}
 
     <!-- Sélecteur de mode -->
-    <div id="${pfx}-http-modebar" data-mode="${_httpMode}"
-      style="display:flex;flex-shrink:0;height:34px;border:1px solid #2a2a2a;border-radius:6px;overflow:hidden;margin-bottom:12px;">
+    <div id="${pfx}-http-modebar" data-mode="${_httpMode}" class="wfd-httpmode-bar">
       ${['action','simple','foreach','verify'].map((m,i) => {
         const labels = {action:'Action', simple:'Requête simple', foreach:'Pour chaque valeur', verify:'Vérifier'};
         const active = _httpMode === m;
         return `<button onclick="wfdHttpModeChange('${pfx}','${m}')"
           id="${pfx}-httpmode-${m}"
-          style="flex:1;height:34px;padding:0 4px;font-size:11px;border:none;${i>0?'border-left:1px solid #2a2a2a;':''}
-            cursor:pointer;font-weight:${active?'600':'400'};
-            background:${active?'#0a1a2a':'transparent'};
-            color:${active?'#3498db':'#555'};transition:all .15s;">${labels[m]}</button>`;
+          class="wfd-httpmode-btn${i>0?' wfd-httpmode-btn-bl':''} ${active?'active-blue':'inactive-btn'}">${labels[m]}</button>`;
       }).join('')}
     </div>
 
@@ -2138,11 +2134,11 @@ function buildCfgFields(pfx, family, cfg) {
         </select>
         <button class="cfg-btn wfd-pad-6-8" onclick="ouvrirRessources('connexions')">⚙</button>
       </div>
-      ${!outConns.length ? '<div style="font-size:10px;color:#e67e22;margin-top:4px;">Aucune connexion sortante — créez-en une dans Ressources</div>' : ''}
+      ${!outConns.length ? '<div class="wfd-http-noconn">Aucune connexion sortante — créez-en une dans Ressources</div>' : ''}
     </div>
 
     <!-- ── MODE ACTION ─────────────────────────────────────────────────── -->
-    <div id="${pfx}-http-action" style="${_httpMode!=='action'?'display:none':''}">
+    <div id="${pfx}-http-action" class="${_httpMode!=='action'?'wfd-hidden':''}">
       ${(function() {
         // Récupérer les actions de la connexion sélectionnée
         const _selConn = (typeof wfdConnexions !== 'undefined' ? wfdConnexions : [])
@@ -2150,7 +2146,7 @@ function buildCfgFields(pfx, family, cfg) {
         const _actions = _selConn?.actions || [];
 
         if (!_actions.length) {
-          return `<div style="padding:16px;text-align:center;color:#555;font-size:12px;">
+          return `<div class="wfd-http-noaction">
             <div class="wfd-mb8">Cette connexion n'a pas encore d'actions configurées.</div>
             <button class="cfg-btn wfd-fs11" onclick="ouvrirRessources('connexions')">
               ⚙ Configurer dans Ressources
@@ -2201,32 +2197,31 @@ function buildCfgFields(pfx, family, cfg) {
             return `
             <div class="wfd-code-block-ov">
               <!-- Header endpoint -->
-              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;">
-                <span style="font-size:10px;font-weight:700;color:${_methodColor};background:${_methodBg};
-                  padding:1px 6px;border-radius:3px;font-family:var(--font-mono);">${escHtml(_selAction.method)}</span>
-                <span style="font-size:11px;color:#aaa;font-family:var(--font-mono);">${escHtml(_selAction.endpoint)}</span>
-                <span style="font-size:10px;color:#444;margin-left:auto;">${escHtml(_selAction.mode||'simple')}</span>
+              <div class="wfd-lkmap-hdr">
+                <span class="wfd-lkmap-method" style="--method-color:${_methodColor};--method-bg:${_methodBg};">${escHtml(_selAction.method)}</span>
+                <span class="wfd-lkmap-endpoint">${escHtml(_selAction.endpoint)}</span>
+                <span class="wfd-lkmap-mode">${escHtml(_selAction.mode||'simple')}</span>
               </div>
               <!-- Header colonnes -->
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;padding:4px 12px;background:#0a0a0a;border-bottom:1px solid #111;">
+              <div class="wfd-lkmap-cols">
                 <span class="wfd-section-up2">Champ Iconik</span>
                 <span class="wfd-section-up2">Champ API</span>
                 <span class="wfd-section-up2">Valeur (au run)</span>
               </div>
               <!-- Lignes de mapping -->
               ${_relevantRows.length ? _relevantRows.map(r => `
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;padding:4px 12px;border-bottom:1px solid #0d0d0d;align-items:center;">
-                  <span style="font-size:11px;color:#7ec8e3;font-family:var(--font-mono);">${escHtml(r.key||r.src||'')}</span>
-                  <span style="font-size:11px;color:#aaa;font-family:var(--font-mono);">${escHtml(r.value||r.tgt||'')}${r.list?'<span style="font-size:9px;color:#2ecc71;margin-left:3px;">[]</span>':''}</span>
-                  <span style="font-size:11px;color:#555;font-family:var(--font-mono);">{run}</span>
+                <div class="wfd-lkmap-row">
+                  <span class="wfd-lkmap-key">${escHtml(r.key||r.src||'')}</span>
+                  <span class="wfd-lkmap-val">${escHtml(r.value||r.tgt||'')}${r.list?'<span class="wfd-lkmap-list-tag">[]</span>':''}</span>
+                  <span class="wfd-lkmap-run">{run}</span>
                 </div>`).join('') :
-                `<div style="padding:10px 12px;font-size:11px;color:#444;text-align:center;">
+                `<div class="wfd-lkmap-empty">
                   Configurez la Table de correspondance dans le nœud Lookup
                 </div>`}
               <!-- Footer -->
               ${_selAction.resultVar ? `
-              <div style="padding:6px 12px;background:#0a0a0a;border-top:1px solid #111;font-size:10px;color:#555;">
-                Résultat stocké dans : <span style="color:#2ecc71;font-family:var(--font-mono);">{${escHtml(_selAction.resultVar)}}</span>
+              <div class="wfd-lkmap-footer">
+                Résultat stocké dans : <span class="wfd-lkmap-resultvar">{${escHtml(_selAction.resultVar)}}</span>
               </div>` : ''}
             </div>`;
           })()}
@@ -2236,7 +2231,7 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
 
     <!-- ── MODE SIMPLE ──────────────────────────────────────────────────── -->
-    <div id="${pfx}-http-simple" style="${_httpMode!=='simple'?'display:none':''}">
+    <div id="${pfx}-http-simple" class="${_httpMode!=='simple'?'wfd-hidden':''}">
       <div class="cfg-field">
         <label class="cfg-label">Requête</label>
         <div class="wfd-row-gap6c">
@@ -2351,7 +2346,7 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
 
     <!-- ── MODE FOREACH ─────────────────────────────────────────────────── -->
-    <div id="${pfx}-http-foreach" style="${_httpMode!=='foreach'?'display:none':''}">
+    <div id="${pfx}-http-foreach" class="${_httpMode!=='foreach'?'wfd-hidden':''}">
 
       <div class="cfg-field">
         <label class="cfg-label">Variable source (champ Iconik multi-valeur)</label>
@@ -2473,7 +2468,7 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
 
     <!-- ── MODE VERIFY ──────────────────────────────────────────────────── -->
-    <div id="${pfx}-http-verify" style="${_httpMode!=='verify'?'display:none':''}">
+    <div id="${pfx}-http-verify" class="${_httpMode!=='verify'?'wfd-hidden':''}">
       <div class="cfg-field">
         <label class="cfg-label">Endpoint à vérifier</label>
         <div class="wfd-row-gap6c">
@@ -9527,7 +9522,7 @@ function wfdHttpModeChange(pfx, mode) {
       btn.classList.toggle('active-blue', active);
       btn.classList.toggle('inactive-btn', !active);
     }
-    if (wrap) wrap.style.display = active ? '' : 'none';
+    if (wrap) wrap.classList.toggle('wfd-hidden', !active);
   });
   // Pas d'appel à sauvegarderConfig ici — le mode est lu depuis data-mode à la sauvegarde
 }
