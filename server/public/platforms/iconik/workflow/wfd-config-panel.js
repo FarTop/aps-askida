@@ -4511,24 +4511,21 @@ function buildCfgFields(pfx, family, cfg) {
     html += `
     <div class="cfg-field">
       <label class="cfg-label">Type de déclenchement</label>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+      <div class="wfd-gate-mode-grid">
         ${_tModes.map(([val,icon,label,hint]) => `
           <button onclick="wfdTimerModeChange('${pfx}','${val}')" id="${pfx}-timer-mode-${val}"
-            style="padding:8px 4px;border-radius:6px;cursor:pointer;text-align:center;transition:all .15s;
-              border:2px solid ${_tMode===val?'#8e44ad':'#2a2a2a'};
-              background:${_tMode===val?'rgba(142,68,173,0.15)':'transparent'};
-              color:${_tMode===val?'#c39bd3':'#666'};">
-            <div style="font-size:18px;">${icon}</div>
-            <div style="font-size:11px;font-weight:600;margin-top:3px;">${label}</div>
-            <div style="font-size:9px;color:#555;margin-top:2px;">${hint}</div>
+            class="wfd-gate-mode-btn ${_tMode===val?'active-purple':'inactive-btn'}"${_tMode===val?' data-active="1"':''}>
+            <div class="wfd-gate-mode-icon">${icon}</div>
+            <div class="wfd-gate-mode-label">${label}</div>
+            <div class="wfd-gate-mode-hint">${hint}</div>
           </button>`).join('')}
       </div>
     </div>
 
-    <div id="${pfx}-timer-interval-wrap" style="${_tMode==='interval'?'':'display:none'}">
+    <div id="${pfx}-timer-interval-wrap" class="${_tMode==='interval'?'':'wfd-hidden'}">
       <div class="cfg-field">
         <label class="cfg-label">Répéter toutes les</label>
-        <div style="display:grid;grid-template-columns:1fr 140px;gap:8px;align-items:center;">
+        <div class="wfd-timer-grid-1-140">
           <input id="${pfx}-timer-interval-val" type="number" min="1" class="cfg-input"
             value="${cfg.intervalVal||'30'}">
           <select id="${pfx}-timer-interval-unit" class="cfg-select">
@@ -4545,23 +4542,20 @@ function buildCfgFields(pfx, family, cfg) {
       </div>
     </div>
 
-    <div id="${pfx}-timer-cron-wrap" style="${_tMode==='cron'?'':'display:none'}">
+    <div id="${pfx}-timer-cron-wrap" class="${_tMode==='cron'?'':'wfd-hidden'}">
       <div class="cfg-field">
         <label class="cfg-label">Fréquence</label>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">
+        <div class="wfd-cron-freq-grid">
           ${[['hourly','⏰','Chaque heure'],['daily','☀️','Chaque jour'],['weekly','📆','Chaque semaine'],['monthly','🗓️','Chaque mois']].map(([val,icon,label]) => `
             <button onclick="wfdCronFreqChange('${pfx}','${val}')" id="${pfx}-cron-freq-${val}"
-              style="padding:7px 4px;border-radius:5px;font-size:11px;cursor:pointer;text-align:center;transition:all .15s;
-                border:2px solid ${_cronFreq===val?'#8e44ad':'#2a2a2a'};
-                background:${_cronFreq===val?'rgba(142,68,173,0.12)':'transparent'};
-                color:${_cronFreq===val?'#c39bd3':'#666'};">
-              <div>${icon}</div><div style="margin-top:2px;">${label}</div>
+              class="wfd-cron-freq-btn ${_cronFreq===val?'active-purple':'inactive-btn'}">
+              <div>${icon}</div><div class="wfd-cron-freq-lbl">${label}</div>
             </button>`).join('')}
         </div>
       </div>
-      <div id="${pfx}-cron-days-wrap" class="cfg-field" style="${_cronFreq==='weekly'?'':'display:none'}">
+      <div id="${pfx}-cron-days-wrap" class="cfg-field${_cronFreq==='weekly'?'':' wfd-hidden'}">
         <label class="cfg-label">Jours de la semaine</label>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+        <div class="wfd-cron-days-row">
           ${_daysLabels.map((d,i) => `
             <button onclick="wfdCronDayToggle('${pfx}',${i})" id="${pfx}-cron-day-${i}"
               class="wfd-cron-day ${_cronDays.includes(i)?'active-purple':'inactive-btn'}">
@@ -4569,7 +4563,7 @@ function buildCfgFields(pfx, family, cfg) {
             </button>`).join('')}
         </div>
       </div>
-      <div id="${pfx}-cron-mday-wrap" class="cfg-field" style="${_cronFreq==='monthly'?'':'display:none'}">
+      <div id="${pfx}-cron-mday-wrap" class="cfg-field${_cronFreq==='monthly'?'':' wfd-hidden'}">
         <label class="cfg-label">Jour du mois</label>
         <div class="wfd-row-gap6c">
           <input id="${pfx}-cron-mday" type="number" min="1" max="31"
@@ -4577,41 +4571,38 @@ function buildCfgFields(pfx, family, cfg) {
           <span class="wfd-text-555-11b">de chaque mois</span>
         </div>
       </div>
-      <div id="${pfx}-cron-time-wrap" class="cfg-field" style="${_cronFreq==='hourly'?'display:none':''}">
+      <div id="${pfx}-cron-time-wrap" class="cfg-field${_cronFreq==='hourly'?' wfd-hidden':''}">
         <label class="cfg-label">À quelle heure</label>
         <div class="wfd-grid-2-gap8">
           <div>
-            <div style="font-size:10px;color:#777;margin-bottom:4px;">Heure</div>
+            <div class="wfd-cron-hm-lbl">Heure</div>
             <select id="${pfx}-cron-hour" class="cfg-select" onchange="wfdCronUpdateSummary('${pfx}')">
               ${Array.from({length:24},(_,h)=>`<option value="${h}" ${_cronHour==h?'selected':''}>${String(h).padStart(2,'0')}h</option>`).join('')}
             </select>
           </div>
           <div>
-            <div style="font-size:10px;color:#777;margin-bottom:4px;">Minutes</div>
+            <div class="wfd-cron-hm-lbl">Minutes</div>
             <select id="${pfx}-cron-minute" class="cfg-select" onchange="wfdCronUpdateSummary('${pfx}')">
               ${[0,5,10,15,20,25,30,35,40,45,50,55].map(m=>`<option value="${m}" ${_cronMinute==m?'selected':''}>${String(m).padStart(2,'0')}</option>`).join('')}
             </select>
           </div>
         </div>
       </div>
-      <div id="${pfx}-cron-summary" style="margin-top:10px;padding:10px 14px;
-        background:rgba(142,68,173,0.08);border:1px solid rgba(142,68,173,0.25);
-        border-radius:6px;font-size:12px;color:#c39bd3;line-height:1.5;">
-        <span style="font-size:10px;color:#666;display:block;margin-bottom:3px;">CE WORKFLOW SE DÉCLENCHERA</span>
-        <span id="${pfx}-cron-summary-text" style="font-weight:600;">
+      <div id="${pfx}-cron-summary" class="wfd-cron-summary-box">
+        <span class="wfd-gate-summary-lbl">CE WORKFLOW SE DÉCLENCHERA</span>
+        <span id="${pfx}-cron-summary-text" class="wfd-gate-summary-text">
           ${_wfdCronSummaryText(_cronFreq,_cronDays,_cronHour,_cronMinute,cfg.cronMday||1)}
         </span>
       </div>
-      <details style="font-size:10px;color:#444;margin-top:6px;">
-        <summary style="cursor:pointer;color:#555;">Voir l'expression cron générée</summary>
-        <div style="margin-top:4px;padding:6px 10px;background:#111;border-radius:4px;
-          font-family:var(--font-mono);color:#666;" id="${pfx}-cron-expr-display">
+      <details class="wfd-cron-details">
+        <summary class="wfd-cron-summary-tag">Voir l'expression cron générée</summary>
+        <div class="wfd-cron-expr-box" id="${pfx}-cron-expr-display">
           ${_wfdBuildCronExpr(_cronFreq,_cronDays,_cronHour,_cronMinute,cfg.cronMday||1)}
         </div>
       </details>
     </div>
 
-    <div id="${pfx}-timer-oneshot-wrap" style="${_tMode==='oneshot'?'':'display:none'}">
+    <div id="${pfx}-timer-oneshot-wrap" class="${_tMode==='oneshot'?'':'wfd-hidden'}">
       <div class="cfg-field">
         <label class="cfg-label">Date et heure d'exécution</label>
         <input id="${pfx}-timer-oneshot-dt" type="datetime-local" class="cfg-input"
@@ -4633,7 +4624,7 @@ function buildCfgFields(pfx, family, cfg) {
       <textarea id="${pfx}-description" class="cfg-textarea" rows="2"
         placeholder="Notes sur cette planification…">${escHtml(cfg.description||'')}</textarea>
     </div>
-    <div class="cfg-hint" style="padding:8px 12px;background:rgba(142,68,173,0.06);border:1px solid rgba(142,68,173,0.15);border-radius:5px;">
+    <div class="cfg-hint wfd-timer-warning-box">
       ⚠️ Le timer démarre le workflow sans données initiales. Connectez un nœud <strong>Récupérer</strong> juste après pour charger les assets à traiter.
     </div>
   `;
@@ -8078,11 +8069,11 @@ function wfdTimerModeChange(pfx,mode){
       btn.classList.toggle('inactive-btn', !active);
       btn.dataset.active=active?'1':'';
     }
-    if(wrap)wrap.style.display=active?'':'none';
+    if(wrap)wrap.classList.toggle('wfd-hidden', !active);
   });
   if(pfx==='cfg'&&typeof sauvegarderConfig==='function') sauvegarderConfig();
 }
-function wfdCronFreqChange(pfx,freq){['hourly','daily','weekly','monthly'].forEach(function(f){var b=document.getElementById(pfx+'-cron-freq-'+f),active=f===freq;if(b){b.classList.toggle('active-purple',active);b.classList.toggle('inactive-btn',!active);}});var dw=document.getElementById(pfx+'-cron-days-wrap'),mw=document.getElementById(pfx+'-cron-mday-wrap'),tw=document.getElementById(pfx+'-cron-time-wrap');if(dw)dw.style.display=freq==='weekly'?'':'none';if(mw)mw.style.display=freq==='monthly'?'':'none';if(tw)tw.style.display=freq==='hourly'?'none':'';wfdCronUpdateSummary(pfx);}
+function wfdCronFreqChange(pfx,freq){['hourly','daily','weekly','monthly'].forEach(function(f){var b=document.getElementById(pfx+'-cron-freq-'+f),active=f===freq;if(b){b.classList.toggle('active-purple',active);b.classList.toggle('inactive-btn',!active);}});var dw=document.getElementById(pfx+'-cron-days-wrap'),mw=document.getElementById(pfx+'-cron-mday-wrap'),tw=document.getElementById(pfx+'-cron-time-wrap');if(dw)dw.classList.toggle('wfd-hidden', freq!=='weekly');if(mw)mw.classList.toggle('wfd-hidden', freq!=='monthly');if(tw)tw.classList.toggle('wfd-hidden', freq==='hourly');wfdCronUpdateSummary(pfx);}
 function wfdCronDayToggle(pfx,dayIdx){var btn=document.getElementById(pfx+'-cron-day-'+dayIdx);if(!btn)return;var active=btn.classList.contains('active-purple');btn.classList.toggle('active-purple',!active);btn.classList.toggle('inactive-btn',active);wfdCronUpdateSummary(pfx);}
 function _wfdReadCronFreq(pfx){for(var f of['hourly','daily','weekly','monthly']){var b=document.getElementById(pfx+'-cron-freq-'+f);if(b&&b.classList.contains('active-purple'))return f;}return 'daily';}
 function _wfdReadCronDays(pfx){var d=[];for(var i=0;i<7;i++){var b=document.getElementById(pfx+'-cron-day-'+i);if(b&&b.classList.contains('active-purple'))d.push(i);}return d.length?d:[1,2,3,4,5];}

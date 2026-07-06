@@ -2142,6 +2142,19 @@ nav { display: flex; gap: 2px; }
 .wfd-flex-gap8c    { display: flex; gap: 8px; align-items: center; }
 .wfd-sr-refresh-hint { font-size: 9px; color: #e67e22; margin-bottom: 6px; padding: 5px 8px; background: #1a1000; border-radius: 3px; border: 1px solid #3a2800; }
 .wfd-sr-addblock-btn { width: 100%; padding: 6px; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 49 (timer) ──────────────── */
+.wfd-timer-grid-1-140 { display: grid; grid-template-columns: 1fr 140px; gap: 8px; align-items: center; }
+.wfd-cron-freq-grid   { display: grid; grid-template-columns: repeat(4,1fr); gap: 5px; }
+.wfd-cron-freq-btn    { padding: 7px 4px; border-radius: 5px; font-size: 11px; cursor: pointer; text-align: center; transition: all .15s; border: 2px solid #2a2a2a; background: transparent; color: #666; }
+.wfd-cron-freq-lbl    { margin-top: 2px; }
+.wfd-cron-days-row    { display: flex; gap: 5px; flex-wrap: wrap; }
+.wfd-cron-hm-lbl       { font-size: 10px; color: #777; margin-bottom: 4px; }
+.wfd-cron-summary-box { margin-top: 10px; padding: 10px 14px; background: rgba(142,68,173,0.08); border: 1px solid rgba(142,68,173,0.25); border-radius: 6px; font-size: 12px; color: #c39bd3; line-height: 1.5; }
+.wfd-cron-details     { font-size: 10px; color: #444; margin-top: 6px; }
+.wfd-cron-summary-tag { cursor: pointer; color: #555; }
+.wfd-cron-expr-box    { margin-top: 4px; padding: 6px 10px; background: #111; border-radius: 4px; font-family: var(--font-mono); color: #666; }
+.wfd-timer-warning-box { padding: 8px 12px; background: rgba(142,68,173,0.06); border: 1px solid rgba(142,68,173,0.15); border-radius: 5px; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */
