@@ -792,9 +792,7 @@ function buildNotifOverrideRow(i, ov) {
   }
 
   return `
-    <div id="notif-ovr-row-${i}"
-         style="display:grid;grid-template-columns:1.5fr 1fr;gap:8px;
-                background:#0d0d0d;border:1px solid #2a2a2a;border-radius:8px;padding:8px;">
+    <div id="notif-ovr-row-${i}" class="wfd-notif-ovr-card">
       <div>
         <div class="wfd-grid-2-gap6b">
           <div class="cfg-field wfd-m0">
@@ -814,8 +812,8 @@ function buildNotifOverrideRow(i, ov) {
       </div>
       <div class="cfg-field wfd-m0">
         <label class="cfg-label wfd-fs9">MESSAGE (peut être {variable} seule)</label>
-        <textarea class="cfg-textarea notif-ovr-msg" data-idx="${i}"
-                  placeholder="{error.message}" style="min-height:54px;">${escHtml(ov.message||'')}</textarea>
+        <textarea class="cfg-textarea notif-ovr-msg wfd-textarea-54" data-idx="${i}"
+                  placeholder="{error.message}">${escHtml(ov.message||'')}</textarea>
       </div>
     </div>`;
 }
