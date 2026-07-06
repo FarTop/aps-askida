@@ -1880,6 +1880,30 @@ nav { display: flex; gap: 2px; }
 .wfd-cond-grid { display: grid; grid-template-columns: 10px 140px 1fr 140px 28px; gap: 5px; align-items: center; }
 .wfd-cond-dot  { width: 8px; height: 8px; border-radius: 50%; background: var(--dot-color, #888); display: inline-block; flex-shrink: 0; }
 
+/* ── hseq (http_sequence) — réutilise les classes-hooks déjà présentes ─── */
+/* NOTE : stepHtml() dans buildCfgFields (étapes sauvegardées) garde ses propres
+   styles inline avec des valeurs légèrement différentes (ex: margin-bottom 10px
+   vs 12px) — l'inline prévaut toujours sur ces règles de classe, donc aucun
+   risque de régression visuelle sur ce chemin de rendu non touché. */
+.hseq-step        { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); margin-bottom: 12px; overflow: hidden; border-left: 3px solid #3498db; }
+.hseq-step-hdr    { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--color-background-secondary); cursor: pointer; user-select: none; }
+.hseq-step-hdr .ti-grip-vertical { font-size: 15px; color: var(--color-text-secondary); cursor: grab; }
+.hseq-step-num    { width: 20px; height: 20px; border-radius: 50%; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: var(--color-text-secondary); }
+.hseq-step-name   { flex: 1; font-size: 13px; font-weight: 500; color: var(--color-text-secondary); font-style: italic; }
+.wfd-hseq-del-btn { width: 22px; height: 22px; border-radius: 4px; border: none; background: none; color: var(--color-text-secondary); cursor: pointer; font-size: 13px; }
+.hseq-step-hdr .ti-chevron-down { font-size: 14px; color: var(--color-text-secondary); }
+.hseq-step-body   { padding: 10px 12px; }
+.wfd-name-input-mb8 { font-size: 12px; margin-bottom: 8px; }
+.wfd-hseq-toggle-wrap { display: flex; gap: 0; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); overflow: hidden; margin-bottom: 8px; }
+.wfd-hseq-hint-italic { font-size: 11px; color: var(--color-text-secondary); font-style: italic; }
+.wfd-hseq-grid-100-1fr { display: grid; grid-template-columns: 100px 1fr; gap: 6px; margin-bottom: 6px; }
+.wfd-hseq-input-mono-mb6 { font-size: 11px; font-family: var(--font-mono); margin-bottom: 6px; }
+.wfd-hseq-grid-1-1 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+.wfd-hseq-result-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 0.5px solid var(--color-border-tertiary); }
+.wfd-hseq-result-lbl { font-size: 11px; color: var(--color-text-secondary); }
+.wfd-hseq-result-var { width: 140px; font-family: var(--font-mono); font-size: 12px; color: #1B6B45; }
+.wfd-hseq-onerror-sel { font-size: 11px; margin-left: auto; width: auto; }
+
 /* ── Classes utilitaires wfd-config-panel — lot 10 ─────────────────────── */
 .wfd-atm-toggle-wrap { display: flex; gap: 0; margin-bottom: 8px; border: 1px solid #2a2a2a; border-radius: 4px; overflow: hidden; }
 .wfd-atm-btn         { flex: 1; padding: 5px; font-size: 10px; border: none; cursor: pointer; }

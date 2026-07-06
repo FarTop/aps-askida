@@ -9132,31 +9132,29 @@ function hseqAddStep(pfx) {
   const div = document.createElement('div');
   div.className = 'hseq-step';
   div.dataset.idx = n;
-  div.style.cssText = 'border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);margin-bottom:12px;overflow:hidden;border-left:3px solid #3498db;';
   div.innerHTML = `
-    <div class="hseq-step-hdr" onclick="hseqToggleStep(this)"
-      style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--color-background-secondary);cursor:pointer;user-select:none;">
-      <i class="ti ti-grip-vertical" style="font-size:15px;color:var(--color-text-secondary);cursor:grab;" aria-hidden="true"></i>
-      <span class="hseq-step-num" style="width:20px;height:20px;border-radius:50%;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:var(--color-text-secondary);">${n+1}</span>
-      <span class="hseq-step-name" style="flex:1;font-size:13px;font-weight:500;color:var(--color-text-secondary);font-style:italic;">Nouvelle étape</span>
-      <button onclick="hseqRemoveStep(this,event)" style="width:22px;height:22px;border-radius:4px;border:none;background:none;color:var(--color-text-secondary);cursor:pointer;font-size:13px;" title="Supprimer">×</button>
-      <i class="ti ti-chevron-down" style="font-size:14px;color:var(--color-text-secondary);transform:rotate(180deg);" aria-hidden="true"></i>
+    <div class="hseq-step-hdr" onclick="hseqToggleStep(this)">
+      <i class="ti ti-grip-vertical" aria-hidden="true"></i>
+      <span class="hseq-step-num">${n+1}</span>
+      <span class="hseq-step-name">Nouvelle étape</span>
+      <button onclick="hseqRemoveStep(this,event)" class="wfd-hseq-del-btn" title="Supprimer">×</button>
+      <i class="ti ti-chevron-down" style="transform:rotate(180deg);" aria-hidden="true"></i>
     </div>
-    <div class="hseq-step-body" style="padding:10px 12px;">
+    <div class="hseq-step-body">
       <div class="wfd-hint-sec">Nom de l'étape</div>
-      <input class="cfg-input hseq-name" placeholder="Ex : Créer le contenu" style="font-size:12px;margin-bottom:8px;">
-      <div style="display:flex;gap:0;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden;margin-bottom:8px;">
-        <button onclick="hseqModeChange(this,'action')"    class="hseq-mode-btn wfd-tab-seg" data-mode="action">Action</button>
-        <button onclick="hseqModeChange(this,'simple')"   class="hseq-mode-btn active" data-mode="simple"  style="flex:1;padding:5px 2px;font-size:11px;border:none;border-left:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-primary);cursor:pointer;font-weight:500;">Requête simple</button>
-        <button onclick="hseqModeChange(this,'foreach')"  class="hseq-mode-btn wfd-tab-seg" data-mode="foreach">Pour chaque valeur</button>
-        <button onclick="hseqModeChange(this,'verify')"   class="hseq-mode-btn wfd-tab-seg" data-mode="verify">Vérifier</button>
+      <input class="cfg-input hseq-name wfd-name-input-mb8" placeholder="Ex : Créer le contenu">
+      <div class="wfd-hseq-toggle-wrap">
+        <button onclick="hseqModeChange(this,'action')"    class="hseq-mode-btn wfd-tab-seg inactive-tab" data-mode="action">Action</button>
+        <button onclick="hseqModeChange(this,'simple')"   class="hseq-mode-btn wfd-tab-seg active-blue-tab" data-mode="simple">Requête simple</button>
+        <button onclick="hseqModeChange(this,'foreach')"  class="hseq-mode-btn wfd-tab-seg inactive-tab" data-mode="foreach">Pour chaque valeur</button>
+        <button onclick="hseqModeChange(this,'verify')"   class="hseq-mode-btn wfd-tab-seg inactive-tab" data-mode="verify">Vérifier</button>
       </div>
       <div class="hseq-mode-panels">
         <div class="hseq-mode-action" style="display:none;">
-          <div style="font-size:11px;color:var(--color-text-secondary);font-style:italic;">Sélectionner une connexion pour voir les actions disponibles.</div>
+          <div class="wfd-hseq-hint-italic">Sélectionner une connexion pour voir les actions disponibles.</div>
         </div>
         <div class="hseq-mode-simple">
-          <div style="display:grid;grid-template-columns:100px 1fr;gap:6px;margin-bottom:6px;">
+          <div class="wfd-hseq-grid-100-1fr">
             <div><div class="wfd-hint-sec">Méthode</div>
               <select class="cfg-select hseq-method wfd-fs11"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></div>
             <div><div class="wfd-hint-sec">Endpoint</div>
@@ -9167,14 +9165,14 @@ function hseqAddStep(pfx) {
         </div>
         <div class="hseq-mode-foreach" style="display:none;">
           <div class="wfd-hint-sec">Variable source</div>
-          <input class="cfg-input hseq-fe-source" placeholder="{Realisateur}" style="font-size:11px;font-family:var(--font-mono);margin-bottom:6px;">
-          <div style="display:grid;grid-template-columns:100px 1fr;gap:6px;margin-bottom:6px;">
+          <input class="cfg-input hseq-fe-source wfd-hseq-input-mono-mb6" placeholder="{Realisateur}">
+          <div class="wfd-hseq-grid-100-1fr">
             <div><div class="wfd-hint-sec">Méthode</div>
               <select class="cfg-select hseq-method wfd-fs11"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></div>
             <div><div class="wfd-hint-sec">Endpoint</div>
               <input class="cfg-input hseq-endpoint wfd-mono-sm" placeholder="/api/..."></div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+          <div class="wfd-hseq-grid-1-1">
             <div><div class="wfd-hint-sec">Rôle (job)</div>
               <select class="cfg-select hseq-fe-job wfd-fs11">
                 ${(_hseqRolesForPfx(pfx)).map(j => `<option value="${j}">${j}</option>`).join('')}
@@ -9188,12 +9186,12 @@ function hseqAddStep(pfx) {
           <input class="cfg-input hseq-endpoint wfd-mono-sm" placeholder="/api/...">
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary);">
-        <span style="font-size:11px;color:var(--color-text-secondary);">Résultat →</span>
+      <div class="wfd-hseq-result-row">
+        <span class="wfd-hseq-result-lbl">Résultat →</span>
         <span class="wfd-mono-sec-12">{</span>
-        <input class="cfg-input hseq-result-var" value="step${n+1}_result" style="width:140px;font-family:var(--font-mono);font-size:12px;color:#1B6B45;">
+        <input class="cfg-input hseq-result-var wfd-hseq-result-var" value="step${n+1}_result">
         <span class="wfd-mono-sec-12">}</span>
-        <select class="cfg-select hseq-on-error" style="font-size:11px;margin-left:auto;width:auto;">
+        <select class="cfg-select hseq-on-error wfd-hseq-onerror-sel">
           <option value="stop">Arrêter si erreur</option>
           <option value="continue">Continuer si erreur</option>
         </select>
