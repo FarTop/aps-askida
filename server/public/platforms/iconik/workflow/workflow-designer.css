@@ -1944,6 +1944,18 @@ nav { display: flex; gap: 2px; }
 .wfd-http-tag-alias-input { width: var(--alias-width, 40px); font-size: 11px; font-family: var(--font-mono); background: transparent; border: none; border-bottom: 1px solid #2a2a2a; color: #3498db; outline: none; padding: 0 2px; }
 .wfd-http-tag-spread-badge { color: #2d5a2d; font-size: 9px; }
 .wfd-http-tag-del-btn { background: none; border: none; color: #444; cursor: pointer; font-size: 12px; padding: 0 2px; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 22 (body var menu) ──────── */
+.wfd-body-var-menu       { position: fixed; z-index: 9999; background: #141414; border: 1px solid #2a2a2a; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.75); width: 320px; max-height: 300px; overflow-y: auto; }
+.wfd-body-var-menu-hdr   { padding: 6px 10px 4px; font-size: 9px; font-weight: 700; color: #555; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; }
+.wfd-body-var-menu-close { background: none; border: none; color: #555; cursor: pointer; font-size: 14px; }
+.wfd-body-var-row        { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid #111; cursor: pointer; }
+.wfd-dimmed               { opacity: .4; }
+.wfd-body-var-type-badge { font-size: 9px; padding: 1px 4px; border-radius: 2px; background: color-mix(in srgb, var(--type-color, #888) 13%, transparent); color: var(--type-color, #888); font-family: var(--font-mono); flex-shrink: 0; }
+.wfd-body-var-key        { flex: 1; color: #bbb; font-size: 11px; font-family: var(--font-mono); }
+.wfd-body-var-preview    { color: #444; font-size: 10px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wfd-body-var-addbtn     { font-size: 10px; padding: 2px 6px; border-radius: 3px; border: 1px solid #1e3a5a; background: #0a1a2a; color: #7ec8e3; cursor: pointer; flex-shrink: 0; }
+.wfd-body-var-spreadbtn  { font-size: 10px; padding: 2px 6px; border-radius: 3px; border: 1px solid #2d5a2d; background: #0d1a0d; color: #5dbb6b; cursor: pointer; flex-shrink: 0; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

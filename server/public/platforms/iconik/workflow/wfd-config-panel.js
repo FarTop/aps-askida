@@ -8837,8 +8837,7 @@ function httpBodyDetectVars(pfx) {
   // Proposer les variables non encore ajoutées via un mini-menu
   const menu = document.createElement('div');
   menu.id = pfx + '-body-var-menu';
-  menu.style.cssText = 'position:fixed;z-index:9999;background:#141414;border:1px solid #2a2a2a;' +
-    'border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.75);width:320px;max-height:300px;overflow-y:auto;';
+  menu.className = 'wfd-body-var-menu';
 
   const rect = tagsWrap.getBoundingClientRect();
   menu.style.top  = (rect.bottom + 4) + 'px';
@@ -8855,13 +8854,11 @@ function httpBodyDetectVars(pfx) {
   }
 
   const header = document.createElement('div');
-  header.style.cssText = 'padding:6px 10px 4px;font-size:9px;font-weight:700;color:#555;' +
-    'letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid #1a1a1a;' +
-    'display:flex;justify-content:space-between;align-items:center;';
+  header.className = 'wfd-body-var-menu-hdr';
   const _closeMenuId = pfx + '-body-var-menu';
   const _closeBtn = document.createElement('button');
   _closeBtn.innerHTML = '&times;';
-  _closeBtn.style.cssText = 'background:none;border:none;color:#555;cursor:pointer;font-size:14px;';
+  _closeBtn.className = 'wfd-body-var-menu-close';
   _closeBtn.onclick = () => document.getElementById(_closeMenuId)?.remove();
   header.innerHTML = '<span>Variables disponibles</span>';
   header.appendChild(_closeBtn);
@@ -8875,8 +8872,7 @@ function httpBodyDetectVars(pfx) {
     const canSpread = isObj || isJson;
 
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 10px;' +
-      'border-bottom:1px solid #111;cursor:pointer;' + (alreadyAdded ? 'opacity:.4;' : '');
+    row.className = 'wfd-body-var-row' + (alreadyAdded ? ' wfd-dimmed' : '');
 
     const type = isArr ? '[]' : (canSpread ? '{}' : typeof v === 'number' ? '#' : 'T');
     const typeColor = isArr ? '#e67e22' : canSpread ? '#5dbb6b' : '#7ec8e3';
@@ -8885,22 +8881,19 @@ function httpBodyDetectVars(pfx) {
                     JSON.stringify(v).slice(0, 40);
 
     row.innerHTML =
-      `<span style="font-size:9px;padding:1px 4px;border-radius:2px;background:${typeColor}22;` +
-      `color:${typeColor};font-family:var(--font-mono);flex-shrink:0;">${type}</span>` +
-      `<span style="flex:1;color:#bbb;font-size:11px;font-family:var(--font-mono);">${escHtml(k)}</span>` +
-      `<span style="color:#444;font-size:10px;max-width:100px;overflow:hidden;text-overflow:ellipsis;` +
-      `white-space:nowrap;">${escHtml(preview)}</span>`;
+      `<span class="wfd-body-var-type-badge" style="--type-color:${typeColor};">${type}</span>` +
+      `<span class="wfd-body-var-key">${escHtml(k)}</span>` +
+      `<span class="wfd-body-var-preview">${escHtml(preview)}</span>`;
 
     if (!alreadyAdded) {
       // Boutons Ajouter / Étendre (si objet)
       const addBtn = document.createElement('button');
       addBtn.textContent = 'Ajouter';
-      addBtn.style.cssText = 'font-size:10px;padding:2px 6px;border-radius:3px;' +
-        'border:1px solid #1e3a5a;background:#0a1a2a;color:#7ec8e3;cursor:pointer;flex-shrink:0;';
+      addBtn.className = 'wfd-body-var-addbtn';
       addBtn.onclick = (e) => {
         e.stopPropagation();
         httpBodyAddTag(pfx, k, k, false);
-        row.style.opacity = '.4';
+        row.classList.add('wfd-dimmed');
         addBtn.disabled = true;
         if (spreadBtn) spreadBtn.disabled = true;
       };
@@ -8909,12 +8902,11 @@ function httpBodyDetectVars(pfx) {
       if (canSpread) {
         const spreadBtn = document.createElement('button');
         spreadBtn.textContent = 'Étendre';
-        spreadBtn.style.cssText = 'font-size:10px;padding:2px 6px;border-radius:3px;' +
-          'border:1px solid #2d5a2d;background:#0d1a0d;color:#5dbb6b;cursor:pointer;flex-shrink:0;';
+        spreadBtn.className = 'wfd-body-var-spreadbtn';
         spreadBtn.onclick = (e) => {
           e.stopPropagation();
           httpBodyAddTag(pfx, k, k, true);
-          row.style.opacity = '.4';
+          row.classList.add('wfd-dimmed');
           spreadBtn.disabled = true;
           addBtn.disabled = true;
         };
