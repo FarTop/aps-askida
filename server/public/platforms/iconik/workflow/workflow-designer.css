@@ -1923,6 +1923,20 @@ nav { display: flex; gap: 2px; }
 /* ── Classes utilitaires wfd-config-panel — lot 18 (link file) ──────────── */
 .wfd-lf-type-label  { flex: 1; display: flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 5px; padding: 7px 10px; font-size: 11px; color: #ccc; transition: all .15s; }
 .wfd-fs14            { font-size: 14px; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 19 (foreach detect) ─────── */
+.wfd-fe-detect-hdr        { color: #5dbb6b; font-weight: 600; margin-bottom: 6px; }
+.wfd-fe-detect-row        { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #1a1a1a; }
+.wfd-fe-detect-varname    { font-family: var(--font-mono); color: #3498db; flex: 1; }
+.wfd-fe-detect-valpreview { color: #555; font-size: 10px; flex: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wfd-fe-detect-btn        { padding: 2px 8px; font-size: 10px; }
+.wfd-fe-detect-btn.wfd-fe-detect-active { background: #0d1a0d; border-color: #2d5a2d; color: #5dbb6b; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 20 (foreach preview) ────── */
+.wfd-fe-prev-row      { padding: 6px 0; border-bottom: 1px solid #1a1a1a; }
+.wfd-fe-prev-val      { color: #3498db; margin-bottom: 2px; }
+.wfd-fe-prev-body     { color: #888; font-size: 10px; margin-top: 2px; word-break: break-all; }
+.wfd-fe-prev-hdr       { color: #5dbb6b; margin-bottom: 6px; font-weight: 600; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

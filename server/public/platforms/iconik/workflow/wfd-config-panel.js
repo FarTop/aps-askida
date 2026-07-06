@@ -9589,14 +9589,13 @@ function httpForeachDetect(pfx) {
 
     // Afficher les candidats avec bouton "Utiliser"
     const currentSource = document.getElementById(pfx + '-fe-source-var')?.value || '';
-    resultEl.innerHTML = '<div style="color:#5dbb6b;font-weight:600;margin-bottom:6px;">Variables détectées dans le dernier run :</div>' +
+    resultEl.innerHTML = '<div class="wfd-fe-detect-hdr">Variables détectées dans le dernier run :</div>' +
       creditCandidates.slice(0, 10).map(([k, v]) => {
         const isActive = currentSource === '{' + k + '}' || currentSource === k;
-        return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #1a1a1a;">
-          <span style="font-family:var(--font-mono);color:#3498db;flex:1;">{${k}}</span>
-          <span style="color:#555;font-size:10px;flex:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(String(v).slice(0, 40))}</span>
-          <button onclick="httpForeachUseVar('${pfx}','{${k}}')" class="cfg-btn"
-            style="padding:2px 8px;font-size:10px;${isActive?'background:#0d1a0d;border-color:#2d5a2d;color:#5dbb6b;':''}">
+        return `<div class="wfd-fe-detect-row">
+          <span class="wfd-fe-detect-varname">{${k}}</span>
+          <span class="wfd-fe-detect-valpreview">${escHtml(String(v).slice(0, 40))}</span>
+          <button onclick="httpForeachUseVar('${pfx}','{${k}}')" class="cfg-btn wfd-fe-detect-btn${isActive?' wfd-fe-detect-active':''}">
             ${isActive ? '✓ Actif' : 'Utiliser'}
           </button>
         </div>`;
@@ -9666,15 +9665,15 @@ function httpForeachPreview(pfx) {
       .replace(/\{\{index\}\}/g, String(i))
       .replace(/\{\{[^}]+\}\}/g, val)
       .slice(0, 120);
-    return `<div style="padding:6px 0;border-bottom:1px solid #1a1a1a;">
-      <div style="color:#3498db;margin-bottom:2px;">${escHtml(val)}</div>
+    return `<div class="wfd-fe-prev-row">
+      <div class="wfd-fe-prev-val">${escHtml(val)}</div>
       <div class="wfd-c-555-10">slug: ${escHtml(slug)} · job: ${escHtml(job)}</div>
-      ${bodyPreview ? `<div style="color:#888;font-size:10px;margin-top:2px;word-break:break-all;">${escHtml(bodyPreview)}</div>` : ''}
+      ${bodyPreview ? `<div class="wfd-fe-prev-body">${escHtml(bodyPreview)}</div>` : ''}
     </div>`;
   });
 
   previewEl.innerHTML =
-    `<div style="color:#5dbb6b;margin-bottom:6px;font-weight:600;">${values.length} appel(s) prévu(s) → ${escHtml(endpoint)}</div>` +
+    `<div class="wfd-fe-prev-hdr">${values.length} appel(s) prévu(s) → ${escHtml(endpoint)}</div>` +
     lines.join('');
   previewEl.style.display = '';
 }
