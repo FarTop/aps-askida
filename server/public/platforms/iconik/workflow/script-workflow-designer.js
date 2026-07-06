@@ -7987,7 +7987,7 @@ function lkSwitchTab(pfx, tab) {
     if (btn) {
       btn.classList.toggle('active', active);
     }
-    if (panel) panel.style.display = active ? '' : 'none';
+    if (panel) panel.classList.toggle('wfd-hidden', !active);
   });
   if (tab === 'metier' && typeof lkRenderApiPanel === 'function') {
     setTimeout(lkRenderApiPanel, 0);
@@ -8018,8 +8018,8 @@ function lkToggleFb(btn) {
   const row = btn.closest('.lkr');
   const fbRow = row?.querySelector('.lkr-fb-row');
   if (!fbRow) return;
-  const visible = fbRow.style.display !== 'none';
-  fbRow.style.display = visible ? 'none' : 'flex';
+  const visible = !fbRow.classList.contains('wfd-hidden');
+  fbRow.classList.toggle('wfd-hidden', visible);
   btn.classList.toggle('lkr-fb-active', !visible);
   if (!visible) {
     row.querySelector('.lkr-fb-input')?.focus();
@@ -8031,7 +8031,7 @@ function lkAddPersonRow(pfx) {
   const container = document.getElementById(pfx + '-lk-person-rows');
   if (!container) return;
   // Retirer le message "aucun crédit" si présent
-  const empty = container.querySelector('[style*="font-style:italic"]');
+  const empty = container.querySelector('.wfd-lk-empty-credit');
   if (empty) empty.remove();
 
   const roles = ['director','narrator','author','actor','producer','presenter'];
@@ -8040,7 +8040,7 @@ function lkAddPersonRow(pfx) {
   div.className = 'lkr lkr-person';
   div.dataset.idx = idx;
   div.innerHTML = `
-    <div class="lkr-main" style="grid-template-columns:1fr 20px auto auto auto auto;">
+    <div class="lkr-main wfd-lk-person-grid">
       <input class="lkr-src cfg-input lk-key lk-person-key" placeholder="Champ Iconik"
         list="${pfx}-wfd-lk-src-list">
       <span class="lkr-arrow">→</span>
@@ -8048,8 +8048,7 @@ function lkAddPersonRow(pfx) {
       <select class="lkr-role-sel lk-person-role">
         ${roles.map(r => `<option value="${r}">${r}</option>`).join('')}
       </select>
-      <select class="lkr-format-sel lk-person-format" title="Format de l'identifiant"
-        style="font-size:10px;padding:3px 5px;border-radius:4px;border:0.5px solid #333;background:#1a2a3a;color:#888;cursor:pointer;">
+      <select class="lkr-format-sel lk-person-format wfd-lk-format-sel" title="Format de l'identifiant">
         <option value="slug" selected>slug</option>
         <option value="raw">brut</option>
       </select>

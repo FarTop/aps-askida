@@ -2194,6 +2194,37 @@ nav { display: flex; gap: 2px; }
 .wfd-manual-payload-error { font-size: 10px; color: #e74c3c; margin-top: 4px; }
 .wfd-manual-validate-btn  { width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #95a5a6; font-size: 12px; border-radius: 4px; cursor: pointer; }
 
+/* ── Classes utilitaires wfd-config-panel — lot 53 (lookup, Champs) ─────── */
+.wfd-lk-child-grid    { display: grid; grid-template-columns: 1fr 1fr 28px; gap: 4px; margin-bottom: 2px; }
+.wfd-lk-children-margin { margin-left: 28px; margin-top: 2px; }
+.wfd-lk-person-grid   { grid-template-columns: 1fr 20px auto auto auto auto; }
+.wfd-lk-format-sel    { font-size: 10px; padding: 3px 5px; border-radius: 4px; border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); color: var(--color-text-secondary); cursor: pointer; }
+.wfd-lk-credits-intro { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 12px; line-height: 1.6; }
+.wfd-lk-credits-hdrs  { display: grid; grid-template-columns: 1fr 20px 80px 1fr 24px; gap: 6px; font-size: 10px; color: var(--color-text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; padding: 0 0 6px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 4px; }
+.wfd-lk-empty-credit  { padding: 16px; text-align: center; color: var(--color-text-secondary); font-size: 12px; font-style: italic; }
+.wfd-lk-info-box      { margin-top: 14px; padding: 10px 12px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); font-size: 11px; color: var(--color-text-secondary); line-height: 1.6; }
+.wfd-lk-info-icon     { font-size: 13px; vertical-align: -2px; }
+
+/* ── lot 53 (suite, onglet Technique) ────────────────────────────────────── */
+.wfd-lk-tech-storage-row { display: flex; align-items: center; gap: 6px; }
+.wfd-lk-tech-brace     { font-family: var(--font-mono); color: var(--color-text-secondary); }
+.wfd-lk-tech-var-input { flex: 1; font-family: var(--font-mono); font-size: 12px; }
+.wfd-mt16b             { margin-top: 16px; }
+.wfd-mt14b             { margin-top: 14px; }
+.wfd-lk-sysvar-row     { display: grid; grid-template-columns: 140px 1fr; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.wfd-lk-sysvar-chip    { font-size: 11px; color: #0F4761; background: #E8F0F5; padding: 2px 6px; border-radius: 3px; }
+.wfd-lk-sysvar-desc    { font-size: 12px; color: var(--color-text-secondary); }
+.wfd-lk-techfmt-hdrs   { display: grid; grid-template-columns: 130px 1fr 1fr; gap: 6px; font-size: 10px; color: var(--color-text-secondary); padding-bottom: 4px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 4px; }
+.wfd-lk-techfmt-row    { display: grid; grid-template-columns: 130px 1fr 1fr; gap: 6px; align-items: center; padding: 5px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.wfd-lk-techfmt-chip   { font-size: 11px; color: #C0580A; background: #F9EBE4; padding: 2px 6px; border-radius: 3px; }
+.wfd-lk-techfmt-desc   { font-size: 11px; color: var(--color-text-secondary); }
+.wfd-lk-techfmt-input  { font-size: 11px; font-family: var(--font-mono); padding: 3px 6px; }
+.wfd-lk-calc-box       { padding: 10px 12px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); font-size: 12px; color: var(--color-text-secondary); }
+.wfd-lk-calc-formula   { font-family: var(--font-mono); color: #C0580A; }
+.wfd-lk-calc-arrow     { margin: 0 8px; }
+.wfd-lk-calc-result    { font-family: var(--font-mono); color: #0F4761; }
+.wfd-lk-calc-legend    { margin-left: 8px; font-size: 11px; }
+
 /* ── Lookup redesign — déplacé depuis le <style> embarqué dans buildCfgFields ── */
 .lk-tabs { display:flex; gap:0; border-bottom:0.5px solid var(--color-border-tertiary); margin-bottom:14px; }
 .lk-tab  { padding:8px 16px; font-size:12px; border:none; border-bottom:2px solid transparent;
@@ -2267,6 +2298,46 @@ nav { display: flex; gap: 2px; }
 .lk-out-var   { font-family:var(--font-mono); font-size:12px; color:#1B6B45; font-weight:500; }
 .lk-section-title { font-size:10px; font-weight:500; text-transform:uppercase;
                     letter-spacing:.06em; color:var(--color-text-secondary); margin:12px 0 8px; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 53 (lookup) ──────────────── */
+.wfd-lk-icon-14     { font-size: 14px; color: var(--color-text-secondary); }
+.wfd-lk-src-input   { flex: 1; font-family: var(--font-mono); font-size: 12px; max-width: 180px; }
+.wfd-lk-gen-btn     { font-size: 11px; padding: 3px 10px; white-space: nowrap; }
+.wfd-lk-divider     { border-left: 0.5px solid var(--color-border-tertiary); height: 20px; margin: 0 4px; }
+.wfd-lk-brace       { font-family: var(--font-mono); font-size: 12px; color: #888; }
+.wfd-lk-out-input   { width: 120px; font-family: var(--font-mono); font-size: 12px; color: #1B6B45; }
+
+/* ── lot 53 (suite) ──────────────────────────────────────────────────────── */
+.wfd-lk-tools-row     { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--color-border-tertiary); }
+.wfd-lk-save-btn      { font-size: 11px; padding: 3px 10px; flex: 1; color: #1B6B45; border-color: #9FE1CB; }
+.wfd-lk-fallback-row  { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.wfd-lk-fallback-lbl  { font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; }
+.wfd-lk-fallback-input { flex: 1; font-family: var(--font-mono); font-size: 11px; }
+.wfd-icon-13          { font-size: 13px; }
+.wfd-lk-credits-intro { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 12px; line-height: 1.6; }
+.wfd-lk-credits-hdrs  { display: grid; grid-template-columns: 1fr 20px 80px 1fr 24px; gap: 6px; font-size: 10px; color: var(--color-text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; padding: 0 0 6px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 4px; }
+.wfd-lk-credits-empty { padding: 16px; text-align: center; color: var(--color-text-secondary); font-size: 12px; font-style: italic; }
+.wfd-lk-info-box      { margin-top: 14px; padding: 10px 12px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); font-size: 11px; color: var(--color-text-secondary); line-height: 1.6; }
+.wfd-icon-13-va       { font-size: 13px; vertical-align: -2px; }
+.wfd-fs10             { font-size: 10px; }
+.wfd-lk-techvar-row   { display: flex; align-items: center; gap: 6px; }
+.wfd-lk-brace-sec     { font-family: var(--font-mono); color: var(--color-text-secondary); }
+.wfd-lk-techvar-input { flex: 1; font-family: var(--font-mono); font-size: 12px; }
+.wfd-mt16             { margin-top: 16px; }
+.wfd-mt14             { margin-top: 14px; }
+.wfd-lk-sysvar-row    { display: grid; grid-template-columns: 140px 1fr; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.wfd-lk-sysvar-code   { font-size: 11px; color: #0F4761; background: #E8F0F5; padding: 2px 6px; border-radius: 3px; }
+.wfd-lk-sysvar-desc   { font-size: 12px; color: var(--color-text-secondary); }
+.wfd-lk-fmt-hdrs      { display: grid; grid-template-columns: 130px 1fr 1fr; gap: 6px; font-size: 10px; color: var(--color-text-secondary); padding-bottom: 4px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 4px; }
+.wfd-lk-fmt-row       { display: grid; grid-template-columns: 130px 1fr 1fr; gap: 6px; align-items: center; padding: 5px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.wfd-lk-fmt-code      { font-size: 11px; color: #C0580A; background: #F9EBE4; padding: 2px 6px; border-radius: 3px; }
+.wfd-lk-fmt-desc      { font-size: 11px; color: var(--color-text-secondary); }
+.wfd-lk-fmt-input     { font-size: 11px; font-family: var(--font-mono); padding: 3px 6px; }
+.wfd-lk-calc-box      { padding: 10px 12px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); font-size: 12px; color: var(--color-text-secondary); }
+.wfd-lk-calc-formula  { font-family: var(--font-mono); color: #C0580A; }
+.wfd-lk-calc-arrow    { margin: 0 8px; }
+.wfd-lk-calc-result   { font-family: var(--font-mono); color: #0F4761; }
+.wfd-lk-calc-note     { margin-left: 8px; font-size: 11px; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

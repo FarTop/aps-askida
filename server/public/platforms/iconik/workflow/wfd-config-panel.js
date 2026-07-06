@@ -3844,14 +3844,14 @@ function buildCfgFields(pfx, family, cfg) {
           </button>
           <button class="lkr-del" onclick="lkRemoveRow(this)" title="Supprimer">×</button>
         </div>
-        <div class="lkr-fb-row" style="display:${hasFb ? 'flex' : 'none'}">
+        <div class="lkr-fb-row${hasFb ? '' : ' wfd-hidden'}">
           <span class="lkr-fb-label">Fallback</span>
           <input class="cfg-input lk-fallback lkr-fb-input wfd-mono-sm2" value="${escHtml(fb)}"
             placeholder="valeur ou {variable} si champ vide"
             list="${pfx}-wfd-var-list">
         </div>
-        <div class="lk-children" style="display:${(r.children||[]).length ? 'block' : 'none'}; margin-left:28px; margin-top:2px;">
-          ${(r.children||[]).map(c => `<div class="lk-child-row" style="display:grid;grid-template-columns:1fr 1fr 28px;gap:4px;margin-bottom:2px;">
+        <div class="lk-children${(r.children||[]).length ? '' : ' wfd-hidden'} wfd-lk-children-margin">
+          ${(r.children||[]).map(c => `<div class="lk-child-row wfd-lk-child-grid">
             <input class="cfg-input lk-key wfd-fs11"   value="${escHtml(c.key||c.src||'')}"   placeholder="Si valeur…">
             <input class="cfg-input lk-value wfd-fs11" value="${escHtml(c.value||c.tgt||'')}" placeholder="…traduire en">
             <button onclick="lkRemoveRow(this)" class="lkr-del">×</button>
@@ -3880,7 +3880,7 @@ function buildCfgFields(pfx, family, cfg) {
       const role   = r._role   || (roleMatch ? roleMatch[1] : 'director');
       const fmt    = r._format || 'slug'; // défaut slug — convention VodFactory
       return `<div class="lkr lkr-person" data-idx="${i}">
-        <div class="lkr-main" style="grid-template-columns:1fr 20px auto auto auto auto;">
+        <div class="lkr-main wfd-lk-person-grid">
           <input class="lkr-src cfg-input lk-key lk-person-key" value="${escHtml(key)}"
             placeholder="Champ Iconik" list="${pfx}-wfd-lk-src-list">
           <span class="lkr-arrow">→</span>
@@ -3888,8 +3888,7 @@ function buildCfgFields(pfx, family, cfg) {
           <select class="lkr-role-sel lk-person-role" title="Rôle dans la liste des crédits">
             ${_roles.map(ro => `<option value="${ro}" ${ro===role?'selected':''}>${ro}</option>`).join('')}
           </select>
-          <select class="lkr-format-sel lk-person-format" title="Format de l'identifiant"
-            style="font-size:10px;padding:3px 5px;border-radius:4px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-secondary);cursor:pointer;">
+          <select class="lkr-format-sel lk-person-format wfd-lk-format-sel" title="Format de l'identifiant">
             <option value="slug"     ${fmt==='slug'    ?'selected':''}>slug</option>
             <option value="raw"      ${fmt==='raw'     ?'selected':''}>brut</option>
           </select>
@@ -3918,27 +3917,24 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
 
     <!-- ── ONGLET CHAMPS ────────────────────────────────── -->
-    <div id="${pfx}-lk-tab-metier-panel" style="${!isActiveMet?'display:none':''}">
+    <div id="${pfx}-lk-tab-metier-panel" class="${!isActiveMet?'wfd-hidden':''}">
 
       <!-- Source & sortie condensées -->
       <div class="lk-src-info">
-        <i class="ti ti-arrow-right-bar" style="font-size:14px; color:var(--color-text-secondary);" aria-hidden="true"></i>
+        <i class="ti ti-arrow-right-bar wfd-lk-icon-14" aria-hidden="true"></i>
         <span class="lk-src-label">Source</span>
-        <input id="${pfx}-lk-input-var" class="cfg-input"
-          style="flex:1; font-family:var(--font-mono); font-size:12px; max-width:180px;"
+        <input id="${pfx}-lk-input-var" class="cfg-input wfd-lk-src-input"
           list="${pfx}-wfd-var-list"
           value="${escHtml(cfg.lkInputVar||'')}" placeholder="Variable Fetch (ex: primeContents)">
-        <button onclick="lkAutoPopulate('${pfx}')" class="cfg-btn"
-          style="font-size:11px; padding:3px 10px; white-space:nowrap;">
+        <button onclick="lkAutoPopulate('${pfx}')" class="cfg-btn wfd-lk-gen-btn">
           <i class="ti ti-wand" aria-hidden="true"></i> Générer
         </button>
-        <div style="border-left:0.5px solid var(--color-border-tertiary); height:20px; margin:0 4px;"></div>
+        <div class="wfd-lk-divider"></div>
         <span class="lk-src-label">Sortie</span>
-        <span style="font-family:var(--font-mono); font-size:12px; color:#888;">{</span>
-        <input id="${pfx}-lk-output-var" class="cfg-input"
-          style="width:120px; font-family:var(--font-mono); font-size:12px; color:#1B6B45;"
+        <span class="wfd-lk-brace">{</span>
+        <input id="${pfx}-lk-output-var" class="cfg-input wfd-lk-out-input"
           value="${escHtml(cfg.lkOutputVar||'targetColPath')}" placeholder="variable_résultat">
-        <span style="font-family:var(--font-mono); font-size:12px; color:#888;">}</span>
+        <span class="wfd-lk-brace">}</span>
       </div>
 
       <!-- En-têtes colonnes -->
@@ -3959,12 +3955,12 @@ function buildCfgFields(pfx, family, cfg) {
       <div id="${pfx}-lk-api-panel"></div>
 
       <button class="lk-add-btn" onclick="lkAddRow()">
-        <i class="ti ti-plus" style="font-size:13px;" aria-hidden="true"></i>
+        <i class="ti ti-plus wfd-icon-13" aria-hidden="true"></i>
         Ajouter un champ
       </button>
 
       <!-- Outils Import/Export/Template -->
-      <div style="display:flex; gap:6px; margin-top:10px; padding-top:10px; border-top:0.5px solid var(--color-border-tertiary);">
+      <div class="wfd-lk-tools-row">
         <button onclick="lkImport()" class="cfg-btn wfd-tab-btn">
           <i class="ti ti-upload" aria-hidden="true"></i> Import
         </button>
@@ -3974,35 +3970,31 @@ function buildCfgFields(pfx, family, cfg) {
         <button onclick="lkChargerTemplate()" class="cfg-btn wfd-tab-btn">
           <i class="ti ti-folder" aria-hidden="true"></i> Template
         </button>
-        <button onclick="lkSauvegarderTemplate()" class="cfg-btn" style="font-size:11px; padding:3px 10px; flex:1; color:#1B6B45; border-color:#9FE1CB;">
+        <button onclick="lkSauvegarderTemplate()" class="cfg-btn wfd-lk-save-btn">
           <i class="ti ti-device-floppy" aria-hidden="true"></i> Sauver
         </button>
       </div>
 
       <!-- Fallback global -->
-      <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
-        <span style="font-size:11px; color:var(--color-text-secondary); white-space:nowrap;">Fallback global</span>
-        <input id="${pfx}-lk-fallback" class="cfg-input"
-          style="flex:1; font-family:var(--font-mono); font-size:11px;"
+      <div class="wfd-lk-fallback-row">
+        <span class="wfd-lk-fallback-lbl">Fallback global</span>
+        <input id="${pfx}-lk-fallback" class="cfg-input wfd-lk-fallback-input"
           list="${pfx}-wfd-var-list"
           value="${escHtml(cfg.lkFallback||'')}"
           placeholder="Laisser vide → port 'Non trouvé'">
       </div>
 
-      <input type="file" id="${pfx}-lk-import-file" style="display:none" accept=".json,.csv" onchange="lkImportFile(this)">
+      <input type="file" id="${pfx}-lk-import-file" class="wfd-hidden" accept=".json,.csv" onchange="lkImportFile(this)">
     </div><!-- /onglet-champs -->
 
     <!-- ── ONGLET CRÉDITS ───────────────────────────────── -->
-    <div id="${pfx}-lk-tab-credits-panel" style="${!isActiveCred?'display:none':''}">
-      <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:12px; line-height:1.6;">
+    <div id="${pfx}-lk-tab-credits-panel" class="${!isActiveCred?'wfd-hidden':''}">
+      <div class="wfd-lk-credits-intro">
         Les crédits mappent des champs Iconik vers la liste <code class="wfd-fs11">persons[]</code> de l'API.
         Chaque ligne associe un champ Iconik à un rôle (director, narrator…).
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 20px 80px 1fr 24px; gap:6px;
-                  font-size:10px; color:var(--color-text-secondary); font-weight:500;
-                  text-transform:uppercase; letter-spacing:.05em;
-                  padding:0 0 6px; border-bottom:0.5px solid var(--color-border-tertiary); margin-bottom:4px;">
+      <div class="wfd-lk-credits-hdrs">
         <div>Champ Iconik</div>
         <div></div>
         <div>Cible</div>
@@ -4013,54 +4005,48 @@ function buildCfgFields(pfx, family, cfg) {
       <div id="${pfx}-lk-person-rows">
         ${_personRows.length
           ? _personRows.map((r, i) => personRowHtml(r, i)).join('')
-          : `<div style="padding:16px; text-align:center; color:var(--color-text-secondary); font-size:12px; font-style:italic;">
+          : `<div class="wfd-lk-empty-credit">
                Aucun crédit configuré — cliquer "Ajouter un crédit" pour commencer.
              </div>`
         }
       </div>
 
       <button class="lk-add-btn" onclick="lkAddPersonRow('${pfx}')">
-        <i class="ti ti-plus" style="font-size:13px;" aria-hidden="true"></i>
+        <i class="ti ti-plus wfd-icon-13" aria-hidden="true"></i>
         Ajouter un crédit
       </button>
 
-      <div style="margin-top:14px; padding:10px 12px; background:var(--color-background-secondary);
-                  border-radius:var(--border-radius-md); font-size:11px; color:var(--color-text-secondary); line-height:1.6;">
-        <i class="ti ti-info-circle" style="font-size:13px; vertical-align:-2px;" aria-hidden="true"></i>
+      <div class="wfd-lk-info-box">
+        <i class="ti ti-info-circle wfd-lk-info-icon" aria-hidden="true"></i>
         Si un champ Iconik est multi-valeur (tag cloud avec plusieurs noms), une entrée
-        <code style="font-size:10px;">persons[]</code> est créée automatiquement pour chaque valeur.
+        <code class="wfd-fs10">persons[]</code> est créée automatiquement pour chaque valeur.
       </div>
     </div><!-- /onglet-credits -->
 
     <!-- ── ONGLET TECHNIQUE ─────────────────────────────── -->
-    <div id="${pfx}-lk-tab-technique-panel" style="${!isActiveTech?'display:none':''}">
+    <div id="${pfx}-lk-tab-technique-panel" class="${!isActiveTech?'wfd-hidden':''}">
       <div class="lk-section-title">Variable de stockage technique</div>
-      <div style="display:flex; align-items:center; gap:6px;">
-        <span style="font-family:var(--font-mono); color:var(--color-text-secondary);">{</span>
-        <input id="${pfx}-lk-tech-var" class="cfg-input"
-          style="flex:1; font-family:var(--font-mono); font-size:12px;"
+      <div class="wfd-lk-tech-storage-row">
+        <span class="wfd-lk-tech-brace">{</span>
+        <input id="${pfx}-lk-tech-var" class="cfg-input wfd-lk-tech-var-input"
           value="${escHtml(cfg.lkTechVar||'assetTechnique')}" placeholder="assetTechnique">
-        <span style="font-family:var(--font-mono); color:var(--color-text-secondary);">}</span>
+        <span class="wfd-lk-tech-brace">}</span>
       </div>
 
-      <div class="lk-section-title" style="margin-top:16px;">Variables système</div>
+      <div class="lk-section-title wfd-mt16b">Variables système</div>
       ${[
         ['asset_id',      "ID unique de l'asset Iconik"],
         ['asset_name',    "Nom de l'asset"],
         ['trigger_user',  "Utilisateur déclencheur"],
         ['workflow_name', "Nom du workflow"],
       ].map(([v, desc]) => `
-        <div style="display:grid; grid-template-columns:140px 1fr; gap:8px; align-items:center;
-                    padding:6px 0; border-bottom:0.5px solid var(--color-border-tertiary);">
-          <code style="font-size:11px; color:#0F4761; background:#E8F0F5;
-                       padding:2px 6px; border-radius:3px;">{${v}}</code>
-          <span style="font-size:12px; color:var(--color-text-secondary);">${desc}</span>
+        <div class="wfd-lk-sysvar-row">
+          <code class="wfd-lk-sysvar-chip">{${v}}</code>
+          <span class="wfd-lk-sysvar-desc">${desc}</span>
         </div>`).join('')}
 
-      <div class="lk-section-title" style="margin-top:16px;">Formats techniques (withFormats)</div>
-      <div style="display:grid; grid-template-columns:130px 1fr 1fr; gap:6px;
-                  font-size:10px; color:var(--color-text-secondary); padding-bottom:4px;
-                  border-bottom:0.5px solid var(--color-border-tertiary); margin-bottom:4px;">
+      <div class="lk-section-title wfd-mt16b">Formats techniques (withFormats)</div>
+      <div class="wfd-lk-techfmt-hdrs">
         <span>Variable</span><span>Description</span><span>Champ API cible</span>
       </div>
       ${[
@@ -4075,23 +4061,19 @@ function buildCfgFields(pfx, family, cfg) {
         ['container',     'Format conteneur',             cfg.lkTechMap?.container     || ''],
         ['file_size',     'Taille du fichier',            cfg.lkTechMap?.file_size     || ''],
       ].map(([v, desc, dst]) => `
-        <div style="display:grid; grid-template-columns:130px 1fr 1fr; gap:6px; align-items:center;
-                    padding:5px 0; border-bottom:0.5px solid var(--color-border-tertiary);">
-          <code style="font-size:11px; color:#C0580A; background:#F9EBE4;
-                       padding:2px 6px; border-radius:3px;">{${v}}</code>
-          <span style="font-size:11px; color:var(--color-text-secondary);">${desc}</span>
-          <input class="cfg-input lk-tech-map" data-var="${v}"
-            style="font-size:11px; font-family:var(--font-mono); padding:3px 6px;"
+        <div class="wfd-lk-techfmt-row">
+          <code class="wfd-lk-techfmt-chip">{${v}}</code>
+          <span class="wfd-lk-techfmt-desc">${desc}</span>
+          <input class="cfg-input lk-tech-map wfd-lk-techfmt-input" data-var="${v}"
             value="${dst}" placeholder="Champ API cible">
         </div>`).join('')}
 
-      <div class="lk-section-title" style="margin-top:14px;">Règles de calcul</div>
-      <div style="padding:10px 12px; background:var(--color-background-secondary);
-                  border-radius:var(--border-radius-md); font-size:12px; color:var(--color-text-secondary);">
-        <span style="font-family:var(--font-mono); color:#C0580A;">width × height</span>
-        <span style="margin:0 8px;">→</span>
-        <span style="font-family:var(--font-mono); color:#0F4761;">{video_quality}</span>
-        <span style="margin-left:8px; font-size:11px;">≥3840 → UHD · ≥1920 → HD · ≥1280 → SD · sinon LD</span>
+      <div class="lk-section-title wfd-mt14b">Règles de calcul</div>
+      <div class="wfd-lk-calc-box">
+        <span class="wfd-lk-calc-formula">width × height</span>
+        <span class="wfd-lk-calc-arrow">→</span>
+        <span class="wfd-lk-calc-result">{video_quality}</span>
+        <span class="wfd-lk-calc-legend">≥3840 → UHD · ≥1920 → HD · ≥1280 → SD · sinon LD</span>
       </div>
     </div><!-- /onglet-technique -->
 
