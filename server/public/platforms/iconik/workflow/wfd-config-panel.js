@@ -7781,15 +7781,12 @@ function _buildRelatePanel(pfx, cfg) {
   const relType = cfg.relationType || 'derivative_of';
 
   const typeRows = RELATE_TYPES.map(t => `
-    <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;
-      background:${relType===t.value?'#0a0d14':'#0a0a0a'};
-      border:1px solid ${relType===t.value?'#2980b9':'#1e1e1e'};
-      border-radius:5px;padding:8px 10px;transition:all .15s;">
+    <label class="wfd-rel-type-label${relType===t.value?' checked-blue':' unchecked-dark'}">
       <input type="radio" name="${pfx}-rel-type" value="${t.value}" ${relType===t.value?'checked':''}
-        style="accent-color:#2980b9;margin-top:2px;flex-shrink:0;" onchange="_relTypeChange('${pfx}')">
+        class="wfd-rel-type-radio" onchange="_relTypeChange('${pfx}')">
       <div>
-        <div style="font-size:12px;color:${relType===t.value?'#2980b9':'#aaa'};font-weight:600;">${t.label}</div>
-        <div style="font-size:10px;color:#555;margin-top:2px;">${t.desc}</div>
+        <div class="wfd-rel-type-title${relType===t.value?' checked-blue-text':''}">${t.label}</div>
+        <div class="wfd-rel-type-desc">${t.desc}</div>
       </div>
     </label>`).join('');
 
@@ -7832,15 +7829,12 @@ function _buildRelatePanel(pfx, cfg) {
         ['b_to_a', 'B \u2192 A', 'B est la source, A est le d\u00e9riv\u00e9'],
         ['both',   'Bidirectionnel', 'Relation sym\u00e9trique'],
       ].map(([k,lbl,desc]) => `
-        <label style="flex:1;cursor:pointer;
-          background:${(cfg.direction||'a_to_b')===k?'#0a0d14':'#0a0a0a'};
-          border:1px solid ${(cfg.direction||'a_to_b')===k?'#2980b9':'#1e1e1e'};
-          border-radius:5px;padding:7px 10px;transition:all .15s;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+        <label class="wfd-rel-dir-label${(cfg.direction||'a_to_b')===k?' checked-blue':' unchecked-dark'}">
+          <div class="wfd-rel-dir-row">
             <input type="radio" name="${pfx}-rel-dir" value="${k}"
               ${(cfg.direction||'a_to_b')===k?'checked':''}
               style="accent-color:#2980b9;" onchange="_relDirChange('${pfx}')">
-            <span style="font-size:12px;color:#3498db;font-weight:600;">${lbl}</span>
+            <span class="wfd-rel-dir-text">${lbl}</span>
           </div>
           <div class="wfd-hint-left">${desc}</div>
         </label>`).join('')}
@@ -7849,7 +7843,7 @@ function _buildRelatePanel(pfx, cfg) {
 
   <!-- Résumé visuel -->
   <div class="wfd-card-sm2">
-    <div id="${pfx}-rel-summary" style="font-size:11px;color:#666;text-align:center;font-family:var(--font-mono);">
+    <div id="${pfx}-rel-summary" class="wfd-rel-summary">
       ${_relSummaryText(cfg.assetA||'A', cfg.assetB||'B', relType, cfg.direction||'a_to_b')}
     </div>
   </div>
