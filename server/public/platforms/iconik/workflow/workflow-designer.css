@@ -1992,6 +1992,10 @@ nav { display: flex; gap: 2px; }
 .wfd-action-info-card { background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 5px; padding: 8px 10px; font-size: 11px; }
 .wfd-action-endpoint  { color: #555; font-family: var(--font-mono); margin-bottom: 4px; }
 .wfd-action-desc      { color: #666; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 33 (rename) ─────────────── */
+.wfd-rename-test-input { flex: 1; font-family: var(--font-mono); font-size: 11px; }
+.wfd-rename-preview    { flex: 1; font-family: var(--font-mono); font-size: 11px; color: #27ae60; background: #0d150d; border: 1px solid #1a2a1a; border-radius: 4px; padding: 5px 8px; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

@@ -1359,8 +1359,8 @@ function _renameModeChange(pfx) {
   const mode = document.getElementById(pfx+'-rename-mode')?.value || 'rules';
   const rw = document.getElementById(pfx+'-rename-rules-wrap');
   const tw = document.getElementById(pfx+'-rename-tpl-wrap');
-  if (rw) rw.style.display = mode==='template' ? 'none' : '';
-  if (tw) tw.style.display = mode==='rules'    ? 'none' : '';
+  if (rw) rw.classList.toggle('wfd-hidden', mode==='template');
+  if (tw) tw.classList.toggle('wfd-hidden', mode==='rules');
 }
 
 function mnRenamePreview() { _renamePreview('mn'); }
@@ -1862,7 +1862,7 @@ function buildCfgFields(pfx, family, cfg) {
         <option value="both"     ${cfg.mode==='both'              ?'selected':''}>🔤 + 📝 Règles puis Template</option>
       </select>
     </div>
-    <div id="${pfx}-rename-rules-wrap" class="cfg-field" style="${cfg.mode==='template'?'display:none':''}">
+    <div id="${pfx}-rename-rules-wrap" class="cfg-field${cfg.mode==='template'?' wfd-hidden':''}">
       <label class="cfg-label">Règle de nommage</label>
       <div class="wfd-row-gap6b">
         <select id="${pfx}-nommage-id" class="cfg-select wfd-flex1">
@@ -1871,7 +1871,7 @@ function buildCfgFields(pfx, family, cfg) {
         <button class="cfg-btn wfd-pad-6-8" onclick="ouvrirRessources('nommage')" title="Gérer les règles">⚙</button>
       </div>
     </div>
-    <div id="${pfx}-rename-tpl-wrap" class="cfg-field" style="${cfg.mode==='rules'?'display:none':''}">
+    <div id="${pfx}-rename-tpl-wrap" class="cfg-field${cfg.mode==='rules'?' wfd-hidden':''}">
       <label class="cfg-label">Template de nom</label>
       <input id="${pfx}-rename-template" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
   value="${escHtml(cfg.template||'')}"
@@ -1886,11 +1886,10 @@ function buildCfgFields(pfx, family, cfg) {
     <div class="cfg-field">
       <label class="cfg-label">Test rapide</label>
       <div class="wfd-row-gap6c">
-        <input id="${pfx}-rename-test" class="cfg-input" style="flex:1;font-family:var(--font-mono);font-size:11px;"
+        <input id="${pfx}-rename-test" class="cfg-input wfd-rename-test-input"
           placeholder="Texte de test…" oninput="_renamePreview('${pfx}')">
-        <span style="color:#444;">→</span>
-        <div id="${pfx}-rename-preview" style="flex:1;font-family:var(--font-mono);font-size:11px;
-          color:#27ae60;background:#0d150d;border:1px solid #1a2a1a;border-radius:4px;padding:5px 8px;"></div>
+        <span class="wfd-c-444">→</span>
+        <div id="${pfx}-rename-preview" class="wfd-rename-preview"></div>
       </div>
     </div>
     <div class="cfg-field">
