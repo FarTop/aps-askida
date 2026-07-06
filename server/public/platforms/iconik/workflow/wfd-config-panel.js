@@ -4858,7 +4858,7 @@ function buildCfgFields(pfx, family, cfg) {
       <textarea id="${pfx}-manual-payload" class="cfg-textarea wfd-mono-sm2" rows="10"
         placeholder='{ "asset": { "id": "..." } }'>${escHtml(payloadStr)}</textarea>
       <div id="${pfx}-manual-payload-error"
-        style="font-size:10px;color:#e74c3c;margin-top:4px;display:none;"></div>
+        class="wfd-manual-payload-error wfd-hidden"></div>
     </div>
     <div class="cfg-field">
       <label class="cfg-label">Nom du test</label>
@@ -4871,8 +4871,7 @@ function buildCfgFields(pfx, family, cfg) {
       <textarea id="${pfx}-description" class="cfg-textarea" rows="2"
         placeholder="Notes sur ce test…">${escHtml(cfg.description||'')}</textarea>
     </div>
-    <button class="cfg-btn" style="width:100%;padding:8px;background:#1a1a1a;
-      border:1px solid #2a2a2a;color:#95a5a6;font-size:12px;border-radius:4px;cursor:pointer;"
+    <button class="cfg-btn wfd-manual-validate-btn"
       onclick="wfdValidateManualPayload('${pfx}')">
       🧪 Valider le JSON
     </button>
