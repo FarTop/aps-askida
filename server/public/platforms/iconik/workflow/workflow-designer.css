@@ -2043,6 +2043,10 @@ nav { display: flex; gap: 2px; }
 .wfd-mono-teal { font-family: var(--font-mono); color: #16a085; }
 .wfd-fe-preview-btn { width: 100%; padding: 6px; background: #0a0d14; border-color: #1e3a5a; color: #3498db; }
 .wfd-fe-preview-box { margin-top: 6px; padding: 10px; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 5px; font-size: 11px; font-family: var(--font-mono); color: #888; max-height: 200px; overflow-y: auto; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 37 (http ports sortie) ──── */
+.wfd-http-ports-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 5px; padding: 10px; }
+.wfd-http-ports-list { font-size: 11px; color: #888; margin-top: 4px; display: flex; flex-direction: column; gap: 3px; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

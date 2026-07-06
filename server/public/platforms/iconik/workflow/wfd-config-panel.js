@@ -2304,10 +2304,10 @@ function buildCfgFields(pfx, family, cfg) {
         <label class="cfg-label">Headers additionnels</label>
         <div id="${pfx}-http-headers-list">
           ${(cfg.extraHeaders||[]).map((h,i) => `
-            <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
+            <div class="wfd-row-gap6-mb4">
               <input class="cfg-input http-xhdr-key wfd-flex1" value="${escHtml(h.key)}" placeholder="Clé">
               <input class="cfg-input http-xhdr-val wfd-flex2b" value="${escHtml(h.value)}" placeholder="Valeur ou {var}">
-              <button class="cfg-btn danger" style="padding:4px 8px;" onclick="this.parentElement.remove()">✕</button>
+              <button class="cfg-btn danger wfd-pad-4-8" onclick="this.parentElement.remove()">✕</button>
             </div>`).join('')}
         </div>
         <button class="cfg-btn wfd-mt4" onclick="httpAjouterHeader('${pfx}')">+ Header</button>
@@ -2321,9 +2321,9 @@ function buildCfgFields(pfx, family, cfg) {
           Accès : <code class="wfd-c-green2">{http_response.status}</code> · <code class="wfd-c-green2">{http_response.body}</code>
         </div>
       </div>
-      <div class="cfg-field" style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:5px;padding:10px;">
+      <div class="cfg-field wfd-http-ports-card">
         <label class="cfg-label">Ports de sortie</label>
-        <div style="font-size:11px;color:#888;margin-top:4px;display:flex;flex-direction:column;gap:3px;">
+        <div class="wfd-http-ports-list">
           <div><span class="wfd-c-green3">●</span> <strong>Succès</strong> — 2xx</div>
           <div><span class="wfd-c-red2">●</span> <strong>Erreur</strong> — 4xx / 5xx ou timeout</div>
         </div>
@@ -2478,9 +2478,9 @@ function buildCfgFields(pfx, family, cfg) {
           value="${escHtml(cfg.resultVar||'verify_result')}"
           list="${pfx}-wfd-var-list">
       </div>
-      <div class="cfg-field" style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:5px;padding:10px;">
+      <div class="cfg-field wfd-http-ports-card">
         <label class="cfg-label">Ports de sortie</label>
-        <div style="font-size:11px;color:#888;margin-top:4px;display:flex;flex-direction:column;gap:3px;">
+        <div class="wfd-http-ports-list">
           <div><span class="wfd-c-green3">●</span> Condition remplie</div>
           <div><span class="wfd-c-orange2">●</span> Condition non remplie</div>
           <div><span class="wfd-c-red2">●</span> Erreur HTTP ou réseau</div>
