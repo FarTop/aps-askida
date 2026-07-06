@@ -417,18 +417,17 @@ function buildQCRuleRow(i, r, pfx) {                   // ← on ajoute pfx
     : QC_FILE_FIELDS.map(f=>`<option value="${f}" ${r.field===f?'selected':''}>${f}</option>`).join('');
 
 
-  return `<div id="qc-rule-${i}" style="background:#111;border:1px solid #2a2a2a;border-radius:6px;
-      padding:10px 12px;margin-bottom:6px;display:flex;flex-direction:column;gap:7px;">
+  return `<div id="qc-rule-${i}" class="wfd-qc-rule-card">
     <div class="wfd-row-gap8b">
-      <span style="font-size:10px;color:#444;font-family:var(--font-mono);min-width:14px;">#${i+1}</span>
-      <select class="cfg-select qc-cat" data-idx="${i}" style="flex:none;width:160px;"
+      <span class="wfd-qc-rule-idx">#${i+1}</span>
+      <select class="cfg-select qc-cat wfd-qc-cat-select" data-idx="${i}"
         onchange="changerCategorieQC(${i},this.value)">
         ${Object.entries(QC_CATEGORIES).map(([k,v])=>
           `<option value="${k}" ${cat===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
       </select>
       <button class="btn-del-cond" onclick="supprimerRegleQC(${i})">\u00D7</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr ${hasVal?'1fr':'0'};gap:6px;align-items:end;">
+    <div class="${hasVal?'wfd-qc-grid-3col':'wfd-qc-grid-2col'}">
       <div class="cfg-field wfd-m0">
         <label class="cfg-label wfd-fs9">CHAMP</label>
         
@@ -484,13 +483,10 @@ function buildQCRuleRow(i, r, pfx) {                   // ← on ajoute pfx
 function buildQCOutputRow(i, o) {
   const colors = ['#27ae60','#e74c3c','#f39c12','#3498db','#9b59b6'];
   const col    = o.color || colors[i % colors.length];
-  return `<div id="qcout-row-${i}" style="display:flex;align-items:center;gap:8px;
-      padding:6px 10px;background:#111;border:1px solid #2a2a2a;border-radius:5px;margin-bottom:4px;">
-    <span style="width:10px;height:10px;border-radius:50%;background:${col};flex-shrink:0;"></span>
-    <input type="text" class="cfg-input qcout-label" value="${o.label||'Sortie '+(i+1)}"
-      style="flex:1;padding:4px 8px;">
-    <input type="color" class="qcout-color" value="${col}"
-      style="width:30px;height:28px;border:none;background:none;cursor:pointer;padding:0;">
+  return `<div id="qcout-row-${i}" class="wfd-qc-output-card">
+    <span class="wfd-qc-output-dot" style="--dot-color:${col};"></span>
+    <input type="text" class="cfg-input qcout-label wfd-qc-output-label" value="${o.label||'Sortie '+(i+1)}">
+    <input type="color" class="qcout-color wfd-color-input-sm" value="${col}">
     <button class="btn-del-cond" onclick="supprimerSortieQC(${i})">\u00D7</button>
   </div>`;
 }

@@ -1836,6 +1836,17 @@ nav { display: flex; gap: 2px; }
   border: 1px solid color-mix(in srgb, var(--badge-color, #888) 27%, transparent);
 }
 
+/* ── Classes utilitaires wfd-config-panel — lot 4 (QC rules/output) ─────── */
+.wfd-qc-rule-card   { background: #111; border: 1px solid #2a2a2a; border-radius: 6px; padding: 10px 12px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 7px; }
+.wfd-qc-rule-idx    { font-size: 10px; color: #444; font-family: var(--font-mono); min-width: 14px; }
+.wfd-qc-cat-select  { flex: none; width: 160px; }
+.wfd-qc-grid-3col   { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; align-items: end; }
+.wfd-qc-grid-2col   { display: grid; grid-template-columns: 1fr 1fr 0; gap: 6px; align-items: end; }
+.wfd-qc-output-card { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #111; border: 1px solid #2a2a2a; border-radius: 5px; margin-bottom: 4px; }
+.wfd-qc-output-dot  { width: 10px; height: 10px; border-radius: 50%; background: var(--dot-color, #888); flex-shrink: 0; }
+.wfd-qc-output-label { flex: 1; padding: 4px 8px; }
+.wfd-color-input-sm { width: 30px; height: 28px; border: none; background: none; cursor: pointer; padding: 0; }
+
 /* ── Classes utilitaires wfd-run-panel et wfd-api-ops ──────────────────── */
 .wfd-c-aaa        { color: #aaa; }
 .wfd-label-9-555b { color: #555; font-size: 9px; }
