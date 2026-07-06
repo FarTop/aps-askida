@@ -2193,6 +2193,80 @@ nav { display: flex; gap: 2px; }
 /* ── Classes utilitaires wfd-config-panel — lot 52 (manual) ─────────────── */
 .wfd-manual-payload-error { font-size: 10px; color: #e74c3c; margin-top: 4px; }
 .wfd-manual-validate-btn  { width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #95a5a6; font-size: 12px; border-radius: 4px; cursor: pointer; }
+
+/* ── Lookup redesign — déplacé depuis le <style> embarqué dans buildCfgFields ── */
+.lk-tabs { display:flex; gap:0; border-bottom:0.5px solid var(--color-border-tertiary); margin-bottom:14px; }
+.lk-tab  { padding:8px 16px; font-size:12px; border:none; border-bottom:2px solid transparent;
+           background:none; color:var(--color-text-secondary); cursor:pointer; transition:color .15s; }
+.lk-tab.active { color:#0F4761; border-bottom-color:#0F4761; font-weight:500; }
+.lk-tab:hover:not(.active) { color:var(--color-text-primary); }
+
+.lkr { border-bottom:0.5px solid var(--color-border-tertiary); padding:6px 0; }
+.lkr:last-child { border-bottom:none; }
+.lkr-main { display:grid; grid-template-columns:1fr 20px 1fr auto auto auto; gap:6px; align-items:center; }
+.lkr-src, .lkr-tgt { font-size:12px !important; }
+.lkr-tgt-wrap { position:relative; }
+.lkr-nested { position:absolute; right:6px; top:50%; transform:translateY(-50%);
+              font-size:10px; color:#5B3FA6; font-family:var(--font-mono); pointer-events:none; }
+.lkr-arrow { color:var(--color-text-secondary); font-size:13px; text-align:center; }
+
+.lkr-type-btn { font-size:11px; padding:3px 8px; border-radius:4px; border:0.5px solid;
+                cursor:pointer; white-space:nowrap; transition:opacity .15s; }
+.lk-badge-str  { background:#0a1a24; color:#5BA3CC; border-color:#1a3a50; }
+.lk-badge-int  { background:#150f24; color:#8B6FD4; border-color:#2a1a50; }
+.lk-badge-flt  { background:#150f24; color:#8B6FD4; border-color:#2a1a50; }
+.lk-badge-bool { background:#1f0f05; color:#D4820A; border-color:#3a1a05; }
+.lk-badge-list { background:#051a0f; color:#3BA865; border-color:#0a3020; }
+
+.lkr-fb-btn { width:26px; height:26px; border-radius:4px; border:0.5px solid var(--color-border-tertiary); color:var(--color-text-secondary);
+              background:none; cursor:pointer; display:flex; align-items:center;
+              justify-content:center; font-size:13px; transition:all .15s; }
+.lkr-fb-btn.lkr-fb-active { background:#1f0f05; color:#D4820A; border-color:#3a1a05; }
+.lkr-fb-btn:hover { background:var(--color-background-secondary); }
+.lkr-del { width:26px; height:26px; border-radius:4px; border:0.5px solid transparent; color:var(--color-text-secondary);
+           background:none; cursor:pointer; display:flex;
+           align-items:center; justify-content:center; font-size:13px; }
+.lkr-del:hover { background:var(--color-background-danger); color:var(--color-text-danger); }
+
+.lkr-fb-row { display:flex; align-items:center; gap:8px; padding:4px 0 2px 26px; }
+.lkr-fb-label { font-size:10px; color:var(--color-text-secondary); white-space:nowrap;
+                font-style:italic; min-width:46px; }
+.lkr-fb-input { flex:1; }
+
+.lkr-person .lkr-main { grid-template-columns:1fr 20px 80px 1fr 24px; gap:6px; }
+.lkr-person-target { font-size:11px; color:#5BA3CC; background:#0a1a24;
+                     border:0.5px solid #9FC4D8; border-radius:4px; padding:3px 8px;
+                     white-space:nowrap; font-family:var(--font-mono); }
+.lkr-role-sel { font-size:11px; padding:3px 6px; border-radius:4px;
+                border:0.5px solid #2a2a2a;
+                background:#111;
+                color:#ccc; cursor:pointer; width:100%; }
+
+.lk-col-hdr { font-size:10px; color:var(--color-text-secondary); font-weight:500;
+              text-transform:uppercase; letter-spacing:.05em; padding:0 0 6px; }
+.lk-col-hdrs { display:grid; grid-template-columns:1fr 20px 1fr auto auto auto; gap:6px;
+               border-bottom:0.5px solid var(--color-border-tertiary); margin-bottom:4px; }
+
+.lk-add-btn { display:flex; align-items:center; justify-content:center; gap:5px; width:100%;
+              padding:7px; margin-top:8px; font-size:12px; color:var(--color-text-secondary);
+              border:0.5px dashed var(--color-border-secondary); border-radius:6px;
+              background:none; cursor:pointer; transition:all .15s; }
+.lk-add-btn:hover { border-color:#0F4761; color:#0F4761; }
+
+.lk-src-info { display:flex; align-items:center; gap:8px; padding:8px 10px;
+               background:var(--color-background-secondary);
+               border:0.5px solid var(--color-border-tertiary); border-radius:6px;
+               margin-bottom:10px; }
+.lk-src-label { font-size:11px; color:var(--color-text-secondary); }
+.lk-src-var   { font-family:var(--font-mono); font-size:11px; color:#0F4761;
+                background:#E8F0F5; padding:2px 8px; border-radius:4px; }
+.lk-out-row   { display:flex; align-items:center; gap:6px; padding:8px 10px;
+                background:var(--color-background-secondary);
+                border:0.5px solid var(--color-border-tertiary); border-radius:6px; margin-top:10px; }
+.lk-out-label { font-size:11px; color:var(--color-text-secondary); flex:1; }
+.lk-out-var   { font-family:var(--font-mono); font-size:12px; color:#1B6B45; font-weight:500; }
+.lk-section-title { font-size:10px; font-weight:500; text-transform:uppercase;
+                    letter-spacing:.06em; color:var(--color-text-secondary); margin:12px 0 8px; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */
