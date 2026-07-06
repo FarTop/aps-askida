@@ -1878,6 +1878,19 @@ nav { display: flex; gap: 2px; }
 .wfd-acl-op-label-text { font-size: 12px; font-weight: 600; color: var(--op-color, #ccc); }
 .wfd-acl-entries-wrap { display: flex; flex-direction: column; gap: 6px; }
 .wfd-acl-propagate-hint { font-size: 10px; color: #555; margin-top: 3px; padding-left: 22px; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 14 (update_meta) ────────── */
+.wfd-um-field-grid   { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 5px; align-items: center; margin-bottom: 4px; }
+.wfd-um-ops-wrap      { display: flex; gap: 2px; }
+.wfd-um-del-btn        { padding: 3px 6px; }
+.wfd-um-fields-col    { min-height: 0; display: flex; flex-direction: column; }
+.wfd-um-fields-hdr    { display: grid; grid-template-columns: 1fr 1fr 24px; gap: 5px; font-size: 10px; color: #555; margin-bottom: 4px; padding: 0 2px; }
+.wfd-um-fields-list   { display: flex; flex-direction: column; gap: 5px; padding-right: 4px; }
+.wfd-um-fields-hint   { font-size: 10px; color: #444; margin-top: 6px; }
+.wfd-um-method-label  { flex: 1; cursor: pointer; border-radius: 5px; padding: 8px 10px; transition: all .15s; }
+.wfd-um-method-label.checked-dynamic { background: #0d0d0d; }
+.wfd-um-method-row    { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.wfd-um-method-code   { font-size: 12px; font-weight: 700; color: var(--method-color, #ccc); }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

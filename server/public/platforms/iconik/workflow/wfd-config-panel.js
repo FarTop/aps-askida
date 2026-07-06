@@ -6299,12 +6299,12 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
   const fields = (cfg.fields||[]).map((f,i) => {
     const _fop = f.op || 'write';
     return `
-  <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:5px;align-items:center;margin-bottom:4px;">
+  <div class="wfd-um-field-grid">
     ${fieldKeyCtrl(f,i)}
     <input class="cfg-input um-field-val wfd-mono-sm" data-idx="${i}"
       list="${pfx}-wfd-var-list"
       value="${escHtml(f.value||'')}" placeholder="Valeur ou {variable}">
-    <div style="display:flex;gap:2px;">
+    <div class="wfd-um-ops-wrap">
       ${[['write','W','Ecrire'],['reset','R','Effacer'],['copy','C','Copier']].map(([v,ic,lb]) =>
         `<button class="wfd-um-op-btn um-field-op-btn ${_fop===v?'active-blue':'inactive-btn'}"
           data-idx="${i}" data-op="${v}" title="${lb}"
@@ -6312,7 +6312,7 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
       ).join('')}
       <input type="hidden" class="um-field-op" data-idx="${i}" value="${_fop}">
     </div>
-    <button class="cfg-btn danger" style="padding:3px 6px;"
+    <button class="cfg-btn danger wfd-um-del-btn"
       onclick="${pfx}RemoveUmField(${i})">x</button>
   </div>`;
   }).join('');
@@ -6352,7 +6352,7 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
   </div>
 
   <!-- Vue de métadonnées -->
-  <div id="${pfx}-um-view-wrap" class="cfg-field" style="${mode==='fields'?'display:none':''}">
+  <div id="${pfx}-um-view-wrap" class="cfg-field${mode==='fields'?' wfd-hidden':''}">
     <label class="cfg-label">Vue de métadonnées</label>
     <select id="${pfx}-um-mdview" class="cfg-select">
       <option value="">— Sélectionner une vue —</option>
@@ -6361,22 +6361,20 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
   </div>
 
   <!-- Champs -->
-  <div class="cfg-field" style="min-height:0;display:flex;flex-direction:column;">
+  <div class="cfg-field wfd-um-fields-col">
     <div class="wfd-row-sb-mb6">
       <label class="cfg-label wfd-m0">
         ${mode==='view'?'Valeurs à écrire dans la vue':'Champs à mettre à jour'}
       </label>
       <button class="cfg-btn wfd-pad-3-10b" onclick="${pfx}AddUmField()">+ Champ</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 24px;gap:5px;
-      font-size:10px;color:#555;margin-bottom:4px;padding:0 2px;">
+    <div class="wfd-um-fields-hdr">
       <span>Nom du champ</span><span>Valeur ou {variable}</span><span></span>
     </div>
-    <div id="${pfx}-um-fields"
-     style="display:flex;flex-direction:column;gap:5px;padding-right:4px;">
+    <div id="${pfx}-um-fields" class="wfd-um-fields-list">
       ${fields || '<div class="wfd-text-444-11b">Aucun champ — ajoutez-en un.</div>'}
     </div>
-    <div style="font-size:10px;color:#444;margin-top:6px;">
+    <div class="wfd-um-fields-hint">
       Laissez la valeur vide pour effacer un champ. Utilisez <code>{variable}</code> pour injecter depuis le contexte.
     </div>
   </div>
@@ -6389,14 +6387,12 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
         ['patch','PATCH','Ne modifie que les champs envoyés — les autres sont conservés','#27ae60'],
         ['put',  'PUT',  'Remplace tous les champs de la vue — les autres sont effacés','#e74c3c'],
       ].map(([k,lbl,desc,color]) => `
-        <label style="flex:1;cursor:pointer;
-          background:${method===k?'#0d0d0d':'#0a0a0a'};
-          border:1px solid ${method===k?color:'#2a2a2a'};
-          border-radius:5px;padding:8px 10px;transition:all .15s;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <label class="wfd-um-method-label${method===k?' checked-dynamic':' unchecked'}"
+          style="--chk-color:${method===k?color:'#2a2a2a'};">
+          <div class="wfd-um-method-row">
             <input type="radio" name="${pfx}-um-method" value="${k}" ${method===k?'checked':''}
               style="accent-color:${color};" onchange="_umMethodChange('${pfx}')">
-            <code style="font-size:12px;color:${color};font-weight:700;">${lbl}</code>
+            <code class="wfd-um-method-code" style="--method-color:${color};">${lbl}</code>
           </div>
           <div class="wfd-hint-left">${desc}</div>
         </label>`).join('')}
@@ -6416,7 +6412,7 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
 function _umModeChange(pfx) {
   const mode = document.getElementById(pfx+'-um-mode')?.value || 'view';
   const wrap = document.getElementById(pfx+'-um-view-wrap');
-  if (wrap) wrap.style.display = mode === 'fields' ? 'none' : '';
+  if (wrap) wrap.classList.toggle('wfd-hidden', mode === 'fields');
 }
 
 function _umTargetChange(pfx) {
