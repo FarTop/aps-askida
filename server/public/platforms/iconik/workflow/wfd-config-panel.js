@@ -2339,15 +2339,13 @@ function buildCfgFields(pfx, family, cfg) {
           <input id="${pfx}-fe-source-var" class="cfg-input wfd-flex1-mono" list="wfd-lk-field-source"
             value="${escHtml(cfg.feSourceVar||'')}"
             placeholder="{Réalisateur}">
-          <button class="cfg-btn" onclick="httpForeachDetect('${pfx}')"
-            style="padding:6px 10px;background:#0d1a0d;border-color:#2d5a2d;color:#5dbb6b;white-space:nowrap;">
+          <button class="cfg-btn wfd-fe-detect-trigger-btn" onclick="httpForeachDetect('${pfx}')">
             ⚡ Détecter
           </button>
         </div>
       </div>
 
-      <div id="${pfx}-fe-detect-result" style="display:none;margin-bottom:8px;padding:10px;
-        background:#0d0d0d;border:1px solid #2a2a2a;border-radius:6px;font-size:11px;"></div>
+      <div id="${pfx}-fe-detect-result" class="wfd-fe-detect-result-box wfd-hidden"></div>
 
       <div class="wfd-grid-2-gap8">
         <div class="cfg-field">
@@ -2362,14 +2360,14 @@ function buildCfgFields(pfx, family, cfg) {
         </div>
       </div>
 
-      <div class="cfg-field" style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:5px;padding:8px 10px;">
+      <div class="cfg-field wfd-fe-transforms-box">
         <div class="cfg-label wfd-mb6b">Transformations disponibles dans le body</div>
-        <div style="font-size:11px;display:flex;flex-direction:column;gap:4px;font-family:var(--font-mono);">
+        <div class="wfd-fe-transforms-list">
           <div><span class="wfd-c-blue2">{{nom}}</span> <span class="wfd-c-555">→ valeur brute</span> <span class="wfd-c-444-10">ex: Jean Dupont</span></div>
-          <div><span style="color:#1D9E75;">{{slug(nom)}}</span> <span class="wfd-c-555">→ slug normalisé</span> <span class="wfd-c-444-10">ex: jean-dupont</span></div>
-          <div><span style="color:#e67e22;">{{index}}</span> <span class="wfd-c-555">→ position</span> <span class="wfd-c-444-10">0, 1, 2…</span></div>
+          <div><span class="wfd-c-slug">{{slug(nom)}}</span> <span class="wfd-c-555">→ slug normalisé</span> <span class="wfd-c-444-10">ex: jean-dupont</span></div>
+          <div><span class="wfd-c-index">{{index}}</span> <span class="wfd-c-555">→ position</span> <span class="wfd-c-444-10">0, 1, 2…</span></div>
         </div>
-        <div style="font-size:10px;color:#444;margin-top:4px;">Les variables WFD <code>{varName}</code> fonctionnent aussi dans le body.</div>
+        <div class="wfd-fe-transforms-hint">Les variables WFD <code>{varName}</code> fonctionnent aussi dans le body.</div>
       </div>
 
       <div class="cfg-field">
@@ -2386,9 +2384,8 @@ function buildCfgFields(pfx, family, cfg) {
 
       <div class="cfg-field">
         <label class="cfg-label">Body JSON (par valeur)</label>
-        <textarea id="${pfx}-fe-body" class="cfg-textarea" rows="5"
-          placeholder='{"name":"{{nom}}","external_id":"{{slug(nom)}}","job":"director"}'
-          class="wfd-mono-sm2">${escHtml(cfg.feBody||'')}</textarea>
+        <textarea id="${pfx}-fe-body" class="cfg-textarea wfd-mono-sm2" rows="5"
+          placeholder='{"name":"{{nom}}","external_id":"{{slug(nom)}}","job":"director"}'>${escHtml(cfg.feBody||'')}</textarea>
       </div>
 
       <div class="cfg-field">
@@ -2426,13 +2423,13 @@ function buildCfgFields(pfx, family, cfg) {
         <div class="wfd-hint-top3">Si absent, le slug est utilisé comme fallback.</div>
       </div>
 
-      <div class="cfg-field" style="background:#0d1a0d;border:1px solid #1a3a1a;border-radius:5px;padding:10px 12px;">
+      <div class="cfg-field wfd-fe-result-store-box">
         <label class="cfg-label wfd-c-green4-mb6">Stocker le tableau résultat dans</label>
         <div class="wfd-row-gap6c">
-          <span style="font-family:var(--font-mono);color:#16a085;">{</span>
+          <span class="wfd-mono-teal">{</span>
           <input id="${pfx}-fe-result-var" class="cfg-input wfd-input-green"
             value="${escHtml(cfg.feResultVar||'personsPayload')}">
-          <span style="font-family:var(--font-mono);color:#16a085;">}</span>
+          <span class="wfd-mono-teal">}</span>
         </div>
         <div class="wfd-hint-top4b">
           Tableau <code>[{ nom, external_id, slug, job }]</code> — utilisable directement dans le body POST contenu.
@@ -2441,14 +2438,10 @@ function buildCfgFields(pfx, family, cfg) {
 
       <!-- Aperçu pré-run -->
       <div class="wfd-mt8">
-        <button onclick="httpForeachPreview('${pfx}')" class="cfg-btn"
-          style="width:100%;padding:6px;background:#0a0d14;border-color:#1e3a5a;color:#3498db;">
+        <button onclick="httpForeachPreview('${pfx}')" class="cfg-btn wfd-fe-preview-btn">
           👁 Aperçu — simuler les appels
         </button>
-        <div id="${pfx}-fe-preview" style="display:none;margin-top:6px;padding:10px;
-          background:#0a0a0a;border:1px solid #1a1a1a;border-radius:5px;
-          font-size:11px;font-family:var(--font-mono);color:#888;
-          max-height:200px;overflow-y:auto;"></div>
+        <div id="${pfx}-fe-preview" class="wfd-fe-preview-box wfd-hidden"></div>
       </div>
     </div>
 
@@ -9516,11 +9509,11 @@ function httpForeachDetect(pfx) {
   try {
     const history = JSON.parse(localStorage.getItem('wfd-run-history') || '{"runs":{},"index":[]}');
     const flux = typeof getFluxCourant === 'function' ? getFluxCourant() : null;
-    if (!flux) { resultEl.innerHTML = '<span class="wfd-c-555">Aucun flux sélectionné</span>'; resultEl.style.display = ''; return; }
+    if (!flux) { resultEl.innerHTML = '<span class="wfd-c-555">Aucun flux sélectionné</span>'; resultEl.classList.remove('wfd-hidden'); return; }
 
     const lastRunId = (history.index || []).find(id => history.runs[id]?.fluxId === flux.id);
     const lastRun   = lastRunId ? history.runs[lastRunId] : null;
-    if (!lastRun) { resultEl.innerHTML = '<span class="wfd-c-555">Aucun run disponible pour ce flux</span>'; resultEl.style.display = ''; return; }
+    if (!lastRun) { resultEl.innerHTML = '<span class="wfd-c-555">Aucun run disponible pour ce flux</span>'; resultEl.classList.remove('wfd-hidden'); return; }
 
     // Trouver les vars qui ressemblent à des crédits (tag cloud multi-valeur)
     // On cherche dans tous les snapshots du run
@@ -9538,7 +9531,7 @@ function httpForeachDetect(pfx) {
 
     if (!creditCandidates.length) {
       resultEl.innerHTML = '<span class="wfd-c-555">Aucune variable détectée dans le dernier run</span>';
-      resultEl.style.display = '';
+      resultEl.classList.remove('wfd-hidden');
       return;
     }
 
@@ -9555,10 +9548,10 @@ function httpForeachDetect(pfx) {
           </button>
         </div>`;
       }).join('');
-    resultEl.style.display = '';
+    resultEl.classList.remove('wfd-hidden');
   } catch(e) {
     resultEl.innerHTML = '<span class="wfd-c-red2">Erreur : ' + escHtml(e.message) + '</span>';
-    resultEl.style.display = '';
+    resultEl.classList.remove('wfd-hidden');
   }
 }
 
@@ -9602,7 +9595,7 @@ function httpForeachPreview(pfx) {
 
   if (!rawVal) {
     previewEl.innerHTML = '<span class="wfd-c-555">Aucune valeur disponible — exécutez d\'abord un run avec le nœud Fetch.</span>';
-    previewEl.style.display = '';
+    previewEl.classList.remove('wfd-hidden');
     return;
   }
 
@@ -9630,7 +9623,7 @@ function httpForeachPreview(pfx) {
   previewEl.innerHTML =
     `<div class="wfd-fe-prev-hdr">${values.length} appel(s) prévu(s) → ${escHtml(endpoint)}</div>` +
     lines.join('');
-  previewEl.style.display = '';
+  previewEl.classList.remove('wfd-hidden');
 }
 
 (function() {
