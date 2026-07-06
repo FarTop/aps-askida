@@ -2091,6 +2091,18 @@ nav { display: flex; gap: 2px; }
 .wfd-lsim-result-box     { margin-top: 10px; padding: 10px; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 5px; }
 .wfd-lsim-result-status  { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
 .wfd-lsim-result-body    { font-family: var(--font-mono); font-size: 10px; color: #888; white-space: pre-wrap; word-break: break-all; max-height: 150px; overflow-y: auto; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 45 (set_var) ────────────── */
+.wfd-sv-row-grid-5  { display: grid; grid-template-columns: 1fr 1fr auto 110px 28px; gap: 4px; margin-bottom: 4px; align-items: center; }
+.wfd-sv-var-btn      { background: #0d1a2a; border: 1px solid #1e3a5a; border-radius: 3px; color: #7ec8e3; cursor: pointer; font-size: 11px; padding: 2px 6px; white-space: nowrap; flex-shrink: 0; }
+.wfd-sv-hdr-grid     { display: grid; grid-template-columns: 1fr 1fr 110px 28px; gap: 4px; margin-bottom: 4px; }
+.wfd-sv-add-btn      { width: 100%; margin-top: 4px; padding: 5px; }
+.wfd-sv-help-box     { margin-top: 10px; padding: 10px 12px; background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 5px; font-size: 10px; color: #555; line-height: 1.7; }
+.wfd-sv-example-box  { margin-top: 8px; padding: 8px 12px; background: #0d1a0d; border: 1px solid #1a3a1a; border-radius: 5px; }
+.wfd-sv-example-hdr  { font-size: 10px; color: #5dbb6b; margin-bottom: 4px; }
+.wfd-sv-example-code { font-family: var(--font-mono); font-size: 10px; color: #888; }
+.wfd-c-888 { color: #888; }
+.wfd-sv-row-grid-4 { display: grid; grid-template-columns: 1fr 1fr 110px 28px; gap: 4px; margin-bottom: 4px; align-items: center; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */

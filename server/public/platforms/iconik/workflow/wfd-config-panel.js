@@ -3751,8 +3751,7 @@ function buildCfgFields(pfx, family, cfg) {
 } else if (family === 'set_var') {
   const _svAssignments = Array.isArray(cfg.assignments) ? cfg.assignments : [];
   const _svRowsHtml = _svAssignments.map((a, i) => `
-    <div class="sv-row" data-i="${i}"
-      style="display:grid;grid-template-columns:1fr 1fr auto 110px 28px;gap:4px;margin-bottom:4px;align-items:center;">
+    <div class="sv-row wfd-sv-row-grid-5" data-i="${i}">
       <input class="cfg-input sv-key wfd-mono"   value="${escHtml(a.key||'')}"
         placeholder="ex: type_contenu"
         title="Nom de la variable — sera accessible via {type_contenu} dans les nœuds suivants">
@@ -3762,24 +3761,21 @@ function buildCfgFields(pfx, family, cfg) {
         title="Cliquez sur {...} pour choisir une variable disponible">
       <button type="button"
         onclick="event.preventDefault();event.stopPropagation();_ouvrirVarDropdown(this.previousElementSibling)"
-        style="background:#0d1a2a;border:1px solid #1e3a5a;border-radius:3px;color:#7ec8e3;
-          cursor:pointer;font-size:11px;padding:2px 6px;white-space:nowrap;flex-shrink:0;"
+        class="wfd-sv-var-btn"
         title="Choisir une variable disponible">{…}</button>
       <select class="cfg-select sv-mode wfd-fs11">
         <option value="set"    ${(a.mode||'set')==='set'   ?'selected':''}>= Écraser</option>
         <option value="append" ${a.mode==='append'          ?'selected':''}>+= Ajouter</option>
         <option value="push"   ${a.mode==='push'            ?'selected':''}>[] Push liste</option>
       </select>
-      <button onclick="svRemoveRow(this)"
-        style="background:#1a0a0a;border:1px solid #3a1a1a;border-radius:3px;
-          color:#e74c3c;cursor:pointer;font-size:14px;line-height:1;">×</button>
+      <button onclick="svRemoveRow(this)" class="wfd-del-btn-red">×</button>
     </div>`).join('');
 
   html += `
     ${buildWfdVarDatalist(`${pfx}-wfd-var-list`)}
 
     <!-- En-tête colonnes -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 110px 28px;gap:4px;margin-bottom:4px;">
+    <div class="wfd-sv-hdr-grid">
       <span class="wfd-hint-pad4">Variable</span>
       <span class="wfd-hint-pad4">Valeur</span>
       <span></span>
@@ -3791,24 +3787,22 @@ function buildCfgFields(pfx, family, cfg) {
     <div id="${pfx}-sv-rows">${_svRowsHtml}</div>
 
     <button onclick="svAddRow('${pfx}')"
-      class="cfg-btn" style="width:100%;margin-top:4px;padding:5px;">
+      class="cfg-btn wfd-sv-add-btn">
       + Ajouter une variable
     </button>
 
     <!-- Aide modes -->
-    <div style="margin-top:10px;padding:10px 12px;background:#0a0a0a;
-      border:1px solid #1e1e1e;border-radius:5px;font-size:10px;color:#555;line-height:1.7;">
-      <strong style="color:#888;">Modes :</strong><br>
+    <div class="wfd-sv-help-box">
+      <strong class="wfd-c-888">Modes :</strong><br>
       <code class="wfd-c-blue2">= Écraser</code> — remplace la valeur existante<br>
       <code class="wfd-c-green3">+= Ajouter</code> — concatène à la valeur existante (texte)<br>
-      <code style="color:#9b59b6;">[] Push</code> — ajoute à un tableau (crée le tableau si absent)
+      <code class="wfd-c-purple">[] Push</code> — ajoute à un tableau (crée le tableau si absent)
     </div>
 
     <!-- Exemple live -->
-    <div style="margin-top:8px;padding:8px 12px;background:#0d1a0d;
-      border:1px solid #1a3a1a;border-radius:5px;">
-      <div style="font-size:10px;color:#5dbb6b;margin-bottom:4px;">📌 EXEMPLE DE RÉSULTAT</div>
-      <div style="font-family:var(--font-mono);font-size:10px;color:#888;">
+    <div class="wfd-sv-example-box">
+      <div class="wfd-sv-example-hdr">📌 EXEMPLE DE RÉSULTAT</div>
+      <div class="wfd-sv-example-code">
         ctx.vars.<span class="wfd-c-green2">type_contenu</span> = <span class="wfd-c-orange2">"{vodFactoryContents.metadata_values.TypeContenu}"</span><br>
         ctx.vars.<span class="wfd-c-green2">duration_sec</span> = <span class="wfd-c-orange2">résultat d'une expression</span>
       </div>
@@ -7950,9 +7944,8 @@ function svAddRow(pfx) {
   const varList = document.getElementById((pfx||'cfg') + '-wfd-var-list')?.id || '';
   const i = container.children.length;
   const row = document.createElement('div');
-  row.className = 'sv-row';
+  row.className = 'sv-row wfd-sv-row-grid-4';
   row.dataset.i = i;
-  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 110px 28px;gap:4px;margin-bottom:4px;align-items:center;';
   row.innerHTML =
     '<input class="cfg-input sv-key wfd-mono" placeholder="nomVar" title="Nom de la variable">' +
     '<input class="cfg-input sv-value wfd-mono" placeholder="{asset.title}" list="' + varList + '" title="Valeur">' +
