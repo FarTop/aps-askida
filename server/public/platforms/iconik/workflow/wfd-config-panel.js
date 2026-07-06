@@ -5495,6 +5495,26 @@ function sauvegarderConfig() {
     node.config.mode    = document.getElementById('cfg-qc-mode')?.value || 'all';
     node.config.notes       = g('notes');
     node.config.description = g('description');
+    // Lecture de la sélection de collection (SORTIES) — champ existant mais
+    // jamais lu jusqu'ici, donc jamais persisté (bug pré-existant).
+    try {
+      const raw = document.getElementById('cfg-qc-col-selected')?.value;
+      if (raw) {
+        const ids = JSON.parse(raw);
+        if (Array.isArray(ids)) {
+          node.config.qcCollectionIds = ids;
+          node.config.qcCollection = ids[0] || node.config.qcCollection || '';
+        }
+      } else {
+        node.config.qcCollectionIds = node.config.qcCollection
+          ? [node.config.qcCollection]
+          : (node.config.qcCollectionIds || []);
+      }
+    } catch (e) {
+      node.config.qcCollectionIds = node.config.qcCollection
+        ? [node.config.qcCollection]
+        : (node.config.qcCollectionIds || []);
+    }
     if (node.config.outputs.length) node.ports = buildPortsDef('qc', node.config);
   } else if (node.family==='approval') {
     node.config.title         = document.getElementById('cfg-appr-title')?.value         || '';
