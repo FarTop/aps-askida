@@ -1347,7 +1347,7 @@ async function syncTriggerRefs() {
 function _mediaTypeChange(pfx) {
   const val  = document.getElementById(pfx+'-media-type')?.value;
   const wrap = document.getElementById(pfx+'-sidecar-wrap');
-  if (wrap) wrap.style.display = (val==='sidecar'||val==='sidecar_only') ? '' : 'none';
+  if (wrap) wrap.classList.toggle('wfd-hidden', !(val==='sidecar'||val==='sidecar_only'));
 }
 function mnMediaTypeChange()  { _mediaTypeChange('mn');  }
 function cfgMediaTypeChange() { _mediaTypeChange('cfg'); }
@@ -1703,7 +1703,7 @@ function buildCfgFields(pfx, family, cfg) {
     html += `
     <div class="cfg-field">
       <label class="cfg-label">Texte / Description</label>
-      <textarea id="${pfx}-postit-text" class="cfg-textarea" style="min-height:80px;"
+      <textarea id="${pfx}-postit-text" class="cfg-textarea wfd-textarea-80"
         placeholder="Étape externe, note, contrainte, question...">${cfg.text||''}</textarea>
     </div>
     <div class="cfg-field">
@@ -1801,7 +1801,7 @@ function buildCfgFields(pfx, family, cfg) {
       <button class="cfg-btn primary wfd-w100pct" onclick="ouvrirEditeurScript()">
         </> Éditer le script
       </button>
-      <div style="margin-top:6px;font-size:10px;color:#444;font-family:var(--font-mono);">
+      <div class="wfd-script-preview">
         ${cfg.code ? cfg.code.split('\n').slice(0,2).join(' | ').slice(0,80)+'...' : 'Aucun code'}
       </div>
     </div>`;
@@ -4708,7 +4708,7 @@ function buildCfgFields(pfx, family, cfg) {
         <option value="sidecar_only"${cfg.mediaType==='sidecar_only'          ?'selected':''}>📋 Sidecar seul (sans média)</option>
       </select>
     </div>
-    <div id="${pfx}-sidecar-wrap" class="cfg-field" style="${cfg.mediaType==='sidecar'||cfg.mediaType==='sidecar_only'?'':'display:none'}">
+    <div id="${pfx}-sidecar-wrap" class="cfg-field${cfg.mediaType==='sidecar'||cfg.mediaType==='sidecar_only'?'':' wfd-hidden'}">
       <label class="cfg-label">Format sidecar</label>
       <input id="${pfx}-sidecar-format" class="cfg-input" value="${cfg.sidecarFormat||''}" placeholder="ex : Dublin Core XML, CSV col A → Titre…">
     </div>
