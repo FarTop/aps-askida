@@ -5650,12 +5650,10 @@ function buildTransformRuleRow(i, r, pfx) {
              value="${r.value||r.field||''}"
              placeholder="ex: {duration_ms} / 1000  ou  {width} >= 1920 ? 'HD' : 'SD'"
              title="Supports: + - * / % ternaire, {vars}, {asset.id}, {results.key.field}">`
-    : `<span style="font-size:11px;color:#555;padding:5px;">Date auto</span>`;
+    : `<span class="wfd-tr-dateauto">Date auto</span>`;
 
-  return `<div id="tr-rule-${i}" style="display:grid;grid-template-columns:28px 140px 1fr 28px;
-    gap:6px;align-items:center;padding:5px;background:#0d0d0d;border:1px solid #222;
-    border-radius:5px;margin-bottom:3px;">
-    <span style="font-size:10px;color:#444;font-family:var(--font-mono);text-align:center;">${i+1}</span>
+  return `<div id="tr-rule-${i}" class="wfd-tr-row-card">
+    <span class="wfd-tr-idx">${i+1}</span>
     <select class="cfg-select tr-source" data-idx="${i}" onchange="changerSourceTransform(${i},this.value)">
       ${Object.entries(TRANSFORM_SOURCES).map(([k,v])=>`<option value="${k}" ${src===k?'selected':''}>${v}</option>`).join('')}
     </select>
@@ -8161,12 +8159,9 @@ function buildEnvSelector(pfx, cfg) {
   const selEnv = envs.find(e => e.name === cfg.iconikEnv);
   const dotColor = selEnv ? (colors[selEnv.environment]||'#888') : '#555';
   return `
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
-      background:#0a0a0a;border-bottom:1px solid #1a1a1a;margin:-14px -14px 12px -14px;">
-      <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;
-        background:${dotColor};box-shadow:0 0 4px ${dotColor};" id="${pfx}-env-dot"></span>
-      <select id="${pfx}-iconik-env" class="cfg-select" style="flex:1;font-size:10px;
-        padding:3px 6px;height:24px;background:#111;border-color:#222;"
+    <div class="wfd-env-row">
+      <span class="wfd-env-dot" style="--dot-color:${dotColor};" id="${pfx}-env-dot"></span>
+      <select id="${pfx}-iconik-env" class="cfg-select wfd-env-select"
         onchange="wfdEnvChange('${pfx}')">
         <option value="">— Hériter du flux —</option>
         ${opts}
@@ -8181,7 +8176,7 @@ function wfdEnvChange(pfx) {
   const envs  = typeof getEnvironnements === 'function' ? getEnvironnements() : [];
   const env   = envs.find(e => e.name === sel?.value);
   const color = env ? (colors[env.environment]||'#888') : '#555';
-  if (dot) { dot.style.background = color; dot.style.boxShadow = '0 0 4px ' + color; }
+  if (dot) dot.style.setProperty('--dot-color', color);
   if (pfx === 'cfg' && typeof sauvegarderConfig === 'function') sauvegarderConfig();
 }
 
@@ -9448,16 +9443,17 @@ function chkAddRow(pfx) {
   const div = document.createElement('div');
   div.className = 'chk-row';
   div.dataset.idx = i;
-  div.style.cssText = 'background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;padding:8px;margin-bottom:6px;';
+  div.className = 'chk-row wfd-chk-row-card';
+  div.dataset.idx = i;
   div.innerHTML = `
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-      <select class="cfg-select chk-method" style="width:80px;flex-shrink:0;">
+    <div class="wfd-chk-hdr-row">
+      <select class="cfg-select chk-method wfd-chk-method-sel">
         <option>GET</option><option>POST</option>
       </select>
       <input class="cfg-input chk-endpoint wfd-flex1-mono10" placeholder="/api/contents/{external_id}">
       <button onclick="chkRemoveRow('${pfx}',${i})" class="wfd-del-btn-p4">×</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 120px 1fr;gap:6px;align-items:center;">
+    <div class="wfd-chk-grid-3col">
       <input class="cfg-input chk-path wfd-mono-xs" placeholder="results.amazon.status">
       <select class="cfg-select chk-op">
         <option value="equals">égal à</option>
