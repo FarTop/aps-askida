@@ -4962,7 +4962,9 @@ function buildCfgFields(pfx, family, cfg) {
   }
 
   // Description générique (familles sans champ dédié)
-  if (!html.includes(`id="${pfx}-description"`) && !html.includes(`id="${pfx}-um-description"`) && !html.includes(`id="${pfx}-acl-description"`) && !html.includes(`id="${pfx}-ef-description"`) && !html.includes(`id="${pfx}-ig-description"`)) {
+  // Vérifie id="${pfx}-description" OU id="${pfx}-xx-description" (tout suffixe),
+  // au lieu d'une liste figée de suffixes connus qui s'oublie à chaque nouvelle famille.
+  if (!new RegExp('id="' + pfx + '(-[a-z]+)?-description"').test(html)) {
     html += `
     <div class="cfg-field">
       <label class="cfg-label">Description</label>
@@ -5412,7 +5414,7 @@ function sauvegarderConfig() {
     if (_colActions.includes(_at)) {
       // Détecter le mode actif : arbre ou variable
       const _varWrap = document.getElementById('cfg-atm-var-wrap');
-      const _isVar   = _varWrap && _varWrap.style.display !== 'none';
+      const _isVar   = _varWrap && !_varWrap.classList.contains('wfd-hidden');
       node.config.targetMode = _isVar ? 'var' : 'tree';
       if (_isVar) {
         node.config.targetVar = document.getElementById('cfg-target-var')?.value?.trim() || '';
@@ -7976,7 +7978,7 @@ function lireDestinatairesEnriched(containerId) {
       } else {
         const active = [...(document.getElementById('notif-color-fixed-' + i)
           ?.querySelectorAll('[data-color]') || [])]
-          .find(el => el.style.border.includes('rgb(255') || el.style.border.includes('solid #fff'));
+          .find(el => el.classList.contains('selected'));
         cfg.color = active?.dataset.color || '#27ae60';
       }
     }
@@ -8383,7 +8385,11 @@ async function wfdRunManual() {
 
 // ── buildOnErrorField ─────────────────────────────────────────────
 function buildOnErrorField(pfx, cfg, family) {
-  if (['trigger','watchfolder','listener','source','postit','timer'].includes(family)) return '';
+  // 'loop' exclu : a son propre contrôle dédié (3 options incluant une sortie
+  // d'erreur port dédiée), le générique créait un 2e contrôle concurrent et
+  // trompeur qui ne servait à rien (toujours écrasé à la sauvegarde par le
+  // contrôle spécifique, mais visible et modifiable par erreur dans l'UI).
+  if (['trigger','watchfolder','listener','source','postit','timer','loop'].includes(family)) return '';
   const val=cfg.onError||'stop';
   const _oeColors = {'stop':'#e74c3c','continue_log':'#f39c12','continue':'#27ae60'};
   const _oeBgs    = {'stop':'#1a0505','continue_log':'#1a1000','continue':'#001a05'};
