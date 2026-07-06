@@ -1096,9 +1096,9 @@ function _actionTypeChange(prefix) {
   const info = document.getElementById(prefix+'-action-info');
   const ep   = document.getElementById(prefix+'-action-endpoint');
   const desc = document.getElementById(prefix+'-action-desc');
-  if (!key || !ACTION_TYPES[key]) { if(info) info.style.display='none'; return; }
+  if (!key || !ACTION_TYPES[key]) { if(info) info.classList.add('wfd-hidden'); return; }
   const a = ACTION_TYPES[key];
-  if(info)  info.style.display = 'block';
+  if(info)  info.classList.remove('wfd-hidden');
   if(ep)    ep.textContent   = a.endpoint;
   if(desc)  desc.textContent = a.desc;
 
@@ -1827,7 +1827,7 @@ function buildCfgFields(pfx, family, cfg) {
     <div id="${pfx}-tr-rules">
       ${rules.length ? rules.map((r,i)=>buildTransformRuleRow(i,r, pfx)).join('') : buildTransformRuleRow(0,{}, pfx)}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
+    <div class="wfd-tr-grid-2col">
       <div class="cfg-field">
         <label class="cfg-label">Casse</label>
         <select id="${pfx}-tr-case" class="cfg-select">
@@ -1843,8 +1843,7 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
     <div class="cfg-field">
       <label class="cfg-label">Aperçu (exemple)</label>
-      <div id="${pfx}-tr-preview" style="font-family:var(--font-mono);font-size:11px;color:#00d4aa;
-        padding:6px 10px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:4px;min-height:26px;">
+      <div id="${pfx}-tr-preview" class="wfd-tr-preview">
         —
       </div>
     </div>`;
@@ -1983,9 +1982,9 @@ function buildCfgFields(pfx, family, cfg) {
       </select>
     </div>
 
-    <div id="${pfx}-action-info" style="${selAction?'':'display:none;'}background:#0d0d0d;border:1px solid #2a2a2a;border-radius:5px;padding:8px 10px;font-size:11px;">
-      <div style="color:#555;font-family:var(--font-mono);margin-bottom:4px;" id="${pfx}-action-endpoint">${selAction?.endpoint||''}</div>
-      <div style="color:#666;" id="${pfx}-action-desc">${selAction?.desc||''}</div>
+    <div id="${pfx}-action-info" class="wfd-action-info-card${selAction?'':' wfd-hidden'}">
+      <div class="wfd-action-endpoint" id="${pfx}-action-endpoint">${selAction?.endpoint||''}</div>
+      <div class="wfd-action-desc" id="${pfx}-action-desc">${selAction?.desc||''}</div>
     </div>
 
     <div class="cfg-field" id="${pfx}-target-wrap">
