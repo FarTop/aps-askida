@@ -1659,19 +1659,19 @@ function ouvrirConfigPanel(node) {
 // ── APS Search — helpers date/between (définis avant buildCfgFields) ──────────
 function srBuildValInput(fd, crit, pfx, idx, ci) {
   const hasVal = !['is_empty','is_not_empty','is_true','is_false'].includes(crit.op||'equals');
-  if (!hasVal) return '<input class="cfg-input sr-crit-val" style="display:none;">';
+  if (!hasVal) return '<input class="cfg-input sr-crit-val wfd-hidden">';
   const isDate = (fd && fd.type === 'date') || ['date_created','date_modified'].includes(crit.field||'');
   const dp = 'data-pfx="' + pfx + '" data-bidx="' + idx + '" data-cidx="' + ci + '"';
   if (isDate && crit.op === 'between') {
     const parts = (crit.value||'|').split('|');
-    return '<input type="date" class="cfg-input sr-crit-val-from sr-date-input" ' + dp + ' value="' + (parts[0]||'') + '" class="wfd-date-dark">'
-         + '<span style="color:#555;font-size:10px;padding:0 3px;">&#8594;</span>'
-         + '<input type="date" class="cfg-input sr-crit-val-to sr-date-input" ' + dp + ' value="' + (parts[1]||'') + '" class="wfd-date-dark">'
+    return '<input type="date" class="cfg-input sr-crit-val-from sr-date-input wfd-date-dark" ' + dp + ' value="' + (parts[0]||'') + '">'
+         + '<span class="wfd-arrow-sep">&#8594;</span>'
+         + '<input type="date" class="cfg-input sr-crit-val-to sr-date-input wfd-date-dark" ' + dp + ' value="' + (parts[1]||'') + '">'
          + '<input type="hidden" class="sr-crit-val" value="' + (crit.value||'') + '">';
   } else if (isDate) {
-    return '<input type="date" class="cfg-input sr-crit-val sr-date-input" ' + dp + ' value="' + (crit.value||'') + '" style="flex:2;color-scheme:dark;">';
+    return '<input type="date" class="cfg-input sr-crit-val sr-date-input wfd-date-dark-flex2" ' + dp + ' value="' + (crit.value||'') + '">';
   } else {
-    return '<input class="cfg-input sr-crit-val" value="' + (crit.value||'').replace(/"/g,'&quot;') + '" placeholder="valeur" style="flex:2;font-family:var(--font-mono);font-size:10px;" data-pfx="' + pfx + '" oninput="srAutoSave(this.dataset.pfx)">';
+    return '<input class="cfg-input sr-crit-val wfd-input-flex2-mono10" value="' + (crit.value||'').replace(/"/g,'&quot;') + '" placeholder="valeur" data-pfx="' + pfx + '" oninput="srAutoSave(this.dataset.pfx)">';
   }
 }
 
