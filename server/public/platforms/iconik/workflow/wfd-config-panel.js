@@ -2043,13 +2043,13 @@ function buildCfgFields(pfx, family, cfg) {
     html += buildEnvSelector(pfx, cfg);
   html += `
     <!-- ── Mode automatique ─────────────────────────────── -->
-    <div class="cfg-field" style="background:#0d1a0d;border:1px solid #1a3a1a;border-radius:6px;padding:10px 12px;">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+    <div class="cfg-field wfd-notif-auto-card">
+      <label class="wfd-notif-auto-label">
         <input type="checkbox" id="${pfx}-auto-mode" ${autoMode?'checked':''}
           onchange="wfdMsgAutoMode('${pfx}')">
         <div>
-          <div style="font-size:12px;color:#5dbb6b;font-weight:600;">Composition automatique</div>
-          <div style="font-size:10px;color:#4a7a4a;margin-top:2px;">
+          <div class="wfd-notif-auto-title">Composition automatique</div>
+          <div class="wfd-notif-auto-desc">
             Le message est composé depuis les erreurs du flux —
             🟢 succès · 🟡 avertissements · 🔴 échec
           </div>
@@ -2066,14 +2066,14 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
 
     <!-- ── Corps personnalisé ────────────────────────────── -->
-    <div class="cfg-field" id="${pfx}-body-wrap" style="${autoMode?'display:none':''}">
+    <div id="${pfx}-body-wrap" class="cfg-field${autoMode?' wfd-hidden':''}">
       <label class="cfg-label">CORPS DU MESSAGE</label>
       <textarea id="${pfx}-msg-body" class="cfg-textarea wfd-textarea-mono"
         placeholder="Variables : {asset.title}, {vars.targetColPath}, {context.errors}...">${escHtml(cfg.bodyTemplate||'')}</textarea>
     </div>
 
     <!-- ── Règles spécifiques ─────────────────────────────── -->
-    <div style="margin-top:12px;">
+    <div class="wfd-mt12">
       <div class="wfd-row-sb-mb6">
         <span class="cfg-label">RÈGLES SPÉCIFIQUES <span class="wfd-label-9-555">— prioritaires sur la composition auto</span></span>
         <button class="btn-add-cond" onclick="wfdMsgAddRule('${pfx}')">+ Règle</button>
@@ -2086,7 +2086,7 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
 
     <!-- ── Canaux ─────────────────────────────────────────── -->
-    <div style="margin-top:12px;">
+    <div class="wfd-mt12">
       <div class="wfd-row-sb-mb6">
         <span class="cfg-label">CANAUX D'ENVOI</span>
         <button class="btn-add-cond" onclick="ajouterDestinataire()">+ Canal</button>
@@ -8473,7 +8473,7 @@ function wfdMsgRuleStatus(btn, status) {
 function wfdMsgAutoMode(pfx) {
   const cb   = document.getElementById(pfx + '-auto-mode');
   const wrap = document.getElementById(pfx + '-body-wrap');
-  if (wrap) wrap.style.display = cb?.checked ? 'none' : '';
+  if (wrap) wrap.classList.toggle('wfd-hidden', !!cb?.checked);
 }
 // ── Fetch — tags métadonnées + saved search ──────────────────────────────────
 async function wfdFetchMetaViewChanged(pfx) {

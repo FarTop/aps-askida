@@ -2047,6 +2047,13 @@ nav { display: flex; gap: 2px; }
 /* ── Classes utilitaires wfd-config-panel — lot 37 (http ports sortie) ──── */
 .wfd-http-ports-card { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 5px; padding: 10px; }
 .wfd-http-ports-list { font-size: 11px; color: #888; margin-top: 4px; display: flex; flex-direction: column; gap: 3px; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 38 (notification) ───────── */
+.wfd-mt12 { margin-top: 12px; }
+.wfd-notif-auto-card  { background: #0d1a0d; border: 1px solid #1a3a1a; border-radius: 6px; padding: 10px 12px; }
+.wfd-notif-auto-label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.wfd-notif-auto-title { font-size: 12px; color: #5dbb6b; font-weight: 600; }
+.wfd-notif-auto-desc  { font-size: 10px; color: #4a7a4a; margin-top: 2px; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */
