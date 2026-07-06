@@ -440,7 +440,7 @@ function buildQCRuleRow(i, r, pfx) {                   // ← on ajoute pfx
     ? (
         // Afficher l’arborescence pour la catégorie “collection”
         (typeof wfdColTreeHtml === 'function')
-          ? `<div id="${pfx}-qc-r${i}-col-wrap" style="position:relative;">
+          ? `<div id="${pfx}-qc-r${i}-col-wrap" class="wfd-pos-rel">
                ${wfdColTreeHtml(`${pfx}-qc-r${i}`, JSON.stringify(r.field ? [r.field] : []))}
              </div>`
           : `<input class="cfg-input qc-field" data-idx="${i}" value="${r.field||''}"
@@ -4103,32 +4103,30 @@ function buildCfgFields(pfx, family, cfg) {
     const selConn = outConns.find(c => c.id === (step.connexionId || cfg.connexionId));
     const actions = selConn?.actions || [];
 
-    return `<div class="hseq-step" data-idx="${i}"
-      style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);margin-bottom:10px;overflow:hidden;border-left:3px solid #3498db;">
+    return `<div class="hseq-step" data-idx="${i}">
 
       <!-- En-tête cliquable -->
-      <div class="hseq-step-hdr" onclick="hseqToggleStep(this)"
-        style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--color-background-secondary);cursor:pointer;user-select:none;">
-        <span class="hseq-grip" style="font-size:14px;color:var(--color-text-secondary);cursor:grab;padding:0 2px;user-select:none;flex-shrink:0;" title="Glisser pour réordonner">⠿</span>
-        <span style="width:20px;height:20px;border-radius:50%;background:#0a1a2a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#3498db;flex-shrink:0;">${i+1}</span>
-        <span class="hseq-step-name" style="flex:1;font-size:13px;font-weight:500;color:var(--color-text-primary);">${escHtml(step.name || 'Étape ' + (i+1))}</span>
-        <span style="font-size:10px;padding:2px 6px;border-radius:3px;background:#E8F0F5;color:#0F4761;border:0.5px solid #B5D4F4;font-weight:500;">${method}</span>
-        <span style="font-size:11px;color:var(--color-text-secondary);font-family:var(--font-mono);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(endpoint.split('/').slice(-2).join('/') || '—')}</span>
-        <button onclick="hseqRemoveStep(this,event)" style="width:22px;height:22px;border-radius:4px;border:none;background:none;color:var(--color-text-secondary);cursor:pointer;font-size:14px;flex-shrink:0;" title="Supprimer">×</button>
-        <i class="ti ti-chevron-down" style="font-size:14px;color:var(--color-text-secondary);transition:transform .2s;" aria-hidden="true"></i>
+      <div class="hseq-step-hdr" onclick="hseqToggleStep(this)">
+        <span class="hseq-grip wfd-hseq-grip-icon" title="Glisser pour réordonner">⠿</span>
+        <span class="hseq-step-num">${i+1}</span>
+        <span class="hseq-step-name wfd-hseq-stepname-real">${escHtml(step.name || 'Étape ' + (i+1))}</span>
+        <span class="wfd-hseq-method-badge">${method}</span>
+        <span class="wfd-hseq-endpoint-preview">${escHtml(endpoint.split('/').slice(-2).join('/') || '—')}</span>
+        <button onclick="hseqRemoveStep(this,event)" class="wfd-hseq-del-btn" title="Supprimer">×</button>
+        <i class="ti ti-chevron-down" aria-hidden="true"></i>
       </div>
 
       <!-- Corps de l'étape -->
-      <div class="hseq-step-body" style="padding:10px 12px;display:none;">
+      <div class="hseq-step-body wfd-hidden">
 
         <!-- Nom -->
         <div class="wfd-hint-sec">Nom de l'étape</div>
-        <input class="cfg-input hseq-name" value="${escHtml(step.name||'')}"
-          placeholder="Ex : Créer le contenu" style="font-size:12px;margin-bottom:10px;"
+        <input class="cfg-input hseq-name wfd-hseq-name-input-real" value="${escHtml(step.name||'')}"
+          placeholder="Ex : Créer le contenu"
           oninput="this.closest('.hseq-step').querySelector('.hseq-step-name').textContent=this.value||'Étape'">
 
         <!-- Méthode + Endpoint — toujours visibles -->
-        <div style="display:grid;grid-template-columns:90px 1fr;gap:6px;margin-bottom:10px;">
+        <div class="wfd-hseq-grid-90-1fr">
           <div>
             <div class="wfd-hint-sec">Méthode</div>
             <select class="cfg-select hseq-method wfd-fs11"
@@ -4145,15 +4143,10 @@ function buildCfgFields(pfx, family, cfg) {
         </div>
 
         <!-- Onglets source de données -->
-        <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;">Source des données</div>
-        <div style="display:flex;gap:0;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden;margin-bottom:8px;">
-          ${modes.map(m => `<button onclick="hseqModeChange(this,'${m}')" class="hseq-mode-btn${mode===m?' active':''}"
+        <div class="wfd-hseq-sourcelbl">Source des données</div>
+        <div class="wfd-hseq-modewrap-real">
+          ${modes.map(m => `<button onclick="hseqModeChange(this,'${m}')" class="hseq-mode-btn wfd-hseq-modebtn-real${mode===m?' active':''}"
             data-mode="${m}"
-            style="flex:1;padding:5px 2px;font-size:11px;border:none;border-left:0.5px solid var(--color-border-tertiary);cursor:pointer;
-              background:${mode===m?'#0a1a2a':'transparent'};
-              color:${mode===m?'#3498db':'var(--color-text-secondary)'};
-              font-weight:${mode===m?'500':'400'};
-              border-bottom:${mode===m?'2px solid #3498db':'2px solid transparent'};"
             >${modeLabels[m]}</button>`).join('')}
         </div>
 
@@ -4161,11 +4154,11 @@ function buildCfgFields(pfx, family, cfg) {
         <div class="hseq-mode-panels">
 
           <!-- Action -->
-          <div class="hseq-mode-action" style="${mode!=='action'?'display:none':''}">
+          <div class="hseq-mode-action${mode!=='action'?' wfd-hidden':''}">
             ${!actions.length
-              ? `<div style="font-size:11px;color:var(--color-text-secondary);font-style:italic;">Aucune action configurée dans cette connexion.</div>`
+              ? `<div class="wfd-hseq-italic-hint">Aucune action configurée dans cette connexion.</div>`
               : `<div class="wfd-hint-sec">Action</div>
-                 <select class="cfg-select hseq-action-id" style="font-size:11px;margin-bottom:6px;">
+                 <select class="cfg-select hseq-action-id wfd-fs11 wfd-mb6b">
                    ${actions.map(a => `<option value="${a.id}" ${step.actionId===a.id?'selected':''}>${escHtml(a.name)} — ${a.method} ${escHtml(a.endpoint)}</option>`).join('')}
                  </select>
                  <div class="wfd-hint-sec">Payload source</div>
@@ -4176,18 +4169,18 @@ function buildCfgFields(pfx, family, cfg) {
           </div>
 
           <!-- Requête simple -->
-          <div class="hseq-mode-simple" style="${mode!=='simple'?'display:none':''}">
+          <div class="hseq-mode-simple${mode!=='simple'?' wfd-hidden':''}">
             <div class="wfd-hint-sec">Body JSON</div>
             <textarea class="cfg-textarea hseq-body wfd-mono-sm2" rows="3">${escHtml(step.bodyTemplate||step.body||'')}</textarea>
           </div>
 
           <!-- Pour chaque valeur -->
-          <div class="hseq-mode-foreach" style="${mode!=='foreach'?'display:none':''}">
+          <div class="hseq-mode-foreach${mode!=='foreach'?' wfd-hidden':''}">
             <div class="wfd-hint-sec">Variable source (champ Iconik multi-valeur)</div>
-            <input class="cfg-input hseq-fe-source" value="${escHtml(step.feSourceVar||'')}"
-              placeholder="{Realisateur}" style="font-size:11px;font-family:var(--font-mono);margin-bottom:8px;"
+            <input class="cfg-input hseq-fe-source wfd-hseq-fesource-real" value="${escHtml(step.feSourceVar||'')}"
+              placeholder="{Realisateur}"
               list="${pfx}-wfd-var-list">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+            <div class="wfd-hseq-grid-2-gap6-mb6">
               <div>
                 <div class="wfd-hint-sec">Rôle (job)</div>
                 <select class="cfg-select hseq-fe-job wfd-fs11">
@@ -4206,20 +4199,20 @@ function buildCfgFields(pfx, family, cfg) {
             <div class="wfd-hint-sec">Body JSON (par valeur)</div>
             <textarea class="cfg-textarea hseq-fe-body wfd-mono-sm2" rows="2"
               placeholder='{"name":"{{nom}}","external_id":"{{slug(nom)}}"}'>${escHtml(step.feBody||'')}</textarea>
-            <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+            <div class="wfd-hseq-append-row">
               <input type="checkbox" class="hseq-fe-append" id="hseq-append-${i}"
                 ${step.feAppend?'checked':''} style="accent-color:#3498db;">
-              <label for="hseq-append-${i}" style="font-size:11px;color:var(--color-text-secondary);cursor:pointer;">
+              <label for="hseq-append-${i}" class="wfd-hseq-append-lbl">
                 Ajouter au résultat existant (ne pas écraser)
               </label>
             </div>
           </div>
 
           <!-- Vérifier -->
-          <div class="hseq-mode-verify" style="${mode!=='verify'?'display:none':''}">
+          <div class="hseq-mode-verify${mode!=='verify'?' wfd-hidden':''}">
             <div class="wfd-hint-sec">Champ à vérifier</div>
-            <input class="cfg-input hseq-verify-path" value="${escHtml(step.verifyPath||'')}"
-              placeholder="status" style="font-size:11px;font-family:var(--font-mono);margin-bottom:6px;">
+            <input class="cfg-input hseq-verify-path wfd-hseq-verify-input" value="${escHtml(step.verifyPath||'')}"
+              placeholder="status">
             <div class="wfd-hint-sec">Valeur attendue</div>
             <input class="cfg-input hseq-verify-expected wfd-mono-sm" value="${escHtml(step.verifyExpected||'')}"
               placeholder="COMPLETED">
@@ -4228,14 +4221,13 @@ function buildCfgFields(pfx, family, cfg) {
         </div><!-- /mode-panels -->
 
         <!-- Résultat + comportement sur erreur -->
-        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary);">
-          <span style="font-size:11px;color:var(--color-text-secondary);white-space:nowrap;">Résultat →</span>
+        <div class="wfd-hseq-result-row-real">
+          <span class="wfd-hseq-result-lbl-real">Résultat →</span>
           <span class="wfd-mono-sec-12">{</span>
-          <input class="cfg-input hseq-result-var" value="${escHtml(step.resultVar||('step'+(i+1)+'_result'))}"
-            style="width:140px;font-family:var(--font-mono);font-size:12px;color:#1B6B45;"
+          <input class="cfg-input hseq-result-var wfd-hseq-resultvar-real" value="${escHtml(step.resultVar||('step'+(i+1)+'_result'))}"
             list="${pfx}-wfd-var-list">
           <span class="wfd-mono-sec-12">}</span>
-          <select class="cfg-select hseq-on-error" style="font-size:11px;margin-left:auto;width:auto;">
+          <select class="cfg-select hseq-on-error wfd-hseq-onerror-real">
             <option value="stop"     ${(!step.onError||step.onError==='stop')    ?'selected':''}>Arrêter si erreur</option>
             <option value="continue" ${step.onError==='continue'?'selected':''}>Continuer si erreur</option>
           </select>
@@ -4255,20 +4247,20 @@ function buildCfgFields(pfx, family, cfg) {
           <option value="">— Sélectionner une connexion —</option>
           ${connOpts}
         </select>
-        <button class="cfg-btn" onclick="ouvrirRessources('connexions')" style="padding:6px 10px;" title="Gérer les connexions">⚙</button>
+        <button class="cfg-btn wfd-hseq-conngear-btn" onclick="ouvrirRessources('connexions')" title="Gérer les connexions">⚙</button>
       </div>
     </div>
 
     <div class="wfd-row-sb-mb6">
-      <span style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-secondary);">Étapes</span>
-      <button onclick="hseqAddStep('${pfx}')" class="cfg-btn" style="font-size:11px;padding:3px 10px;">
+      <span class="wfd-hseq-steps-lbl">Étapes</span>
+      <button onclick="hseqAddStep('${pfx}')" class="cfg-btn wfd-hseq-addstep-btn">
         <i class="ti ti-plus" aria-hidden="true"></i> Ajouter une étape
       </button>
     </div>
 
     <div id="${pfx}-hseq-steps">
       ${steps.map((s, i) => stepHtml(s, i)).join('')}
-      ${!steps.length ? `<div class="hseq-empty-msg" style="padding:16px;text-align:center;font-size:12px;color:var(--color-text-secondary);font-style:italic;border:0.5px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);">Aucune étape — cliquer "Ajouter une étape"</div>` : ''}
+      ${!steps.length ? `<div class="hseq-empty-msg wfd-hseq-empty-msg">Aucune étape — cliquer "Ajouter une étape"</div>` : ''}
     </div>
 
     <div class="cfg-field wfd-mt8">
@@ -5759,7 +5751,7 @@ function _buildCreateColPanel(pfx, cfg, wfdData) {
       Créer les collections parentes manquantes (récursif)
     </label>
   </div>
-  <div style="font-size:10px;color:#555;padding:0 0 4px 22px;">
+  <div class="wfd-hint-555-22">
     Si la collection parente n'existe pas, elle sera créée automatiquement jusqu'à la racine.
   </div>
 
@@ -7272,7 +7264,7 @@ function _buildSubflowPanel(pfx, cfg) {
 
 function _sfSummaryText(execMode, ctxMode) {
   const exec = execMode === 'sync'
-    ? '\u23f1 Le parent <strong style="color:#8e44ad;">attend</strong> la fin du workflow enfant'
+    ? '\u23f1 Le parent <strong class="wfd-c-purple2">attend</strong> la fin du workflow enfant'
     : '\u26a1 Le workflow enfant est <strong class="wfd-c-blue2">d\u00e9clench\u00e9 en arri\u00e8re-plan</strong>';
   const ctx = ctxMode === 'all'
     ? '\uD83D\uDCE6 Tout le contexte est transmis \u00e0 l\'enfant'
@@ -8877,8 +8869,8 @@ function wfdHttpConnChange(pfx) {
 function hseqToggleStep(hdr) {
   const body = hdr.nextElementSibling;
   const chev = hdr.querySelector('.ti-chevron-down');
-  const open = body.style.display === 'none';
-  body.style.display = open ? '' : 'none';
+  const open = body.classList.contains('wfd-hidden');
+  body.classList.toggle('wfd-hidden', !open);
   if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
 }
 
@@ -8886,9 +8878,9 @@ function hseqModeChange(btn, mode) {
   const body   = btn.closest('.hseq-step-body');
   const panelsWrap = body.querySelector('.hseq-mode-panels');
   const panels = panelsWrap ? panelsWrap.querySelectorAll('[class^="hseq-mode-"]') : [];
-  panels.forEach(p => { p.style.display = 'none'; });
+  panels.forEach(p => { p.classList.add('wfd-hidden'); });
   const target = body.querySelector('.hseq-mode-' + mode);
-  if (target) target.style.display = '';
+  if (target) target.classList.remove('wfd-hidden');
   body.querySelectorAll('.hseq-mode-btn').forEach(b => {
     const active = b.dataset.mode === mode;
     b.classList.toggle('active-blue-tab', active);
@@ -8939,7 +8931,7 @@ function hseqAddStep(pfx) {
         <button onclick="hseqModeChange(this,'verify')"   class="hseq-mode-btn wfd-tab-seg inactive-tab" data-mode="verify">Vérifier</button>
       </div>
       <div class="hseq-mode-panels">
-        <div class="hseq-mode-action" style="display:none;">
+        <div class="hseq-mode-action wfd-hidden">
           <div class="wfd-hseq-hint-italic">Sélectionner une connexion pour voir les actions disponibles.</div>
         </div>
         <div class="hseq-mode-simple">
@@ -8952,7 +8944,7 @@ function hseqAddStep(pfx) {
           <div class="wfd-hint-sec">Body JSON</div>
           <textarea class="cfg-textarea hseq-body wfd-mono-sm2" rows="3"></textarea>
         </div>
-        <div class="hseq-mode-foreach" style="display:none;">
+        <div class="hseq-mode-foreach wfd-hidden">
           <div class="wfd-hint-sec">Variable source</div>
           <input class="cfg-input hseq-fe-source wfd-hseq-input-mono-mb6" placeholder="{Realisateur}">
           <div class="wfd-hseq-grid-100-1fr">
@@ -8971,7 +8963,7 @@ function hseqAddStep(pfx) {
           </div>
           <textarea class="cfg-textarea hseq-fe-body wfd-mono-sm2" rows="2" placeholder='{"name":"{{nom}}","external_id":"{{slug(nom)}}"}'></textarea>
         </div>
-        <div class="hseq-mode-verify" style="display:none;">
+        <div class="hseq-mode-verify wfd-hidden">
           <input class="cfg-input hseq-endpoint wfd-mono-sm" placeholder="/api/...">
         </div>
       </div>

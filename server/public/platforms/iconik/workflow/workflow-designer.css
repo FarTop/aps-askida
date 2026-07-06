@@ -2225,6 +2225,39 @@ nav { display: flex; gap: 2px; }
 .wfd-lk-calc-result    { font-family: var(--font-mono); color: #0F4761; }
 .wfd-lk-calc-legend    { margin-left: 8px; font-size: 11px; }
 
+/* ── Classes utilitaires wfd-config-panel — lot 54 (stepHtml, étapes sauvegardées) ── */
+.wfd-hseq-grip-icon    { font-size: 14px; color: var(--color-text-secondary); cursor: grab; padding: 0 2px; user-select: none; flex-shrink: 0; }
+.wfd-hseq-stepname-real { flex: 1; font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+.wfd-hseq-method-badge { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: #E8F0F5; color: #0F4761; border: 0.5px solid #B5D4F4; font-weight: 500; }
+.wfd-hseq-endpoint-preview { font-size: 11px; color: var(--color-text-secondary); font-family: var(--font-mono); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wfd-hseq-name-input-real { font-size: 12px; margin-bottom: 10px; }
+.wfd-hseq-grid-90-1fr  { display: grid; grid-template-columns: 90px 1fr; gap: 6px; margin-bottom: 10px; }
+.wfd-hseq-sourcelbl    { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.wfd-hseq-modewrap-real { display: flex; gap: 0; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); overflow: hidden; margin-bottom: 8px; }
+.wfd-hseq-modebtn-real { flex: 1; padding: 5px 2px; font-size: 11px; border: none; border-left: 0.5px solid var(--color-border-tertiary); cursor: pointer; background: transparent; color: var(--color-text-secondary); font-weight: 400; border-bottom: 2px solid transparent; }
+.wfd-hseq-modebtn-real.active { background: #0a1a2a; color: #3498db; font-weight: 500; border-bottom: 2px solid #3498db; }
+.wfd-hseq-italic-hint  { font-size: 11px; color: var(--color-text-secondary); font-style: italic; }
+.wfd-hseq-fesource-real { font-size: 11px; font-family: var(--font-mono); margin-bottom: 8px; }
+.wfd-hseq-grid-2-gap6-mb6 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+.wfd-hseq-append-row   { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.wfd-hseq-append-lbl   { font-size: 11px; color: var(--color-text-secondary); cursor: pointer; }
+.wfd-hseq-verify-input { font-size: 11px; font-family: var(--font-mono); margin-bottom: 6px; }
+.wfd-hseq-result-row-real { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 0.5px solid var(--color-border-tertiary); }
+.wfd-hseq-result-lbl-real { font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; }
+.wfd-hseq-resultvar-real { width: 140px; font-family: var(--font-mono); font-size: 12px; color: #1B6B45; }
+.wfd-hseq-onerror-real { font-size: 11px; margin-left: auto; width: auto; }
+
+/* ── lot 54 (suite, wrapper http_sequence) ──────────────────────────────── */
+.wfd-hseq-conngear-btn { padding: 6px 10px; }
+.wfd-hseq-steps-lbl    { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; color: var(--color-text-secondary); }
+.wfd-hseq-addstep-btn  { font-size: 11px; padding: 3px 10px; }
+.wfd-hseq-empty-msg    { padding: 16px; text-align: center; font-size: 12px; color: var(--color-text-secondary); font-style: italic; border: 0.5px dashed var(--color-border-secondary); border-radius: var(--border-radius-md); }
+
+/* ── lot 55 (3 derniers oublis isolés) ──────────────────────────────────── */
+.wfd-pos-rel        { position: relative; }
+.wfd-hint-555-22    { font-size: 10px; color: #555; padding: 0 0 4px 22px; }
+.wfd-c-purple2      { color: #8e44ad; }
+
 /* ── Lookup redesign — déplacé depuis le <style> embarqué dans buildCfgFields ── */
 .lk-tabs { display:flex; gap:0; border-bottom:0.5px solid var(--color-border-tertiary); margin-bottom:14px; }
 .lk-tab  { padding:8px 16px; font-size:12px; border:none; border-bottom:2px solid transparent;
@@ -2364,7 +2397,7 @@ nav { display: flex; gap: 2px; }
 .hseq-step-num    { width: 20px; height: 20px; border-radius: 50%; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: var(--color-text-secondary); }
 .hseq-step-name   { flex: 1; font-size: 13px; font-weight: 500; color: var(--color-text-secondary); font-style: italic; }
 .wfd-hseq-del-btn { width: 22px; height: 22px; border-radius: 4px; border: none; background: none; color: var(--color-text-secondary); cursor: pointer; font-size: 13px; }
-.hseq-step-hdr .ti-chevron-down { font-size: 14px; color: var(--color-text-secondary); }
+.hseq-step-hdr .ti-chevron-down { font-size: 14px; color: var(--color-text-secondary); transition: transform .2s; }
 .hseq-step-body   { padding: 10px 12px; }
 .wfd-name-input-mb8 { font-size: 12px; margin-bottom: 8px; }
 .wfd-hseq-toggle-wrap { display: flex; gap: 0; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); overflow: hidden; margin-bottom: 8px; }
