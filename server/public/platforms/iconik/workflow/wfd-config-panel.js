@@ -3167,23 +3167,23 @@ function buildCfgFields(pfx, family, cfg) {
 
   html += `
   <!-- Onglets -->
-  <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid #1a1a1a;">
+  <div class="wfd-wf-tabs-wrap">
     <button onclick="awsTabSwitch('${pfx}','operation')" id="${pfx}-aws-tab-operation"
       class="wfd-sub-tab${_awsTab==='operation'?' active':''}">
       Opération
     </button>
     <button onclick="awsTabSwitch('${pfx}','s3post')" id="${pfx}-aws-tab-s3post"
-      class="wfd-sub-tab${_awsTab==='s3post'?' active':''}" style="${_awsOp==='artwork_s3'?'display:none':''}">
+      class="wfd-sub-tab${_awsTab==='s3post'?' active':''}${_awsOp==='artwork_s3'?' wfd-hidden':''}">
       Post-action
     </button>
     <button onclick="awsTabSwitch('${pfx}','artworks')" id="${pfx}-aws-tab-artworks"
-      class="wfd-sub-tab${_awsTab==='artworks'?' active':''}" style="${_awsOp!=='artwork_s3'?'display:none':''}">
+      class="wfd-sub-tab${_awsTab==='artworks'?' active':''}${_awsOp!=='artwork_s3'?' wfd-hidden':''}">
       Artworks
     </button>
   </div>
 
   <!-- Onglet Opération -->
-  <div id="${pfx}-aws-panel-operation" style="${_awsTab==='operation'?'':'display:none'}">
+  <div id="${pfx}-aws-panel-operation" class="${_awsTab==='operation'?'':'wfd-hidden'}">
     <div class="cfg-field">
       <label class="cfg-label">Connexion AWS S3</label>
       <select id="${pfx}-aws-conn" class="cfg-select">
@@ -3197,7 +3197,7 @@ function buildCfgFields(pfx, family, cfg) {
         ${Object.entries(_awsOps).map(([k,v]) => `<option value="${k}" ${_awsOp===k?'selected':''}>${v}</option>`).join('')}
       </select>
     </div>
-    <div id="${pfx}-aws-std-fields" style="${_awsOp==='artwork_s3'?'display:none':''}">
+    <div id="${pfx}-aws-std-fields" class="${_awsOp==='artwork_s3'?'wfd-hidden':''}">
       <div class="cfg-field">
         <label class="cfg-label">Chemin de l'objet</label>
         <input id="${pfx}-aws-key" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
@@ -3222,8 +3222,8 @@ function buildCfgFields(pfx, family, cfg) {
   </div>
 
   <!-- Onglet Post-action -->
-  <div id="${pfx}-aws-panel-s3post" style="${_awsTab==='s3post'?'':'display:none'}">
-    <div style="font-size:11px;color:#555;margin-bottom:12px;">
+  <div id="${pfx}-aws-panel-s3post" class="${_awsTab==='s3post'?'':'wfd-hidden'}">
+    <div class="wfd-hint-555-mb12">
       Après Succès (LIST non vide), extrait les URLs des fichiers S3 et les stocke dans des variables du contexte.
       Fonctionne uniquement avec l'opération LIST.
     </div>
@@ -3250,7 +3250,7 @@ function buildCfgFields(pfx, family, cfg) {
               </select>
               <input class="cfg-input s3-map-filter wfd-flex1-mono10" placeholder="filtre (.mp4, _poster…)"
                 value="${escHtml(row.filter||'')}" title="Extensions ou fragments de nom séparés par des virgules">
-              <span style="font-size:10px;color:#555;flex-shrink:0;">→</span>
+              <span class="wfd-text-shrink-10">→</span>
               <input class="cfg-input s3-map-var wfd-w120-mono" placeholder="nom_variable"
                 value="${escHtml(row.variable||'')}" title="Nom de la variable dans le contexte">
               <button onclick="awsS3RemoveMapping('${pfx}',${i})"
@@ -3266,8 +3266,8 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
   </div>
 <!-- Onglet Artworks -->
-  <div id="${pfx}-aws-panel-artworks" style="${_awsTab==='artworks'?'':'display:none'}">
-    <div style="font-size:11px;color:#555;margin-bottom:12px;">
+  <div id="${pfx}-aws-panel-artworks" class="${_awsTab==='artworks'?'':'wfd-hidden'}">
+    <div class="wfd-hint-555-mb12">
       Récupère les artworks depuis les subjobs Iconik, les renomme et les pousse dans S3.
       Requiert l'opération <b>Artworks → S3</b> et un job_id valide.
     </div>
@@ -3319,7 +3319,7 @@ function buildCfgFields(pfx, family, cfg) {
             { iconikName:'Season', mdField:'URLSeasonArt', variable:'s3_season_url' },
           ];
           return rows.map((row, i) => `
-            <div class="aws-art-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 1fr 1fr 24px;gap:4px;align-items:center;">
+            <div class="aws-art-row wfd-aws-art-grid" data-idx="${i}">
               <input class="cfg-input aws-art-name wfd-mono-xs2" data-idx="${i}" value="${escHtml(row.iconikName||'')}"
                 placeholder="Cover" title="Nom dans Iconik">
               <input class="cfg-input aws-art-md wfd-mono-xs2" data-idx="${i}" value="${escHtml(row.mdField||'')}"
@@ -9311,13 +9311,13 @@ function wfS3ReadMappings(pfx) {
 function awsOpChange(pfx, op) {
   const isArtwork = op === 'artwork_s3';
   const stdFields = document.getElementById(pfx + '-aws-std-fields');
-  if (stdFields) stdFields.style.display = isArtwork ? 'none' : '';
+  if (stdFields) stdFields.classList.toggle('wfd-hidden', isArtwork);
   const tabPost = document.getElementById(pfx + '-aws-tab-s3post');
-  if (tabPost) tabPost.style.display = isArtwork ? 'none' : '';
+  if (tabPost) tabPost.classList.toggle('wfd-hidden', isArtwork);
   const panelPost = document.getElementById(pfx + '-aws-panel-s3post');
-  if (panelPost && isArtwork) panelPost.style.display = 'none';
+  if (panelPost && isArtwork) panelPost.classList.add('wfd-hidden');
   const tabArt = document.getElementById(pfx + '-aws-tab-artworks');
-  if (tabArt) tabArt.style.display = isArtwork ? '' : 'none';
+  if (tabArt) tabArt.classList.toggle('wfd-hidden', !isArtwork);
   if (isArtwork) awsTabSwitch(pfx, 'artworks');
   else awsTabSwitch(pfx, 'operation');
 }
@@ -9325,7 +9325,7 @@ function awsTabSwitch(pfx, tab) {
   ['operation','s3post','artworks'].forEach(t => {
     const panel = document.getElementById(pfx + '-aws-panel-' + t);
     const btn   = document.getElementById(pfx + '-aws-tab-'   + t);
-    if (panel) panel.style.display = t === tab ? '' : 'none';
+    if (panel) panel.classList.toggle('wfd-hidden', t !== tab);
     if (btn)   btn.classList.toggle('active', t === tab);
   });
 }

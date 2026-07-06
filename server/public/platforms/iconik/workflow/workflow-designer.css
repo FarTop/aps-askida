@@ -2103,6 +2103,10 @@ nav { display: flex; gap: 2px; }
 .wfd-sv-example-code { font-family: var(--font-mono); font-size: 10px; color: #888; }
 .wfd-c-888 { color: #888; }
 .wfd-sv-row-grid-4 { display: grid; grid-template-columns: 1fr 1fr 110px 28px; gap: 4px; margin-bottom: 4px; align-items: center; }
+
+/* ── Classes utilitaires wfd-config-panel — lot 46 (aws_s3) ─────────────── */
+.wfd-hint-555-mb12 { font-size: 11px; color: #555; margin-bottom: 12px; }
+.wfd-aws-art-grid  { display: grid; grid-template-columns: 1fr 1fr 1fr 24px; gap: 4px; align-items: center; }
 .wfd-recip-summary   { font-size: 10px; color: #00d4aa; font-family: var(--font-mono); padding: 4px 8px; background: rgba(0,212,170,0.06); border-radius: 4px; }
 
 /* ── Classes utilitaires wfd-config-panel — lot 7 ──────────────────────── */
