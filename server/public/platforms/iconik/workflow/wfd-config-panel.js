@@ -99,12 +99,10 @@ function _ouvrirVarDropdown(input) {
   function makeItem(varStr, badge, badgeColor) {
     if (query && !varStr.toLowerCase().includes(query)) return null;
     const item = document.createElement('div');
-    item.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 10px;' +
-      'cursor:pointer;color:#bbb;border-bottom:1px solid #1a1a1a;transition:background 0.1s;';
+    item.className = 'wfd-var-item';
     item.innerHTML =
-      `<span style="flex:1;color:#7ec8e3;">${varStr}</span>` +
-      `<span style="font-size:9px;padding:1px 5px;border-radius:3px;` +
-      `background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor}44;">${badge}</span>`;
+      `<span class="wfd-var-item-name">${varStr}</span>` +
+      `<span class="wfd-var-badge" style="--badge-color:${badgeColor};">${badge}</span>`;
     item.addEventListener('mousedown', e => {
       e.preventDefault();
       input.value = varStr;
@@ -431,8 +429,8 @@ function buildQCRuleRow(i, r, pfx) {                   // ← on ajoute pfx
       <button class="btn-del-cond" onclick="supprimerRegleQC(${i})">\u00D7</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr ${hasVal?'1fr':'0'};gap:6px;align-items:end;">
-      <div class="cfg-field" class="wfd-m0">
-        <label class="cfg-label" class="wfd-fs9">CHAMP</label>
+      <div class="cfg-field wfd-m0">
+        <label class="cfg-label wfd-fs9">CHAMP</label>
         
   ${cat==='metadata' && metaFields.length
     ? `<select class="cfg-select qc-field" data-idx="${i}">
@@ -453,29 +451,29 @@ function buildQCRuleRow(i, r, pfx) {                   // ← on ajoute pfx
               placeholder="permission">`}
 
       </div>
-      <div class="cfg-field" class="wfd-m0">
-        <label class="cfg-label" class="wfd-fs9">CONDITION</label>
+      <div class="cfg-field wfd-m0">
+        <label class="cfg-label wfd-fs9">CONDITION</label>
         <select class="cfg-select qc-op" data-idx="${i}" onchange="rafraichirValeurQC(${i},this.value)">
           ${Object.entries(QC_OPS).map(([k,v])=>
             `<option value="${k}" ${op===k?'selected':''}>${v.label}</option>`).join('')}
         </select>
       </div>
-      ${hasVal ? `<div class="cfg-field" class="wfd-m0">
-        <label class="cfg-label" class="wfd-fs9">VALEUR</label>
+      ${hasVal ? `<div class="cfg-field wfd-m0">
+        <label class="cfg-label wfd-fs9">VALEUR</label>
         <input class="cfg-input qc-value" data-idx="${i}" value="${r.value||''}"
           placeholder="valeur attendue">
       </div>` : '<div></div>'}
     </div>
     <div class="wfd-grid-2-gap6b">
-      <div class="cfg-field" class="wfd-m0">
-        <label class="cfg-label" class="wfd-fs9">SI \u00C9CHOUE \u2192 SORTIE</label>
+      <div class="cfg-field wfd-m0">
+        <label class="cfg-label wfd-fs9">SI \u00C9CHOUE \u2192 SORTIE</label>
         <select class="cfg-select qc-fail-port" data-idx="${i}">
           <option value="Fail" ${r.failPort==='Fail'?'selected':''}>Fail</option>
           <option value="Warning" ${r.failPort==='Warning'?'selected':''}>Warning</option>
         </select>
       </div>
-      <div class="cfg-field" class="wfd-m0">
-        <label class="cfg-label" class="wfd-fs9">MESSAGE D'ERREUR</label>
+      <div class="cfg-field wfd-m0">
+        <label class="cfg-label wfd-fs9">MESSAGE D'ERREUR</label>
         <input class="cfg-input qc-msg" data-idx="${i}" value="${r.message||''}"
           placeholder="ex : Codec non conforme">
       </div>
@@ -589,16 +587,16 @@ function buildApproverRow(i, a) {
   return `<div id="appr-row-${i}" style="display:flex;align-items:center;gap:8px;
       padding:8px 10px;background:#111;border:1px solid #2a2a2a;border-radius:6px;margin-bottom:4px;">
     <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-      <div class="cfg-field" class="wfd-m0">
-        <label class="cfg-label" class="wfd-fs9">TYPE</label>
+      <div class="cfg-field wfd-m0">
+        <label class="cfg-label wfd-fs9">TYPE</label>
         <select class="cfg-select appr-type" data-idx="${i}" onchange="changerTypeApprobateur(${i},this.value)">
           <option value="email"  ${(a.type||'email')==='email' ?'selected':''}>\uD83D\uDCE7 Email direct</option>
           <option value="list"   ${a.type==='list'   ?'selected':''}>\uD83D\uDC65 Liste de contacts</option>
           <option value="group"  ${a.type==='group'  ?'selected':''}>\uD83D\uDC64 Groupe Iconik</option>
         </select>
       </div>
-      <div class="cfg-field" class="wfd-m0" id="appr-ref-${i}">
-        <label class="cfg-label" class="wfd-fs9">
+      <div class="cfg-field wfd-m0" id="appr-ref-${i}">
+        <label class="cfg-label wfd-fs9">
           ${a.type==='list'?'LISTE':a.type==='group'?'GROUPE ICONIK':'EMAIL'}
         </label>
         ${a.type==='list'
@@ -638,7 +636,7 @@ function lireApprobateurs(prefix) {
 function changerCanalNotif(i, channel) {
   const row = (lbl, key, ph, type='text') => `
     <div class="cfg-field">
-      <label class="cfg-label" class="wfd-fs9">${lbl}</label>
+      <label class="cfg-label wfd-fs9">${lbl}</label>
       <input id="notif-${i}-${key}" type="${type}" class="cfg-input notif-field" data-key="${key}"
         value="${(cfg[key]||'').replace(/"/g,'&quot;')}" placeholder="${ph}">
     </div>`;
@@ -662,7 +660,7 @@ function changerCanalNotif(i, channel) {
     <div class="cfg-field">
       <label class="cfg-label">COULEUR DE LA CARTE</label>
       <div class="wfd-row-gap8b">
-        <select id="notif-color-mode-${i}" class="cfg-select" class="wfd-w140-fs11"
+        <select id="notif-color-mode-${i}" class="cfg-select wfd-w140-fs11"
           onchange="toggleNotifColorVar(${i})">
           <option value="fixed" ${(cfg.color_mode||'fixed')==='fixed'?'selected':''}>🎨 Fixe</option>
           <option value="var"   ${(cfg.color_mode||'fixed')==='var'  ?'selected':''}>📌 Variable</option>
@@ -687,7 +685,7 @@ function changerCanalNotif(i, channel) {
     </div>
     <div class="cfg-field">
       <label class="cfg-label">MESSAGE</label>
-      <textarea id="notif-teams-message-${i}" class="cfg-textarea" class="wfd-textarea-mono"
+      <textarea id="notif-teams-message-${i}" class="cfg-textarea wfd-textarea-mono"
         placeholder="{asset.title}, {wf_errors}, {wf_fatal}, {wf_status}...">${escHtml(cfg.message||'')}</textarea>
     </div>`;
 
@@ -698,7 +696,7 @@ function changerCanalNotif(i, channel) {
     <div class="cfg-field">
       <label class="cfg-label">COULEUR DE LA BARRE</label>
       <div class="wfd-row-gap8b">
-        <select id="notif-color-mode-${i}" class="cfg-select" class="wfd-w140-fs11"
+        <select id="notif-color-mode-${i}" class="cfg-select wfd-w140-fs11"
           onchange="toggleNotifColorVar(${i})">
           <option value="fixed" ${(cfg.color_mode||'fixed')==='fixed'?'selected':''}>🎨 Fixe</option>
           <option value="var"   ${(cfg.color_mode||'fixed')==='var'  ?'selected':''}>📌 Variable</option>
@@ -720,7 +718,7 @@ function changerCanalNotif(i, channel) {
     </div>
     <div class="cfg-field">
       <label class="cfg-label">MESSAGE</label>
-      <textarea id="notif-slack-message-${i}" class="cfg-textarea" class="wfd-textarea-mono"
+      <textarea id="notif-slack-message-${i}" class="cfg-textarea wfd-textarea-mono"
         placeholder="{asset.title}, {wf_errors}, {wf_fatal}, {wf_status}...">${escHtml(cfg.message||'')}</textarea>
     </div>`;
 
@@ -748,14 +746,14 @@ function buildChannelFields(channel, cfg, chanIdx) {
     `<input id="notif-${chanIdx}-${k}" ${type==='password'?'type="password"':''} class="cfg-input notif-field" data-key="${k}"
       value="${escHtml(cfg[k]||'')}" placeholder="${ph}">`;
   const f  = (lbl, k, ph, type='text') =>
-    `<div class="cfg-field"><label class="cfg-label" class="wfd-fs9">${lbl}</label>${v(k,ph,type)}</div>`;
+    `<div class="cfg-field"><label class="cfg-label wfd-fs9">${lbl}</label>${v(k,ph,type)}</div>`;
 
   switch (channel) {
     case 'email':
       return f('DESTINATAIRES (virgule)', 'to', 'alice@example.com, bob@example.com')
            + f('EXPÉDITEUR (optionnel)', 'from', 'workflow@maboite.com')
            + f('SUJET', 'subject', 'Asset prêt : {asset.metadata.titre}')
-           + `<div class="cfg-field"><label class="cfg-label" class="wfd-fs9">SERVEUR SMTP</label>
+           + `<div class="cfg-field"><label class="cfg-label wfd-fs9">SERVEUR SMTP</label>
               <div style="display:grid;grid-template-columns:1fr 80px;gap:6px;">
                 ${v('smtp_host','smtp.example.com')}
                 ${v('smtp_port','587')}
@@ -767,9 +765,9 @@ function buildChannelFields(channel, cfg, chanIdx) {
       return f('WEBHOOK URL Teams', 'webhook_url', 'https://outlook.office.com/webhook/...')
            + f('TITRE DE LA CARTE', 'teams_title', 'Notification Iconik')
            + `<div class="cfg-field">
-               <label class="cfg-label" class="wfd-fs9">COULEUR DE LA CARTE</label>
+               <label class="cfg-label wfd-fs9">COULEUR DE LA CARTE</label>
                <div class="wfd-row-gap8b">
-                 <select id="notif-color-mode-${chanIdx}" class="cfg-select" class="wfd-w140-fs11"
+                 <select id="notif-color-mode-${chanIdx}" class="cfg-select wfd-w140-fs11"
                    onchange="toggleNotifColorVar(${chanIdx})">
                    <option value="fixed" ${(cfg.color_mode||'fixed')==='fixed'?'selected':''}>🎨 Fixe</option>
                    <option value="var"   ${(cfg.color_mode||'fixed')==='var'  ?'selected':''}>📌 Variable</option>
@@ -782,15 +780,15 @@ function buildChannelFields(channel, cfg, chanIdx) {
                    ).join('')}
                  </div>
                  <div id="notif-color-var-${chanIdx}" style="display:${(cfg.color_mode||'fixed')==='var'?'flex':'none'};flex:1;">
-                   <input class="cfg-input" id="notif-color-var-input-${chanIdx}"
+                   <input class="cfg-input wfd-w100pct" id="notif-color-var-input-${chanIdx}"
                      placeholder="{wf_status} → success|partial|failed"
-                     value="${escHtml(cfg.color_var||'{wf_status}')}" class="wfd-w100pct">
+                     value="${escHtml(cfg.color_var||'{wf_status}')}">
                  </div>
                </div>
                <div style="font-size:9px;color:#555;margin-top:3px;">success=🟢 · partial=🟡 · failed=🔴</div>
              </div>`
            + `<div class="cfg-field">
-               <label class="cfg-label" class="wfd-fs9">MESSAGE</label>
+               <label class="cfg-label wfd-fs9">MESSAGE</label>
                <textarea id="notif-teams-message-${chanIdx}" class="cfg-textarea notif-field" data-key="message"
                  style="min-height:70px;font-family:var(--font-mono);font-size:11px;"
                  placeholder="{asset.title}, {wf_errors}, {wf_fatal}, {wf_status}...">${escHtml(cfg.message||'')}</textarea>
@@ -801,9 +799,9 @@ function buildChannelFields(channel, cfg, chanIdx) {
            + f('CANAL (optionnel)', 'channel', '#notifications')
            + f('NOM DU BOT (optionnel)', 'username', 'Workflow Bot')
            + `<div class="cfg-field">
-               <label class="cfg-label" class="wfd-fs9">COULEUR DE LA BARRE</label>
+               <label class="cfg-label wfd-fs9">COULEUR DE LA BARRE</label>
                <div class="wfd-row-gap8b">
-                 <select id="notif-color-mode-${chanIdx}" class="cfg-select" class="wfd-w140-fs11"
+                 <select id="notif-color-mode-${chanIdx}" class="cfg-select wfd-w140-fs11"
                    onchange="toggleNotifColorVar(${chanIdx})">
                    <option value="fixed" ${(cfg.color_mode||'fixed')==='fixed'?'selected':''}>🎨 Fixe</option>
                    <option value="var"   ${(cfg.color_mode||'fixed')==='var'  ?'selected':''}>📌 Variable</option>
@@ -816,14 +814,14 @@ function buildChannelFields(channel, cfg, chanIdx) {
                    ).join('')}
                  </div>
                  <div id="notif-color-var-${chanIdx}" style="display:${(cfg.color_mode||'fixed')==='var'?'flex':'none'};flex:1;">
-                   <input class="cfg-input" id="notif-color-var-input-${chanIdx}"
+                   <input class="cfg-input wfd-w100pct" id="notif-color-var-input-${chanIdx}"
                      placeholder="{wf_status} → success|partial|failed"
-                     value="${escHtml(cfg.color_var||'{wf_status}')}" class="wfd-w100pct">
+                     value="${escHtml(cfg.color_var||'{wf_status}')}">
                  </div>
                </div>
              </div>`
            + `<div class="cfg-field">
-               <label class="cfg-label" class="wfd-fs9">MESSAGE</label>
+               <label class="cfg-label wfd-fs9">MESSAGE</label>
                <textarea id="notif-slack-message-${chanIdx}" class="cfg-textarea notif-field" data-key="message"
                  style="min-height:70px;font-family:var(--font-mono);font-size:11px;"
                  placeholder="{asset.title}, {wf_errors}, {wf_fatal}, {wf_status}...">${escHtml(cfg.message||'')}</textarea>
@@ -857,7 +855,7 @@ function buildRecipientRow(i, r) {
   // Dropdown listes de contacts
   const listesOpts = wfdContacts.length
     ? `<div class="cfg-field">
-        <label class="cfg-label" class="wfd-fs9">CHARGER UNE LISTE DE CONTACTS</label>
+        <label class="cfg-label wfd-fs9">CHARGER UNE LISTE DE CONTACTS</label>
         <select onchange="chargerListeNotif(this.value,${i})"
           style="padding:6px 10px;background:#0d0d0d;color:#888;border:1px solid var(--wfd-border2);
             border-radius:5px;font-size:12px;cursor:pointer;width:100%;font-family:var(--font-ui);">
@@ -897,7 +895,7 @@ function buildRecipientRow(i, r) {
 
     <!-- Message -->
     <div class="cfg-field">
-      <label class="cfg-label" class="wfd-fs9">MESSAGE / CORPS</label>
+      <label class="cfg-label wfd-fs9">MESSAGE / CORPS</label>
       <textarea class="cfg-textarea notif-field" data-key="message"
         placeholder="Corps du message. Variables : {asset.title}, {workflow}, {date}..."
         style="min-height:70px;">${cfg.message||''}</textarea>
@@ -937,23 +935,23 @@ function buildNotifOverrideRow(i, ov) {
                 background:#0d0d0d;border:1px solid #2a2a2a;border-radius:8px;padding:8px;">
       <div>
         <div class="wfd-grid-2-gap6b">
-          <div class="cfg-field" class="wfd-m0">
-            <label class="cfg-label" class="wfd-fs9">SOURCE</label>
+          <div class="cfg-field wfd-m0">
+            <label class="cfg-label wfd-fs9">SOURCE</label>
             <select class="cfg-select notif-ovr-src" data-idx="${i}"
                     onchange="notifOverrideSourceChange(${i})">
               <option value="">— Choisir un nœud —</option>${nodeOpts}
             </select>
           </div>
-          <div class="cfg-field" class="wfd-m0">
-            <label class="cfg-label" class="wfd-fs9">PORT</label>
+          <div class="cfg-field wfd-m0">
+            <label class="cfg-label wfd-fs9">PORT</label>
             <select class="cfg-select notif-ovr-port" data-idx="${i}">
               <option value="">— Sortie —</option>${portOpts}
             </select>
           </div>
         </div>
       </div>
-      <div class="cfg-field" class="wfd-m0">
-        <label class="cfg-label" class="wfd-fs9">MESSAGE (peut être {variable} seule)</label>
+      <div class="cfg-field wfd-m0">
+        <label class="cfg-label wfd-fs9">MESSAGE (peut être {variable} seule)</label>
         <textarea class="cfg-textarea notif-ovr-msg" data-idx="${i}"
                   placeholder="{error.message}" style="min-height:54px;">${escHtml(ov.message||'')}</textarea>
       </div>
@@ -1044,7 +1042,7 @@ function buildConditionRow(i, c, pfx) {
   return `<div class="decision-condition" id="cond-row-${i}"
     style="display:grid;grid-template-columns:10px 140px 1fr 140px 28px;gap:5px;align-items:center;">
     <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0;"></span>
-    <select class="cfg-select cond-op" data-idx="${i}" class="wfd-fs11"
+    <select class="cfg-select cond-op wfd-fs11" data-idx="${i}"
       onchange="condOpChange(${i})">
       ${opOpts}
     </select>
@@ -1054,9 +1052,8 @@ function buildConditionRow(i, c, pfx) {
   style="font-family:var(--font-mono);font-size:11px;${noVal?'display:none;':''}"
   id="cond-val-${i}">
     <span id="cond-val-empty-${i}" style="${noVal?'':'display:none;'}"></span>
-    <input class="cfg-input cond-label" data-idx="${i}"
-      value="${escHtml(c.label||('Sortie '+(i+1)))}" placeholder="Nom du port"
-      class="wfd-fs11">
+    <input class="cfg-input cond-label wfd-fs11" data-idx="${i}"
+      value="${escHtml(c.label||('Sortie '+(i+1)))}" placeholder="Nom du port">
     <button class="cfg-btn danger" style="padding:4px 6px;" onclick="supprimerCondition(${i})">×</button>
   </div>`;
 }
@@ -1295,7 +1292,7 @@ const _colTree = wfdColTreeHtml(prefix, preselected);
       </div>
       <div id="${prefix}-atm-tree-wrap">${_colTree}</div>
       <div id="${prefix}-atm-var-wrap" style="display:none">
-        <input id="${prefix}-target-var" class="cfg-input" class="wfd-mono"
+        <input id="${prefix}-target-var" class="cfg-input wfd-mono"
           value="${_prevVar}" placeholder="{targetColPath} ou Bayard Audio/En attente PAD">
         <div class="wfd-hint-top4b">
           Variable ou chemin — résolu + créé automatiquement si absent.
@@ -1328,12 +1325,11 @@ const _colTree = wfdColTreeHtml(prefix, preselected);
           Écraser si déjà présent
         </label>
       </div>
-      <div class="cfg-field" class="wfd-mt8">
+      <div class="cfg-field wfd-mt8">
         <div style="font-size:10px;color:#888;margin-bottom:3px;">Nom du fichier exporté <span class="wfd-c-555">(optionnel — supporte les variables)</span></div>
-        <input id="${prefix}-file-name" class="cfg-input" list="${prefix}-wfd-var-list"
+        <input id="${prefix}-file-name" class="cfg-input wfd-mono-xs" list="${prefix}-wfd-var-list"
           value="${escHtml(_cfgNode?.config?.fileName||'')}"
-          placeholder="{Titre} ou nom fixe"
-          class="wfd-mono-xs">
+          placeholder="{Titre} ou nom fixe">
         <div class="wfd-hint-top3">
           Si renseigné, renomme le fichier exporté avec cette valeur
         </div>
@@ -1947,7 +1943,7 @@ function buildCfgFields(pfx, family, cfg) {
       </div>
     </div>
     <div class="wfd-mt8">
-      <button class="cfg-btn primary" onclick="ouvrirEditeurScript()" class="wfd-w100pct">
+      <button class="cfg-btn primary wfd-w100pct" onclick="ouvrirEditeurScript()">
         </> Éditer le script
       </button>
       <div style="margin-top:6px;font-size:10px;color:#444;font-family:var(--font-mono);">
@@ -2015,18 +2011,17 @@ function buildCfgFields(pfx, family, cfg) {
     <div id="${pfx}-rename-rules-wrap" class="cfg-field" style="${cfg.mode==='template'?'display:none':''}">
       <label class="cfg-label">Règle de nommage</label>
       <div class="wfd-row-gap6b">
-        <select id="${pfx}-nommage-id" class="cfg-select" class="wfd-flex1">
+        <select id="${pfx}-nommage-id" class="cfg-select wfd-flex1">
           <option value="">— Sélectionner une règle —</option>${nomOpts}
         </select>
-        <button class="cfg-btn" onclick="ouvrirRessources('nommage')" title="Gérer les règles" class="wfd-pad-6-8">⚙</button>
+        <button class="cfg-btn wfd-pad-6-8" onclick="ouvrirRessources('nommage')" title="Gérer les règles">⚙</button>
       </div>
     </div>
     <div id="${pfx}-rename-tpl-wrap" class="cfg-field" style="${cfg.mode==='rules'?'display:none':''}">
       <label class="cfg-label">Template de nom</label>
-      <input id="${pfx}-rename-template" class="cfg-input" list="${pfx}-wfd-var-list"
+      <input id="${pfx}-rename-template" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
   value="${escHtml(cfg.template||'')}"
-  placeholder="{titre}-{année}-v{version}.{ext}"
-  class="wfd-mono">
+  placeholder="{titre}-{année}-v{version}.{ext}">
       <datalist id="${pfx}-rename-meta-list">${allMeta.map(m=>`<option value="{${m}}">`).join('')}</datalist>
     </div>
     <div class="cfg-field">
@@ -2220,7 +2215,7 @@ function buildCfgFields(pfx, family, cfg) {
     <!-- ── Corps personnalisé ────────────────────────────── -->
     <div class="cfg-field" id="${pfx}-body-wrap" style="${autoMode?'display:none':''}">
       <label class="cfg-label">CORPS DU MESSAGE</label>
-      <textarea id="${pfx}-msg-body" class="cfg-textarea" class="wfd-textarea-mono"
+      <textarea id="${pfx}-msg-body" class="cfg-textarea wfd-textarea-mono"
         placeholder="Variables : {asset.title}, {vars.targetColPath}, {context.errors}...">${escHtml(cfg.bodyTemplate||'')}</textarea>
     </div>
 
@@ -2284,11 +2279,11 @@ function buildCfgFields(pfx, family, cfg) {
     <div class="cfg-field">
       <label class="cfg-label">Connexion API</label>
       <div class="wfd-row-gap6b">
-        <select id="${pfx}-connexion-select" class="cfg-select" class="wfd-flex1" onchange="wfdHttpConnChange('${pfx}')">
+        <select id="${pfx}-connexion-select" class="cfg-select wfd-flex1" onchange="wfdHttpConnChange('${pfx}')">
           <option value="">— Sélectionner une connexion —</option>
           ${connOpts}
         </select>
-        <button class="cfg-btn" onclick="ouvrirRessources('connexions')" class="wfd-pad-6-8">⚙</button>
+        <button class="cfg-btn wfd-pad-6-8" onclick="ouvrirRessources('connexions')">⚙</button>
       </div>
       ${!outConns.length ? '<div style="font-size:10px;color:#e67e22;margin-top:4px;">Aucune connexion sortante — créez-en une dans Ressources</div>' : ''}
     </div>
@@ -2304,7 +2299,7 @@ function buildCfgFields(pfx, family, cfg) {
         if (!_actions.length) {
           return `<div style="padding:16px;text-align:center;color:#555;font-size:12px;">
             <div class="wfd-mb8">Cette connexion n'a pas encore d'actions configurées.</div>
-            <button class="cfg-btn" onclick="ouvrirRessources('connexions')" class="wfd-fs11">
+            <button class="cfg-btn wfd-fs11" onclick="ouvrirRessources('connexions')">
               ⚙ Configurer dans Ressources
             </button>
           </div>`;
@@ -2392,19 +2387,18 @@ function buildCfgFields(pfx, family, cfg) {
       <div class="cfg-field">
         <label class="cfg-label">Requête</label>
         <div class="wfd-row-gap6c">
-          <select id="${pfx}-http-method" class="cfg-select" class="wfd-w100-shrink">
+          <select id="${pfx}-http-method" class="cfg-select wfd-w100-shrink">
             ${HTTP_METHODS.map(m=>`<option value="${m}" ${(cfg.method||'GET')===m?'selected':''}>${m}</option>`).join('')}
           </select>
-          <input id="${pfx}-http-endpoint" class="cfg-input"
+          <input id="${pfx}-http-endpoint" class="cfg-input wfd-flex1-mono12"
             value="${escHtml(cfg.endpoint||'')}"
-            placeholder="/api/contents/{asset_id}"
-            class="wfd-flex1-mono12">
+            placeholder="/api/contents/{asset_id}">
         </div>
       </div>
       <div class="cfg-field" id="${pfx}-http-body-wrap"
         style="${['GET','DELETE'].includes(cfg.method||'GET')?'display:none':''}">
         <div class="wfd-row-sb-mb6">
-          <label class="cfg-label" class="wfd-m0">Body JSON</label>
+          <label class="cfg-label wfd-m0">Body JSON</label>
           <div class="wfd-row-gap6c">
             <button onclick="httpBodyDetectVars('${pfx}')"
               style="font-size:10px;padding:2px 8px;border-radius:3px;border:1px solid #2d5a2d;
@@ -2478,19 +2472,18 @@ function buildCfgFields(pfx, family, cfg) {
         <div id="${pfx}-http-headers-list">
           ${(cfg.extraHeaders||[]).map((h,i) => `
             <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
-              <input class="cfg-input http-xhdr-key" class="wfd-flex1" value="${escHtml(h.key)}" placeholder="Clé">
-              <input class="cfg-input http-xhdr-val" class="wfd-flex2b" value="${escHtml(h.value)}" placeholder="Valeur ou {var}">
+              <input class="cfg-input http-xhdr-key wfd-flex1" value="${escHtml(h.key)}" placeholder="Clé">
+              <input class="cfg-input http-xhdr-val wfd-flex2b" value="${escHtml(h.value)}" placeholder="Valeur ou {var}">
               <button class="cfg-btn danger" style="padding:4px 8px;" onclick="this.parentElement.remove()">✕</button>
             </div>`).join('')}
         </div>
-        <button class="cfg-btn" class="wfd-mt4" onclick="httpAjouterHeader('${pfx}')">+ Header</button>
+        <button class="cfg-btn wfd-mt4" onclick="httpAjouterHeader('${pfx}')">+ Header</button>
       </div>
       <div class="cfg-field">
         <label class="cfg-label">Sauver la réponse dans</label>
-        <input id="${pfx}-http-result-var" class="cfg-input"
+        <input id="${pfx}-http-result-var" class="cfg-input wfd-mono"
           value="${escHtml(cfg.resultVar||'http_response')}"
-          list="${pfx}-wfd-var-list"
-          class="wfd-mono">
+          list="${pfx}-wfd-var-list">
         <div class="wfd-hint-top3">
           Accès : <code class="wfd-c-green2">{http_response.status}</code> · <code class="wfd-c-green2">{http_response.body}</code>
         </div>
@@ -2510,10 +2503,9 @@ function buildCfgFields(pfx, family, cfg) {
       <div class="cfg-field">
         <label class="cfg-label">Variable source (champ Iconik multi-valeur)</label>
         <div class="wfd-row-gap6b">
-          <input id="${pfx}-fe-source-var" class="cfg-input" list="wfd-lk-field-source"
+          <input id="${pfx}-fe-source-var" class="cfg-input wfd-flex1-mono" list="wfd-lk-field-source"
             value="${escHtml(cfg.feSourceVar||'')}"
-            placeholder="{Réalisateur}"
-            class="wfd-flex1-mono">
+            placeholder="{Réalisateur}">
           <button class="cfg-btn" onclick="httpForeachDetect('${pfx}')"
             style="padding:6px 10px;background:#0d1a0d;border-color:#2d5a2d;color:#5dbb6b;white-space:nowrap;">
             ⚡ Détecter
@@ -2527,20 +2519,18 @@ function buildCfgFields(pfx, family, cfg) {
       <div class="wfd-grid-2-gap8">
         <div class="cfg-field">
           <label class="cfg-label">Séparateur</label>
-          <input id="${pfx}-fe-separator" class="cfg-input"
-            value="${escHtml(cfg.feSeparator !== undefined ? cfg.feSeparator : ', ')}"
-            class="wfd-mono" placeholder=", ">
+          <input id="${pfx}-fe-separator" class="cfg-input wfd-mono"
+            value="${escHtml(cfg.feSeparator !== undefined ? cfg.feSeparator : ', ')}" placeholder=", ">
         </div>
         <div class="cfg-field">
           <label class="cfg-label">Variable locale dans le body</label>
-          <input id="${pfx}-fe-local-name" class="cfg-input"
-            value="${escHtml(cfg.feLocalName||'nom')}"
-            class="wfd-mono" placeholder="nom">
+          <input id="${pfx}-fe-local-name" class="cfg-input wfd-mono"
+            value="${escHtml(cfg.feLocalName||'nom')}" placeholder="nom">
         </div>
       </div>
 
       <div class="cfg-field" style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:5px;padding:8px 10px;">
-        <div class="cfg-label" class="wfd-mb6b">Transformations disponibles dans le body</div>
+        <div class="cfg-label wfd-mb6b">Transformations disponibles dans le body</div>
         <div style="font-size:11px;display:flex;flex-direction:column;gap:4px;font-family:var(--font-mono);">
           <div><span class="wfd-c-blue2">{{nom}}</span> <span class="wfd-c-555">→ valeur brute</span> <span class="wfd-c-444-10">ex: Jean Dupont</span></div>
           <div><span style="color:#1D9E75;">{{slug(nom)}}</span> <span class="wfd-c-555">→ slug normalisé</span> <span class="wfd-c-444-10">ex: jean-dupont</span></div>
@@ -2552,13 +2542,12 @@ function buildCfgFields(pfx, family, cfg) {
       <div class="cfg-field">
         <label class="cfg-label">Requête</label>
         <div class="wfd-row-gap6c">
-          <select id="${pfx}-fe-method" class="cfg-select" class="wfd-w100-shrink">
+          <select id="${pfx}-fe-method" class="cfg-select wfd-w100-shrink">
             ${HTTP_METHODS.map(m=>`<option value="${m}" ${(cfg.method||'POST')===m?'selected':''}>${m}</option>`).join('')}
           </select>
-          <input id="${pfx}-fe-endpoint" class="cfg-input"
+          <input id="${pfx}-fe-endpoint" class="cfg-input wfd-flex1-mono12"
             value="${escHtml(cfg.endpoint||'')}"
-            placeholder="/api/persons"
-            class="wfd-flex1-mono12">
+            placeholder="/api/persons">
         </div>
       </div>
 
@@ -2580,10 +2569,9 @@ function buildCfgFields(pfx, family, cfg) {
 
       <div class="cfg-field">
         <label class="cfg-label">Codes HTTP à ignorer (ex: 409 = déjà existant)</label>
-        <input id="${pfx}-fe-ignore-codes" class="cfg-input"
+        <input id="${pfx}-fe-ignore-codes" class="cfg-input wfd-mono"
           value="${escHtml((cfg.feIgnoreCodes||[409,422]).join(', '))}"
-          placeholder="409, 422"
-          class="wfd-mono">
+          placeholder="409, 422">
         <div class="wfd-hint-top3">
           Si 409 : la valeur est quand même collectée avec son slug comme external_id.
         </div>
@@ -2599,20 +2587,18 @@ function buildCfgFields(pfx, family, cfg) {
 
       <div class="cfg-field">
         <label class="cfg-label">Champ à collecter dans la réponse API</label>
-        <input id="${pfx}-fe-collect-field" class="cfg-input"
+        <input id="${pfx}-fe-collect-field" class="cfg-input wfd-mono"
           value="${escHtml(cfg.feCollectField||'external_id')}"
-          placeholder="external_id"
-          class="wfd-mono">
+          placeholder="external_id">
         <div class="wfd-hint-top3">Si absent, le slug est utilisé comme fallback.</div>
       </div>
 
       <div class="cfg-field" style="background:#0d1a0d;border:1px solid #1a3a1a;border-radius:5px;padding:10px 12px;">
-        <label class="cfg-label" class="wfd-c-green4-mb6">Stocker le tableau résultat dans</label>
+        <label class="cfg-label wfd-c-green4-mb6">Stocker le tableau résultat dans</label>
         <div class="wfd-row-gap6c">
           <span style="font-family:var(--font-mono);color:#16a085;">{</span>
-          <input id="${pfx}-fe-result-var" class="cfg-input"
-            value="${escHtml(cfg.feResultVar||'personsPayload')}"
-            class="wfd-input-green">
+          <input id="${pfx}-fe-result-var" class="cfg-input wfd-input-green"
+            value="${escHtml(cfg.feResultVar||'personsPayload')}">
           <span style="font-family:var(--font-mono);color:#16a085;">}</span>
         </div>
         <div class="wfd-hint-top4b">
@@ -2638,37 +2624,33 @@ function buildCfgFields(pfx, family, cfg) {
       <div class="cfg-field">
         <label class="cfg-label">Endpoint à vérifier</label>
         <div class="wfd-row-gap6c">
-          <select id="${pfx}-vf-method" class="cfg-select" class="wfd-w100-shrink">
+          <select id="${pfx}-vf-method" class="cfg-select wfd-w100-shrink">
             ${HTTP_METHODS.map(m=>`<option value="${m}" ${(cfg.method||'GET')===m?'selected':''}>${m}</option>`).join('')}
           </select>
-          <input id="${pfx}-vf-endpoint" class="cfg-input"
+          <input id="${pfx}-vf-endpoint" class="cfg-input wfd-flex1-mono12"
             value="${escHtml(cfg.endpoint||'')}"
-            placeholder="/api/contents/{asset_id}/action-statuses"
-            class="wfd-flex1-mono12">
+            placeholder="/api/contents/{asset_id}/action-statuses">
         </div>
       </div>
       <div class="wfd-grid-2-gap8">
         <div class="cfg-field">
           <label class="cfg-label">Chemin du champ à vérifier</label>
-          <input id="${pfx}-vf-check-path" class="cfg-input"
+          <input id="${pfx}-vf-check-path" class="cfg-input wfd-mono-sm2"
             value="${escHtml(cfg.vfCheckPath||'')}"
-            placeholder="results.amazon.status"
-            class="wfd-mono-sm2">
+            placeholder="results.amazon.status">
         </div>
         <div class="cfg-field">
           <label class="cfg-label">Valeur attendue</label>
-          <input id="${pfx}-vf-check-value" class="cfg-input"
+          <input id="${pfx}-vf-check-value" class="cfg-input wfd-mono"
             value="${escHtml(cfg.vfCheckValue||'')}"
-            placeholder="success"
-            class="wfd-mono">
+            placeholder="success">
         </div>
       </div>
       <div class="cfg-field">
         <label class="cfg-label">Sauver la réponse dans</label>
-        <input id="${pfx}-vf-result-var" class="cfg-input"
+        <input id="${pfx}-vf-result-var" class="cfg-input wfd-mono"
           value="${escHtml(cfg.resultVar||'verify_result')}"
-          list="${pfx}-wfd-var-list"
-          class="wfd-mono">
+          list="${pfx}-wfd-var-list">
       </div>
       <div class="cfg-field" style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:5px;padding:10px;">
         <label class="cfg-label">Ports de sortie</label>
@@ -2770,7 +2752,7 @@ function buildCfgFields(pfx, family, cfg) {
             <span style="font-size:12px;color:#ccc;">Reprendre après</span>
           </label>
           <input id="${pfx}-gate-pause-auto-sec" type="number" min="10"
-            class="cfg-input" class="wfd-w80" value="${_gAutoS}" ${_gAuto?'':'disabled'}>
+            class="cfg-input wfd-w80" value="${_gAutoS}" ${_gAuto?'':'disabled'}>
           <span class="wfd-text-555-11b">secondes</span>
         </div>
       </div>
@@ -2784,7 +2766,7 @@ function buildCfgFields(pfx, family, cfg) {
       </span>
     </div>
 
-    <div class="cfg-field" class="wfd-mt8">
+    <div class="cfg-field wfd-mt8">
       <label class="cfg-label">Description</label>
       <textarea id="${pfx}-description" class="cfg-textarea" rows="2"
         placeholder="Notes…">${escHtml(cfg.description||'')}</textarea>
@@ -2893,13 +2875,13 @@ function buildCfgFields(pfx, family, cfg) {
             value="${escHtml(cfg.fetchValue||'')}" placeholder="{asset.id} ou valeur fixe">
         </div>
       </div>
-      <div class="cfg-field" class="wfd-mt4">
+      <div class="cfg-field wfd-mt4">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:4px;">
           <input type="checkbox" id="${pfx}-with-meta" ${cfg.withMetadata?'checked':''} onchange="wfdFetchOptionsChange('${pfx}')">
           <span class="wfd-fs11">Charger ses métadonnées</span>
         </label>
         <div id="${pfx}-meta-view-wrap" style="${cfg.withMetadata?'':'display:none'}">
-          <select id="${pfx}-meta-view" class="cfg-select" class="wfd-mt4">
+          <select id="${pfx}-meta-view" class="cfg-select wfd-mt4">
             <option value="">— Toutes les vues —</option>${viewOpts}
           </select>
         </div>
@@ -2963,7 +2945,7 @@ function buildCfgFields(pfx, family, cfg) {
         </div>
         <!-- Dropdown pour ajouter un champ -->
         <div class="wfd-row-gap6b">
-          <select id="${pfx}-fetch-meta-field-add" class="cfg-select" class="wfd-flex1">
+          <select id="${pfx}-fetch-meta-field-add" class="cfg-select wfd-flex1">
             <option value="">+ Ajouter un champ…</option>
             ${allMeta.filter(f => !(cfg.metadataFields||[]).includes(f)).map(f =>
               `<option value="${escHtml(f)}">${escHtml(f)}</option>`
@@ -3031,12 +3013,11 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
 
     <div class="cfg-field" style="background:#0d1a0d;border:1px solid #1a3a1a;border-radius:5px;padding:10px 12px;margin-top:8px;">
-      <label class="cfg-label" class="wfd-c-green4-mb6">STOCKER LE RÉSULTAT DANS</label>
+      <label class="cfg-label wfd-c-green4-mb6">STOCKER LE RÉSULTAT DANS</label>
       <div class="wfd-row-gap6c">
         <span class="wfd-mono-green">{</span>
-        <input id="${pfx}-fetch-store-as" class="cfg-input"
-          value="${escHtml(cfg.storeAs||cfg.resultVar||cfg.fetchVar||'asset')}"
-          class="wfd-input-green">
+        <input id="${pfx}-fetch-store-as" class="cfg-input wfd-input-green"
+          value="${escHtml(cfg.storeAs||cfg.resultVar||cfg.fetchVar||'asset')}">
         <span class="wfd-mono-green">}</span>
       </div>
     </div>
@@ -3168,12 +3149,10 @@ function buildCfgFields(pfx, family, cfg) {
         return `<div class="sr-crit-row" data-bidx="${idx}" data-cidx="${ci}"
            style="display:flex;flex-wrap:wrap;gap:4px;align-items:${_isColField2?'flex-start':'center'};margin-bottom:4px;">
         ${joinBtn ? joinBtn : '<span style="min-width:44px;"></span>'}
-        <select class="cfg-select sr-crit-field" data-bidx="${idx}" data-cidx="${ci}"
-                class="wfd-flex2b" onchange="srFieldChange('${pfx}',${idx},${ci},this.value)">
+        <select class="cfg-select sr-crit-field wfd-flex2b" data-bidx="${idx}" data-cidx="${ci}" onchange="srFieldChange('${pfx}',${idx},${ci},this.value)">
           ${ALL_FIELDS.map(f => `<option value="${escHtml(f.name||f)}" ${crit.field===(f.name||f)?'selected':''}>${escHtml(f.label||f)}</option>`).join('')}
         </select>
-        ${_isColField2 ? '' : `<select class="cfg-select sr-crit-op" data-bidx="${idx}" data-cidx="${ci}"
-                class="wfd-flex2b" onchange="srOpChange('${pfx}',${idx},${ci},this.value,'${crit.op||'equals'}')">
+        ${_isColField2 ? '' : `<select class="cfg-select sr-crit-op wfd-flex2b" data-bidx="${idx}" data-cidx="${ci}" onchange="srOpChange('${pfx}',${idx},${ci},this.value,'${crit.op||'equals'}')">
           ${opsHtml2}
         </select>`}
         <button onclick="srRemoveCrit('${pfx}',${idx},${ci})"
@@ -3188,12 +3167,12 @@ function buildCfgFields(pfx, family, cfg) {
          style="background:#0a0a0a;border:1px solid #2a2a2a;border-radius:5px;padding:10px;margin-bottom:8px;">
       <div class="wfd-row-gap8-mb8">
         <span style="font-size:10px;font-weight:700;color:#8e44ad;min-width:52px;">Bloc ${block.id}</span>
-        <select class="cfg-select sr-obj-type" data-bidx="${idx}" class="wfd-flex2b"
+        <select class="cfg-select sr-obj-type wfd-flex2b" data-bidx="${idx}"
                 onchange="srAutoSave('${pfx}')">
           ${OBJECT_TYPES.map(o => `<option value="${o.value}" ${block.objectType===o.value?'selected':''}>${o.label}</option>`).join('')}
         </select>
         ${prevBlocks.length ? `
-        <select class="cfg-select sr-parent" data-bidx="${idx}" class="wfd-flex2b"
+        <select class="cfg-select sr-parent wfd-flex2b" data-bidx="${idx}"
                 onchange="srAutoSave('${pfx}')">
           ${parentOpts}
         </select>` : ''}
@@ -3228,7 +3207,7 @@ function buildCfgFields(pfx, family, cfg) {
   <div class="cfg-field">
     <label class="cfg-label">Recherche sauvegardée</label>
     <div style="display:flex;gap:4px;">
-      <select id="${pfx}-sr-saved" class="cfg-select" class="wfd-flex1"
+      <select id="${pfx}-sr-saved" class="cfg-select wfd-flex1"
               onchange="srChargerSearch('${pfx}', this.value)">
         <option value="">— Charger une recherche —</option>
       </select>
@@ -3241,9 +3220,8 @@ function buildCfgFields(pfx, family, cfg) {
   <div class="cfg-field" style="display:flex;gap:8px;align-items:center;">
     <div class="wfd-flex1">
       <label class="cfg-label">Variable de stockage</label>
-      <input id="${pfx}-sr-result-var" class="cfg-input"
-             value="${escHtml(cfg.resultVar||'search_results')}"
-             class="wfd-mono" oninput="srAutoSave('${pfx}')">
+      <input id="${pfx}-sr-result-var" class="cfg-input wfd-mono"
+             value="${escHtml(cfg.resultVar||'search_results')}" oninput="srAutoSave('${pfx}')">
     </div>
   </div>
 
@@ -3259,10 +3237,9 @@ function buildCfgFields(pfx, family, cfg) {
   <!-- Expression booléenne -->
   <div class="cfg-field">
     <label class="cfg-label">Expression</label>
-    <input id="${pfx}-sr-expression" class="cfg-input"
+    <input id="${pfx}-sr-expression" class="cfg-input wfd-mono"
            value="${escHtml(cfg.expression||'')}"
            placeholder="ex : 1 AND 2 AND (3 OR 4)"
-           class="wfd-mono"
            oninput="srAutoSave('${pfx}')">
     <div style="font-size:9px;color:#555;margin-top:3px;">
       Numéros de blocs + AND · OR · NOT · parenthèses. Vide = tous les blocs actifs.
@@ -3320,24 +3297,20 @@ function buildCfgFields(pfx, family, cfg) {
           <select class="cfg-select chk-method" style="width:80px;flex-shrink:0;">
             ${['GET','POST'].map(m => `<option ${(chk.method||'GET')===m?'selected':''}>${m}</option>`).join('')}
           </select>
-          <input class="cfg-input chk-endpoint" list="${pfx}-wfd-var-list"
-            value="${escHtml(chk.endpoint||'')}" placeholder="/api/contents/{external_id}"
-            class="wfd-flex1-mono10">
+          <input class="cfg-input chk-endpoint wfd-flex1-mono10" list="${pfx}-wfd-var-list"
+            value="${escHtml(chk.endpoint||'')}" placeholder="/api/contents/{external_id}">
           <button onclick="chkRemoveRow('${pfx}',${i})" class="wfd-del-btn-p4">×</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 120px 1fr;gap:6px;align-items:center;">
-          <input class="cfg-input chk-path" list="${pfx}-wfd-var-list"
-            value="${escHtml(chk.path||'')}" placeholder="results.amazon.status"
-            class="wfd-mono-xs" title="Chemin de la valeur à vérifier">
+          <input class="cfg-input chk-path wfd-mono-xs" list="${pfx}-wfd-var-list"
+            value="${escHtml(chk.path||'')}" placeholder="results.amazon.status" title="Chemin de la valeur à vérifier">
           <select class="cfg-select chk-op">
             ${Object.entries(_chkOps).map(([k,v]) => `<option value="${k}" ${(chk.op||'equals')===k?'selected':''}>${v}</option>`).join('')}
           </select>
-          <input class="cfg-input chk-value" list="${pfx}-wfd-var-list"
-            value="${escHtml(chk.value||'')}" placeholder="ready"
-            class="wfd-mono-xs" title="Valeur attendue (vide si not_empty)">
+          <input class="cfg-input chk-value wfd-mono-xs" list="${pfx}-wfd-var-list"
+            value="${escHtml(chk.value||'')}" placeholder="ready" title="Valeur attendue (vide si not_empty)">
         </div>
-        <input class="cfg-input chk-label" value="${escHtml(chk.label||'')}" placeholder="Label (optionnel)"
-          class="wfd-hint-mt6">
+        <input class="cfg-input chk-label wfd-hint-mt6" value="${escHtml(chk.label||'')}" placeholder="Label (optionnel)">
       </div>`).join('')}
     </div>
     <button class="cfg-btn" onclick="chkAddRow('${pfx}')" style="width:100%;padding:6px;">+ Ajouter une vérification</button>
@@ -3401,16 +3374,15 @@ function buildCfgFields(pfx, family, cfg) {
     <div id="${pfx}-aws-std-fields" style="${_awsOp==='artwork_s3'?'display:none':''}">
       <div class="cfg-field">
         <label class="cfg-label">Chemin de l'objet</label>
-        <input id="${pfx}-aws-key" class="cfg-input" list="${pfx}-wfd-var-list"
+        <input id="${pfx}-aws-key" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
           value="${escHtml(cfg.objectKey||'')}" placeholder="AmazonPrime/{Titre}/"
-          class="wfd-mono"
           title="Chemin relatif dans le bucket — sans le nom du bucket">
         <div class="wfd-hint-top3">Chemin relatif dans le bucket. Supporte les variables <code>{...}</code></div>
       </div>
       <div class="cfg-field">
         <label class="cfg-label">Stocker le résultat dans</label>
-        <input id="${pfx}-aws-result" class="cfg-input"
-          value="${escHtml(cfg.resultVar||'awsResult')}" placeholder="awsResult" class="wfd-mono">
+        <input id="${pfx}-aws-result" class="cfg-input wfd-mono"
+          value="${escHtml(cfg.resultVar||'awsResult')}" placeholder="awsResult">
       </div>
       <div class="wfd-code-block-mt">
         <div class="wfd-section-up">Ports de sortie</div>
@@ -3443,20 +3415,18 @@ function buildCfgFields(pfx, family, cfg) {
             { type:'subtitle', filter:'.srt,.vtt',                variable: cfg.s3VarSrt  ||'s3_srt_url'  },
           ];
           return rows.map((row, i) => `
-            <div class="s3-mapping-row" class="wfd-row-gap6c" data-idx="${i}">
-              <select class="cfg-select s3-map-type" class="wfd-w90-fs10">
+            <div class="s3-mapping-row wfd-row-gap6c" data-idx="${i}">
+              <select class="cfg-select s3-map-type wfd-w90-fs10">
                 <option value="video"    ${row.type==='video'   ?'selected':''}>🎬 Vidéo</option>
                 <option value="image"    ${row.type==='image'   ?'selected':''}>🖼 Image</option>
                 <option value="subtitle" ${row.type==='subtitle'?'selected':''}>💬 SRT</option>
                 <option value="custom"   ${row.type==='custom'  ?'selected':''}>✏️ Custom</option>
               </select>
-              <input class="cfg-input s3-map-filter" placeholder="filtre (.mp4, _poster…)"
-                value="${escHtml(row.filter||'')}"
-                class="wfd-flex1-mono10" title="Extensions ou fragments de nom séparés par des virgules">
+              <input class="cfg-input s3-map-filter wfd-flex1-mono10" placeholder="filtre (.mp4, _poster…)"
+                value="${escHtml(row.filter||'')}" title="Extensions ou fragments de nom séparés par des virgules">
               <span style="font-size:10px;color:#555;flex-shrink:0;">→</span>
-              <input class="cfg-input s3-map-var" placeholder="nom_variable"
-                value="${escHtml(row.variable||'')}"
-                class="wfd-w120-mono" title="Nom de la variable dans le contexte">
+              <input class="cfg-input s3-map-var wfd-w120-mono" placeholder="nom_variable"
+                value="${escHtml(row.variable||'')}" title="Nom de la variable dans le contexte">
               <button onclick="awsS3RemoveMapping('${pfx}',${i})"
                 class="wfd-del-btn-p2"
                 title="Supprimer">×</button>
@@ -3478,24 +3448,24 @@ function buildCfgFields(pfx, family, cfg) {
 
     <div class="cfg-field">
       <label class="cfg-label">Job ID (export Iconik)</label>
-      <input id="${pfx}-aws-art-jobid" class="cfg-input" list="${pfx}-wfd-var-list"
+      <input id="${pfx}-aws-art-jobid" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
         value="${escHtml(cfg.jobId||'{exportJobId}')}"
-        placeholder="{exportJobId}" class="wfd-mono">
+        placeholder="{exportJobId}">
     </div>
 
     <div class="cfg-field">
       <label class="cfg-label">Préfixe S3 (dossier de destination)</label>
-      <input id="${pfx}-aws-art-prefix" class="cfg-input" list="${pfx}-wfd-var-list"
+      <input id="${pfx}-aws-art-prefix" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
         value="${escHtml(cfg.objectKey||'')}"
-        placeholder="AmazonPrime/{Titre}/" class="wfd-mono">
+        placeholder="AmazonPrime/{Titre}/">
       <div class="wfd-hint-top3">Même préfixe que le nœud LIST précédent.</div>
     </div>
 
     <div class="cfg-field">
       <label class="cfg-label">Titre (pour le nommage)</label>
-      <input id="${pfx}-aws-art-titre" class="cfg-input" list="${pfx}-wfd-var-list"
+      <input id="${pfx}-aws-art-titre" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
         value="${escHtml(cfg.titreVar||'{Titre}')}"
-        placeholder="{Titre}" class="wfd-mono">
+        placeholder="{Titre}">
     </div>
 
     <div class="cfg-field">
@@ -3524,12 +3494,12 @@ function buildCfgFields(pfx, family, cfg) {
           ];
           return rows.map((row, i) => `
             <div class="aws-art-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 1fr 1fr 24px;gap:4px;align-items:center;">
-              <input class="cfg-input aws-art-name" data-idx="${i}" value="${escHtml(row.iconikName||'')}"
-                placeholder="Cover" class="wfd-mono-xs2" title="Nom dans Iconik">
-              <input class="cfg-input aws-art-md" data-idx="${i}" value="${escHtml(row.mdField||'')}"
-                placeholder="URLCoverArt" class="wfd-mono-xs2" title="Champ MD Iconik">
-              <input class="cfg-input aws-art-var" data-idx="${i}" value="${escHtml(row.variable||'')}"
-                placeholder="s3_cover_url" class="wfd-mono-xs2" title="Variable contexte">
+              <input class="cfg-input aws-art-name wfd-mono-xs2" data-idx="${i}" value="${escHtml(row.iconikName||'')}"
+                placeholder="Cover" title="Nom dans Iconik">
+              <input class="cfg-input aws-art-md wfd-mono-xs2" data-idx="${i}" value="${escHtml(row.mdField||'')}"
+                placeholder="URLCoverArt" title="Champ MD Iconik">
+              <input class="cfg-input aws-art-var wfd-mono-xs2" data-idx="${i}" value="${escHtml(row.variable||'')}"
+                placeholder="s3_cover_url" title="Variable contexte">
               <button onclick="awsArtRemoveRow('${pfx}',${i})"
                 class="wfd-del-btn-p0">×</button>
             </div>`).join('');
@@ -3600,9 +3570,8 @@ function buildCfgFields(pfx, family, cfg) {
         <select id="${pfx}-wf-method" class="cfg-select" style="width:90px;flex-shrink:0;">
           ${_wfMethods.map(m => `<option ${_wfMethod===m?'selected':''}>${m}</option>`).join('')}
         </select>
-        <input id="${pfx}-wf-endpoint" class="cfg-input" list="${pfx}-wfd-var-list"
-          value="${escHtml(cfg.endpoint||'')}" placeholder="/API/jobs/v1/jobs/{exportJobId}/"
-          class="wfd-mono">
+        <input id="${pfx}-wf-endpoint" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
+          value="${escHtml(cfg.endpoint||'')}" placeholder="/API/jobs/v1/jobs/{exportJobId}/">
       </div>
     </div>
     <div class="cfg-field">
@@ -3610,21 +3579,21 @@ function buildCfgFields(pfx, family, cfg) {
       <div class="wfd-grid-2-gap6b">
         <div>
           <div class="wfd-hint-mb3">Chemin du champ</div>
-          <input id="${pfx}-wf-check-path" class="cfg-input"
-            value="${escHtml(cfg.checkPath||'status')}" placeholder="status" class="wfd-mono">
+          <input id="${pfx}-wf-check-path" class="cfg-input wfd-mono"
+            value="${escHtml(cfg.checkPath||'status')}" placeholder="status">
         </div>
         <div>
           <div class="wfd-hint-mb3">Valeur attendue</div>
-          <input id="${pfx}-wf-check-value" class="cfg-input" list="${pfx}-wfd-var-list"
-            value="${escHtml(cfg.checkValue||'')}" placeholder="FINISHED" class="wfd-mono">
+          <input id="${pfx}-wf-check-value" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
+            value="${escHtml(cfg.checkValue||'')}" placeholder="FINISHED">
         </div>
       </div>
     </div>
     <div class="cfg-field">
       <label class="cfg-label">Valeurs d'échec (sortie immédiate port Erreur)</label>
-      <input id="${pfx}-wf-fail-values" class="cfg-input"
+      <input id="${pfx}-wf-fail-values" class="cfg-input wfd-mono"
         value="${escHtml(cfg.failValues||'FAILED,ERROR,ABORTED')}"
-        placeholder="FAILED,ERROR,ABORTED" class="wfd-mono">
+        placeholder="FAILED,ERROR,ABORTED">
       <div class="wfd-hint-top3">Séparés par des virgules — sortie immédiate sans attendre le timeout</div>
     </div>
     <div class="cfg-field">
@@ -3632,13 +3601,13 @@ function buildCfgFields(pfx, family, cfg) {
       <div class="wfd-grid-2-gap6b">
         <div>
           <div class="wfd-hint-mb3">Délai entre essais (sec)</div>
-          <input id="${pfx}-wf-delay" class="cfg-input" type="number" min="1" max="300"
-            value="${escHtml(String(_wfDelay))}" class="wfd-mono">
+          <input id="${pfx}-wf-delay" class="cfg-input wfd-mono" type="number" min="1" max="300"
+            value="${escHtml(String(_wfDelay))}">
         </div>
         <div>
           <div class="wfd-hint-mb3">Nombre max d'essais</div>
-          <input id="${pfx}-wf-max-tries" class="cfg-input" type="number" min="1" max="100"
-            value="${escHtml(String(_wfTries))}" class="wfd-mono">
+          <input id="${pfx}-wf-max-tries" class="cfg-input wfd-mono" type="number" min="1" max="100"
+            value="${escHtml(String(_wfTries))}">
         </div>
       </div>
       <div class="wfd-hint-top4b">
@@ -3647,8 +3616,8 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
     <div class="cfg-field">
       <label class="cfg-label">Stocker le résultat dans</label>
-      <input id="${pfx}-wf-result-var" class="cfg-input"
-        value="${escHtml(cfg.resultVar||'waitResult')}" placeholder="waitResult" class="wfd-mono">
+      <input id="${pfx}-wf-result-var" class="cfg-input wfd-mono"
+        value="${escHtml(cfg.resultVar||'waitResult')}" placeholder="waitResult">
     </div>
     <div class="wfd-code-block-mt">
       <div class="wfd-section-up">Ports de sortie</div>
@@ -3674,9 +3643,8 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
     <div class="cfg-field">
       <label class="cfg-label">Dossier à lister</label>
-      <input id="${pfx}-wf-s3-prefix" class="cfg-input" list="${pfx}-wfd-var-list"
-        value="${escHtml(cfg.s3Prefix||'')}" placeholder="AmazonPrime/{Titre}/"
-        class="wfd-mono">
+      <input id="${pfx}-wf-s3-prefix" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
+        value="${escHtml(cfg.s3Prefix||'')}" placeholder="AmazonPrime/{Titre}/">
     </div>
     <div class="cfg-field">
       <label class="cfg-label">Mappings d'essences</label>
@@ -3691,20 +3659,18 @@ function buildCfgFields(pfx, family, cfg) {
             { type:'subtitle', filter:'.srt,.vtt',                variable: cfg.s3VarSrt  ||'s3_srt_url'  },
           ];
           return rows.map((row, i) => `
-            <div class="s3-mapping-row" class="wfd-row-gap6c" data-idx="${i}">
-              <select class="cfg-select s3-map-type" class="wfd-w90-fs10">
+            <div class="s3-mapping-row wfd-row-gap6c" data-idx="${i}">
+              <select class="cfg-select s3-map-type wfd-w90-fs10">
                 <option value="video"    ${row.type==='video'   ?'selected':''}>🎬 Vidéo</option>
                 <option value="image"    ${row.type==='image'   ?'selected':''}>🖼 Image</option>
                 <option value="subtitle" ${row.type==='subtitle'?'selected':''}>💬 SRT</option>
                 <option value="custom"   ${row.type==='custom'  ?'selected':''}>✏️ Custom</option>
               </select>
-              <input class="cfg-input s3-map-filter" placeholder="filtre (.mp4, _poster…)"
-                value="${escHtml(row.filter||'')}"
-                class="wfd-flex1-mono10">
+              <input class="cfg-input s3-map-filter wfd-flex1-mono10" placeholder="filtre (.mp4, _poster…)"
+                value="${escHtml(row.filter||'')}">
               <span style="font-size:10px;color:var(--color-text-secondary);flex-shrink:0;">→</span>
-              <input class="cfg-input s3-map-var" placeholder="nom_variable"
-                value="${escHtml(row.variable||'')}"
-                class="wfd-w120-mono">
+              <input class="cfg-input s3-map-var wfd-w120-mono" placeholder="nom_variable"
+                value="${escHtml(row.variable||'')}">
               <button onclick="wfS3RemoveMapping('${pfx}',${i})"
                 class="wfd-del-btn-p2"
                 title="Supprimer">×</button>
@@ -3730,9 +3696,9 @@ function buildCfgFields(pfx, family, cfg) {
   <!-- Identifiant cible -->
   <div class="cfg-field">
     <label class="cfg-label">Identifiant cible</label>
-    <input id="${pfx}-wh-target-id" class="cfg-input" list="${pfx}-wfd-var-list"
+    <input id="${pfx}-wh-target-id" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
       value="${escHtml(cfg.targetId||'{asset_id}')}"
-      placeholder="{asset_id}" class="wfd-mono">
+      placeholder="{asset_id}">
   </div>
 
   <!-- Vue MD -->
@@ -3807,8 +3773,8 @@ function buildCfgFields(pfx, family, cfg) {
   <div class="cfg-field">
     <label class="cfg-label">Statut</label>
     <div style="display:flex;gap:6px;align-items:flex-start;flex-direction:column;">
-      <select id="${pfx}-wh-statut-preset" class="cfg-select"
-        onchange="whStatutPresetChange('${pfx}')" class="wfd-w100pct">
+      <select id="${pfx}-wh-statut-preset" class="cfg-select wfd-w100pct"
+        onchange="whStatutPresetChange('${pfx}')">
         <option value="🔄 En cours"    ${_whStatut==='🔄 En cours'   ?'selected':''}>🔄 En cours</option>
         <option value="✅ Succès"      ${_whStatut==='✅ Succès'     ?'selected':''}>✅ Succès</option>
         <option value="⚠️ Incomplet"   ${_whStatut==='⚠️ Incomplet'  ?'selected':''}>⚠️ Incomplet</option>
@@ -3836,10 +3802,9 @@ function buildCfgFields(pfx, family, cfg) {
   <!-- Résumé d'objet -->
   <div class="cfg-field">
     <label class="cfg-label">Résumer un objet <span class="wfd-label-9-555">(optionnel)</span></label>
-    <input id="${pfx}-wh-summary-var" class="cfg-input" list="${pfx}-wfd-var-list"
+    <input id="${pfx}-wh-summary-var" class="cfg-input wfd-mono-xs" list="${pfx}-wfd-var-list"
       value="${escHtml(cfg.whSummaryVar||'')}"
       placeholder="{vfStatus.body.results.amazon.actions}"
-      class="wfd-mono-xs"
       title="Pointe vers un objet — liste les sous-clés dont le statut n'est pas complete/ready/sent">
     <div class="wfd-hint-top3">Ex: {vfStatus.body.results.amazon.actions} → affiche les actions incomplètes</div>
   </div>
@@ -3880,10 +3845,9 @@ function buildCfgFields(pfx, family, cfg) {
         <select class="cfg-select ig-action" data-i="${i}">
           <option value="">— Action —</option>${actionOpts}
         </select>
-        <input class="cfg-input ig-field" data-i="${i}"
+        <input class="cfg-input ig-field wfd-mono-sm2" data-i="${i}"
           value="${escHtml(a.field||'external_id')}"
           placeholder="Champ body (ex: external_id)"
-          class="wfd-mono-sm2"
           title="Nom du champ dans le body de la requête qui recevra l'ID généré">
         <button onclick="igRemoveAction(${i})"
           class="wfd-del-btn-red">×</button>
@@ -3910,27 +3874,25 @@ function buildCfgFields(pfx, family, cfg) {
   <!-- Longueur (masqué pour UUID et timestamp) -->
   <div class="cfg-field" id="${pfx}-ig-length-wrap" style="${['uuid','timestamp'].includes(_igType)?'display:none':''}">
     <label class="cfg-label">Longueur</label>
-    <input id="${pfx}-ig-length" class="cfg-input" type="number" min="1" max="64"
-      value="${_igLength}" class="wfd-w80">
+    <input id="${pfx}-ig-length" class="cfg-input wfd-w80" type="number" min="1" max="64"
+      value="${_igLength}">
     <div class="wfd-hint-top3">Nombre de caractères de l'ID généré</div>
   </div>
 
   <!-- Préfixe (visible uniquement si type "prefixed") -->
   <div class="cfg-field" id="${pfx}-ig-prefix-wrap" style="${_igType!=='prefixed'?'display:none':''}">
     <label class="cfg-label">Préfixe</label>
-    <input id="${pfx}-ig-prefix" class="cfg-input"
-      value="${escHtml(_igPrefix)}" placeholder="ex: PRIME- ou VOD-"
-      class="wfd-mono">
+    <input id="${pfx}-ig-prefix" class="cfg-input wfd-mono"
+      value="${escHtml(_igPrefix)}" placeholder="ex: PRIME- ou VOD-">
   </div>
 
   <!-- Variable de sortie -->
   <div class="cfg-field">
-    <label class="cfg-label" class="wfd-c-green4-mb6">STOCKER L'ID DANS</label>
+    <label class="cfg-label wfd-c-green4-mb6">STOCKER L'ID DANS</label>
     <div class="wfd-row-gap6c">
       <span class="wfd-mono-green">{</span>
-      <input id="${pfx}-ig-var" class="cfg-input"
-        value="${escHtml(_igVar)}" placeholder="ex: prime_id"
-        class="wfd-input-green">
+      <input id="${pfx}-ig-var" class="cfg-input wfd-input-green"
+        value="${escHtml(_igVar)}" placeholder="ex: prime_id">
       <span class="wfd-mono-green">}</span>
     </div>
     <div class="wfd-hint-top3">Accessible via <code>{${escHtml(_igVar)}}</code> dans les nœuds suivants</div>
@@ -3949,7 +3911,7 @@ function buildCfgFields(pfx, family, cfg) {
   <!-- Écriture API -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;margin-top:8px;">
     <span class="cfg-label">Écriture vers API <span class="wfd-label-9-555">(optionnel)</span></span>
-    <button class="cfg-btn" class="wfd-pad-3-10b" onclick="igAddAction('${pfx}')">+ Ajouter</button>
+    <button class="cfg-btn wfd-pad-3-10b" onclick="igAddAction('${pfx}')">+ Ajouter</button>
   </div>
   <div style="font-size:10px;color:#555;margin-bottom:8px;">
     Pour chaque action : l'ID généré sera injecté dans le champ spécifié du body
@@ -3957,7 +3919,7 @@ function buildCfgFields(pfx, family, cfg) {
   <div id="${pfx}-ig-actions">${_igActionRows || '<div style=\"color:#444;font-size:11px;padding:4px 0;\">— Aucune action API configurée</div>'}</div>
 
   <!-- Description -->
-  <div class="cfg-field" class="wfd-mt8">
+  <div class="cfg-field wfd-mt8">
     <label class="cfg-label">Description</label>
     <textarea id="${pfx}-ig-description" class="cfg-textarea" rows="2"
       placeholder="Ex : Génère un PrimeID unique pour VodFactory...">${escHtml(cfg.description||'')}</textarea>
@@ -3968,19 +3930,19 @@ function buildCfgFields(pfx, family, cfg) {
   const _svRowsHtml = _svAssignments.map((a, i) => `
     <div class="sv-row" data-i="${i}"
       style="display:grid;grid-template-columns:1fr 1fr auto 110px 28px;gap:4px;margin-bottom:4px;align-items:center;">
-      <input class="cfg-input sv-key"   value="${escHtml(a.key||'')}"
-        placeholder="ex: type_contenu" class="wfd-mono"
+      <input class="cfg-input sv-key wfd-mono"   value="${escHtml(a.key||'')}"
+        placeholder="ex: type_contenu"
         title="Nom de la variable — sera accessible via {type_contenu} dans les nœuds suivants">
-      <input class="cfg-input sv-value" value="${escHtml(a.value||'')}"
+      <input class="cfg-input sv-value wfd-mono" value="${escHtml(a.value||'')}"
         list="${pfx}-wfd-var-list"
-        placeholder="Valeur ou {variable}" class="wfd-mono"
+        placeholder="Valeur ou {variable}"
         title="Cliquez sur {...} pour choisir une variable disponible">
       <button type="button"
         onclick="event.preventDefault();event.stopPropagation();_ouvrirVarDropdown(this.previousElementSibling)"
         style="background:#0d1a2a;border:1px solid #1e3a5a;border-radius:3px;color:#7ec8e3;
           cursor:pointer;font-size:11px;padding:2px 6px;white-space:nowrap;flex-shrink:0;"
         title="Choisir une variable disponible">{…}</button>
-      <select class="cfg-select sv-mode" class="wfd-fs11">
+      <select class="cfg-select sv-mode wfd-fs11">
         <option value="set"    ${(a.mode||'set')==='set'   ?'selected':''}>= Écraser</option>
         <option value="append" ${a.mode==='append'          ?'selected':''}>+= Ajouter</option>
         <option value="push"   ${a.mode==='push'            ?'selected':''}>[] Push liste</option>
@@ -4029,7 +3991,7 @@ function buildCfgFields(pfx, family, cfg) {
       </div>
     </div>
 
-    <div class="cfg-field" class="wfd-mt8">
+    <div class="cfg-field wfd-mt8">
       <label class="cfg-label">Description</label>
       <textarea id="${pfx}-description" class="cfg-textarea" rows="2"
         placeholder="Ex : Préparer le nom de fichier avant rename…">${escHtml(cfg.description||'')}</textarea>
@@ -4088,14 +4050,14 @@ function buildCfgFields(pfx, family, cfg) {
         </div>
         <div class="lkr-fb-row" style="display:${hasFb ? 'flex' : 'none'}">
           <span class="lkr-fb-label">Fallback</span>
-          <input class="cfg-input lk-fallback lkr-fb-input" value="${escHtml(fb)}"
+          <input class="cfg-input lk-fallback lkr-fb-input wfd-mono-sm2" value="${escHtml(fb)}"
             placeholder="valeur ou {variable} si champ vide"
-            list="${pfx}-wfd-var-list" class="wfd-mono-sm2">
+            list="${pfx}-wfd-var-list">
         </div>
         <div class="lk-children" style="display:${(r.children||[]).length ? 'block' : 'none'}; margin-left:28px; margin-top:2px;">
           ${(r.children||[]).map(c => `<div class="lk-child-row" style="display:grid;grid-template-columns:1fr 1fr 28px;gap:4px;margin-bottom:2px;">
-            <input class="cfg-input lk-key"   value="${escHtml(c.key||c.src||'')}"   placeholder="Si valeur…" class="wfd-fs11">
-            <input class="cfg-input lk-value" value="${escHtml(c.value||c.tgt||'')}" placeholder="…traduire en" class="wfd-fs11">
+            <input class="cfg-input lk-key wfd-fs11"   value="${escHtml(c.key||c.src||'')}"   placeholder="Si valeur…">
+            <input class="cfg-input lk-value wfd-fs11" value="${escHtml(c.value||c.tgt||'')}" placeholder="…traduire en">
             <button onclick="lkRemoveRow(this)" class="lkr-del">×</button>
           </div>`).join('')}
         </div>
@@ -4283,13 +4245,13 @@ function buildCfgFields(pfx, family, cfg) {
 
       <!-- Outils Import/Export/Template -->
       <div style="display:flex; gap:6px; margin-top:10px; padding-top:10px; border-top:0.5px solid var(--color-border-tertiary);">
-        <button onclick="lkImport()" class="cfg-btn" class="wfd-tab-btn">
+        <button onclick="lkImport()" class="cfg-btn wfd-tab-btn">
           <i class="ti ti-upload" aria-hidden="true"></i> Import
         </button>
-        <button onclick="lkExport()" class="cfg-btn" class="wfd-tab-btn">
+        <button onclick="lkExport()" class="cfg-btn wfd-tab-btn">
           <i class="ti ti-download" aria-hidden="true"></i> Export
         </button>
-        <button onclick="lkChargerTemplate()" class="cfg-btn" class="wfd-tab-btn">
+        <button onclick="lkChargerTemplate()" class="cfg-btn wfd-tab-btn">
           <i class="ti ti-folder" aria-hidden="true"></i> Template
         </button>
         <button onclick="lkSauvegarderTemplate()" class="cfg-btn" style="font-size:11px; padding:3px 10px; flex:1; color:#1B6B45; border-color:#9FE1CB;">
@@ -4467,15 +4429,15 @@ function buildCfgFields(pfx, family, cfg) {
         <div style="display:grid;grid-template-columns:90px 1fr;gap:6px;margin-bottom:10px;">
           <div>
             <div class="wfd-hint-sec">Méthode</div>
-            <select class="cfg-select hseq-method" class="wfd-fs11"
+            <select class="cfg-select hseq-method wfd-fs11"
               onchange="hseqUpdateHeader(this)">
               ${['GET','POST','PUT','PATCH','DELETE'].map(m => `<option${method===m?' selected':''}>${m}</option>`).join('')}
             </select>
           </div>
           <div>
             <div class="wfd-hint-sec">Endpoint</div>
-            <input class="cfg-input hseq-endpoint" value="${escHtml(endpoint)}"
-              placeholder="/api/..." class="wfd-mono-sm"
+            <input class="cfg-input hseq-endpoint wfd-mono-sm" value="${escHtml(endpoint)}"
+              placeholder="/api/..."
               oninput="hseqUpdateHeader(this)" list="${pfx}-wfd-var-list">
           </div>
         </div>
@@ -4505,8 +4467,8 @@ function buildCfgFields(pfx, family, cfg) {
                    ${actions.map(a => `<option value="${a.id}" ${step.actionId===a.id?'selected':''}>${escHtml(a.name)} — ${a.method} ${escHtml(a.endpoint)}</option>`).join('')}
                  </select>
                  <div class="wfd-hint-sec">Payload source</div>
-                 <input class="cfg-input hseq-source-var" value="${escHtml(step.sourceVar||'')}"
-                   placeholder="{vodFactoryPayload}" class="wfd-mono-sm"
+                 <input class="cfg-input hseq-source-var wfd-mono-sm" value="${escHtml(step.sourceVar||'')}"
+                   placeholder="{vodFactoryPayload}"
                    list="${pfx}-wfd-var-list">`
             }
           </div>
@@ -4514,8 +4476,7 @@ function buildCfgFields(pfx, family, cfg) {
           <!-- Requête simple -->
           <div class="hseq-mode-simple" style="${mode!=='simple'?'display:none':''}">
             <div class="wfd-hint-sec">Body JSON</div>
-            <textarea class="cfg-textarea hseq-body" rows="3"
-              class="wfd-mono-sm2">${escHtml(step.bodyTemplate||step.body||'')}</textarea>
+            <textarea class="cfg-textarea hseq-body wfd-mono-sm2" rows="3">${escHtml(step.bodyTemplate||step.body||'')}</textarea>
           </div>
 
           <!-- Pour chaque valeur -->
@@ -4527,7 +4488,7 @@ function buildCfgFields(pfx, family, cfg) {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
               <div>
                 <div class="wfd-hint-sec">Rôle (job)</div>
-                <select class="cfg-select hseq-fe-job" class="wfd-fs11">
+                <select class="cfg-select hseq-fe-job wfd-fs11">
                   ${(selConn?.roles?.length ? selConn.roles : ['director','producer','actor','writer','creator']).map(j =>
                     `<option value="${j}" ${(step.feJob||'director')===j?'selected':''}>${j}</option>`
                   ).join('')}
@@ -4535,14 +4496,13 @@ function buildCfgFields(pfx, family, cfg) {
               </div>
               <div>
                 <div class="wfd-hint-sec">Codes à ignorer</div>
-                <input class="cfg-input hseq-fe-ignore"
+                <input class="cfg-input hseq-fe-ignore wfd-mono-sm"
                   value="${escHtml((step.feIgnoreCodes||[409,422]).join(', '))}"
-                  placeholder="409, 422" class="wfd-mono-sm">
+                  placeholder="409, 422">
               </div>
             </div>
             <div class="wfd-hint-sec">Body JSON (par valeur)</div>
-            <textarea class="cfg-textarea hseq-fe-body" rows="2"
-              class="wfd-mono-sm2"
+            <textarea class="cfg-textarea hseq-fe-body wfd-mono-sm2" rows="2"
               placeholder='{"name":"{{nom}}","external_id":"{{slug(nom)}}"}'>${escHtml(step.feBody||'')}</textarea>
             <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
               <input type="checkbox" class="hseq-fe-append" id="hseq-append-${i}"
@@ -4559,8 +4519,8 @@ function buildCfgFields(pfx, family, cfg) {
             <input class="cfg-input hseq-verify-path" value="${escHtml(step.verifyPath||'')}"
               placeholder="status" style="font-size:11px;font-family:var(--font-mono);margin-bottom:6px;">
             <div class="wfd-hint-sec">Valeur attendue</div>
-            <input class="cfg-input hseq-verify-expected" value="${escHtml(step.verifyExpected||'')}"
-              placeholder="COMPLETED" class="wfd-mono-sm">
+            <input class="cfg-input hseq-verify-expected wfd-mono-sm" value="${escHtml(step.verifyExpected||'')}"
+              placeholder="COMPLETED">
           </div>
 
         </div><!-- /mode-panels -->
@@ -4589,7 +4549,7 @@ function buildCfgFields(pfx, family, cfg) {
     <div class="cfg-field">
       <label class="cfg-label">Connexion principale</label>
       <div class="wfd-row-gap6b">
-        <select id="${pfx}-hseq-conn" class="cfg-select" class="wfd-flex1">
+        <select id="${pfx}-hseq-conn" class="cfg-select wfd-flex1">
           <option value="">— Sélectionner une connexion —</option>
           ${connOpts}
         </select>
@@ -4609,7 +4569,7 @@ function buildCfgFields(pfx, family, cfg) {
       ${!steps.length ? `<div style="padding:16px;text-align:center;font-size:12px;color:var(--color-text-secondary);font-style:italic;border:0.5px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);">Aucune étape — cliquer "Ajouter une étape"</div>` : ''}
     </div>
 
-    <div class="cfg-field" class="wfd-mt8">
+    <div class="cfg-field wfd-mt8">
       <label class="cfg-label">Description</label>
       <textarea id="${pfx}-description" class="cfg-textarea" rows="2"
         placeholder="Ex : Publication vers VodFactory">${escHtml(cfg.description||'')}</textarea>
@@ -4628,8 +4588,7 @@ function buildCfgFields(pfx, family, cfg) {
 	<datalist id="${pfx}-decision-meta-list">${allMeta.map(m => `<option value="{${m}}">`).join('')}</datalist>
     <div class="cfg-field">
       <label class="cfg-label">Variable à évaluer</label>
-      <input id="${pfx}-field" class="cfg-input" list="${pfx}-wfd-var-list"
-        class="wfd-mono"
+      <input id="${pfx}-field" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
         value="${escHtml(cfg.field||'')}"
         placeholder="ex : {asset.metadata.destinations_pad}">
       <div class="wfd-hint-top3">Utilisez <code>{variable}</code> — ex: <code>{asset.metadata.statut}</code></div>
@@ -4637,7 +4596,7 @@ function buildCfgFields(pfx, family, cfg) {
     <div>
       <div class="wfd-row-sb-mb6">
         <span class="cfg-label">Sorties conditionnelles</span>
-        <button class="cfg-btn" class="wfd-pad-3-10b" onclick="ajouterCondition()">+ Ajouter</button>
+        <button class="cfg-btn wfd-pad-3-10b" onclick="ajouterCondition()">+ Ajouter</button>
       </div>
       <div id="${pfx}-conditions" class="wfd-col-gap5">
         ${conds.map((c,i) => buildConditionRow(i,c, pfx)).join('')}
@@ -4674,10 +4633,10 @@ function buildCfgFields(pfx, family, cfg) {
     <div class="cfg-field">
       <label class="cfg-label">Connexion externe</label>
       <div class="wfd-row-gap6b">
-        <select id="${pfx}-listener-conn" class="cfg-select" class="wfd-flex1" onchange="_listenerConnChange('${pfx}')">
+        <select id="${pfx}-listener-conn" class="cfg-select wfd-flex1" onchange="_listenerConnChange('${pfx}')">
           <option value="">— Sélectionner une connexion —</option>${connOpts}
         </select>
-        <button class="cfg-btn" onclick="ouvrirRessources('connexions')" title="Gérer les connexions" class="wfd-pad-6-8">⚙</button>
+        <button class="cfg-btn wfd-pad-6-8" onclick="ouvrirRessources('connexions')" title="Gérer les connexions">⚙</button>
       </div>
       ${!wfdConnexions.length ? `<div style="font-size:10px;color:#e67e22;margin-top:4px;">
         Aucune connexion configurée — créez-en une dans Ressources → Connexions</div>` : ''}
@@ -4696,20 +4655,19 @@ function buildCfgFields(pfx, family, cfg) {
     <!-- ── TEST LISTENER ── -->
     <div style="margin-top:12px;border-top:1px solid #1e1e1e;padding-top:12px;">
       <div class="wfd-row-sb-mb8b">
-        <span class="cfg-label" class="wfd-m0">🧪 TESTER CE LISTENER</span>
+        <span class="cfg-label wfd-m0">🧪 TESTER CE LISTENER</span>
         <button onclick="wfdListenerSimToggle('${pfx}')" id="${pfx}-lsim-toggle"
           style="font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid #2a2a2a;
             background:transparent;color:#c0392b;cursor:pointer;">Afficher</button>
       </div>
       <div id="${pfx}-lsim-wrap" style="display:none;">
-        <div class="cfg-hint" class="wfd-mb8">
+        <div class="cfg-hint wfd-mb8">
           Envoie un POST réel vers <code>localhost:2880${selConn?.endpoint || '/wfd/listener/...'}</code>
           avec le token configuré. Le workflow s'exécute exactement comme si le système tiers avait appelé.
         </div>
         <div class="cfg-field">
           <label class="cfg-label">Payload JSON</label>
-          <textarea id="${pfx}-lsim-payload" class="cfg-textarea" rows="8"
-            class="wfd-mono-sm2"
+          <textarea id="${pfx}-lsim-payload" class="cfg-textarea wfd-mono-sm2" rows="8"
             placeholder='{ "asset_id": "TEST-123" }'>${
               JSON.stringify({ asset_id:'ASSET-ID-TEST', action:'test', timestamp: new Date().toISOString() }, null, 2)
             }</textarea>
@@ -4809,7 +4767,7 @@ function buildCfgFields(pfx, family, cfg) {
         <label class="cfg-label">Jour du mois</label>
         <div class="wfd-row-gap6c">
           <input id="${pfx}-cron-mday" type="number" min="1" max="31"
-            class="cfg-input" class="wfd-w80" value="${cfg.cronMday||'1'}">
+            class="cfg-input wfd-w80" value="${cfg.cronMday||'1'}">
           <span class="wfd-text-555-11b">de chaque mois</span>
         </div>
       </div>
@@ -4941,11 +4899,11 @@ function buildCfgFields(pfx, family, cfg) {
     <div id="${pfx}-trigger-cond-wrap" class="cfg-field" style="${fields.includes('condition')?'':'display:none'}">
       <label class="cfg-label">Condition</label>
       <div class="wfd-row-gap6b">
-        <select id="${pfx}-trigger-condition" class="cfg-select" class="wfd-flex1" onchange="_triggerCondChange('${pfx}')">
+        <select id="${pfx}-trigger-condition" class="cfg-select wfd-flex1" onchange="_triggerCondChange('${pfx}')">
           ${Object.entries(TRIGGER_CONDITIONS).map(([k,v])=>
             `<option value="${k}" ${cfg.triggerCondition===k?'selected':''}>${v}</option>`).join('')}
         </select>
-        <input id="${pfx}-trigger-value" class="cfg-input" class="wfd-flex1"
+        <input id="${pfx}-trigger-value" class="cfg-input wfd-flex1"
           value="${cfg.triggerValue||''}" placeholder="Valeur…"
           ${TRIGGER_CONDITIONS_NO_VALUE.has(cfg.triggerCondition)?'style="display:none"':''}>
       </div>
@@ -4957,19 +4915,19 @@ function buildCfgFields(pfx, family, cfg) {
     <div id="${pfx}-trigger-ca-wrap" class="cfg-field" style="${fields.includes('custom_action_id')?'':'display:none'}">
       <label class="cfg-label">Custom Action</label>
       <div class="wfd-row-gap6b">
-        <select id="${pfx}-custom-action-id" class="cfg-select" class="wfd-flex1">
+        <select id="${pfx}-custom-action-id" class="cfg-select wfd-flex1">
           <option value="">— Sélectionner —</option>${caOpts}
         </select>
-        <button class="cfg-btn" onclick="syncTriggerRefs()" title="Synchroniser depuis Iconik" class="wfd-pad-6-8">↺</button>
+        <button class="cfg-btn wfd-pad-6-8" onclick="syncTriggerRefs()" title="Synchroniser depuis Iconik">↺</button>
       </div>
     </div>
     <div id="${pfx}-trigger-wh-wrap" class="cfg-field" style="${fields.includes('webhook_id')?'':'display:none'}">
       <label class="cfg-label">Webhook Iconik</label>
       <div class="wfd-row-gap6b">
-        <select id="${pfx}-webhook-id" class="cfg-select" class="wfd-flex1">
+        <select id="${pfx}-webhook-id" class="cfg-select wfd-flex1">
           <option value="">— Sélectionner —</option>${whOpts}
         </select>
-        <button class="cfg-btn" onclick="syncTriggerRefs()" title="Synchroniser depuis Iconik" class="wfd-pad-6-8">↺</button>
+        <button class="cfg-btn wfd-pad-6-8" onclick="syncTriggerRefs()" title="Synchroniser depuis Iconik">↺</button>
       </div>
     </div>
     <div id="${pfx}-trigger-status-wrap" class="cfg-field" style="${fields.includes('status_value')?'':'display:none'}">
@@ -4991,16 +4949,16 @@ function buildCfgFields(pfx, family, cfg) {
       <label class="cfg-label">Saved Search</label>
       ${(wfdData.savedSearches||[]).length ? `
       <div class="wfd-row-gap6b">
-        <select id="${pfx}-saved-search-id" class="cfg-select" class="wfd-flex1">
+        <select id="${pfx}-saved-search-id" class="cfg-select wfd-flex1">
           <option value="">— Sélectionner —</option>
           ${(wfdData.savedSearches||[]).map(s=>`<option value="${s.id||s.nom}" ${cfg.savedSearchId===(s.id||s.nom)?'selected':''}>${escHtml(s.nom||s.name||s.id)}</option>`).join('')}
         </select>
-        <button class="cfg-btn" onclick="syncTriggerRefs()" class="wfd-pad-6-8">↺</button>
+        <button class="cfg-btn wfd-pad-6-8" onclick="syncTriggerRefs()">↺</button>
       </div>` : `
       <div class="wfd-row-gap6b">
-        <input id="${pfx}-saved-search-id" class="cfg-input" class="wfd-flex1-mono"
+        <input id="${pfx}-saved-search-id" class="cfg-input wfd-flex1-mono"
           value="${escHtml(cfg.savedSearchId||'')}" placeholder="ID ou nom de la Saved Search">
-        <button class="cfg-btn" onclick="syncTriggerRefs()" class="wfd-pad-6-8">↺</button>
+        <button class="cfg-btn wfd-pad-6-8" onclick="syncTriggerRefs()">↺</button>
       </div>`}
     </div>
     <div id="${pfx}-trigger-poll-wrap" style="${fields.includes('poll_interval')?'':'display:none'}">
@@ -5035,7 +4993,7 @@ function buildCfgFields(pfx, family, cfg) {
     <!-- ── ENDPOINT WFD ── -->
     <div class="cfg-field" style="margin-top:8px;padding:10px 12px;
       background:#0a1a0a;border:1px solid #1a3a1a;border-radius:6px;">
-      <label class="cfg-label" class="wfd-c-green2">🔗 ENDPOINT WFD</label>
+      <label class="cfg-label wfd-c-green2">🔗 ENDPOINT WFD</label>
       <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
         <span style="font-size:11px;color:#555;font-family:var(--font-mono);white-space:nowrap;">/wfd/action/</span>
         <input id="${pfx}-wfd-slug" class="cfg-input"
@@ -5059,20 +5017,20 @@ function buildCfgFields(pfx, family, cfg) {
     <!-- ── SIMULATION PAYLOAD ── -->
     <div style="margin-top:12px;border-top:1px solid #1e1e1e;padding-top:12px;">
       <div class="wfd-row-sb-mb8b">
-        <span class="cfg-label" class="wfd-m0">🧪 TESTER CE DÉCLENCHEUR</span>
+        <span class="cfg-label wfd-m0">🧪 TESTER CE DÉCLENCHEUR</span>
         <button onclick="wfdTriggerSimToggle('${pfx}')" id="${pfx}-sim-toggle"
           style="font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid #2a2a2a;
             background:transparent;color:#8e44ad;cursor:pointer;">Afficher</button>
       </div>
       <div id="${pfx}-sim-wrap" style="display:none;">
-        <div class="cfg-hint" class="wfd-mb8">
+        <div class="cfg-hint wfd-mb8">
           Simule un appel webhook entrant avec le payload ci-dessous.
           Le workflow s'exécute exactement comme en production, sans envoyer quoi que ce soit à Iconik.
         </div>
         <div class="cfg-field">
           <label class="cfg-label">Base de départ</label>
           <div class="wfd-row-gap6b">
-            <select id="${pfx}-sim-template" class="cfg-select" class="wfd-flex1"
+            <select id="${pfx}-sim-template" class="cfg-select wfd-flex1"
               onchange="wfdTriggerSimLoadTemplate('${pfx}')">
               <option value="custom">— JSON libre —</option>
               <option value="metadata_changed"    ${(cfg.eventType||'')==='metadata_changed'   ?'selected':''}>🏷 Metadata changée</option>
@@ -5092,8 +5050,7 @@ function buildCfgFields(pfx, family, cfg) {
         </div>
         <div class="cfg-field">
           <label class="cfg-label">Payload JSON</label>
-          <textarea id="${pfx}-sim-payload" class="cfg-textarea" rows="12"
-            class="wfd-mono-sm2" placeholder="{}"></textarea>
+          <textarea id="${pfx}-sim-payload" class="cfg-textarea wfd-mono-sm2" rows="12" placeholder="{}"></textarea>
           <div id="${pfx}-sim-error" style="font-size:10px;color:#e74c3c;margin-top:3px;display:none;"></div>
         </div>
         <button onclick="wfdTriggerSimRun('${pfx}')"
@@ -5120,13 +5077,12 @@ function buildCfgFields(pfx, family, cfg) {
     html += `
     <div class="cfg-field">
       <label class="cfg-label">Payload JSON à injecter</label>
-      <div class="cfg-hint" class="wfd-mb6b">
+      <div class="cfg-hint wfd-mb6b">
         Ce payload initialise le contexte d'exécution.
         Les clés <code>asset</code>, <code>collection</code>, <code>vars</code>
         sont accessibles via <code>{asset.id}</code>, <code>{vars.maVar}</code>, etc.
       </div>
-      <textarea id="${pfx}-manual-payload" class="cfg-textarea" rows="10"
-        class="wfd-mono-sm2"
+      <textarea id="${pfx}-manual-payload" class="cfg-textarea wfd-mono-sm2" rows="10"
         placeholder='{ "asset": { "id": "..." } }'>${escHtml(payloadStr)}</textarea>
       <div id="${pfx}-manual-payload-error"
         style="font-size:10px;color:#e74c3c;margin-top:4px;display:none;"></div>
@@ -5813,10 +5769,9 @@ function buildTransformRuleRow(i, r, pfx) {
     ? `<input class="cfg-input tr-field" data-idx="${i}" list="${pfx}-wfd-var-list"
              value="${r.field||''}" placeholder="{asset.title}">`
     : src==='expression'
-    ? `<input class="cfg-input tr-field" data-idx="${i}"
+    ? `<input class="cfg-input tr-field wfd-mono-xs" data-idx="${i}"
              value="${r.value||r.field||''}"
              placeholder="ex: {duration_ms} / 1000  ou  {width} >= 1920 ? 'HD' : 'SD'"
-             class="wfd-mono-xs"
              title="Supports: + - * / % ternaire, {vars}, {asset.id}, {results.key.field}">`
     : `<span style="font-size:11px;color:#555;padding:5px;">Date auto</span>`;
 
@@ -5907,18 +5862,16 @@ const caKeyCtrl = (f,i) => {
          ${_caMetaNames.map(n =>
             `<option value="${n}" ${f.key===n?'selected':''}>${escHtml(n)}</option>`).join('')}
        </select>`
-    : `<input class="cfg-input ca-meta-key" data-idx="${i}"
-         value="${escHtml(f.key||'')}" placeholder="Champ" list="${pfx}-ca-meta-list"
-         class="wfd-mono-sm">`;
+    : `<input class="cfg-input ca-meta-key wfd-mono-sm" data-idx="${i}"
+         value="${escHtml(f.key||'')}" placeholder="Champ" list="${pfx}-ca-meta-list">`;
 };
 
 const metaFields = (cfg.metaFields||[]).map((f,i) => `
   <div class="wfd-grid-3-24">
     ${caKeyCtrl(f,i)}
-    <input class="cfg-input ca-meta-val" data-idx="${i}"
-      value="${escHtml(f.value||'')}" placeholder="Valeur ou {variable}"
-      class="wfd-mono-sm">
-    <button class="cfg-btn danger" class="wfd-pad-3-5"
+    <input class="cfg-input ca-meta-val wfd-mono-sm" data-idx="${i}"
+      value="${escHtml(f.value||'')}" placeholder="Valeur ou {variable}">
+    <button class="cfg-btn danger wfd-pad-3-5"
       onclick="${pfx}RemoveMetaField(${i})">×</button>
   </div>`).join('');
 
@@ -5929,7 +5882,7 @@ const metaFields = (cfg.metaFields||[]).map((f,i) => `
   <!-- Titre -->
   <div class="cfg-field">
     <label class="cfg-label">Titre de l'asset</label>
-    <input id="${pfx}-ca-title" class="cfg-input" class="wfd-mono" list="${pfx}-wfd-var-list"
+    <input id="${pfx}-ca-title" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
       value="${escHtml(cfg.title||'')}" placeholder="{titre}  ou  Valeur fixe">
     <div class="wfd-hint-top3">Utilisez <code>{variable}</code> pour injecter depuis le contexte</div>
   </div>
@@ -5954,8 +5907,8 @@ const metaFields = (cfg.metaFields||[]).map((f,i) => `
   <!-- Champs metadata initiaux -->
   <div class="cfg-field">
     <div class="wfd-row-sb-mb6">
-      <label class="cfg-label" class="wfd-m0">Valeurs de métadonnées initiales</label>
-      <button class="cfg-btn" class="wfd-pad-3-10b" onclick="${pfx}AddMetaField()">+ Champ</button>
+      <label class="cfg-label wfd-m0">Valeurs de métadonnées initiales</label>
+      <button class="cfg-btn wfd-pad-3-10b" onclick="${pfx}AddMetaField()">+ Champ</button>
     </div>
     <div id="${pfx}-ca-meta-fields" class="wfd-col-gap5">
       ${metaFields || '<div class="wfd-text-444-11b">Aucun champ — ajoutez-en un.</div>'}
@@ -5965,7 +5918,7 @@ const metaFields = (cfg.metaFields||[]).map((f,i) => `
   <!-- Ajouter à une collection -->
   <div class="cfg-field">
     <label class="cfg-label">Ajouter dans la collection</label>
-    <input id="${pfx}-ca-collection" class="cfg-input" class="wfd-mono" list="${pfx}-wfd-var-list"
+    <input id="${pfx}-ca-collection" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
       value="${escHtml(cfg.collection||'')}" placeholder="{collection.id}  ou  ID fixe">
     <div class="wfd-hint-top3">Laisser vide pour ne pas ajouter à une collection</div>
   </div>
@@ -5975,7 +5928,7 @@ const metaFields = (cfg.metaFields||[]).map((f,i) => `
     <label class="cfg-label">Stocker l'ID du nouvel asset dans</label>
     <div class="wfd-row-gap6c">
       <span class="wfd-mono-555">{</span>
-      <input id="${pfx}-ca-var" class="cfg-input" class="wfd-flex1-mono"
+      <input id="${pfx}-ca-var" class="cfg-input wfd-flex1-mono"
         value="${escHtml(cfg.resultVar||'new_asset')}" placeholder="new_asset">
       <span class="wfd-mono-555">.id}</span>
     </div>
@@ -6011,16 +5964,14 @@ function _caAddMetaField(pfx) {
          <option value="">— Champ méta —</option>
          ${names.map(n => `<option value="${n}">${escHtml(n)}</option>`).join('')}
        </select>`
-    : `<input class="cfg-input ca-meta-key" data-idx="${i}"
-         value="" placeholder="Champ" list="${pfx}-ca-meta-list"
-         class="wfd-mono-sm">`;
+    : `<input class="cfg-input ca-meta-key wfd-mono-sm" data-idx="${i}"
+         value="" placeholder="Champ" list="${pfx}-ca-meta-list">`;
 
   return `
     ${keyCtrl}
-    <input class="cfg-input ca-meta-val" data-idx="${i}"
-      value="" placeholder="Valeur ou {variable}"
-      class="wfd-mono-sm">
-    <button class="cfg-btn danger" class="wfd-pad-3-5" onclick="${pfx}RemoveMetaField(${i})">×</button>`;
+    <input class="cfg-input ca-meta-val wfd-mono-sm" data-idx="${i}"
+      value="" placeholder="Valeur ou {variable}">
+    <button class="cfg-btn danger wfd-pad-3-5" onclick="${pfx}RemoveMetaField(${i})">×</button>`;
 })();
   wrap.appendChild(div);
 }
@@ -6075,18 +6026,16 @@ function _buildCreateColPanel(pfx, cfg, wfdData) {
          ${_ccMetaNames.map(n =>
             `<option value="${n}" ${f.key===n?'selected':''}>${escHtml(n)}</option>`).join('')}
        </select>`
-    : `<input class="cfg-input cc-meta-key" data-idx="${i}"
-         value="${escHtml(f.key||'')}" placeholder="Champ" list="${pfx}-cc-meta-list"
-         class="wfd-mono-sm">`;
+    : `<input class="cfg-input cc-meta-key wfd-mono-sm" data-idx="${i}"
+         value="${escHtml(f.key||'')}" placeholder="Champ" list="${pfx}-cc-meta-list">`;
 };
 
   const metaFields = (cfg.metaFields||[]).map((f,i) => `
   <div class="wfd-grid-3-24">
     ${ccKeyCtrl(f,i)}
-    <input class="cfg-input cc-meta-val" data-idx="${i}"
-      value="${escHtml(f.value||'')}" placeholder="Valeur ou {variable}"
-      class="wfd-mono-sm">
-    <button class="cfg-btn danger" class="wfd-pad-3-5"
+    <input class="cfg-input cc-meta-val wfd-mono-sm" data-idx="${i}"
+      value="${escHtml(f.value||'')}" placeholder="Valeur ou {variable}">
+    <button class="cfg-btn danger wfd-pad-3-5"
       onclick="${pfx}RemoveColMetaField(${i})">×</button>
   </div>`).join('');
 
@@ -6097,14 +6046,14 @@ function _buildCreateColPanel(pfx, cfg, wfdData) {
   <!-- Nom -->
   <div class="cfg-field">
     <label class="cfg-label">Nom de la collection</label>
-    <input id="${pfx}-cc-name" class="cfg-input" class="wfd-mono" list="${pfx}-wfd-var-list"
+    <input id="${pfx}-cc-name" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
       value="${escHtml(cfg.name||'')}" placeholder="{serie}  ou  Nom fixe">
   </div>
 
   <!-- Chemin parent — récursif -->
   <div class="cfg-field">
     <label class="cfg-label">Collection parente</label>
-    <input id="${pfx}-cc-parent" class="cfg-input" class="wfd-mono" list="${pfx}-wfd-var-list"
+    <input id="${pfx}-cc-parent" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
       value="${escHtml(cfg.parent||'')}" placeholder="{collection.id}  ou  ID fixe">
     <div class="wfd-hint-top3">
       Laisser vide pour créer à la racine. Utilisez <code>{variable.id}</code> pour imbriquer dynamiquement.
@@ -6112,7 +6061,7 @@ function _buildCreateColPanel(pfx, cfg, wfdData) {
   </div>
 
   <!-- Création récursive des parents manquants -->
-  <div class="cfg-field" class="wfd-row-gap8b">
+  <div class="cfg-field wfd-row-gap8b">
     <input type="checkbox" id="${pfx}-cc-recursive" class="wfd-swatch"
       ${cfg.recursive?'checked':''}>
     <label for="${pfx}-cc-recursive" class="wfd-icon-ptr">
@@ -6134,8 +6083,8 @@ function _buildCreateColPanel(pfx, cfg, wfdData) {
   <!-- Champs metadata initiaux -->
   <div class="cfg-field">
     <div class="wfd-row-sb-mb6">
-      <label class="cfg-label" class="wfd-m0">Valeurs de métadonnées initiales</label>
-      <button class="cfg-btn" class="wfd-pad-3-10b" onclick="${pfx}AddColMetaField()">+ Champ</button>
+      <label class="cfg-label wfd-m0">Valeurs de métadonnées initiales</label>
+      <button class="cfg-btn wfd-pad-3-10b" onclick="${pfx}AddColMetaField()">+ Champ</button>
     </div>
     <div id="${pfx}-cc-meta-fields" class="wfd-col-gap5">
       ${metaFields || '<div class="wfd-text-444-11b">Aucun champ — ajoutez-en un.</div>'}
@@ -6157,7 +6106,7 @@ function _buildCreateColPanel(pfx, cfg, wfdData) {
     <label class="cfg-label">Stocker l'ID de la collection créée dans</label>
     <div class="wfd-row-gap6c">
       <span class="wfd-mono-555">{</span>
-      <input id="${pfx}-cc-var" class="cfg-input" class="wfd-flex1-mono"
+      <input id="${pfx}-cc-var" class="cfg-input wfd-flex1-mono"
         value="${escHtml(cfg.resultVar||'new_collection')}" placeholder="new_collection">
       <span class="wfd-mono-555">.id}</span>
     </div>
@@ -6193,16 +6142,14 @@ function _ccAddMetaField(pfx) {
          <option value="">— Champ méta —</option>
          ${names.map(n => `<option value="${n}">${escHtml(n)}</option>`).join('')}
        </select>`
-    : `<input class="cfg-input cc-meta-key" data-idx="${i}"
-         value="" placeholder="Champ" list="${pfx}-cc-meta-list"
-         class="wfd-mono-sm">`;
+    : `<input class="cfg-input cc-meta-key wfd-mono-sm" data-idx="${i}"
+         value="" placeholder="Champ" list="${pfx}-cc-meta-list">`;
 
   return `
     ${keyCtrl}
-    <input class="cfg-input cc-meta-val" data-idx="${i}"
-      value="" placeholder="Valeur ou {variable}"
-      class="wfd-mono-sm">
-    <button class="cfg-btn danger" class="wfd-pad-3-5" onclick="${pfx}RemoveColMetaField(${i})">×</button>`;
+    <input class="cfg-input cc-meta-val wfd-mono-sm" data-idx="${i}"
+      value="" placeholder="Valeur ou {variable}">
+    <button class="cfg-btn danger wfd-pad-3-5" onclick="${pfx}RemoveColMetaField(${i})">×</button>`;
 })();
 
   wrap.appendChild(div);
@@ -6266,7 +6213,7 @@ function _buildLinkFilePanel(pfx, cfg, wfdData) {
   <!-- Asset cible -->
   <div class="cfg-field">
     <label class="cfg-label">Asset cible</label>
-    <input id="${pfx}-lf-asset" class="cfg-input" class="wfd-mono"
+    <input id="${pfx}-lf-asset" class="cfg-input wfd-mono"
       value="${escHtml(cfg.assetId||'')}" placeholder="{asset.id}  ou  {new_asset.id}">
     <div class="wfd-hint-top3">
       Variable alimentée par un nœud <strong>Rechercher</strong> ou <strong>Créer Asset</strong> en amont
@@ -6276,7 +6223,7 @@ function _buildLinkFilePanel(pfx, cfg, wfdData) {
   <!-- Chemin du fichier -->
   <div class="cfg-field">
     <label class="cfg-label">Chemin du fichier</label>
-    <input id="${pfx}-lf-path" class="cfg-input" class="wfd-mono"
+    <input id="${pfx}-lf-path" class="cfg-input wfd-mono"
       value="${escHtml(cfg.filePath||'')}" placeholder="{file.path}  ou  /mnt/nas/films/monfilm.mxf">
     <div class="wfd-hint-top3">
       Chemin relatif au stockage sélectionné ci-dessous
@@ -6317,7 +6264,7 @@ function _buildLinkFilePanel(pfx, cfg, wfdData) {
   <div class="cfg-field">
     <label class="cfg-label">Format</label>
     <div class="wfd-row-gap6b">
-      <select id="${pfx}-lf-format" class="cfg-select" class="wfd-flex1"
+      <select id="${pfx}-lf-format" class="cfg-select wfd-flex1"
         onchange="_lfFormatChange('${pfx}')">
         <option value="">— Détecter depuis l'extension —</option>
         ${fmtOpts}
@@ -6330,7 +6277,7 @@ function _buildLinkFilePanel(pfx, cfg, wfdData) {
 
   <!-- Options avancées -->
   <div class="wfd-card-sm2">
-    <div class="cfg-label" class="wfd-mb8">Options</div>
+    <div class="cfg-label wfd-mb8">Options</div>
 
     <!-- Générer proxy -->
     <div class="wfd-row-gap8-mb8">
@@ -6365,7 +6312,7 @@ function _buildLinkFilePanel(pfx, cfg, wfdData) {
     <label class="cfg-label">Stocker l'ID du fichier créé dans</label>
     <div class="wfd-row-gap6c">
       <span class="wfd-mono-555">{</span>
-      <input id="${pfx}-lf-var" class="cfg-input" class="wfd-flex1-mono"
+      <input id="${pfx}-lf-var" class="cfg-input wfd-flex1-mono"
         value="${escHtml(cfg.resultVar||'file')}" placeholder="file">
       <span class="wfd-mono-555">.id}</span>
     </div>
@@ -6468,9 +6415,8 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
          ${_umMetaNames.map(n =>
              `<option value="${n}" ${f.key===n?'selected':''}>${escHtml(n)}</option>`).join('')}
        </select>`
-    : `<input class="cfg-input um-field-key" data-idx="${i}"
-         value="${escHtml(f.key||'')}" placeholder="Champ" list="${pfx}-um-meta-list"
-         class="wfd-mono-sm">`;
+    : `<input class="cfg-input um-field-key wfd-mono-sm" data-idx="${i}"
+         value="${escHtml(f.key||'')}" placeholder="Champ" list="${pfx}-um-meta-list">`;
 };
 
   const fields = (cfg.fields||[]).map((f,i) => {
@@ -6478,10 +6424,9 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
     return `
   <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:5px;align-items:center;margin-bottom:4px;">
     ${fieldKeyCtrl(f,i)}
-    <input class="cfg-input um-field-val" data-idx="${i}"
+    <input class="cfg-input um-field-val wfd-mono-sm" data-idx="${i}"
       list="${pfx}-wfd-var-list"
-      value="${escHtml(f.value||'')}" placeholder="Valeur ou {variable}"
-      class="wfd-mono-sm">
+      value="${escHtml(f.value||'')}" placeholder="Valeur ou {variable}">
     <div style="display:flex;gap:2px;">
       ${[['write','W','Ecrire'],['reset','R','Effacer'],['copy','C','Copier']].map(([v,ic,lb]) =>
         `<button class="wfd-um-op-btn um-field-op-btn ${_fop===v?'active-blue':'inactive-btn'}"
@@ -6514,7 +6459,7 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
   <!-- ID de la cible -->
   <div class="cfg-field">
     <label class="cfg-label" id="${pfx}-um-id-label">Identifiant cible</label>
-    <input id="${pfx}-um-target-id" class="cfg-input" list="${pfx}-wfd-var-list" class="wfd-mono"
+    <input id="${pfx}-um-target-id" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
       value="${escHtml(cfg.targetId||'')}"
       placeholder="${target==='collection'?'{collection.id}':'{asset.id}'}">
     <div class="wfd-hint-top3">Variable ou valeur fixe — ex&nbsp;: <code>{asset.id}</code>, <code>{prime_id}</code>, <code>{vars.monId}</code></div>
@@ -6541,10 +6486,10 @@ function _buildUpdateMetaPanel(pfx, cfg, wfdData) {
   <!-- Champs -->
   <div class="cfg-field" style="min-height:0;display:flex;flex-direction:column;">
     <div class="wfd-row-sb-mb6">
-      <label class="cfg-label" class="wfd-m0">
+      <label class="cfg-label wfd-m0">
         ${mode==='view'?'Valeurs à écrire dans la vue':'Champs à mettre à jour'}
       </label>
-      <button class="cfg-btn" class="wfd-pad-3-10b" onclick="${pfx}AddUmField()">+ Champ</button>
+      <button class="cfg-btn wfd-pad-3-10b" onclick="${pfx}AddUmField()">+ Champ</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 24px;gap:5px;
       font-size:10px;color:#555;margin-bottom:4px;padding:0 2px;">
@@ -6643,8 +6588,8 @@ function _umAddField(pfx) {
            <option value="">— Champ meta —</option>
            ${names.map(n => `<option value="${n}">${escHtml(n)}</option>`).join('')}
          </select>`
-      : `<input class="cfg-input um-field-key" data-idx="${i}"
-           value="" placeholder="Champ" list="${pfx}-um-meta-list" class="wfd-mono-sm">`;
+      : `<input class="cfg-input um-field-key wfd-mono-sm" data-idx="${i}"
+           value="" placeholder="Champ" list="${pfx}-um-meta-list">`;
     const listId = pfx + '-wfd-var-list';
     const valWidget = '<input class="cfg-input um-field-val" data-idx="' + i + '" value="" '
       + 'placeholder="Valeur ou {variable}" list="' + listId + '" class="wfd-mono-sm">';
@@ -6915,7 +6860,7 @@ function _buildAclPanel(pfx, cfg, wfdData) {
   <!-- ID cible -->
   <div class="cfg-field">
     <label class="cfg-label" id="${pfx}-acl-id-label">${target==='collection'?'ID de la collection':"ID de l'asset"}</label>
-    <input id="${pfx}-acl-target-id" class="cfg-input" class="wfd-mono" list="${pfx}-wfd-var-list"
+    <input id="${pfx}-acl-target-id" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
       value="${escHtml(cfg.targetId||'')}"
       placeholder="${target==='collection'?'{collection.id}':'{asset.id}'}">
   </div>
@@ -6945,8 +6890,8 @@ function _buildAclPanel(pfx, cfg, wfdData) {
   <!-- Entries teams -->
   <div class="cfg-field">
     <div class="wfd-row-sb-mb6">
-      <label class="cfg-label" class="wfd-m0">Teams et permissions</label>
-      <button class="cfg-btn" class="wfd-pad-3-10b" onclick="${pfx}AddAclEntry()">+ Team</button>
+      <label class="cfg-label wfd-m0">Teams et permissions</label>
+      <button class="cfg-btn wfd-pad-3-10b" onclick="${pfx}AddAclEntry()">+ Team</button>
     </div>
     <div id="${pfx}-acl-entries" style="display:flex;flex-direction:column;gap:6px;">
       ${entriesHtml || '<div class="wfd-text-444-11b">Aucune team \u2014 ajoutez-en une.</div>'}
@@ -7143,7 +7088,7 @@ function _buildExportFilePanel(pfx, cfg) {
   <div id="${pfx}-ef-fields">${_buildEfFields(pfx, cfg, target)}</div>
   <div class="cfg-field">
     <label class="cfg-label">Fichier source</label>
-    <input id="${pfx}-ef-source" class="cfg-input" class="wfd-mono" list="${pfx}-wfd-var-list"
+    <input id="${pfx}-ef-source" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
       value="${escHtml(cfg.sourceFile||'')}" placeholder="{asset.id}  ou  {file.path}">
     <div class="wfd-hint-top3">Variable du contexte ou chemin fixe</div>
   </div>
@@ -7327,7 +7272,7 @@ function _buildNotifyPostPanel(pfx, cfg) {
   ${buildWfdVarDatalist(`${pfx}-wfd-var-list`)}
   <div class="cfg-field">
     <label class="cfg-label">URL cible</label>
-    <input id="${pfx}-np-url" class="cfg-input" class="wfd-mono"
+    <input id="${pfx}-np-url" class="cfg-input wfd-mono"
       value="${escHtml(cfg['api-url']||'')}" placeholder="https://api.example.com/ingest">
   </div>
   <div class="cfg-field">
@@ -7343,12 +7288,12 @@ function _buildNotifyPostPanel(pfx, cfg) {
   </div>
   <div class="cfg-field">
     <label class="cfg-label">Headers (JSON)</label>
-    <textarea id="${pfx}-np-headers" class="cfg-textarea" class="wfd-mono-sm2"
+    <textarea id="${pfx}-np-headers" class="cfg-textarea wfd-mono-sm2"
       placeholder='{"Authorization":"Bearer ...","X-API-Key":"..."}'>${escHtml(cfg['api-headers']||'')}</textarea>
   </div>
   <div class="cfg-field">
     <label class="cfg-label">Body template (variables : {title}, {collection}…)</label>
-    <textarea id="${pfx}-np-body" class="cfg-textarea" class="wfd-mono-sm2" rows="5"
+    <textarea id="${pfx}-np-body" class="cfg-textarea wfd-mono-sm2" rows="5"
       placeholder='{"title":"{asset.metadata.titre}","id":"{asset.id}"}'>${escHtml(cfg['api-body']||'')}</textarea>
     <div class="wfd-hint-top3">Utilisez <code>{variable}</code> pour injecter des valeurs du contexte</div>
   </div>
@@ -7356,7 +7301,7 @@ function _buildNotifyPostPanel(pfx, cfg) {
     <label class="cfg-label">Stocker la r\u00e9ponse dans</label>
     <div class="wfd-row-gap6c">
       <span class="wfd-mono-555">{</span>
-      <input id="${pfx}-np-var" class="cfg-input" class="wfd-flex1-mono"
+      <input id="${pfx}-np-var" class="cfg-input wfd-flex1-mono"
         value="${escHtml(cfg.resultVar||'response')}" placeholder="response">
       <span class="wfd-mono-555">}</span>
     </div>
@@ -7410,13 +7355,13 @@ function _buildTranscodePanel(pfx, cfg) {
   ${buildWfdVarDatalist(`${pfx}-wfd-var-list`)}
   <div class="cfg-field">
     <label class="cfg-label">Asset source</label>
-    <input id="${pfx}-tc-asset" class="cfg-input" class="wfd-mono" list="${pfx}-wfd-var-list"
+    <input id="${pfx}-tc-asset" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
       value="${escHtml(cfg.assetId||'')}" placeholder="{asset.id}">
   </div>
   <div class="cfg-field">
     <label class="cfg-label">Pr\u00e9set de transcodage</label>
     <div class="wfd-row-gap6b">
-      <select id="${pfx}-tc-preset" class="cfg-select" class="wfd-flex1" onchange="_tcPresetChange('${pfx}')">
+      <select id="${pfx}-tc-preset" class="cfg-select wfd-flex1" onchange="_tcPresetChange('${pfx}')">
         <option value="">— S\u00e9lectionner un pr\u00e9set —</option>
         ${presetOpts}
         <option value="custom" ${cfg.preset==='custom'?'selected':''}>Personnalis\u00e9…</option>
@@ -7425,7 +7370,7 @@ function _buildTranscodePanel(pfx, cfg) {
   </div>
   <div id="${pfx}-tc-custom-wrap" class="cfg-field" style="${cfg.preset==='custom'?'':'display:none'}">
     <label class="cfg-label">Options FFmpeg personnalis\u00e9es</label>
-    <textarea id="${pfx}-tc-custom" class="cfg-textarea" class="wfd-mono-sm2"
+    <textarea id="${pfx}-tc-custom" class="cfg-textarea wfd-mono-sm2"
       placeholder="-c:v prores_ks -profile:v 3 -c:a pcm_s24le">${escHtml(cfg.customOptions||'')}</textarea>
     <div style="font-size:10px;color:#f39c12;margin-top:3px;">
       \u26a0 Options avanc\u00e9es — la traduction Node-RED utilisera un noeud FFmpeg d\u00e9di\u00e9
@@ -7441,7 +7386,7 @@ function _buildTranscodePanel(pfx, cfg) {
   </div>
   <div class="cfg-field">
   <label class="cfg-label">Collection de destination (optionnel)</label>
-  <input id="${pfx}-tc-collection" class="cfg-input" class="wfd-mono"
+  <input id="${pfx}-tc-collection" class="cfg-input wfd-mono"
          value="${escHtml(cfg.collection||'')}" placeholder="{collection.id}  ou  ID fixe">
   <div id="${pfx}-tc-col-wrap" style="position:relative;margin-top:6px;">
     ${typeof wfdColTreeHtml==='function'
@@ -7461,7 +7406,7 @@ function _buildTranscodePanel(pfx, cfg) {
     <label class="cfg-label">Stocker l'ID du job dans</label>
     <div class="wfd-row-gap6c">
       <span class="wfd-mono-555">{</span>
-      <input id="${pfx}-tc-var" class="cfg-input" class="wfd-flex1-mono"
+      <input id="${pfx}-tc-var" class="cfg-input wfd-flex1-mono"
         value="${escHtml(cfg.resultVar||'transcode_job')}" placeholder="transcode_job">
       <span class="wfd-mono-555">.id}</span>
     </div>
@@ -7542,26 +7487,22 @@ function _buildSubflowPanel(pfx, cfg) {
   // Variables à transmettre explicitement
   const varRows = (cfg.inputVars||[]).map((v,i) => `
     <div class="wfd-grid-3-24">
-      <input class="cfg-input sf-ivar-src" data-idx="${i}"
-        value="${escHtml(v.src||'')}" placeholder="Variable source {asset.id}"
-        class="wfd-mono-sm">
-      <input class="cfg-input sf-ivar-dst" data-idx="${i}"
-        value="${escHtml(v.dst||'')}" placeholder="Nom dans l'enfant"
-        class="wfd-mono-sm">
-      <button class="cfg-btn danger" class="wfd-pad-3-5"
+      <input class="cfg-input sf-ivar-src wfd-mono-sm" data-idx="${i}"
+        value="${escHtml(v.src||'')}" placeholder="Variable source {asset.id}">
+      <input class="cfg-input sf-ivar-dst wfd-mono-sm" data-idx="${i}"
+        value="${escHtml(v.dst||'')}" placeholder="Nom dans l'enfant">
+      <button class="cfg-btn danger wfd-pad-3-5"
         onclick="${pfx}RemoveSfVar(${i})">×</button>
     </div>`).join('');
 
   // Variables retournées
   const retRows = returnVars.map((v,i) => `
     <div class="wfd-grid-3-24">
-      <input class="cfg-input sf-rvar-src" data-idx="${i}"
-        value="${escHtml(v.src||'')}" placeholder="Variable dans l'enfant"
-        class="wfd-mono-sm">
-      <input class="cfg-input sf-rvar-dst" data-idx="${i}"
-        value="${escHtml(v.dst||'')}" placeholder="Nom dans le parent"
-        class="wfd-mono-sm">
-      <button class="cfg-btn danger" class="wfd-pad-3-5"
+      <input class="cfg-input sf-rvar-src wfd-mono-sm" data-idx="${i}"
+        value="${escHtml(v.src||'')}" placeholder="Variable dans l'enfant">
+      <input class="cfg-input sf-rvar-dst wfd-mono-sm" data-idx="${i}"
+        value="${escHtml(v.dst||'')}" placeholder="Nom dans le parent">
+      <button class="cfg-btn danger wfd-pad-3-5"
         onclick="${pfx}RemoveSfRetVar(${i})">×</button>
     </div>`).join('');
 
@@ -7571,11 +7512,11 @@ function _buildSubflowPanel(pfx, cfg) {
   <div class="cfg-field">
     <label class="cfg-label">Workflow à appeler</label>
     <div class="wfd-row-gap6b">
-      <select id="${pfx}-sf-flow" class="cfg-select" class="wfd-flex1">
+      <select id="${pfx}-sf-flow" class="cfg-select wfd-flex1">
         <option value="">— Sélectionner un workflow —</option>
         ${flowOpts || '<option disabled>Aucun autre workflow disponible</option>'}
       </select>
-      <button class="cfg-btn" class="wfd-pad-6-8" title="Rafraîchir"
+      <button class="cfg-btn wfd-pad-6-8" title="Rafraîchir"
         onclick="_sfRefreshFlows('${pfx}')">↺</button>
     </div>
     ${!availableFlows.length ? `<div style="font-size:10px;color:#e74c3c;margin-top:3px;">
@@ -7617,8 +7558,8 @@ function _buildSubflowPanel(pfx, cfg) {
   <!-- Variables explicites à transmettre -->
   <div id="${pfx}-sf-ivars-wrap" style="${ctxMode!=='explicit'?'display:none':''}">
     <div class="wfd-row-sb-mb6">
-      <label class="cfg-label" class="wfd-m0">Variables à transmettre</label>
-      <button class="cfg-btn" class="wfd-pad-3-10b" onclick="${pfx}AddSfVar()">+ Variable</button>
+      <label class="cfg-label wfd-m0">Variables à transmettre</label>
+      <button class="cfg-btn wfd-pad-3-10b" onclick="${pfx}AddSfVar()">+ Variable</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 24px;gap:5px;
       font-size:10px;color:#555;margin-bottom:4px;padding:0 2px;">
@@ -7632,8 +7573,8 @@ function _buildSubflowPanel(pfx, cfg) {
   <!-- Retour de données (sync seulement) -->
   <div id="${pfx}-sf-return-wrap" style="${execMode==='async'?'display:none':''}">
     <div class="wfd-row-sb-mb6">
-      <label class="cfg-label" class="wfd-m0">Variables retournées vers le parent</label>
-      <button class="cfg-btn" class="wfd-pad-3-10b" onclick="${pfx}AddSfRetVar()">+ Variable</button>
+      <label class="cfg-label wfd-m0">Variables retournées vers le parent</label>
+      <button class="cfg-btn wfd-pad-3-10b" onclick="${pfx}AddSfRetVar()">+ Variable</button>
     </div>
     <div class="wfd-hint-mb6">
       Laisser vide pour ne rien récupérer. Disponibles uniquement en mode synchrone.
@@ -7649,7 +7590,7 @@ function _buildSubflowPanel(pfx, cfg) {
 
   <!-- Résumé visuel -->
   <div class="wfd-card-sm2">
-    <div class="cfg-label" class="wfd-mb6b">Comportement</div>
+    <div class="cfg-label wfd-mb6b">Comportement</div>
     <div id="${pfx}-sf-summary" style="font-size:11px;color:#666;line-height:1.6;">
       ${_sfSummaryText(execMode, ctxMode)}
     </div>
@@ -7729,11 +7670,9 @@ function _sfAddVar(pfx, wrId, srcCls, dstCls, removeFn) {
   const div = document.createElement('div');
   div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 24px;gap:5px;align-items:center;';
   div.innerHTML = `
-    <input class="cfg-input ${srcCls}" data-idx="${i}" value="" placeholder="Source"
-      class="wfd-mono-sm">
-    <input class="cfg-input ${dstCls}" data-idx="${i}" value="" placeholder="Destination"
-      class="wfd-mono-sm">
-    <button class="cfg-btn danger" class="wfd-pad-3-5" onclick="${removeFn}(${i})">×</button>`;
+    <input class="cfg-input ${srcCls} wfd-mono-sm" data-idx="${i}" value="" placeholder="Source">
+    <input class="cfg-input ${dstCls} wfd-mono-sm" data-idx="${i}" value="" placeholder="Destination">
+    <button class="cfg-btn danger wfd-pad-3-5" onclick="${removeFn}(${i})">×</button>`;
   wrap.appendChild(div);
   
   try {
@@ -8003,7 +7942,7 @@ function _buildRelatePanel(pfx, cfg) {
   <!-- Asset source (A) -->
   <div class="cfg-field">
     <label class="cfg-label">Asset source (A)</label>
-    <input id="${pfx}-rel-asset-a" class="cfg-input" class="wfd-mono"
+    <input id="${pfx}-rel-asset-a" class="cfg-input wfd-mono"
       value="${escHtml(cfg.assetA||'')}" placeholder="{asset.id}  \u2014  asset d\u00e9clencheur">
     <div class="wfd-hint-top3">
       G\u00e9n\u00e9ralement l\u2019asset original issu du trigger
@@ -8013,7 +7952,7 @@ function _buildRelatePanel(pfx, cfg) {
   <!-- Asset cible (B) -->
   <div class="cfg-field">
     <label class="cfg-label">Asset cible (B)</label>
-    <input id="${pfx}-rel-asset-b" class="cfg-input" class="wfd-mono"
+    <input id="${pfx}-rel-asset-b" class="cfg-input wfd-mono"
       value="${escHtml(cfg.assetB||'')}" placeholder="{new_asset.id}  \u2014  asset cr\u00e9\u00e9 en amont">
     <div class="wfd-hint-top3">
       G\u00e9n\u00e9ralement l\u2019asset cr\u00e9\u00e9 par un n\u0153ud Cr\u00e9er Asset pr\u00e9c\u00e9dent
@@ -8214,9 +8153,9 @@ function svAddRow(pfx) {
   row.dataset.i = i;
   row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 110px 28px;gap:4px;margin-bottom:4px;align-items:center;';
   row.innerHTML =
-    '<input class="cfg-input sv-key" placeholder="nomVar" class="wfd-mono" title="Nom de la variable">' +
-    '<input class="cfg-input sv-value" placeholder="{asset.title}" list="' + varList + '" class="wfd-mono" title="Valeur">' +
-    '<select class="cfg-select sv-mode" class="wfd-fs11">' +
+    '<input class="cfg-input sv-key wfd-mono" placeholder="nomVar" title="Nom de la variable">' +
+    '<input class="cfg-input sv-value wfd-mono" placeholder="{asset.title}" list="' + varList + '" title="Valeur">' +
+    '<select class="cfg-select sv-mode wfd-fs11">' +
       '<option value="set">= Écraser</option>' +
       '<option value="append">+= Ajouter</option>' +
       '<option value="push">[] Push liste</option>' +
@@ -8269,9 +8208,8 @@ function igAddAction(pfx) {
         <select class="cfg-select ig-action" data-i="${i}">
           <option value="">— Action —</option>
         </select>
-        <input class="cfg-input ig-field" data-i="${i}"
-          value="external_id" placeholder="Champ body (ex: external_id)"
-          class="wfd-mono-sm2">
+        <input class="cfg-input ig-field wfd-mono-sm2" data-i="${i}"
+          value="external_id" placeholder="Champ body (ex: external_id)">
         <button onclick="igRemoveAction(${i})"
           class="wfd-del-btn-red">×</button>
       </div>
@@ -9352,10 +9290,10 @@ function hseqAddStep(pfx) {
       <div class="wfd-hint-sec">Nom de l'étape</div>
       <input class="cfg-input hseq-name" placeholder="Ex : Créer le contenu" style="font-size:12px;margin-bottom:8px;">
       <div style="display:flex;gap:0;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden;margin-bottom:8px;">
-        <button onclick="hseqModeChange(this,'action')"    class="hseq-mode-btn" data-mode="action"  class="wfd-tab-seg">Action</button>
+        <button onclick="hseqModeChange(this,'action')"    class="hseq-mode-btn wfd-tab-seg" data-mode="action">Action</button>
         <button onclick="hseqModeChange(this,'simple')"   class="hseq-mode-btn active" data-mode="simple"  style="flex:1;padding:5px 2px;font-size:11px;border:none;border-left:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-primary);cursor:pointer;font-weight:500;">Requête simple</button>
-        <button onclick="hseqModeChange(this,'foreach')"  class="hseq-mode-btn" data-mode="foreach" class="wfd-tab-seg">Pour chaque valeur</button>
-        <button onclick="hseqModeChange(this,'verify')"   class="hseq-mode-btn" data-mode="verify"  class="wfd-tab-seg">Vérifier</button>
+        <button onclick="hseqModeChange(this,'foreach')"  class="hseq-mode-btn wfd-tab-seg" data-mode="foreach">Pour chaque valeur</button>
+        <button onclick="hseqModeChange(this,'verify')"   class="hseq-mode-btn wfd-tab-seg" data-mode="verify">Vérifier</button>
       </div>
       <div class="hseq-mode-panels">
         <div class="hseq-mode-action" style="display:none;">
@@ -9364,34 +9302,34 @@ function hseqAddStep(pfx) {
         <div class="hseq-mode-simple">
           <div style="display:grid;grid-template-columns:100px 1fr;gap:6px;margin-bottom:6px;">
             <div><div class="wfd-hint-sec">Méthode</div>
-              <select class="cfg-select hseq-method" class="wfd-fs11"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></div>
+              <select class="cfg-select hseq-method wfd-fs11"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></div>
             <div><div class="wfd-hint-sec">Endpoint</div>
-              <input class="cfg-input hseq-endpoint" placeholder="/api/..." class="wfd-mono-sm"></div>
+              <input class="cfg-input hseq-endpoint wfd-mono-sm" placeholder="/api/..."></div>
           </div>
           <div class="wfd-hint-sec">Body JSON</div>
-          <textarea class="cfg-textarea hseq-body" rows="3" class="wfd-mono-sm2"></textarea>
+          <textarea class="cfg-textarea hseq-body wfd-mono-sm2" rows="3"></textarea>
         </div>
         <div class="hseq-mode-foreach" style="display:none;">
           <div class="wfd-hint-sec">Variable source</div>
           <input class="cfg-input hseq-fe-source" placeholder="{Realisateur}" style="font-size:11px;font-family:var(--font-mono);margin-bottom:6px;">
           <div style="display:grid;grid-template-columns:100px 1fr;gap:6px;margin-bottom:6px;">
             <div><div class="wfd-hint-sec">Méthode</div>
-              <select class="cfg-select hseq-method" class="wfd-fs11"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></div>
+              <select class="cfg-select hseq-method wfd-fs11"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></div>
             <div><div class="wfd-hint-sec">Endpoint</div>
-              <input class="cfg-input hseq-endpoint" placeholder="/api/..." class="wfd-mono-sm"></div>
+              <input class="cfg-input hseq-endpoint wfd-mono-sm" placeholder="/api/..."></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
             <div><div class="wfd-hint-sec">Rôle (job)</div>
-              <select class="cfg-select hseq-fe-job" class="wfd-fs11">
+              <select class="cfg-select hseq-fe-job wfd-fs11">
                 ${(_hseqRolesForPfx(pfx)).map(j => `<option value="${j}">${j}</option>`).join('')}
               </select></div>
             <div><div class="wfd-hint-sec">Codes à ignorer</div>
-              <input class="cfg-input hseq-fe-ignore" value="409, 422" placeholder="409, 422" class="wfd-mono-sm"></div>
+              <input class="cfg-input hseq-fe-ignore wfd-mono-sm" value="409, 422" placeholder="409, 422"></div>
           </div>
-          <textarea class="cfg-textarea hseq-fe-body" rows="2" class="wfd-mono-sm2" placeholder='{"name":"{{nom}}","external_id":"{{slug(nom)}}"}'></textarea>
+          <textarea class="cfg-textarea hseq-fe-body wfd-mono-sm2" rows="2" placeholder='{"name":"{{nom}}","external_id":"{{slug(nom)}}"}'></textarea>
         </div>
         <div class="hseq-mode-verify" style="display:none;">
-          <input class="cfg-input hseq-endpoint" placeholder="/api/..." class="wfd-mono-sm">
+          <input class="cfg-input hseq-endpoint wfd-mono-sm" placeholder="/api/...">
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary);">
@@ -9682,13 +9620,11 @@ function chkAddRow(pfx) {
       <select class="cfg-select chk-method" style="width:80px;flex-shrink:0;">
         <option>GET</option><option>POST</option>
       </select>
-      <input class="cfg-input chk-endpoint" placeholder="/api/contents/{external_id}"
-        class="wfd-flex1-mono10">
+      <input class="cfg-input chk-endpoint wfd-flex1-mono10" placeholder="/api/contents/{external_id}">
       <button onclick="chkRemoveRow('${pfx}',${i})" class="wfd-del-btn-p4">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 120px 1fr;gap:6px;align-items:center;">
-      <input class="cfg-input chk-path" placeholder="results.amazon.status"
-        class="wfd-mono-xs">
+      <input class="cfg-input chk-path wfd-mono-xs" placeholder="results.amazon.status">
       <select class="cfg-select chk-op">
         <option value="equals">égal à</option>
         <option value="not_equals">différent de</option>
@@ -9696,11 +9632,9 @@ function chkAddRow(pfx) {
         <option value="contains">contient</option>
         <option value="starts_with">commence par</option>
       </select>
-      <input class="cfg-input chk-value" placeholder="ready"
-        class="wfd-mono-xs">
+      <input class="cfg-input chk-value wfd-mono-xs" placeholder="ready">
     </div>
-    <input class="cfg-input chk-label" placeholder="Label (optionnel)"
-      class="wfd-hint-mt6">`;
+    <input class="cfg-input chk-label wfd-hint-mt6" placeholder="Label (optionnel)">`;
   container.appendChild(div);
   div.querySelector('button').onclick = () => chkRemoveRow(pfx, i);
 }

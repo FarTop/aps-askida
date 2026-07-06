@@ -1826,6 +1826,16 @@ nav { display: flex; gap: 2px; }
 .wfd-text-shrink-10 { font-size: 10px; color: #555; flex-shrink: 0; }
 .wfd-tab-seg       { flex: 1; padding: 5px 2px; font-size: 11px; border: none; border-left: 0.5px solid var(--color-border-tertiary); background: transparent; color: var(--color-text-secondary); cursor: pointer; }
 
+/* ── Classes utilitaires wfd-config-panel — lot 3 (makeItem dropdown) ──── */
+.wfd-var-item      { display: flex; align-items: center; gap: 6px; padding: 5px 10px; cursor: pointer; color: #bbb; border-bottom: 1px solid #1a1a1a; transition: background 0.1s; }
+.wfd-var-item-name { flex: 1; color: #7ec8e3; }
+.wfd-var-badge     {
+  font-size: 9px; padding: 1px 5px; border-radius: 3px;
+  background: color-mix(in srgb, var(--badge-color, #888) 13%, transparent);
+  color: var(--badge-color, #888);
+  border: 1px solid color-mix(in srgb, var(--badge-color, #888) 27%, transparent);
+}
+
 /* ── Classes utilitaires wfd-run-panel et wfd-api-ops ──────────────────── */
 .wfd-c-aaa        { color: #aaa; }
 .wfd-label-9-555b { color: #555; font-size: 9px; }
