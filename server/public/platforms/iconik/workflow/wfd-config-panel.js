@@ -4421,7 +4421,7 @@ function buildCfgFields(pfx, family, cfg) {
 
     <div id="${pfx}-hseq-steps">
       ${steps.map((s, i) => stepHtml(s, i)).join('')}
-      ${!steps.length ? `<div style="padding:16px;text-align:center;font-size:12px;color:var(--color-text-secondary);font-style:italic;border:0.5px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);">Aucune étape — cliquer "Ajouter une étape"</div>` : ''}
+      ${!steps.length ? `<div class="hseq-empty-msg" style="padding:16px;text-align:center;font-size:12px;color:var(--color-text-secondary);font-style:italic;border:0.5px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);">Aucune étape — cliquer "Ajouter une étape"</div>` : ''}
     </div>
 
     <div class="cfg-field wfd-mt8">
@@ -9095,7 +9095,8 @@ function hseqToggleStep(hdr) {
 
 function hseqModeChange(btn, mode) {
   const body   = btn.closest('.hseq-step-body');
-  const panels = body.querySelectorAll('[class^="hseq-mode-"]');
+  const panelsWrap = body.querySelector('.hseq-mode-panels');
+  const panels = panelsWrap ? panelsWrap.querySelectorAll('[class^="hseq-mode-"]') : [];
   panels.forEach(p => { p.style.display = 'none'; });
   const target = body.querySelector('.hseq-mode-' + mode);
   if (target) target.style.display = '';
@@ -9125,7 +9126,7 @@ function hseqAddStep(pfx) {
   const container = document.getElementById(pfx + '-hseq-steps');
   if (!container) return;
   // Retirer le message vide si présent
-  const empty = container.querySelector('[style*="font-style:italic"]');
+  const empty = container.querySelector('.hseq-empty-msg');
   if (empty) empty.remove();
   const n = container.querySelectorAll('.hseq-step').length;
   const div = document.createElement('div');
