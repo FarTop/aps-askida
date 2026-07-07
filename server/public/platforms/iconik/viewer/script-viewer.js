@@ -11,8 +11,8 @@ function visGetColPaths(){
   function getPath(c){
     if(!c) return '';
     if(c._vpath!==null) return c._vpath;
-    if(!c.parent_id||!byId[c.parent_id]){c._vpath=c.name;}
-    else{c._vpath=getPath(byId[c.parent_id])+'/'+c.name;}
+    if(!c.parent_id||!byId[c.parent_id]){c._vpath=c.name||c.nom;}
+    else{c._vpath=getPath(byId[c.parent_id])+'/'+(c.name||c.nom);}
     return c._vpath;
   }
   return cols.map(function(c){return '/'+getPath(byId[c.id])+'/';});
@@ -75,11 +75,23 @@ function cfg_applyUI(){
 
 /* WFD: duplicate cfg_getTopRoots removed */
 
-function loadData(){
-  try{collectionsData=JSON.parse(localStorage.getItem('collectionsData'))||{collections:[]};}catch(e){}
-  try{teamsData=JSON.parse(localStorage.getItem('teamsData'))||{teams:[]};}catch(e){}
-  try{roleGroupsData=JSON.parse(localStorage.getItem('roleGroupsData'))||{roleGroups:[]};}catch(e){}
-  var b=document.getElementById('orgBadge');if(b)b.textContent=localStorage.getItem('organisationName')||'';
+async function loadData(){
+  try {
+    const envsRes = await fetch('/api/environments/credentials');
+    const envs = await envsRes.json();
+    const env = (envs || []).find(function(e){ return e.isDefault; }) || (envs || [])[0];
+    if (!env) { collectionsData={collections:[]}; teamsData={teams:[]}; roleGroupsData={roleGroups:[]}; return; }
+    const snapRes = await fetch('/api/ikon/snapshot/' + encodeURIComponent(env.environment));
+    if (!snapRes.ok) { collectionsData={collections:[]}; teamsData={teams:[]}; roleGroupsData={roleGroups:[]}; return; }
+    const snap = await snapRes.json();
+    collectionsData = { collections: snap.collections || [] };
+    teamsData       = { teams: snap.teams || [] };
+    roleGroupsData  = { roleGroups: snap.roleGroups || [] };
+    var b=document.getElementById('orgBadge'); if(b) b.textContent = (snap.env && snap.env.name) || '';
+  } catch(e) {
+    console.warn('[Viewer] Erreur chargement snapshot :', e);
+    collectionsData={collections:[]}; teamsData={teams:[]}; roleGroupsData={roleGroups:[]};
+  }
 }
 document.addEventListener('DOMContentLoaded',loadData);
 var _tt=null;
@@ -212,9 +224,9 @@ function cfg_zoom(d){
 }
 
 // ✅ Ton cfg_load actuel (inchangé)
-function cfg_load(opts){
+async function cfg_load(opts){
   opts = opts || {};
-  loadData();
+  await loadData();
 
   var cols = visGetColPaths();
   if(!cols.length){ toast('Aucune collection'); return; }
@@ -670,7 +682,7 @@ function dStartRename(id){var el=document.getElementById('dn-'+id);if(!el)return
 function dBuildPaths(){var paths=[];function build(id,prefix){var node=dNodes.find(function(n){return n.id===id;});if(!node)return;var p=prefix+'/'+node.label;paths.push(p+'/');dEdges.filter(function(e){return e.from===id;}).forEach(function(e){build(e.to,p);});}var childIds=dEdges.map(function(e){return e.to;});dNodes.filter(function(n){return!childIds.includes(n.id);}).forEach(function(root){build(root.id,'');});return paths;}
 function dUpdateExport(){var paths=dBuildPaths();var panel=document.getElementById('dsn-export');var prev=document.getElementById('dsn-preview');if(!paths.length){panel.classList.add('hidden');return;}panel.classList.remove('hidden');prev.innerHTML=paths.map(function(p){return'<div class="dsn-preview-path">'+p+'</div>';}).join('');}
 function dsn_showExport(){var paths=dBuildPaths();if(!paths.length){toast('Dessinez une arborescence');return;}var panel=document.getElementById('dsn-export');panel.classList.toggle('hidden');}
-function dsn_doImport(){var paths=dBuildPaths();if(!paths.length)return;loadData();var existingPaths=visGetColPaths();var existing=collectionsData.collections||[];var added=0;paths.forEach(function(p){if(!existingPaths.includes(p)){existing.push(p);existingPaths.push(p);added++;}});collectionsData.collections=existing;localStorage.setItem('collectionsData',JSON.stringify(collectionsData));document.getElementById('dsn-export').classList.add('hidden');toast(added+' collection'+(added>1?'s':'')+' importee');}
+async function dsn_doImport(){var paths=dBuildPaths();if(!paths.length)return;await loadData();var existingPaths=visGetColPaths();var existing=collectionsData.collections||[];var added=0;paths.forEach(function(p){if(!existingPaths.includes(p)){existing.push(p);existingPaths.push(p);added++;}});collectionsData.collections=existing;localStorage.setItem('collectionsData',JSON.stringify(collectionsData));document.getElementById('dsn-export').classList.add('hidden');toast(added+' collection'+(added>1?'s':'')+' importee');}
 function dsn_clear(){dSnapshot();dNodes=[];dEdges=[];dSel=null;var vp=document.getElementById('dsn-vp');Array.from(vp.children).forEach(function(c){if(c.tagName!=='svg')c.remove();});document.getElementById('dsn-svg').innerHTML='';document.getElementById('dsn-export').classList.add('hidden');toast('Designer vide');}
 function dsn_fit(){var wrap=document.getElementById('mode-designer');if(!dNodes.length)return;var maxX=0,maxY=0;dNodes.forEach(function(n){maxX=Math.max(maxX,n.x+DSN_W);maxY=Math.max(maxY,n.y+DSN_H);});var s=Math.min((wrap.clientWidth-80)/maxX,(wrap.clientHeight-80)/maxY,2);DS=s;DTX=40;DTY=40;dApply();}
 function dsn_zoom(d){var wrap=document.getElementById('mode-designer'),cx=wrap.clientWidth/2,cy=wrap.clientHeight/2;var ns=Math.min(4,Math.max(.15,DS+d));DTX=cx-(cx-DTX)*(ns/DS);DTY=cy-(cy-DTY)*(ns/DS);DS=ns;dApply();}
