@@ -3361,6 +3361,7 @@ async function aws_s3(node, ctx, iconikClient) {
     // Extraire les clés
     const keyMatches = [...resText.matchAll(/<Key>([^<]+)<\/Key>/g)];
     const keys = keyMatches.map(m => m[1]);
+    console.log('[DEBUG aws_s3 list_objects] prefix cherché:', objectKey, '| count:', count, '| clés trouvées:', keys.slice(0, 10));
     const result = { status: res.status, count, prefix: objectKey, keys, rawXml: resText };
     WfdContext.storeResult(ctx, resultVar, result);
     WfdContext.setVar(ctx, resultVar + '_count', String(count));
