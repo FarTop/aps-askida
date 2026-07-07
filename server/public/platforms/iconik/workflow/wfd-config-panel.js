@@ -7828,11 +7828,12 @@ function svAddRow(pfx) {
   const varList = document.getElementById((pfx||'cfg') + '-wfd-var-list')?.id || '';
   const i = container.children.length;
   const row = document.createElement('div');
-  row.className = 'sv-row wfd-sv-row-grid-4';
+  row.className = 'sv-row wfd-sv-row-grid-5';
   row.dataset.i = i;
   row.innerHTML =
     '<input class="cfg-input sv-key wfd-mono" placeholder="nomVar" title="Nom de la variable">' +
-    '<input class="cfg-input sv-value wfd-mono" placeholder="{asset.title}" list="' + varList + '" title="Valeur">' +
+    '<input class="cfg-input sv-value wfd-mono" placeholder="{asset.title}" list="' + varList + '" title="Cliquez sur {...} pour choisir une variable disponible">' +
+    '<button type="button" onclick="event.preventDefault();event.stopPropagation();_ouvrirVarDropdown(this.previousElementSibling)" class="wfd-sv-var-btn" title="Choisir une variable disponible">{…}</button>' +
     '<select class="cfg-select sv-mode wfd-fs11">' +
       '<option value="set">= Écraser</option>' +
       '<option value="append">+= Ajouter</option>' +
