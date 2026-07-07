@@ -396,7 +396,35 @@ router.post('/trigger-manual', async (req, res) => {
   const { fluxId, payload } = req.body || {};
   if (!_engine) return res.status(503).json({ error: 'Engine non initialisé' });
   try {
-    const ctx = await _engine.triggerManual(fluxId, payload || {});
+    let ctx;
+    // Chemin rapide : le flux est actif, déjà dans le cache du moteur
+    const activeFluxes = _engine._getFluxes?.() || [];
+    if (activeFluxes.some(f => f.id === fluxId)) {
+      ctx = await _engine.triggerManual(fluxId, payload || {});
+    } else {
+      // Le flux n'est pas actif — le recharger directement depuis la DB.
+      // Permet de tester un déclencheur/run manuel SANS avoir à activer le
+      // flux au préalable (l'activer aurait un effet de bord réel : le flux
+      // se mettrait à écouter les vrais événements entrants).
+      const { PrismaClient } = require('@prisma/client');
+      const { PrismaPg }     = require('@prisma/adapter-pg');
+      const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+      const prisma  = new PrismaClient({ adapter });
+      let flowRow;
+      try {
+        flowRow = await prisma.flow.findUnique({ where: { id: fluxId }, include: { environment: true } });
+      } finally {
+        await prisma.$disconnect();
+      }
+      if (!flowRow) return res.status(404).json({ status: 'failed', error: 'Flux introuvable — ' + fluxId });
+      const flux = {
+        id: flowRow.id, name: flowRow.name, nodes: flowRow.nodes || [], connections: flowRow.connections || [],
+        isActive: flowRow.isActive, iconikEnv: flowRow.environment?.name || null,
+      };
+      ctx = await _engine._trigger._runFlux(flux, {
+        _manual: true, _triggeredAt: new Date().toISOString(), ...(payload || {}),
+      });
+    }
     res.json({ status: ctx?.status || 'success', runId: ctx?.runId || '',
                fluxId: ctx?.fluxId || fluxId, vars: ctx?.vars || {}, errors: ctx?.errors || [] });
   } catch(err) {
