@@ -8,7 +8,7 @@
 </head>
 <body>
 <header>
-  <img src="../_images/logo.svg?v=1772619673" alt="Logo" style="height:26px;width:auto;display:block;"><span id="orgBadge" class="hdr-org"></span></div>
+  <img src="../_images/logo.svg?v=1772619673" alt="Logo" class="viewer-logo-img"><span id="orgBadge" class="hdr-org"></span></div>
   <nav>
     <button class="nav-btn" onclick="location.href='../dashboard/dashboard.html'">DASHBOARD</button>
     <button class="nav-btn" onclick="location.href='../settings/settings.html'">SETTINGS</button>
@@ -25,7 +25,7 @@
   </div>
 </header>
 <div class="visu-toolbar" id="tb-image">
-  <label class="tb-btn" style="cursor:pointer">&#128194; Charger image<input type="file" id="file-input" accept="image/*" onchange="img_load(event)" style="display:none"></label>
+  <label class="tb-btn viewer-upload-label">&#128194; Charger image<input type="file" id="file-input" accept="image/*" onchange="img_load(event)" class="hidden"></label>
   <div class="tb-sep"></div>
   <button class="tb-btn" onclick="img_zoom(.25)">＋</button>
   <span class="tb-zoom" id="img-zlbl">100%</span>
@@ -38,13 +38,13 @@
   <button class="tb-btn" onclick="img_fs()">&#9974; Plein ecran</button>
   <span class="tb-hint" id="img-hint">Chargez une image PNG</span>
 </div>
-<div class="visu-toolbar" id="tb-config" style="display:none">
+<div class="visu-toolbar hidden" id="tb-config">
   <button class="tb-btn go" onclick="cfg_load({preset:'demo'})">🎬 Démo</button>
   <button class="tb-btn" onclick="cfg_load({global:true})">🌐 Global</button>
   <select class="tb-btn" id="cfg-root" title="Racine">
   <option value="">(Tous)</option>
   </select>
-  <input class="tb-btn" id="cfg-depth" type="number" min="0" value="1" style="width:70px" title="Profondeur">
+  <input class="tb-btn viewer-depth-input" id="cfg-depth" type="number" min="0" value="1" title="Profondeur">
   <button class="tb-btn" onclick="cfg_applyUI()">↻ Appliquer</button>
   <div class="tb-sep"></div>
   <button class="tb-btn go" onclick="cfg_load()">&#8635; Charger donnees</button>
@@ -60,11 +60,11 @@
   <button class="tb-btn y" onclick="cfg_exportExcel()">&#11015; Excel</button>
   <span class="tb-hint">Clic = carte · Shift+clic = surbrillance · Molette = zoom</span>
 </div>
-<div class="visu-toolbar" id="tb-designer" style="display:none">
+<div class="visu-toolbar hidden" id="tb-designer">
   <button class="tb-btn go" onclick="dsn_addRoot()">&#128193;＋ Nouveau dossier</button>
   <div class="tb-sep"></div>
   <button class="tb-btn" onclick="dsn_save()" title="Sauvegarder le brouillon">&#128190; Sauvegarder</button>
-  <button class="tb-btn" id="btn-dsn-load" onclick="dsn_loadDraft()" style="display:none" title="Reprendre le brouillon">&#128194; Reprendre</button>
+  <button class="tb-btn hidden" id="btn-dsn-load" onclick="dsn_loadDraft()" title="Reprendre le brouillon">&#128194; Reprendre</button>
   <div class="tb-sep"></div>
   <button class="tb-btn" onclick="dsn_undo()">&#8617; Annuler</button>
   <button class="tb-btn" onclick="dsn_redo()">&#8618; Retablir</button>
@@ -85,24 +85,24 @@
 </div>
 <div id="visu-main">
   <div id="mode-image" class="active">
-    <div id="img-vp"><img id="arbo-img" src="" alt="" style="display:none"></div>
-    <div id="img-empty"><div class="ei">&#128193;</div><h3>AUCUNE IMAGE CHARGEE</h3><p>Chargez votre schema PNG pour naviguer</p><label class="btn-up">&#128194; Charger une image<input type="file" accept="image/*" onchange="img_load(event)" style="display:none"></label></div>
-    <div id="img-minimap"><img id="mm-img" src="" alt=""><div id="mm-vp"></div></div>
+    <div id="img-vp"><img id="arbo-img" src="" alt="" class="hidden"></div>
+    <div id="img-empty"><div class="ei">&#128193;</div><h3>AUCUNE IMAGE CHARGEE</h3><p>Chargez votre schema PNG pour naviguer</p><label class="btn-up">&#128194; Charger une image<input type="file" accept="image/*" onchange="img_load(event)" class="hidden"></label></div>
+    <div id="img-minimap" class="hidden"><img id="mm-img" src="" alt=""><div id="mm-vp"></div></div>
   </div>
   <div id="mode-config">
     <div id="cfg-empty"><div class="ei">&#127795;</div><p>Cliquez sur "Charger donnees" pour afficher l'arborescence</p></div>
     <div id="cfg-vp"><svg id="cfg-svg"></svg></div>
   </div>
   <div id="mode-designer">
-    <div id="dsn-vp"><svg id="dsn-svg"></svg><div id="dsn-lasso"></div></div>
-    <div id="dsn-export" style="display:none">
+    <div id="dsn-vp"><svg id="dsn-svg"></svg><div id="dsn-lasso" class="hidden"></div></div>
+    <div id="dsn-export" class="hidden">
       <h4>&#128203; Chemins generes</h4>
       <div id="dsn-preview"></div>
-      <button class="tb-btn y" style="width:100%" onclick="dsn_doImport()">&#10003; Importer dans Collections</button>
+      <button class="tb-btn y viewer-btn-full" onclick="dsn_doImport()">&#10003; Importer dans Collections</button>
     </div>
   </div>
 </div>
-<svg id="conn-svg"></svg>
+<svg id="conn-svg" class="hidden"></svg>
 <div class="vtoast" id="vtoast"></div>
   <script src="../_vendor/exceljs/exceljs.min.js"></script>
   <script type="module" src="../_vendor/exceljs/export-exceljs.browser.js"></script>
