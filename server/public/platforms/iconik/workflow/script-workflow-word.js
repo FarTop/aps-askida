@@ -1244,7 +1244,7 @@ function _getS3Usage(nodes) {
   const cfg = n.config || {};
   let u = '';
   if (cfg.bucket) u += 'Bucket ' + cfg.bucket;
-  if (cfg.prefix) u += ' — dossier ' + cfg.prefix;
+  if (cfg.objectKey) u += ' — dossier ' + cfg.objectKey;
   return u || 'Stockage des fichiers';
 }
 
@@ -1314,7 +1314,7 @@ function _enrichNodeDesc(node) {
       const conn = (typeof wfdConnexions !== 'undefined' && cfg.connexionId)
         ? wfdConnexions.find(c => c.id === cfg.connexionId) : null;
       const bucket = conn?.awsBucket || cfg.bucket || '';
-      const prefix = cfg.prefix || '';
+      const prefix = cfg.objectKey || '';
       if (bucket) parts.push('Bucket : ' + bucket);
       if (prefix) parts.push('Préfixe : ' + prefix);
       break;
@@ -1476,7 +1476,7 @@ function _collectAllVars(nodes) {
             ].filter(Boolean);
         _s3mv.forEach(function(m){ if (m.variable) register(m.variable, 'produce', name, 'URL S3'); });
         // Variables consommées dans le préfixe
-        _extractTemplatevars(cfg.prefix || '').forEach(v => register(v, 'consume', name, ''));
+        _extractTemplatevars(cfg.objectKey || '').forEach(v => register(v, 'consume', name, ''));
         break;
       }
       case 'http_request':
@@ -1586,7 +1586,7 @@ function _collectAllEndpoints(nodes) {
       const rconn  = (typeof wfdConnexions !== 'undefined' && cfg.connexionId)
         ? wfdConnexions.find(c => c.id === cfg.connexionId) : null;
       const bucket = rconn?.awsBucket || cfg.bucket || '{bucket}';
-      const prefix = cfg.prefix || '';
+      const prefix = cfg.objectKey || '';
       endpoints.push({
         method: 'LIST', conn: rconn?.name || 'AWS S3',
         url: 'https://s3.amazonaws.com/' + bucket + (prefix ? '?prefix=' + prefix : ''),
@@ -1678,7 +1678,7 @@ function _buildNodeSpecs(node, cfg, det, mappingRows, conns, allNodes) {
       }
       add('Protocole', 'HTTPS — AWS S3 REST API avec Signature V4');
       add('Opération', cfg.operation || 'LIST objects (GET avec query list-type=2&prefix=)');
-      add('Chemin / Préfixe', cfg.prefix, { mono: true });
+      add('Chemin / Préfixe', cfg.objectKey, { mono: true });
       add('Résultat si KeyCount > 0', 'Bypass export — extraction des URLs S3');
       add('Résultat si KeyCount = 0', 'Déclenchement de l\'export');
       // Mappings configurables (s3Mappings) avec fallback anciens champs
