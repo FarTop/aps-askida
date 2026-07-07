@@ -4995,10 +4995,16 @@ function sauvegarderConfig() {
     node.config.fetchTarget    = g('fetch-meta-target') || 'asset';
     const fieldsEl = document.getElementById('cfg-fetch-meta-fields');
         node.config.metadataFields  = wfdFetchReadTags('cfg');
-    const _ssEl = document.getElementById('cfg-ss-id');
+    // cfg-ss-id (select) n'existe que s'il y a des Saved Searches disponibles (wfdData.savedSearches) —
+    // sinon c'est cfg-ss-id-manual (champ texte libre) qui est affiché. Lire depuis le bon élément
+    // selon la même condition que le rendu (cf. bug 'ID Saved Search jamais persisté', 07/07/2026) :
+    // avant ce fix, _ssEl pointait toujours sur le select, même caché, donc un ID tapé manuellement
+    // n'était jamais sauvegardé.
+    const _hasSavedSearches = (wfdData.savedSearches||[]).length > 0;
+    const _ssEl = document.getElementById(_hasSavedSearches ? 'cfg-ss-id' : 'cfg-ss-id-manual');
     node.config.savedSearchId   = _ssEl?.value || '';
     // Stocker aussi le nom pour l'affichage canvas (indépendant de wfdData)
-    if (_ssEl?.tagName === 'SELECT') {
+    if (_hasSavedSearches) {
       const _ssOpt = _ssEl.options[_ssEl.selectedIndex];
       node.config.savedSearchName = _ssOpt?.text || '';
     } else {
