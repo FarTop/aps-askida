@@ -361,11 +361,31 @@ function onFieldChange(blockId, ci, field) {
   if (!ops.find(o => o.v === block.criteria[ci].op)) {
     block.criteria[ci].op = ops[0]?.v || 'equals';
   }
-  if (field === '__collection__') block.criteria[ci].value = '';
+  if (field === '__collection__') block.criteria[ci].value = '[]';
   rerendreBlocs();
 }
 
-function buildColTreeHtml(selectedId, blockId, ci) {
+function _parseColIds(value) {
+  // Compat : ancienne valeur = ID simple (string), nouvelle = tableau JSON
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed;
+  } catch(e) {}
+  return [value]; // ancienne valeur simple, migrée en tableau à un élément
+}
+
+function buildColTagsHtml(selectedIds, blockId, ci) {
+  if (!selectedIds.length) return '<span class="aps-col-empty-msg">— aucune collection sélectionnée —</span>';
+  return selectedIds.map(id => {
+    const col = _colDict[id];
+    const name = col ? col.name : (id.slice(0,8)+'...');
+    return '<span class="aps-col-tag">📁 ' + name.replace(/</g,'&lt;') +
+      '<span class="aps-col-tag-del" onclick="event.stopPropagation();removeColTag(' + blockId + ',' + ci + ',\'' + id + '\')">×</span></span>';
+  }).join('');
+}
+
+function buildColTreeHtml(selectedIds, blockId, ci) {
   if (!Object.keys(_colDict).length) return '<div class="aps-col-empty-msg">Collections non chargées</div>';
   // Construire l'arbo depuis _colDict
   const roots = Object.entries(_colDict).filter(([id,c]) => !c.parent_id);
@@ -373,8 +393,8 @@ function buildColTreeHtml(selectedId, blockId, ci) {
     const col = _colDict[id];
     if (!col) return '';
     const children = Object.entries(_colDict).filter(([cid,c]) => c.parent_id === id);
-    const selected = id === selectedId;
-    let html = '<div onclick="selectCol(\'' + blockId + '\''+ ',' + ci + ',\''+id+'\')" class="aps-col-tree-node'+(selected?' selected':'')+'" style="--indent:'+depth+';">'
+    const selected = selectedIds.includes(id);
+    let html = '<div onclick="toggleCol(\'' + blockId + '\''+ ',' + ci + ',\''+id+'\')" class="aps-col-tree-node'+(selected?' selected':'')+'" style="--indent:'+depth+';">'
       + (children.length ? '▸ ' : '  ') + col.name + '</div>';
     if (children.length) {
       children.forEach(([cid]) => { html += renderNode(cid, depth+1); });
@@ -384,16 +404,28 @@ function buildColTreeHtml(selectedId, blockId, ci) {
   return roots.map(([id]) => renderNode(id, 0)).join('');
 }
 
-function selectCol(blockId, ci, colId) {
+function toggleCol(blockId, ci, colId) {
   // Lire l'état DOM avant de modifier
   lireBlocs();
   const block = _blocks.find(b => b.id == blockId); // == intentionnel (string vs number)
   if (!block) return;
   // S'assurer que le critère existe
   if (!block.criteria[ci]) {
-    block.criteria[ci] = { field:'__collection__', op:'in_branch', value:'', join:'AND' };
+    block.criteria[ci] = { field:'__collection__', op:'in_branch', value:'[]', join:'AND' };
   }
-  block.criteria[ci].value = colId;
+  const ids = _parseColIds(block.criteria[ci].value);
+  const idx = ids.indexOf(colId);
+  if (idx >= 0) ids.splice(idx, 1); else ids.push(colId);
+  block.criteria[ci].value = JSON.stringify(ids);
+  rerendreBlocs();
+}
+
+function removeColTag(blockId, ci, colId) {
+  lireBlocs();
+  const block = _blocks.find(b => b.id == blockId);
+  if (!block || !block.criteria[ci]) return;
+  const ids = _parseColIds(block.criteria[ci].value).filter(id => id !== colId);
+  block.criteria[ci].value = JSON.stringify(ids);
   rerendreBlocs();
 }
 
@@ -419,17 +451,16 @@ function rerendreBlocs() {
         '<option value="' + o.v + '"' + (crit.op === o.v ? ' selected' : '') + '>' + o.l + '</option>'
       ).join('');
       const isColField = crit.field === '__collection__';
-      const colId = isColField ? (crit.value||'') : '';
-      const colName = colId ? (_colDict[colId]?.name || colId.slice(0,8)+'...') : '';
+      const colIds = isColField ? _parseColIds(crit.value) : [];
       const colBrowse = isColField ? (
         '<div class="aps-col-browse-wrap">' +
-        '<span class="aps-col-name-display" title="'+colId+'">' + (colName||'— aucune —') + '</span>' +
+        '<div class="aps-col-tags">' + buildColTagsHtml(colIds, block.id, ci) + '</div>' +
         '<label class="aps-col-sub-label">' +
         '<input type="checkbox" class="aps-crit-col-sub" data-bid="'+block.id+'" data-ci="'+ci+'"' + ((crit.op||'in_branch')==='in_branch'?' checked':'') + ' onchange="onColSubChange(this)">' +
         'Inclure les sous-dossiers</label>' +
         '<div class="aps-col-tree-wrap">' +
-        buildColTreeHtml(colId, block.id, ci) +
-        '</div><input type="hidden" class="aps-crit-val" value="'+colId+'"></div>'
+        buildColTreeHtml(colIds, block.id, ci) +
+        '</div><input type="hidden" class="aps-crit-val" value=\''+JSON.stringify(colIds)+'\'></div>'
       ) : '';
       return '<div class="aps-crit-row">' +
         (ci > 0
@@ -505,10 +536,14 @@ async function lancerRecherche() {
 
 function _critToFilter(crit) {
   if (!crit.field) return null;
-  // Collection browse
-  if (crit.field === '__collection__' && crit.value) {
+  // Collection browse — supporte la multi-sélection (tableau JSON d'IDs)
+  if (crit.field === '__collection__') {
+    const colIds = _parseColIds(crit.value);
+    if (!colIds.length) return null;
     const fname2 = crit.op === 'in_branch' ? 'ancestor_collections' : 'in_collections';
-    return { name:fname2, value:crit.value, condition:'must' };
+    return colIds.length === 1
+      ? { name:fname2, value:colIds[0], condition:'must' }
+      : { name:fname2, values:colIds, condition:'must' };
   }
   const SYS = ['id','title','date_created','date_modified','object_type','status','archive_status','external_id'];
   const fname = SYS.includes(crit.field) ? crit.field : 'metadata.' + crit.field;
