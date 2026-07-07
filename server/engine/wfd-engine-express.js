@@ -537,6 +537,25 @@ router.post('/release-node', (req, res) => {
   res.json({ ok, runId, nodeId, port });
 });
 
+// ── GET /wfd/saved-searches/:envName ──────────────────────────────
+// Récupère les Saved Searches DIRECTEMENT depuis Iconik (jamais depuis le
+// snapshot DB) pour le bouton 'Actualiser depuis Iconik' du nœud Fetch.
+// Deux raisons de passer par le serveur plutôt qu'un fetch() direct client :
+//  1. CORS — Iconik n'autorise pas les appels navigateur cross-origin.
+//  2. Le proxy générique /api/iconik/:env/... sert CE chemin précis depuis
+//     le snapshot DB (potentiellement périmé) — on veut ici explicitement
+//     la liste la plus à jour, donc un appel direct à l'API réelle.
+router.get('/saved-searches/:envName', async (req, res) => {
+  const client = _iconikClients[req.params.envName];
+  if (!client) return res.status(404).json({ error: `Client Iconik introuvable pour l'environnement "${req.params.envName}"` });
+  try {
+    const data = await client.get('/API/search/v1/search/saved/?per_page=200');
+    res.json({ ok: true, objects: data?.objects || [] });
+  } catch (e) {
+    res.status(502).json({ ok: false, error: e.message });
+  }
+});
+
 // ── POST /wfd/reject-node ────────────────────────────────────────
 router.post('/reject-node', (req, res) => {
   const { runId, nodeId, reason } = req.body || {};

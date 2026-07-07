@@ -8025,12 +8025,10 @@ async function wfdRefreshSavedSearches(pfx) {
   }
 
   try {
-    const res = await fetch(
-      (env.iconikUrl || 'https://app.iconik.io') + '/API/search/v1/search/saved/?per_page=200',
-      { headers: { 'App-ID': env.appId, 'Auth-Token': env.token || env.appToken, 'Accept': 'application/json' } }
-    );
-    const data = await res.json();
-    const searches = data.objects || [];
+    const res = await fetch('/wfd/saved-searches/' + encodeURIComponent(env.name));
+    const payload = await res.json();
+    if (!res.ok || payload.ok === false) throw new Error(payload.error || ('Erreur HTTP ' + res.status));
+    const searches = payload.objects || [];
 
     // Mettre à jour wfdData en mémoire
     const _mapped = searches.map(s => ({ id: s.id, name: s.title || s.name || s.id }));
