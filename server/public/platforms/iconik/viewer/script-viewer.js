@@ -399,11 +399,172 @@ function cfg_build(cols){
   });
 }
 function cfg_getTeams(chemin){var normC=chemin.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');var res=[];(teamsData.teams||[]).forEach(function(t){var f=(t.collections||[]).find(function(c){var ch=typeof c==='string'?c:(c.chemin||c.nom||'');var normCh=ch.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');return normCh===normC;});if(f)res.push({nom:t.nom,permission:(f.permission||''),isRG:false});});(roleGroupsData.roleGroups||[]).forEach(function(rg){var f=(rg.collections||[]).find(function(c){return(typeof c==='string'?c:c.chemin)===chemin;});if(f)res.push({nom:rg.nom,permission:(f.permission||''),isRG:true});});return res;}
-function cfg_toggleCard(chemin,nodeEl,nx,ny){if(cfgCards[chemin]){cfgCards[chemin].remove();delete cfgCards[chemin];nodeEl.classList.remove('open');return;}nodeEl.classList.add('open');var card=cfg_buildCard(chemin,nodeEl,nx,ny,CFG_H);cfgCards[chemin]=card;document.getElementById('cfg-vp').appendChild(card);}
-function cfg_buildCard(chemin,nodeEl,nx,ny,nodeH){var h=nodeH||CFG_H;var card=document.createElement('div');card.className='cfg-card';card.style.left=nx+'px';card.style.top=(ny+h+10)+'px';var nom=chemin.split('/').filter(Boolean).pop()||chemin;var hdr=document.createElement('div');hdr.className='cfg-card-hdr';var title=document.createElement('div');title.className='cfg-card-title';title.textContent=nom;title.title=chemin;var cls=document.createElement('button');cls.className='cfg-card-close';cls.textContent='x';cls.addEventListener('click',function(e){e.stopPropagation();card.remove();delete cfgCards[chemin];nodeEl.classList.remove('open');});hdr.appendChild(title);hdr.appendChild(cls);card.appendChild(hdr);var teams=cfg_getTeams(chemin);var sec=document.createElement('div');sec.className='cfg-sec';var st=document.createElement('div');st.className='cfg-sec-title';st.textContent=teams.length?'Acces':'';sec.appendChild(st);if(!teams.length){var e2=document.createElement('div');e2.className='cfg-empty-row';e2.textContent='Aucun acces configure';sec.appendChild(e2);}else{teams.forEach(function(t){var row=document.createElement('div');row.className='cfg-row';var dot=document.createElement('span');dot.className='cfg-dot'+(t.isRG?' rg':'');var nm=document.createElement('span');nm.className='cfg-rname';nm.textContent=t.nom;row.appendChild(dot);row.appendChild(nm);if(t.permission){var isRW=t.permission==='Read & Write';var pb=document.createElement('span');pb.className='cfg-rperm'+(isRW?' rw':'');pb.textContent=isRW?'R&W':'RO';row.appendChild(pb);}sec.appendChild(row);});}card.appendChild(sec);var sp=document.createElement('div');sp.className='cfg-sec';var spt=document.createElement('div');spt.className='cfg-sec-title';spt.textContent='Chemin';sp.appendChild(spt);var spv=document.createElement('div');spv.className='cfg-empty-row';spv.textContent=chemin;sp.appendChild(spv);card.appendChild(sp);return card;}
+function cfg_toggleCard(chemin,nodeEl,nx,ny){if(cfgCards[chemin]){cfgCards[chemin].remove();delete cfgCards[chemin];nodeEl.classList.remove('open');return;}nodeEl.classList.add('open');var card=cfg_buildCardSVG(chemin,nodeEl,nx,ny,CFG_H);cfgCards[chemin]=card;document.getElementById('cfg-zoom-g').appendChild(card);}
+var CARD_W=210;
+
+// Découpe un chemin en lignes qui tiennent dans la largeur de la fiche
+// (approximation par nombre de caractères — cohérent avec l'heuristique déjà
+// utilisée pour les badges des nœuds, cf. cfg_createNodeSVG).
+function _cfgWrapPath(text, maxChars){
+  var segments=text.split('/');
+  var lines=[]; var cur='';
+  segments.forEach(function(seg,i){
+    var piece=(i<segments.length-1)?seg+'/':seg;
+    if(cur.length+piece.length>maxChars && cur.length>0){ lines.push(cur); cur=piece; }
+    else { cur+=piece; }
+  });
+  if(cur) lines.push(cur);
+  return lines.length?lines:[''];
+}
+
+// Construit la fiche de détail (équipes ayant accès + chemin complet) en SVG
+// natif — même raison que cfg_createNodeSVG : rester net à tout niveau de zoom.
+// Retourne le <g> avec sa hauteur calculée stockée dans dataset.h (équivalent
+// SVG de offsetHeight, utilisé par l'algorithme d'évitement de collision de
+// cfg_toggleCards).
+function cfg_buildCardSVG(chemin,nodeEl,nx,ny,nodeH){
+  var h0=nodeH||CFG_H;
+  var cx=nx, cy=ny+h0+10;
+  var nom=chemin.split('/').filter(Boolean).pop()||chemin;
+  var teams=cfg_getTeams(chemin);
+  var pathLines=_cfgWrapPath(chemin,32);
+
+  var HDR_H=22, SEC_PAD=7, SEC_TITLE_H=11, ROW_H=15;
+  var accesH=SEC_PAD+(teams.length?SEC_TITLE_H:0)+(teams.length?teams.length*ROW_H:13)+4;
+  var cheminH=SEC_PAD+SEC_TITLE_H+pathLines.length*12+8;
+  var totalH=HDR_H+accesH+cheminH;
+
+  var g=_cfgEl('g');
+  g.setAttribute('class','cfg-card-svg');
+  g.setAttribute('transform','translate('+cx+','+cy+')');
+  g.dataset.chemin=chemin;
+  g.dataset.h=totalH;
+
+  var TAB_W=Math.round(CARD_W*0.5), TAB_H=10;
+  var tab=_cfgEl('path');
+  tab.setAttribute('class','cfg-card-shape');
+  tab.setAttribute('d','M3,'+(-TAB_H+3)+' Q3,'+(-TAB_H)+' 6,'+(-TAB_H)+' H'+(TAB_W-3)+' Q'+TAB_W+','+(-TAB_H)+' '+TAB_W+','+(-TAB_H+3)+' V0 H0 V'+(-TAB_H+3)+' Z');
+  g.appendChild(tab);
+  var seam=_cfgEl('rect');
+  seam.setAttribute('class','cfg-card-seam');
+  seam.setAttribute('x',1); seam.setAttribute('y',-1);
+  seam.setAttribute('width',TAB_W-2); seam.setAttribute('height',2.5);
+  g.appendChild(seam);
+
+  var body=_cfgEl('path');
+  body.setAttribute('class','cfg-card-shape');
+  body.setAttribute('d','M0,0 H'+(CARD_W-8)+' Q'+CARD_W+',0 '+CARD_W+',8 V'+(totalH-8)+' Q'+CARD_W+','+totalH+' '+(CARD_W-8)+','+totalH+' H8 Q0,'+totalH+' 0,'+(totalH-8)+' V0 Z');
+  g.appendChild(body);
+
+  var hdrBg=_cfgEl('rect');
+  hdrBg.setAttribute('class','cfg-card-hdr-bg');
+  hdrBg.setAttribute('x',0); hdrBg.setAttribute('y',0);
+  hdrBg.setAttribute('width',CARD_W); hdrBg.setAttribute('height',HDR_H);
+  g.appendChild(hdrBg);
+  var hdrLine=_cfgEl('line');
+  hdrLine.setAttribute('class','cfg-card-divider');
+  hdrLine.setAttribute('x1',0); hdrLine.setAttribute('y1',HDR_H);
+  hdrLine.setAttribute('x2',CARD_W); hdrLine.setAttribute('y2',HDR_H);
+  g.appendChild(hdrLine);
+
+  var titleTxt=nom.length>26?nom.slice(0,25)+'…':nom;
+  var title=_cfgEl('text');
+  title.setAttribute('class','cfg-card-title-text');
+  title.setAttribute('x',10); title.setAttribute('y',14);
+  var titleTip=_cfgEl('title'); titleTip.textContent=chemin; title.appendChild(titleTip);
+  title.appendChild(document.createTextNode(titleTxt));
+  g.appendChild(title);
+
+  var closeBtn=_cfgEl('text');
+  closeBtn.setAttribute('class','cfg-card-close-btn');
+  closeBtn.setAttribute('x',CARD_W-10); closeBtn.setAttribute('y',15);
+  closeBtn.textContent='\u00d7';
+  closeBtn.addEventListener('click',function(e){
+    e.stopPropagation();
+    g.remove();
+    delete cfgCards[chemin];
+    nodeEl.classList.remove('open');
+  });
+  g.appendChild(closeBtn);
+
+  var y=HDR_H+SEC_PAD;
+  if(teams.length){
+    var accTitle=_cfgEl('text');
+    accTitle.setAttribute('class','cfg-card-sec-title');
+    accTitle.setAttribute('x',10); accTitle.setAttribute('y',y+7);
+    accTitle.textContent='ACCES';
+    g.appendChild(accTitle);
+    y+=SEC_TITLE_H;
+  }
+  if(!teams.length){
+    var empty=_cfgEl('text');
+    empty.setAttribute('class','cfg-card-empty-text');
+    empty.setAttribute('x',10); empty.setAttribute('y',y+6);
+    empty.textContent='Aucun acces configure';
+    g.appendChild(empty);
+    y+=13;
+  } else {
+    teams.forEach(function(t){
+      var dot=_cfgEl('circle');
+      dot.setAttribute('class','cfg-card-dot'+(t.isRG?' rg':''));
+      dot.setAttribute('cx',12); dot.setAttribute('cy',y+5); dot.setAttribute('r',2.5);
+      g.appendChild(dot);
+      var nmTxt=t.nom.length>20?t.nom.slice(0,19)+'…':t.nom;
+      var nm=_cfgEl('text');
+      nm.setAttribute('class','cfg-card-rname');
+      nm.setAttribute('x',20); nm.setAttribute('y',y+8);
+      var nmTip=_cfgEl('title'); nmTip.textContent=t.nom; nm.appendChild(nmTip);
+      nm.appendChild(document.createTextNode(nmTxt));
+      g.appendChild(nm);
+      if(t.permission){
+        var isRW=t.permission==='Read & Write';
+        var pTxt=isRW?'R&W':'RO';
+        var pw=Math.max(pTxt.length*6+8,20);
+        var pr=_cfgEl('rect');
+        pr.setAttribute('class','cfg-card-perm-rect'+(isRW?' rw':''));
+        pr.setAttribute('x',CARD_W-10-pw); pr.setAttribute('y',y);
+        pr.setAttribute('width',pw); pr.setAttribute('height',11); pr.setAttribute('rx',2);
+        g.appendChild(pr);
+        var pt=_cfgEl('text');
+        pt.setAttribute('class','cfg-card-perm-text'+(isRW?' rw':''));
+        pt.setAttribute('x',CARD_W-10-pw+4); pt.setAttribute('y',y+8);
+        pt.textContent=pTxt;
+        g.appendChild(pt);
+      }
+      y+=ROW_H;
+    });
+  }
+
+  var divLine=_cfgEl('line');
+  divLine.setAttribute('class','cfg-card-divider');
+  divLine.setAttribute('x1',0); divLine.setAttribute('y1',y);
+  divLine.setAttribute('x2',CARD_W); divLine.setAttribute('y2',y);
+  g.appendChild(divLine);
+  y+=SEC_PAD;
+
+  var chTitle=_cfgEl('text');
+  chTitle.setAttribute('class','cfg-card-sec-title');
+  chTitle.setAttribute('x',10); chTitle.setAttribute('y',y+7);
+  chTitle.textContent='CHEMIN';
+  g.appendChild(chTitle);
+  y+=SEC_TITLE_H;
+
+  var pathText=_cfgEl('text');
+  pathText.setAttribute('class','cfg-card-empty-text');
+  pathLines.forEach(function(line,i){
+    var tspan=_cfgEl('tspan');
+    tspan.setAttribute('x',10);
+    tspan.setAttribute('dy', i===0? (y+6) : 12);
+    tspan.textContent=line;
+    pathText.appendChild(tspan);
+  });
+  g.appendChild(pathText);
+
+  return g;
+}
 function cfg_toggleCards(){cfgAllOn=!cfgAllOn;document.getElementById('btn-cards').classList.toggle('on',cfgAllOn);var vp=document.getElementById('cfg-vp');var zoomG=document.getElementById('cfg-zoom-g');if(!cfgAllOn){Object.keys(cfgCards).forEach(function(ch){cfgCards[ch].remove();delete cfgCards[ch];});zoomG.querySelectorAll('.cfg-node.open').forEach(function(n){n.classList.remove('open');});zoomG.querySelectorAll('.cfg-node').forEach(function(el){var ch=el.dataset.chemin;if(cfgPosMap[ch]){_cfgSetNodeY(el,cfgPosMap[ch].y);}});cfg_redrawConnections();return;}
   // Passe 1 : créer toutes les cartes aux positions initiales
-  zoomG.querySelectorAll('.cfg-node').forEach(function(el){var ch=el.dataset.chemin;if(cfgCards[ch])return;var x=_cfgNodeX(el),y=_cfgNodeY(el);el.classList.add('open');var card=cfg_buildCard(ch,el,x,y,CFG_H);cfgCards[ch]=card;vp.appendChild(card);});
+  zoomG.querySelectorAll('.cfg-node').forEach(function(el){var ch=el.dataset.chemin;if(cfgCards[ch])return;var x=_cfgNodeX(el),y=_cfgNodeY(el);el.classList.add('open');var card=cfg_buildCardSVG(ch,el,x,y,CFG_H);cfgCards[ch]=card;zoomG.appendChild(card);});
   // Passe 2 : après rendu complet, lire les vraies hauteurs de carte et repositionner
   requestAnimationFrame(function(){requestAnimationFrame(function(){
     var byX={};zoomG.querySelectorAll('.cfg-node').forEach(function(el){var x=_cfgNodeX(el);byX[x]=byX[x]||[];byX[x].push(el);});
@@ -414,12 +575,12 @@ function cfg_toggleCards(){cfgAllOn=!cfgAllOn;document.getElementById('btn-cards
       for(var i=1;i<nodes.length;i++){
         var prev=nodes[i-1];
         var prevCard=cfgCards[prev.dataset.chemin];
-        var prevCardH=prevCard?prevCard.offsetHeight:0;
+        var prevCardH=prevCard?(parseFloat(prevCard.dataset.h)||0):0;
         var required=_cfgNodeY(prev)+CFG_H+prevCardH+20;
         if(_cfgNodeY(nodes[i])<required){
           _cfgSetNodeY(nodes[i],required);
           var card=cfgCards[nodes[i].dataset.chemin];
-          if(card){card.style.top=(required+CFG_H+10)+'px';}
+          if(card){card.setAttribute('transform','translate('+_cfgNodeX(nodes[i])+','+(required+CFG_H+10)+')');}
         }
       }
     });
@@ -486,7 +647,7 @@ var cfgHiRoot=null;
 function cfg_highlightSubtree(rootChemin){if(cfgHiRoot===rootChemin){cfg_clearHighlight();return;}cfg_clearHighlight();cfgHiRoot=rootChemin;var hiSet=new Set();function collect(ch){hiSet.add(ch);Object.values(cfgPosMap).forEach(function(p){if(p.parentChemin===ch)collect(p.chemin);});}collect(rootChemin);var vp=document.getElementById('cfg-vp');vp.querySelectorAll('.cfg-node').forEach(function(el){if(hiSet.has(el.dataset.chemin))el.classList.add('hi');});document.querySelectorAll('#cfg-svg path').forEach(function(path){if(hiSet.has(path.dataset.child))path.classList.add('hi');});toast(hiSet.size+' noeud'+(hiSet.size>1?'s':''));}
 function cfg_clearHighlight(){cfgHiRoot=null;document.querySelectorAll('.cfg-node.hi').forEach(function(n){n.classList.remove('hi');});document.querySelectorAll('#cfg-svg path.hi').forEach(function(p){p.classList.remove('hi');});}
 function _esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function cfg_buildExportSVG(){var vp=document.getElementById('cfg-vp');var zoomG=document.getElementById('cfg-zoom-g');var nodes=zoomG?zoomG.querySelectorAll('.cfg-node'):[];var cards=vp.querySelectorAll('.cfg-card');if(!nodes.length)return null;var PAD=50,minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+function cfg_buildExportSVG(){var zoomG=document.getElementById('cfg-zoom-g');var nodes=zoomG?zoomG.querySelectorAll('.cfg-node'):[];var cards=zoomG?zoomG.querySelectorAll('.cfg-card-svg'):[];if(!nodes.length)return null;var PAD=50,minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
   // Hauteur fixe (CFG_H) — plus de calcul d'estimation, les nœuds SVG natifs ont
   // une hauteur constante (badges limités à une rangée, cf. cfg_createNodeSVG).
   nodes.forEach(function(el){
@@ -495,9 +656,8 @@ function cfg_buildExportSVG(){var vp=document.getElementById('cfg-vp');var zoomG
     maxX=Math.max(maxX,x+CFG_W);maxY=Math.max(maxY,y+CFG_H);
   });
   cards.forEach(function(card){
-    var x=parseInt(card.style.left)||0,y=parseInt(card.style.top)||0;
-    var w=card.offsetWidth||card.getBoundingClientRect().width||210;
-    var h=card.offsetHeight||card.getBoundingClientRect().height||140;
+    var x=_cfgNodeX(card),y=_cfgNodeY(card);
+    var w=CARD_W, h=parseFloat(card.dataset.h)||140;
     minX=Math.min(minX,x);minY=Math.min(minY,y-14);
     maxX=Math.max(maxX,x+w);maxY=Math.max(maxY,y+h);
   });var W=maxX-minX+PAD*2,H=maxY-minY+PAD*2;function tx(v){return v-minX+PAD;}function ty(v){return v-minY+PAD;}function shiftPath(d){return d.replace(/([MLHV])\s*(-?\d+\.?\d*)/g,function(_,cmd,val){val=parseFloat(val);if(cmd==='H')return'H'+(val-minX+PAD);if(cmd==='V')return'V'+(val-minY+PAD);return cmd+val;}).replace(/([ML])\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/g,function(_,cmd,a,b){return cmd+(parseFloat(a)-minX+PAD)+','+(parseFloat(b)-minY+PAD);});}var lines=[];lines.push('<?xml version="1.0" encoding="UTF-8"?>');lines.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">');lines.push('<rect width="'+W+'" height="'+H+'" fill="#0d0d0d"/>');lines.push('<style>text{font-family:"Courier New",monospace;dominant-baseline:auto;}</style>');

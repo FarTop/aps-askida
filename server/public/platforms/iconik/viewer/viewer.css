@@ -68,21 +68,24 @@ nav{display:flex;gap:2px;}
 #cfg-svg .cfg-badge-text.ro{fill:#2E75B6;font-size:8px;font-weight:700;}
 #cfg-svg .cfg-badge-text.rg{fill:#9b59b6;font-size:8px;font-weight:700;}
 #cfg-svg .cfg-connectors path{fill:none;stroke:#aaaaaa;stroke-width:1.5;}
-.cfg-card{position:absolute;background:#0c1a1d;border:1.5px solid #00bcd4;border-top:2px solid #00bcd4;border-radius:0 8px 8px 8px;width:210px;z-index:20;box-shadow:0 8px 24px #0009;}
-.cfg-card::before{content:'';position:absolute;top:-11px;left:-1px;width:50%;height:10px;background:#0c1a1d;border:1.5px solid #00bcd4;border-bottom:none;border-radius:4px 4px 0 0;}
-.cfg-card-hdr{padding:7px 10px;background:#0a1416;display:flex;align-items:center;gap:7px;border-bottom:1px solid #00bcd422;}
-.cfg-card-title{flex:1;font-size:10px;font-weight:700;color:#00bcd4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.cfg-card-close{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:12px;padding:0 2px;}
-.cfg-card-close:hover{color:#e74c3c;}
-.cfg-sec{padding:7px 10px;border-top:1px solid var(--border);}
-.cfg-sec-title{font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px;font-weight:700;}
-.cfg-row{display:flex;align-items:center;gap:5px;padding:2px 0;}
-.cfg-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;background:#e84393;}
-.cfg-dot.rg{background:#9b59b6;}
-.cfg-rname{font-size:10px;color:var(--text-mid);flex:1;}
-.cfg-rperm{font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:#0d1f33;color:#2E75B6;}
-.cfg-rperm.rw{background:#0d3320;color:#0DB852;}
-.cfg-empty-row{font-size:10px;color:var(--text-dim);font-style:italic;}
+/* Fiche de détail — SVG natif (nette à tout zoom, cf. 07/07/2026) */
+#cfg-svg .cfg-card-svg{cursor:default;}
+#cfg-svg .cfg-card-shape{fill:#0c1a1d;stroke:#00bcd4;stroke-width:1.5;}
+#cfg-svg .cfg-card-seam{fill:#0c1a1d;}
+#cfg-svg .cfg-card-hdr-bg{fill:#0a1416;}
+#cfg-svg .cfg-card-divider{stroke:#00bcd422;stroke-width:1;}
+#cfg-svg .cfg-card-title-text{font-size:10px;font-weight:700;fill:#00bcd4;}
+#cfg-svg .cfg-card-close-btn{font-size:12px;fill:var(--text-dim);cursor:pointer;}
+#cfg-svg .cfg-card-close-btn:hover{fill:#e74c3c;}
+#cfg-svg .cfg-card-sec-title{font-size:8px;letter-spacing:1px;fill:var(--text-dim);font-weight:700;}
+#cfg-svg .cfg-card-empty-text{font-size:10px;fill:var(--text-dim);font-style:italic;}
+#cfg-svg .cfg-card-rname{font-size:10px;fill:var(--text-mid);}
+#cfg-svg .cfg-card-dot{fill:#e84393;}
+#cfg-svg .cfg-card-dot.rg{fill:#9b59b6;}
+#cfg-svg .cfg-card-perm-rect{fill:#0d1f33;}
+#cfg-svg .cfg-card-perm-rect.rw{fill:#0d3320;}
+#cfg-svg .cfg-card-perm-text{font-size:8px;font-weight:700;fill:#2E75B6;}
+#cfg-svg .cfg-card-perm-text.rw{fill:#0DB852;}
 #mode-designer{position:absolute;inset:0;display:none;overflow:hidden;}
 #mode-designer.active{display:block;}
 #dsn-vp{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;}
