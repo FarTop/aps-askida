@@ -190,6 +190,10 @@ async function loadActiveFluxes() {
       _engine._trigger.loadConnexions(connexionsFmt);
     }
     WfdHandlers._connexions = connexionsFmt.filter(c => c.direction === 'outbound');
+    console.log('[DEBUG loadActiveFluxes] WfdHandlers._connexions juste après affectation :',
+      WfdHandlers._connexions.map(c => c.id + '|' + c.name));
+    console.log('[DEBUG loadActiveFluxes] WfdHandlers === (référence identique ?) via typeof/keys:',
+      typeof WfdHandlers, Object.keys(WfdHandlers).length, 'clés');
 
     // Charger les nommages depuis la DB
     const nommages = await prisma.nommage.findMany();

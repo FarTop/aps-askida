@@ -3020,6 +3020,8 @@ async function aws_s3(node, ctx, iconikClient) {
     console.log('[DEBUG aws_s3] connexionId cherché :', connexionId);
     console.log('[DEBUG aws_s3] WfdHandlers._connexions actuel :',
       (WfdHandlers._connexions || []).map(c => c.id + '|' + c.name + '|' + c.direction + '|' + c.authType));
+    console.log('[DEBUG aws_s3] WfdHandlers identité via typeof/keys:',
+      typeof WfdHandlers, Object.keys(WfdHandlers).length, 'clés, a _connexions:', '_connexions' in WfdHandlers);
     throw new Error('aws_s3 : connexion introuvable — ' + connexionId);
   }
   if (conn.authType !== 'aws_s3') throw new Error('aws_s3 : la connexion doit être de type AWS S3');
