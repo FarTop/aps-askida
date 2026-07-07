@@ -1996,6 +1996,21 @@ function peuplerSelectFlux() {
         opt.textContent = labels[opt.value];
       }
     });
+    // Forcer le repaint du texte affiché quand le select est FERMÉ : sur macOS/Safari,
+    // mettre à jour le textContent d'une <option> ne rafraîchit pas toujours l'affichage
+    // de l'option sélectionnée tant qu'aucune réaffectation explicite n'a lieu (cf. bug
+    // bille de statut qui restait figée après un run, 07/07/2026). Le handler onchange
+    // est neutralisé le temps du forçage pour ne pas déclencher onFlowChange() (qui ferme
+    // le panneau de config et désélectionne le nœud courant — effet de bord inacceptable
+    // pour un simple rafraîchissement visuel).
+    if (sel.selectedIndex >= 0) {
+      const _si = sel.selectedIndex;
+      const _onchange = sel.onchange;
+      sel.onchange = null;
+      sel.selectedIndex = -1;
+      sel.selectedIndex = _si;
+      sel.onchange = _onchange;
+    }
   }
 
   if (prev && wfdFlows.find(f=>f.id===prev)) { sel.value = prev; }
