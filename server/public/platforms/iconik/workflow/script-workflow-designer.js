@@ -767,11 +767,9 @@ function _wfdHandleEngineEvent(ev) {
     }
 
     case 'end': {
-      console.log('[WFD DIAG] case end reçu — runId:', runId, '| fluxId:', fluxId, '| status:', status);
       // Chercher aussi par fluxId si runId absent
       const job = _wfdFindJob(runId, fluxId)
         || Object.values(_wfdJobs.live).find(j => j.fluxId === fluxId);
-      console.log('[WFD DIAG] job trouvé ?', !!job, job ? ('fluxId du job: ' + job.fluxId) : '');
       if (!job) break;
       job.status    = status || 'success';
       job.endedAt   = Date.now();
@@ -791,13 +789,11 @@ function _wfdHandleEngineEvent(ev) {
           _wfdCleanBadges(fluxId);
           _wfdUpdateLiveBadge();
           _wfdRenderJobsPanel();
-          console.log('[WFD DIAG] setTimeout 3s écoulé — appel peuplerSelectFlux()');
           peuplerSelectFlux();
         }, 3000);
         _wfdRenderJobCard(job);
       }
       _wfdUpdateLiveBadge();
-      console.log('[WFD DIAG] appel immédiat peuplerSelectFlux()');
       peuplerSelectFlux();
       break;
     }
@@ -1979,7 +1975,6 @@ function peuplerSelectFlux() {
       else if (lastFailed) dot = '🔴';
       else                 dot = '🟢';
     }
-    console.log('[WFD DIAG] peuplerSelectFlux calcul —', f.name, '| actif:', actives.has(f.id), '| isLive:', isLive, '| lastRun status:', lastRun?.status, '| dot calculé:', dot, '| option.textContent AVANT maj:', [...sel.options].find(o=>o.value===f.id)?.textContent);
     labels[f.id] = dot + ' ' + f.name;
   });
 
@@ -1987,7 +1982,6 @@ function peuplerSelectFlux() {
   const existingIds = [...sel.options].slice(1).map(o => o.value);
   const newIds      = sorted.map(f => f.id);
   const needRebuild = JSON.stringify(existingIds) !== JSON.stringify(newIds);
-  console.log('[WFD DIAG] needRebuild:', needRebuild, '| sel.value AVANT:', sel.value, '| sel.selectedIndex:', sel.selectedIndex);
 
   if (needRebuild) {
     sel.innerHTML = '<option value="">\u2014 Flux \u2014</option>';
@@ -2001,14 +1995,12 @@ function peuplerSelectFlux() {
     // Mise à jour directe du textContent — évite le problème de repaint macOS
     [...sel.options].slice(1).forEach(opt => {
       if (labels[opt.value] && opt.textContent !== labels[opt.value]) {
-        console.log('[WFD DIAG] mise à jour textContent option', opt.value, ':', opt.textContent, '->', labels[opt.value]);
         opt.textContent = labels[opt.value];
       }
     });
   }
 
   if (prev && wfdFlows.find(f=>f.id===prev)) { sel.value = prev; }
-  console.log('[WFD DIAG] APRÈS maj — sel.value:', sel.value, '| option sélectionnée textContent:', sel.options[sel.selectedIndex]?.textContent);
   document.getElementById('btn-del-flux').style.display = currentFlowId ? 'flex' : 'none';
 _wfdSetDisplay('btn-ren-flux', currentFlowId ? 'flex' : 'none');
   peuplerSelectEnvironnement();

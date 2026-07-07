@@ -148,15 +148,11 @@ async function loadIconikClients() {
 async function loadActiveFluxes() {
   const { PrismaClient } = require('@prisma/client');
   const { PrismaPg }     = require('@prisma/adapter-pg');
-  console.log('[DEBUG loadActiveFluxes] DATABASE_URL =', JSON.stringify(process.env.DATABASE_URL));
   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
   const prisma  = new PrismaClient({ adapter });
 
   try {
     const flows      = await prisma.flow.findMany({ where: { isActive: true }, include: { environment: true } });
-    console.log('[DEBUG loadActiveFluxes] flows trouvés (avant filtre any) =', flows.length);
-    const allFlows = await prisma.flow.findMany();
-    console.log('[DEBUG loadActiveFluxes] total flows en base (sans filtre) =', allFlows.length, '— actifs parmi eux:', allFlows.filter(f => f.isActive).map(f => f.name));
     // Charger les connexions directement depuis Prisma + déchiffrement via module partagé
     const { decrypt } = require(path.join(__dirname, '../lib/crypto.js'));
     const connexionsRaw = await prisma.connexion.findMany();
@@ -190,10 +186,6 @@ async function loadActiveFluxes() {
       _engine._trigger.loadConnexions(connexionsFmt);
     }
     WfdHandlers._connexions = connexionsFmt.filter(c => c.direction === 'outbound');
-    console.log('[DEBUG loadActiveFluxes] WfdHandlers._connexions juste après affectation :',
-      WfdHandlers._connexions.map(c => c.id + '|' + c.name));
-    console.log('[DEBUG loadActiveFluxes] WfdHandlers === (référence identique ?) via typeof/keys:',
-      typeof WfdHandlers, Object.keys(WfdHandlers).length, 'clés');
 
     // Charger les nommages depuis la DB
     const nommages = await prisma.nommage.findMany();
