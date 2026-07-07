@@ -789,6 +789,7 @@ function _wfdHandleEngineEvent(ev) {
           _wfdCleanBadges(fluxId);
           _wfdUpdateLiveBadge();
           _wfdRenderJobsPanel();
+          peuplerSelectFlux(); // isLive redevient false ici seulement — la bille passe au vert à ce moment précis
         }, 3000);
         _wfdRenderJobCard(job);
       }
