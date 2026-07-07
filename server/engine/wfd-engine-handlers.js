@@ -3016,7 +3016,12 @@ async function aws_s3(node, ctx, iconikClient) {
   const resultVar   = cfg.resultVar   || 'awsResult';
 
   const conn = (WfdHandlers._connexions || []).find(c => c.id === connexionId);
-  if (!conn) throw new Error('aws_s3 : connexion introuvable — ' + connexionId);
+  if (!conn) {
+    console.log('[DEBUG aws_s3] connexionId cherché :', connexionId);
+    console.log('[DEBUG aws_s3] WfdHandlers._connexions actuel :',
+      (WfdHandlers._connexions || []).map(c => c.id + '|' + c.name + '|' + c.direction + '|' + c.authType));
+    throw new Error('aws_s3 : connexion introuvable — ' + connexionId);
+  }
   if (conn.authType !== 'aws_s3') throw new Error('aws_s3 : la connexion doit être de type AWS S3');
 
   // Lire les credentials depuis authValue (JSON) ou depuis les champs directs (legacy)
