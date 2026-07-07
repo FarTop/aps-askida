@@ -8666,7 +8666,56 @@ function wfdTriggerSimLoadTemplate(pfx) {
   if (!sel || !ta) return;
   ta.value = JSON.stringify(WFD_SIM_TEMPLATES[sel.value] || {}, null, 2);
   const r = document.getElementById(pfx + '-sim-result');
-  if (r) r.style.display = 'none';
+  if (r) r.classList.add('wfd-hidden');
+}
+
+async function wfdTriggerSimRun(pfx) {
+  const errorEl   = document.getElementById(pfx + '-sim-error');
+  const resultEl  = document.getElementById(pfx + '-sim-result');
+  const statusEl  = document.getElementById(pfx + '-sim-result-status');
+  const bodyEl    = document.getElementById(pfx + '-sim-result-body');
+  const payloadEl = document.getElementById(pfx + '-sim-payload');
+
+  errorEl?.classList.add('wfd-hidden');
+  resultEl?.classList.add('wfd-hidden');
+
+  const flux = typeof getFluxCourant === 'function' ? getFluxCourant() : null;
+  if (!flux) {
+    if (errorEl) { errorEl.textContent = 'Aucun flux sélectionné.'; errorEl.classList.remove('wfd-hidden'); }
+    return;
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(payloadEl?.value || '{}');
+  } catch (e) {
+    if (errorEl) { errorEl.textContent = 'JSON invalide — ' + e.message; errorEl.classList.remove('wfd-hidden'); }
+    return;
+  }
+
+  try {
+    const res  = await fetch('/wfd/trigger-manual', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ fluxId: flux.id, payload }),
+    });
+    const data = await res.json();
+    if (!res.ok && !data.status) {
+      if (errorEl) { errorEl.textContent = data.error || ('Erreur HTTP ' + res.status); errorEl.classList.remove('wfd-hidden'); }
+      return;
+    }
+    if (statusEl) {
+      const emoji = data.status === 'success' ? '🟢' : data.status === 'partial' ? '🟡' : '🔴';
+      statusEl.textContent = emoji + ' ' + (data.status || 'inconnu') + (data.runId ? (' — run ' + data.runId) : '');
+      statusEl.style.color = data.status === 'success' ? '#27ae60' : data.status === 'partial' ? '#f39c12' : '#e74c3c';
+    }
+    if (bodyEl) {
+      bodyEl.textContent = JSON.stringify({ vars: data.vars || {}, errors: data.errors || [] }, null, 2);
+    }
+    resultEl?.classList.remove('wfd-hidden');
+  } catch (e) {
+    if (errorEl) { errorEl.textContent = 'Erreur réseau — ' + e.message; errorEl.classList.remove('wfd-hidden'); }
+  }
 }
 
 // ── Exports cross-fichiers ────────────────────────────────────────────────────
