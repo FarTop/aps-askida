@@ -1274,6 +1274,8 @@ function _triggerEventChange(pfx) {
   hide('trigger-status-wrap');
   hide('trigger-job-wrap');
   hide('trigger-mdview-wrap');
+  hide('trigger-ss-wrap');
+  hide('trigger-poll-wrap');
 
   if (fields.includes('field'))            show('trigger-field-wrap');
   if (fields.includes('condition'))        show('trigger-cond-wrap');
@@ -1283,6 +1285,8 @@ function _triggerEventChange(pfx) {
   if (fields.includes('status_value'))     show('trigger-status-wrap');
   if (fields.includes('job_type'))         show('trigger-job-wrap');
   if (fields.includes('mdview'))           show('trigger-mdview-wrap');
+  if (fields.includes('saved_search_id'))  show('trigger-ss-wrap');
+  if (fields.includes('poll_interval'))    show('trigger-poll-wrap');
 }
 
 function _triggerCondChange(pfx) {
