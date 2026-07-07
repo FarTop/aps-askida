@@ -8469,17 +8469,6 @@ function wfdFetchReadTags(pfx) {
   return Array.from(tags.querySelectorAll('.wfd-meta-tag')).map(function(t) { return t.dataset.field; });
 }
 
-// ── Fetch — wfdFetchSubType étendu pour savedsearch ──────────────────────────
-function wfdFetchSubTypeEx(pfx, subType) {
-  ['asset','collection','metadata','savedsearch'].forEach(function(st) {
-    var btn   = document.getElementById(pfx + '-subtype-' + st);
-    var panel = document.getElementById(pfx + '-fetch-' + st);
-    var a = st === subType;
-    if (btn)   { btn.classList.toggle('active-blue', a); btn.classList.toggle('inactive-btn', !a); btn.dataset.active = a ? '1' : ''; }
-    if (panel) panel.style.display = a ? '' : 'none';
-  });
-}
-
 // ── Endpoint WFD slug ────────────────────────────────────────────────────────
 function httpAjouterHeader(pfx) {
   const list = document.getElementById(pfx + '-http-headers-list');
