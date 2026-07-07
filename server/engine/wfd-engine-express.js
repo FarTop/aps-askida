@@ -422,7 +422,20 @@ router.post('/activate/:fluxId', async (req, res) => {
   const prisma  = new PrismaClient({ adapter });
   try {
     await prisma.flow.update({ where: { id: req.params.fluxId }, data: { isActive: true } });
-    if (_engine) _engine.activateFlux(req.params.fluxId);
+    if (_engine) {
+      _engine.activateFlux(req.params.fluxId);
+      // Insérer/mettre à jour ce flux précis dans le registre du moteur (_fluxes),
+      // indépendamment de tout appel loadFluxes() antérieur qui n'aurait pas pu
+      // le voir actif (ordre d'appel côté client) — garantit que le moteur a bien
+      // les nodes/connections à jour pour l'exécuter, pas seulement son id marqué actif.
+      const full = await prisma.flow.findUnique({ where: { id: req.params.fluxId }, include: { environment: true } });
+      if (full) {
+        _engine.upsertFlux({
+          id: full.id, name: full.name, nodes: full.nodes || [], connections: full.connections || [],
+          isActive: full.isActive, iconikEnv: full.environment?.name || null,
+        });
+      }
+    }
     res.json({ ok: true, fluxId: req.params.fluxId, isActive: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
   finally { await prisma.$disconnect(); }
@@ -436,7 +449,7 @@ router.post('/deactivate/:fluxId', async (req, res) => {
   const prisma  = new PrismaClient({ adapter });
   try {
     await prisma.flow.update({ where: { id: req.params.fluxId }, data: { isActive: false } });
-    if (_engine) _engine.deactivateFlux(req.params.fluxId);
+    if (_engine) { _engine.deactivateFlux(req.params.fluxId); _engine.removeFlux(req.params.fluxId); }
     res.json({ ok: true, fluxId: req.params.fluxId, isActive: false });
   } catch(e) { res.status(500).json({ error: e.message }); }
   finally { await prisma.$disconnect(); }
@@ -463,11 +476,22 @@ router.post('/set-iconik-client', (req, res) => {
 });
 
 // ── GET /wfd/status ──────────────────────────────────────────────
-router.get('/status', (req, res) => {
-  const fluxes  = _engine?._getFluxes?.() || [];
-  const actives = fluxes.filter(f => _engine?.isActive(f.id));
-  res.json({ running: !!_engine, fluxesReady: _fluxesReady, activeFluxes: actives.length,
-             totalFluxes: fluxes.length, envs: Object.keys(_iconikClients),
+router.get('/status', async (req, res) => {
+  const activeFluxes = _engine?._trigger?.getActiveCount?.() ?? 0;
+  let totalFluxes = null;
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const { PrismaPg }     = require('@prisma/adapter-pg');
+    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+    const prisma  = new PrismaClient({ adapter });
+    totalFluxes = await prisma.flow.count();
+    await prisma.$disconnect();
+  } catch (e) {
+    // Si la DB est indisponible, on ne bloque pas le status — juste totalFluxes à null
+    totalFluxes = _engine?._getFluxes?.()?.length ?? null;
+  }
+  res.json({ running: !!_engine, fluxesReady: _fluxesReady, activeFluxes,
+             totalFluxes, envs: Object.keys(_iconikClients),
              sseClients: _sseClients.length });
 });
 

@@ -39,6 +39,19 @@ function createEngine(options = {}) {
     loadFluxes(fluxes) {
       _fluxes = fluxes || [];
     },
+    // Ajoute/remplace un seul flux dans le registre sans écraser les autres —
+    // utilisé par /wfd/activate pour éviter le décalage d'ordre où loadFluxes()
+    // (rechargement complet depuis la DB) s'exécute AVANT que ce flux précis
+    // soit marqué actif en base, et ne le contient donc jamais tant qu'un
+    // rechargement complet ultérieur n'a pas lieu (cf. bug activeFluxes
+    // désynchronisé du 07/07/2026).
+    upsertFlux(flux) {
+      const idx = _fluxes.findIndex(f => f.id === flux.id);
+      if (idx >= 0) _fluxes[idx] = flux; else _fluxes.push(flux);
+    },
+    removeFlux(fluxId) {
+      _fluxes = _fluxes.filter(f => f.id !== fluxId);
+    },
     activateFlux(fluxId)   { trigger.activateFlux(fluxId); },
     deactivateFlux(fluxId) { trigger.deactivateFlux(fluxId); },
     isActive(fluxId)       { return trigger.isActive(fluxId); },

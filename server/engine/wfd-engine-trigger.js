@@ -68,6 +68,17 @@ class WfdTriggerServer {
     return this._activeFluxes.has(fluxId);
   }
 
+  // ── Compte/liste des flux actifs — source de vérité unique, indépendante
+  // de _fluxes (qui ne reflète que le dernier chargement DB, potentiellement
+  // périmé d'une activation — cf. bug activeFluxes désynchronisé 07/07/2026) ──
+  getActiveCount() {
+    return this._activeFluxes.size;
+  }
+
+  getActiveFluxIds() {
+    return Array.from(this._activeFluxes);
+  }
+
   // ── Gérer une requête HTTP entrante ─────────────────────────
   _handleRequest(req, res) {
     let body = '';
