@@ -4862,6 +4862,14 @@ function sauvegarderConfig() {
       }
     }
     node.config.webhookId        = g('webhook-id');
+    node.config.statusValue      = g('trigger-status');
+    node.config.jobType          = g('trigger-job');
+    node.config.mdViewId         = g('trigger-mdview');
+    node.config.savedSearchId    = g('saved-search-id');
+    node.config.pollInterval     = g('poll-interval') || '15';
+    node.config.pollUnit         = g('poll-unit')     || 'minutes';
+    node.config.pollMode         = g('poll-mode')     || 'each';
+    node.config.pollLimit        = g('poll-limit')    || '100';
     node.config.wfdSlug          = document.getElementById('cfg-wfd-slug')?.value?.trim() || '';
 
   } else if (node.family === 'http_request') {
