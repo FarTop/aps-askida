@@ -268,56 +268,41 @@ function cfg_build(cols){
   var positions=[];
   var globalY=0;
   var STEP=CFG_H+CFG_VGAP;
-  // Nœud racine virtuel — depth -1, une colonne avant les nœuds de niveau 0
-  var ROOT_CHEMIN='__root__';
+  // Pas de nœud racine synthétique — l'arbo démarre directement aux collections
+  // racines réelles d'Iconik (pas de "point" virtuel représentant Iconik lui-même).
   var ROOT_X=40;
-  positions.push({key:'Racine',chemin:ROOT_CHEMIN,depth:-1,x:ROOT_X,y:0,parentChemin:null,isRoot:true});
   function layout(node,depth,parentChemin){
     var kids=Object.values(node.kids);
     var myY=globalY;
     if(node.key){
-      positions.push({key:node.key,chemin:node.chemin||node.key,depth:depth,x:ROOT_X+(depth+1)*(CFG_W+CFG_HGAP),y:myY,parentChemin:parentChemin});
+      positions.push({key:node.key,chemin:node.chemin||node.key,depth:depth,x:ROOT_X+depth*(CFG_W+CFG_HGAP),y:myY,parentChemin:parentChemin});
       globalY+=STEP;
     }
-    // Si node.key est vide (nœud racine interne), passer ROOT_CHEMIN aux enfants
-    var nextParent=node.key?(node.chemin||node.key):ROOT_CHEMIN;
+    var nextParent=node.key?(node.chemin||node.key):null;
     kids.forEach(function(kid){
       layout(kid,depth+(node.key?1:0),nextParent);
     });
   }
-    // Les nœuds de niveau 0 pointent vers la racine
-    layout(root,0,ROOT_CHEMIN);
-    // Placer la racine AU-DESSUS du 1er niveau (style arbo standard)
-var level0 = positions.filter(function(p){ return p.depth === 0; });
-if (level0.length) {
-  var topY = level0[0].y;
-  positions[0].y = Math.max(0, topY - (CFG_H/2));
-  cfgPosMap[ROOT_CHEMIN] = positions[0];
-}
+    // Les nœuds de niveau 0 sont de vraies racines, sans parent
+    layout(root,0,null);
     positions.forEach(function(p){
     cfgPosMap[p.chemin]=p;
     var el=document.createElement('div');
-    el.className='cfg-node'+(p.isRoot?' root':p.depth===0?' root':'');
+    el.className='cfg-node'+(p.depth===0?' root':'');
     el.style.left=p.x+'px';el.style.top=p.y+'px';el.dataset.chemin=p.chemin;
     var folder=document.createElement('div');folder.className='cfg-folder';folder.style.width=CFG_W+'px';
-    var name=document.createElement('div');name.className='cfg-fname';name.textContent=p.key;name.title=p.isRoot?'Racine':p.chemin;folder.appendChild(name);
-    if(!p.isRoot){
-      var teams=cfg_getTeams(p.chemin);
-      if(teams.length){var bdiv=document.createElement('div');bdiv.className='cfg-fbadges';teams.slice(0,4).forEach(function(t){var isRW=t.permission==='Read & Write';var cls=t.isRG?'rg':(isRW?'rw':'ro');var shortName=t.nom.split('-').pop()||t.nom;var b=document.createElement('span');b.className='cfg-badge '+cls;b.textContent=shortName.length>10?shortName.slice(0,9)+'...':shortName;b.title=t.nom;bdiv.appendChild(b);});if(teams.length>4){var m=document.createElement('span');m.className='cfg-badge ro';m.textContent='+'+(teams.length-4);bdiv.appendChild(m);}folder.appendChild(bdiv);}
-    }
+    var name=document.createElement('div');name.className='cfg-fname';name.textContent=p.key;name.title=p.chemin;folder.appendChild(name);
+    var teams=cfg_getTeams(p.chemin);
+    if(teams.length){var bdiv=document.createElement('div');bdiv.className='cfg-fbadges';teams.slice(0,4).forEach(function(t){var isRW=t.permission==='Read & Write';var cls=t.isRG?'rg':(isRW?'rw':'ro');var shortName=t.nom.split('-').pop()||t.nom;var b=document.createElement('span');b.className='cfg-badge '+cls;b.textContent=shortName.length>10?shortName.slice(0,9)+'...':shortName;b.title=t.nom;bdiv.appendChild(b);});if(teams.length>4){var m=document.createElement('span');m.className='cfg-badge ro';m.textContent='+'+(teams.length-4);bdiv.appendChild(m);}folder.appendChild(bdiv);}
     el.appendChild(folder);
-    el.addEventListener('click',function(e){e.stopPropagation();if(p.isRoot)return;if(e.shiftKey){cfg_highlightSubtree(p.chemin);return;}cfg_toggleCard(p.chemin,el,p.x,p.y);});
-    el.addEventListener('contextmenu',function(e){e.preventDefault();e.stopPropagation();if(!p.isRoot)cfg_highlightSubtree(p.chemin);});
+    el.addEventListener('click',function(e){e.stopPropagation();if(e.shiftKey){cfg_highlightSubtree(p.chemin);return;}cfg_toggleCard(p.chemin,el,p.x,p.y);});
+    el.addEventListener('contextmenu',function(e){e.preventDefault();e.stopPropagation();cfg_highlightSubtree(p.chemin);});
     vp.appendChild(el);
   });
   document.getElementById('mode-config').addEventListener('click',function(e){if(!e.target.closest('.cfg-node'))cfg_clearHighlight();});
  requestAnimationFrame(function(){
-    // Update root top after layout
-    var rootEl = vp.querySelector('.cfg-node[data-chemin="'+ROOT_CHEMIN+'"]');
-    if(rootEl && cfgPosMap[ROOT_CHEMIN]) rootEl.style.top = cfgPosMap[ROOT_CHEMIN].y + 'px';
-
     // Draw connections (DOM-based)
-    cfg_drawConnections(svg, vp, positions, cfgPosMap, ROOT_CHEMIN);
+    cfg_drawConnections(svg, vp, positions, cfgPosMap);
 
     var maxX=0,maxY=0;vp.querySelectorAll('.cfg-node').forEach(function(el){var x=parseInt(el.style.left),y=parseInt(el.style.top),h=el.offsetHeight||CFG_H;maxX=Math.max(maxX,x+CFG_W+CFG_HGAP+220);maxY=Math.max(maxY,y+h+120);});svg.style.width=maxX+'px';svg.style.height=maxY+'px';
     cfg_fit();toast(cols.length+' collections · '+positions.length+' noeuds');
@@ -326,7 +311,7 @@ if (level0.length) {
 function cfg_getTeams(chemin){var normC=chemin.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');var res=[];(teamsData.teams||[]).forEach(function(t){var f=(t.collections||[]).find(function(c){var ch=typeof c==='string'?c:(c.chemin||c.nom||'');var normCh=ch.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');return normCh===normC;});if(f)res.push({nom:t.nom,permission:(f.permission||''),isRG:false});});(roleGroupsData.roleGroups||[]).forEach(function(rg){var f=(rg.collections||[]).find(function(c){return(typeof c==='string'?c:c.chemin)===chemin;});if(f)res.push({nom:rg.nom,permission:(f.permission||''),isRG:true});});return res;}
 function cfg_toggleCard(chemin,nodeEl,nx,ny){if(cfgCards[chemin]){cfgCards[chemin].remove();delete cfgCards[chemin];nodeEl.classList.remove('open');return;}nodeEl.classList.add('open');var realH=(nodeEl.querySelector('.cfg-folder')||{offsetHeight:CFG_H}).offsetHeight||CFG_H;var card=cfg_buildCard(chemin,nodeEl,nx,ny,realH);cfgCards[chemin]=card;document.getElementById('cfg-vp').appendChild(card);}
 function cfg_buildCard(chemin,nodeEl,nx,ny,nodeH){var h=nodeH||CFG_H;var card=document.createElement('div');card.className='cfg-card';card.style.left=nx+'px';card.style.top=(ny+h+10)+'px';var nom=chemin.split('/').filter(Boolean).pop()||chemin;var hdr=document.createElement('div');hdr.className='cfg-card-hdr';var title=document.createElement('div');title.className='cfg-card-title';title.textContent=nom;title.title=chemin;var cls=document.createElement('button');cls.className='cfg-card-close';cls.textContent='x';cls.addEventListener('click',function(e){e.stopPropagation();card.remove();delete cfgCards[chemin];nodeEl.classList.remove('open');});hdr.appendChild(title);hdr.appendChild(cls);card.appendChild(hdr);var teams=cfg_getTeams(chemin);var sec=document.createElement('div');sec.className='cfg-sec';var st=document.createElement('div');st.className='cfg-sec-title';st.textContent=teams.length?'Acces':'';sec.appendChild(st);if(!teams.length){var e2=document.createElement('div');e2.className='cfg-empty-row';e2.textContent='Aucun acces configure';sec.appendChild(e2);}else{teams.forEach(function(t){var row=document.createElement('div');row.className='cfg-row';var dot=document.createElement('span');dot.className='cfg-dot'+(t.isRG?' rg':'');var nm=document.createElement('span');nm.className='cfg-rname';nm.textContent=t.nom;row.appendChild(dot);row.appendChild(nm);if(t.permission){var isRW=t.permission==='Read & Write';var pb=document.createElement('span');pb.className='cfg-rperm'+(isRW?' rw':'');pb.textContent=isRW?'R&W':'RO';row.appendChild(pb);}sec.appendChild(row);});}card.appendChild(sec);var sp=document.createElement('div');sp.className='cfg-sec';var spt=document.createElement('div');spt.className='cfg-sec-title';spt.textContent='Chemin';sp.appendChild(spt);var spv=document.createElement('div');spv.className='cfg-empty-row';spv.textContent=chemin;sp.appendChild(spv);card.appendChild(sp);return card;}
-function cfg_toggleCards(){cfgAllOn=!cfgAllOn;document.getElementById('btn-cards').classList.toggle('on',cfgAllOn);var vp=document.getElementById('cfg-vp');if(!cfgAllOn){Object.keys(cfgCards).forEach(function(ch){cfgCards[ch].remove();delete cfgCards[ch];});vp.querySelectorAll('.cfg-node.open').forEach(function(n){n.classList.remove('open');});vp.querySelectorAll('.cfg-node').forEach(function(el){var ch=el.dataset.chemin;if(cfgPosMap[ch]&&ch!=='__root__'){el.style.top=cfgPosMap[ch].y+'px';}});cfg_redrawConnections();return;}
+function cfg_toggleCards(){cfgAllOn=!cfgAllOn;document.getElementById('btn-cards').classList.toggle('on',cfgAllOn);var vp=document.getElementById('cfg-vp');if(!cfgAllOn){Object.keys(cfgCards).forEach(function(ch){cfgCards[ch].remove();delete cfgCards[ch];});vp.querySelectorAll('.cfg-node.open').forEach(function(n){n.classList.remove('open');});vp.querySelectorAll('.cfg-node').forEach(function(el){var ch=el.dataset.chemin;if(cfgPosMap[ch]){el.style.top=cfgPosMap[ch].y+'px';}});cfg_redrawConnections();return;}
   // Passe 1 : créer toutes les cartes aux positions initiales
   vp.querySelectorAll('.cfg-node').forEach(function(el){var ch=el.dataset.chemin;if(cfgCards[ch])return;var x=parseInt(el.style.left),y=parseInt(el.style.top);var fh=(el.querySelector('.cfg-folder')||{offsetHeight:CFG_H}).offsetHeight||CFG_H;el.classList.add('open');var card=cfg_buildCard(ch,el,x,y,fh);cfgCards[ch]=card;vp.appendChild(card);});
   // Passe 2 : après rendu complet, lire les vraies hauteurs et repositionner
@@ -354,74 +339,15 @@ function cfg_toggleCards(){cfgAllOn=!cfgAllOn;document.getElementById('btn-cards
 }
 
 // ── CFG: draw connections (DOM-based, stable) ───────────────────────────────
-function cfg_drawConnections(svg, vp, positions, cfgPosMap, ROOT_CHEMIN){
+function cfg_drawConnections(svg, vp, positions, cfgPosMap){
   svg.innerHTML = '';
 
   function px(v){ return Math.round(v); }
 
-  // Root element
-  var rootEl = vp.querySelector('.cfg-node[data-chemin="'+ROOT_CHEMIN+'"]');
-  if(!rootEl) return;
-
-  var rootLeft  = parseInt(rootEl.style.left) || 0;
-  var rootTop   = parseInt(rootEl.style.top)  || 0;
-  var rootFolder = rootEl.querySelector('.cfg-folder');
-  var rootH = (rootFolder && rootFolder.offsetHeight) ? rootFolder.offsetHeight : CFG_H;
-
-  // ✅ Tronc “collé” à Racine : bord droit du dossier Racine
-  var trunkX = px(rootLeft + CFG_W);
-
-  // Enfants directs niveau 0
-  var rootChildren = (positions || []).filter(function(p){
-    return p && p.parentChemin === ROOT_CHEMIN;
-  });
-
-  // Centres Y des enfants (DOM réel)
-  var childInfos = [];
-  rootChildren.forEach(function(p){
-    var childEl = vp.querySelector('.cfg-node[data-chemin="'+p.chemin+'"]');
-    if(!childEl) return;
-
-    var cl = parseInt(childEl.style.left) || 0;
-    var ct = parseInt(childEl.style.top)  || 0;
-    var cf = childEl.querySelector('.cfg-folder');
-    var ch = (cf && cf.offsetHeight) ? cf.offsetHeight : CFG_H;
-
-    childInfos.push({
-      chemin: p.chemin,
-      x2: px(cl),                 // entrée enfant = bord gauche
-      y2: px(ct + ch/2)            // milieu vertical enfant
-    });
-  });
-
-  if(childInfos.length){
-    // Si plusieurs enfants : tronc vertical au bord droit de Racine
-    if(childInfos.length > 1){
-      var ys = childInfos.map(function(o){ return o.y2; });
-      var minY = Math.min.apply(null, ys);
-      var maxY = Math.max.apply(null, ys);
-
-      var trunk = document.createElementNS('http://www.w3.org/2000/svg','path');
-      trunk.setAttribute('d', 'M'+trunkX+','+minY+' V'+maxY);
-      trunk.dataset.parent = ROOT_CHEMIN;
-      trunk.dataset.child  = '__trunk__';
-      svg.appendChild(trunk);
-    }
-
-    // Branches horizontales vers chaque enfant (comme INGEST → BMD/LaCroix/etc.)
-    childInfos.forEach(function(o){
-      var br = document.createElementNS('http://www.w3.org/2000/svg','path');
-      br.setAttribute('d', 'M'+trunkX+','+o.y2+' H'+o.x2);
-      br.dataset.parent = ROOT_CHEMIN;
-      br.dataset.child  = o.chemin;
-      svg.appendChild(br);
-    });
-  }
-
-  // ── Liens standards (inchangés), DOM-based ───────────────────────────────
+  // ── Liens standards, DOM-based (les nœuds de niveau 0 n'ont pas de parent —
+  // ce sont de vraies racines, aucun tronc/branche synthétique à dessiner) ──
   (positions || []).forEach(function(p){
     if(!p || !p.parentChemin || !cfgPosMap[p.parentChemin]) return;
-    if(p.parentChemin === ROOT_CHEMIN) return; // déjà dessiné ci-dessus
 
     var par = cfgPosMap[p.parentChemin];
     var parEl = vp.querySelector('.cfg-node[data-chemin="'+par.chemin+'"]');
@@ -458,7 +384,7 @@ function cfg_redrawConnections(){
   // Si la fonction centralisée existe, on l’utilise (recommandé)
   if (typeof cfg_drawConnections === 'function') {
     var positions = Object.values(cfgPosMap);
-    cfg_drawConnections(svg, vp, positions, cfgPosMap, '__root__');
+    cfg_drawConnections(svg, vp, positions, cfgPosMap);
     if (cfgHiRoot) cfg_highlightSubtree(cfgHiRoot);
     return;
   }
