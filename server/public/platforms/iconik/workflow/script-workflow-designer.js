@@ -1969,7 +1969,7 @@ function peuplerSelectFlux() {
   // Calculer les labels voulus
   const labels = {};
   sorted.forEach(f => {
-    const isLive     = Object.values(_wfdJobs.live || {}).some(j => j.fluxId === f.id);
+    const isLive     = Object.values(_wfdJobs.live || {}).some(j => j.fluxId === f.id && !j._waitingOperator);
     const fluxHistory = (_wfdJobs.history || []).filter(j => j.fluxId === f.id);
     const lastRun    = fluxHistory.sort((a,b) => new Date(b.startedAt||0) - new Date(a.startedAt||0))[0];
     const lastFailed = lastRun?.status === 'failed';
