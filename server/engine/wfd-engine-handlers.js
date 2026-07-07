@@ -3335,7 +3335,9 @@ async function aws_s3(node, ctx, iconikClient) {
   };
 
   // Exécuter la requête
+  console.log('[DEBUG aws_s3 head_object] operation:', operation, '| bucket:', bucket, '| objectKey (résolu):', objectKey, '| url:', url, '| region:', region);
   const res = await globalThis.fetch(url, { method, headers });
+  console.log('[DEBUG aws_s3 head_object] réponse status:', res.status);
 
   if (res.status === 404) {
     WfdContext.storeResult(ctx, resultVar, { status: 404, exists: false, key: objectKey });
