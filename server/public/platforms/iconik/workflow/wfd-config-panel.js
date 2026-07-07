@@ -8147,11 +8147,13 @@ async function wfdToggleFlux() {
     } else {
       // Pousser les flux à jour avant d'activer pour éviter une version obsolète en mémoire
       // (tolérant : si ce chargement échoue, on tente quand même l'activation elle-même)
-      await window.WfdEngineInstance.loadFluxes(wfdFlows)
-        .then(() => window.WfdEngineInstance.loadConnexions(
-          (wfdConnexions || []).filter(c => c.direction === 'outbound')
-        ))
-        .catch(() => {});
+      // Note : ne PAS appeler loadConnexions(wfdConnexions...) ici — loadFluxes() déclenche déjà
+      // côté serveur un rechargement des connexions DIRECTEMENT depuis la DB (loadActiveFluxes),
+      // garanti à jour. Appeler loadConnexions avec le cache client (wfdConnexions) écrasait ce
+      // résultat frais avec une version potentiellement périmée si une connexion avait été
+      // ajoutée/modifiée ailleurs (ex: modale Ressources) sans recharger complètement la page —
+      // cause probable du bug 'aws_s3 : connexion introuvable' intermittent (07/07/2026).
+      await window.WfdEngineInstance.loadFluxes(wfdFlows).catch(() => {});
       await window.WfdEngineInstance.activateFlux(flux.id);
       toast('Flux activé — '+flux.name);
       // Restaurer les jobs en pause qui survivent à la désactivation
