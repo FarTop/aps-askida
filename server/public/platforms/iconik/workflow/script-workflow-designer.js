@@ -1159,12 +1159,14 @@ function _initWfdEngineExpress() {
     if (window.wfdRunPanelHandleEvent) window.wfdRunPanelHandleEvent(ev.type, ev);
   });
   console.log('[WFD Jobs] Listener démarré');
-  // Envoyer les connexions sortantes à l'engine
-  if (window.WfdEngineInstance.loadConnexions) {
-    window.WfdEngineInstance.loadConnexions(
-      (typeof wfdConnexions !== 'undefined' ? wfdConnexions : []).filter(c => c.direction === 'outbound')
-    ).catch(() => {});
-  }
+  // Note : ne PAS appeler loadConnexions(wfdConnexions...) ici — course possible avec
+  // _chargerEtatDepuisServeur() (qui peuple wfdConnexions de façon asynchrone, sans garantie
+  // d'ordre avec ce polling). Si ce code s'exécute AVANT que wfdConnexions soit chargé,
+  // loadConnexions([]) écrase silencieusement le cache serveur WfdHandlers._connexions —
+  // pourtant déjà correctement chargé depuis la DB par loadActiveFluxes() au démarrage du
+  // serveur — avec un tableau vide. Cause probable du bug 'aws_s3 : connexion introuvable'
+  // intermittent (07/07/2026) : la fenêtre de course dépend de la vitesse relative du
+  // fetch réseau vs du polling local, expliquant le caractère aléatoire observé.
   // Vérifier si des nœuds sont déjà suspendus (redémarrage / rechargement)
   if (window.WfdEngineInstance.getPaused) {
     window.WfdEngineInstance.getPaused().then(function(paused) {
