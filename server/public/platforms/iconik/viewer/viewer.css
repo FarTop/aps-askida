@@ -52,21 +52,22 @@ nav{display:flex;gap:2px;}
 #cfg-svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;}
 #cfg-svg path{fill:none;stroke:#fff;stroke-width:1.5;}
 #cfg-svg path.hi{stroke:var(--accent2);stroke-width:2.5;}
-.cfg-node{position:absolute;cursor:pointer;user-select:none;}
-.cfg-folder{position:relative;background:var(--bg2);border:1.5px solid #fff;border-radius:0 6px 6px 6px;width:150px;min-height:88px;transition:border-color .15s,box-shadow .15s;}
-.cfg-folder::before{content:'';position:absolute;top:-14px;left:-1px;width:52%;height:14px;background:var(--bg2);border:1.5px solid #fff;border-bottom:none;border-radius:6px 6px 0 0;}
-.cfg-node:hover .cfg-folder{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,0.15);}
-.cfg-node.open .cfg-folder{border-color:var(--accent);box-shadow:0 0 0 2px #00d4aa33;}
-.cfg-node.root .cfg-folder{border-color:#fff;}
-.cfg-node.root .cfg-folder::before{background:var(--bg3);border-color:#fff;}
-.cfg-node.hi .cfg-folder{border-color:var(--accent2);box-shadow:0 0 0 2px #C8D10033;}
-.cfg-node.hi .cfg-folder::before{border-color:var(--accent2);}
-.cfg-fname{font-size:11px;font-weight:700;color:var(--text);padding:6px 10px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.cfg-fbadges{display:flex;gap:3px;flex-wrap:wrap;padding:0 8px 6px;}
-.cfg-badge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;}
-.cfg-badge.rw{background:#0d332018;color:#0DB852;border:1px solid #0DB85244;}
-.cfg-badge.ro{background:#0d1f3318;color:#2E75B6;border:1px solid #2E75B644;}
-.cfg-badge.rg{background:#9b59b618;color:#9b59b6;border:1px solid #9b59b633;}
+/* Nœuds de l'arborescence — SVG natif (net à tout niveau de zoom, cf. 07/07/2026) */
+#cfg-svg .cfg-node{cursor:pointer;user-select:none;}
+#cfg-svg .cfg-folder-shape{fill:var(--bg2);stroke:#fff;stroke-width:1.5;transition:stroke .15s,filter .15s;}
+#cfg-svg .cfg-folder-seam{fill:var(--bg2);}
+#cfg-svg .cfg-node:hover .cfg-folder-shape{stroke:#fff;filter:drop-shadow(0 0 3px rgba(255,255,255,.35));}
+#cfg-svg .cfg-node.open .cfg-folder-shape{stroke:var(--accent);filter:drop-shadow(0 0 4px #00d4aa55);}
+#cfg-svg .cfg-node.root .cfg-folder-shape{stroke:#fff;}
+#cfg-svg .cfg-node.root .cfg-folder-seam{fill:var(--bg3);}
+#cfg-svg .cfg-fname-text{font-size:11px;font-weight:700;fill:var(--text);}
+#cfg-svg .cfg-badge-rect.rw{fill:#0d332018;stroke:#0DB85244;stroke-width:1;}
+#cfg-svg .cfg-badge-rect.ro{fill:#0d1f3318;stroke:#2E75B644;stroke-width:1;}
+#cfg-svg .cfg-badge-rect.rg{fill:#9b59b618;stroke:#9b59b633;stroke-width:1;}
+#cfg-svg .cfg-badge-text.rw{fill:#0DB852;font-size:8px;font-weight:700;}
+#cfg-svg .cfg-badge-text.ro{fill:#2E75B6;font-size:8px;font-weight:700;}
+#cfg-svg .cfg-badge-text.rg{fill:#9b59b6;font-size:8px;font-weight:700;}
+#cfg-svg .cfg-connectors path{fill:none;stroke:#aaaaaa;stroke-width:1.5;}
 .cfg-card{position:absolute;background:#0c1a1d;border:1.5px solid #00bcd4;border-top:2px solid #00bcd4;border-radius:0 8px 8px 8px;width:210px;z-index:20;box-shadow:0 8px 24px #0009;}
 .cfg-card::before{content:'';position:absolute;top:-11px;left:-1px;width:50%;height:10px;background:#0c1a1d;border:1.5px solid #00bcd4;border-bottom:none;border-radius:4px 4px 0 0;}
 .cfg-card-hdr{padding:7px 10px;background:#0a1416;display:flex;align-items:center;gap:7px;border-bottom:1px solid #00bcd422;}
@@ -143,18 +144,16 @@ nav{display:flex;gap:2px;}
   --hi-soft: rgba(200,209,0,0.22);
 }
 
-.cfg-node.hi .cfg-folder{
-  border-color: var(--hi);
-  box-shadow:
-    0 0 0 2px var(--hi-strong),
-    0 0 16px var(--hi-mid),
-    0 0 36px var(--hi-soft);
+#cfg-svg .cfg-node.hi .cfg-folder-shape{
+  stroke: var(--hi);
+  filter:
+    drop-shadow(0 0 2px var(--hi-strong))
+    drop-shadow(0 0 10px var(--hi-mid))
+    drop-shadow(0 0 20px var(--hi-soft));
 }
 
-.cfg-node.hi .cfg-folder::before{
-  border-color: var(--hi);
-  box-shadow:
-    0 0 12px var(--hi-soft);
+#cfg-svg .cfg-node.hi .cfg-folder-seam{
+  fill: var(--bg3);
 }
 
 #cfg-svg path.hi{
