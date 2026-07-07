@@ -767,9 +767,11 @@ function _wfdHandleEngineEvent(ev) {
     }
 
     case 'end': {
+      console.log('[WFD DIAG] case end reçu — runId:', runId, '| fluxId:', fluxId, '| status:', status);
       // Chercher aussi par fluxId si runId absent
       const job = _wfdFindJob(runId, fluxId)
         || Object.values(_wfdJobs.live).find(j => j.fluxId === fluxId);
+      console.log('[WFD DIAG] job trouvé ?', !!job, job ? ('fluxId du job: ' + job.fluxId) : '');
       if (!job) break;
       job.status    = status || 'success';
       job.endedAt   = Date.now();
@@ -789,10 +791,14 @@ function _wfdHandleEngineEvent(ev) {
           _wfdCleanBadges(fluxId);
           _wfdUpdateLiveBadge();
           _wfdRenderJobsPanel();
+          console.log('[WFD DIAG] setTimeout 3s écoulé — appel peuplerSelectFlux()');
+          peuplerSelectFlux();
         }, 3000);
         _wfdRenderJobCard(job);
       }
       _wfdUpdateLiveBadge();
+      console.log('[WFD DIAG] appel immédiat peuplerSelectFlux()');
+      peuplerSelectFlux();
       break;
     }
   }
