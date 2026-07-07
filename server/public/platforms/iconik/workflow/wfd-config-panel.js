@@ -8546,6 +8546,54 @@ function wfdListenerSimToggle(pfx) {
   wrap.classList.toggle('wfd-hidden', !open);
   if (btn) btn.textContent = open ? 'Masquer' : 'Afficher';
 }
+
+async function wfdListenerSimRun(pfx) {
+  const errorEl   = document.getElementById(pfx + '-lsim-error');
+  const resultEl  = document.getElementById(pfx + '-lsim-result');
+  const statusEl  = document.getElementById(pfx + '-lsim-result-status');
+  const bodyEl    = document.getElementById(pfx + '-lsim-result-body');
+  const payloadEl = document.getElementById(pfx + '-lsim-payload');
+  const connSel   = document.getElementById(pfx + '-listener-conn');
+
+  errorEl?.classList.add('wfd-hidden');
+  resultEl?.classList.add('wfd-hidden');
+
+  const connexionId = connSel?.value;
+  if (!connexionId) {
+    if (errorEl) { errorEl.textContent = 'Sélectionnez d\'abord une connexion.'; errorEl.classList.remove('wfd-hidden'); }
+    return;
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(payloadEl?.value || '{}');
+  } catch (e) {
+    if (errorEl) { errorEl.textContent = 'JSON invalide — ' + e.message; errorEl.classList.remove('wfd-hidden'); }
+    return;
+  }
+
+  try {
+    const res  = await fetch('/wfd/listener-test', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ connexionId, payload }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.ok === false) {
+      if (errorEl) { errorEl.textContent = data.error || ('Erreur HTTP ' + res.status); errorEl.classList.remove('wfd-hidden'); }
+      return;
+    }
+    if (statusEl) {
+      const success = data.status >= 200 && data.status < 300;
+      statusEl.textContent = 'HTTP ' + data.status + (success ? ' — Reçu' : ' — Erreur');
+      statusEl.style.color = success ? '#27ae60' : '#e74c3c';
+    }
+    if (bodyEl) bodyEl.textContent = data.body || '(réponse vide)';
+    resultEl?.classList.remove('wfd-hidden');
+  } catch (e) {
+    if (errorEl) { errorEl.textContent = 'Erreur réseau — ' + e.message; errorEl.classList.remove('wfd-hidden'); }
+  }
+}
 const WFD_SIM_TEMPLATES = {
   metadata_changed: {
     realm: 'metadata', operation: 'changed',

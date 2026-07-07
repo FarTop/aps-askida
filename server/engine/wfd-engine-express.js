@@ -517,6 +517,51 @@ router.post('/reject-node', (req, res) => {
   res.json({ ok });
 });
 
+// ── POST /wfd/listener-test ───────────────────────────────────────
+// Simule un appel entrant réel vers un listener, en passant par le serveur
+// (proxy) plutôt que depuis le navigateur directement, pour éviter le CORS
+// (le serveur trigger sur le port 2880 ne pose pas d'en-têtes CORS).
+router.post('/listener-test', async (req, res) => {
+  const { connexionId, payload } = req.body || {};
+  if (!_engine) return res.status(503).json({ error: 'Engine non initialisé' });
+  const conn = _engine._trigger?._getConnexion?.(connexionId);
+  if (!conn) return res.status(404).json({ error: 'Connexion introuvable — ' + connexionId });
+  if (!conn.endpoint) return res.status(400).json({ error: 'Cette connexion n\'a pas d\'endpoint configuré' });
+
+  const bodyStr = JSON.stringify(payload || {});
+  const headers = { 'Content-Type': 'application/json' };
+  let url = 'http://localhost:2880' + conn.endpoint;
+
+  switch (conn.authType) {
+    case 'bearer':
+      headers['Authorization'] = 'Bearer ' + (conn.authValue || '');
+      break;
+    case 'basic':
+      headers['Authorization'] = 'Basic ' + Buffer.from(conn.authValue || '').toString('base64');
+      break;
+    case 'apikey_header':
+      headers['x-api-key'] = conn.authValue || '';
+      break;
+    case 'apikey_query':
+      url += (conn.endpoint.includes('?') ? '&' : '?') + 'api_key=' + encodeURIComponent(conn.authValue || '');
+      break;
+    case 'hmac': {
+      const crypto = require('crypto');
+      headers['x-signature'] = 'sha256=' + crypto.createHmac('sha256', conn.authValue || '').update(bodyStr).digest('hex');
+      break;
+    }
+    default: break; // 'none' — aucun en-tête supplémentaire
+  }
+
+  try {
+    const response = await globalThis.fetch(url, { method: 'POST', headers, body: bodyStr });
+    const text = await response.text();
+    res.json({ ok: true, status: response.status, body: text });
+  } catch (e) {
+    res.status(502).json({ ok: false, error: 'Impossible de contacter le serveur listener (port 2880) — ' + e.message });
+  }
+});
+
 // ── Runs ─────────────────────────────────────────────────────────
 router.get('/runs/:runId', (req, res) => {
   const run = _runHistory?.store.getRun(req.params.runId) || null;
