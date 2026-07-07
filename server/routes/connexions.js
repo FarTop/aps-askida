@@ -69,29 +69,23 @@ router.post('/', async (req, res) => {
       const items = req.body.items;
       if (!items.length) return res.json({ ok: true, count: 0 });
       const results = await Promise.allSettled(
-        items.map(c =>
-          prisma.connexion.upsert({
+        items.map(c => {
+          const base = {
+            name: c.name, type: c.type || 'listener',
+            direction: c.direction || 'inbound',
+            baseUrl: c.endpoint || null,
+            authType: c.authType,
+            authValueEnc: c.authValue ? encrypt(c.authValue) : null,
+            extraConfig: { mappings: c.mappings || [], description: c.description || '' },
+          };
+          return prisma.connexion.upsert({
             where:  { id: c.id },
-            update: {
-              name: c.name, type: c.type || 'listener',
-              direction: c.direction || 'inbound',
-              baseUrl: c.endpoint || null,
-              authType: c.authType,
-              authValueEnc: c.authValue ? encrypt(c.authValue) : null,
-              extraConfig: { mappings: c.mappings || [], description: c.description || '' },
-              isActive: c.isActive !== false,
-            },
-            create: {
-              id: c.id, envId, name: c.name, type: c.type || 'listener',
-              direction: c.direction || 'inbound',
-              baseUrl: c.endpoint || null,
-              authType: c.authType,
-              authValueEnc: c.authValue ? encrypt(c.authValue) : null,
-              extraConfig: { mappings: c.mappings || [], description: c.description || '' },
-              isActive: c.isActive !== false,
-            },
-          })
-        )
+            // isActive : ne pas toucher au champ existant si non fourni explicitement (même
+            // raisonnement que pour les flux, cf. server/routes/flows.js, bug du 07/07/2026).
+            update: { ...base, ...(typeof c.isActive === 'boolean' ? { isActive: c.isActive } : {}) },
+            create: { id: c.id, envId, ...base, isActive: typeof c.isActive === 'boolean' ? c.isActive : true },
+          });
+        })
       );
       const errors = results.filter(r => r.status === 'rejected').map(r => r.reason?.message);
       return res.json({ ok: true, count: results.length, errors: errors.length ? errors : undefined });

@@ -8124,41 +8124,57 @@ function _wfdSetReadOnly(readonly) {
     }
   }
 }
-function wfdToggleFlux() {
+async function wfdToggleFlux() {
   const flux=getFluxCourant(); if (!flux) return;
   const actives=_getActiveFluxes();
-  if (actives.has(flux.id)) {
-    actives.delete(flux.id);
-    toast('Flux désactivé — '+flux.name);
-    if (window.WfdEngineInstance) window.WfdEngineInstance.deactivateFlux(flux.id);
-  } else {
-    actives.add(flux.id);
-    toast('Flux activé — '+flux.name);
-    if (window.WfdEngineInstance) {
+  const wasActive=actives.has(flux.id);
+
+  // Mise à jour optimiste (locale) — annulée plus bas si le serveur refuse
+  if (wasActive) { actives.delete(flux.id); flux.isActive = false; }
+  else           { actives.add(flux.id);    flux.isActive = true;  }
+  _saveActiveFluxes(actives); wfdUpdateToggleBtn();
+  if (typeof peuplerSelectFlux === 'function') peuplerSelectFlux();
+
+  if (!window.WfdEngineInstance) {
+    toast(wasActive ? 'Flux désactivé — '+flux.name : 'Flux activé — '+flux.name);
+    return;
+  }
+
+  try {
+    if (wasActive) {
+      await window.WfdEngineInstance.deactivateFlux(flux.id);
+      toast('Flux désactivé — '+flux.name);
+    } else {
       // Pousser les flux à jour avant d'activer pour éviter une version obsolète en mémoire
-      window.WfdEngineInstance.loadFluxes(wfdFlows)
+      // (tolérant : si ce chargement échoue, on tente quand même l'activation elle-même)
+      await window.WfdEngineInstance.loadFluxes(wfdFlows)
         .then(() => window.WfdEngineInstance.loadConnexions(
           (wfdConnexions || []).filter(c => c.direction === 'outbound')
         ))
-        .catch(() => {}).finally(() => {
-        window.WfdEngineInstance.activateFlux(flux.id);
-        // Restaurer les jobs en pause qui survivent à la désactivation
-        window.WfdEngineInstance.getPaused?.().then(function(paused) {
-          if (!paused || !paused.length) return;
-          paused.filter(p => p.fluxId === flux.id).forEach(p => {
-            if (window.wfdRunPanelOpen) {
-              wfdRunPanelOpen(p.runId, p.nodeId, {
-                ports: p.ports||[], assets: p.assets||[],
-                timeoutMs: p.timeoutMs||null, ctxSnapshot: p.ctxSnapshot||null
-              });
-            }
-          });
-        }).catch(() => {});
-      });
+        .catch(() => {});
+      await window.WfdEngineInstance.activateFlux(flux.id);
+      toast('Flux activé — '+flux.name);
+      // Restaurer les jobs en pause qui survivent à la désactivation
+      window.WfdEngineInstance.getPaused?.().then(function(paused) {
+        if (!paused || !paused.length) return;
+        paused.filter(p => p.fluxId === flux.id).forEach(p => {
+          if (window.wfdRunPanelOpen) {
+            wfdRunPanelOpen(p.runId, p.nodeId, {
+              ports: p.ports||[], assets: p.assets||[],
+              timeoutMs: p.timeoutMs||null, ctxSnapshot: p.ctxSnapshot||null
+            });
+          }
+        });
+      }).catch(() => {});
     }
+  } catch (err) {
+    // Le serveur a refusé le changement : on revient à l'état précédent
+    if (wasActive) { actives.add(flux.id);    flux.isActive = true;  }
+    else           { actives.delete(flux.id); flux.isActive = false; }
+    _saveActiveFluxes(actives); wfdUpdateToggleBtn();
+    if (typeof peuplerSelectFlux === 'function') peuplerSelectFlux();
+    toast('❌ Échec — '+(err?.message || 'le serveur a refusé le changement'));
   }
-  _saveActiveFluxes(actives); wfdUpdateToggleBtn();
-  if (typeof peuplerSelectFlux === 'function') peuplerSelectFlux();
 }
 async function wfdRunManual() {
   const flux=getFluxCourant(); if (!flux) { toast('Aucun flux sélectionné'); return; }

@@ -44,13 +44,20 @@ router.post('/', async (req, res) => {
       const items = req.body.items;
       if (!items.length) return res.json({ ok: true, count: 0 });
       const results = await Promise.allSettled(
-        items.map(f =>
-          prisma.flow.upsert({
+        items.map(f => {
+          const base = { name: f.name, description: f.description, nodes: f.nodes || [], connections: f.connections || [], iconikEnv: f.iconikEnv || null };
+          return prisma.flow.upsert({
             where:  { id: f.id },
-            update: { name: f.name, description: f.description, nodes: f.nodes || [], connections: f.connections || [], isActive: f.isActive !== false, iconikEnv: f.iconikEnv || null },
-            create: { id: f.id, envId, name: f.name, description: f.description, nodes: f.nodes || [], connections: f.connections || [], isActive: f.isActive !== false, iconikEnv: f.iconikEnv || null },
-          })
-        )
+            // isActive : ne pas toucher au champ existant si le client ne fournit pas explicitement
+            // un booléen (undefined = "pas concerné par cette sauvegarde", pas "remettre à true").
+            // Évite qu'une sauvegarde en masse du canvas (nodes/connections) n'écrase silencieusement
+            // un flux désactivé entre-temps via /wfd/deactivate — cf. bug flux actifs désynchronisés
+            // trouvé le 07/07/2026 (le déclencheur toggle ne mettait pas à jour flux.isActive côté
+            // client, donc ce champ restait périmé dans le cache local envoyé ici).
+            update: { ...base, ...(typeof f.isActive === 'boolean' ? { isActive: f.isActive } : {}) },
+            create: { id: f.id, envId, ...base, isActive: typeof f.isActive === 'boolean' ? f.isActive : true },
+          });
+        })
       );
       const errors = results.filter(r => r.status === 'rejected').map(r => r.reason?.message);
       return res.json({ ok: true, count: results.length, errors: errors.length ? errors : undefined });
