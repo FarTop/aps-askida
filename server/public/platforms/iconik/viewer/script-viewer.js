@@ -201,10 +201,13 @@ document.addEventListener('DOMContentLoaded',function(){
   });
 });
 
-// Netteté : le zoom CSS (#cfg-vp) reste pour les fiches HTML (.cfg-card, popup
-// de détail) ; le zoom SVG (#cfg-zoom-g) pilote les nœuds/connexions, rendus en
-// SVG natif — ceux-ci restent nets à n'importe quel niveau de zoom (contrairement
-// au zoom CSS, qui étire un rendu HTML déjà figé en pixels).
+// Netteté : le zoom CSS existant sur #cfg-vp suffit pour TOUT (nœuds SVG ET
+// fiches HTML) — le contenu SVG reste net même quand son conteneur HTML ancêtre
+// est zoomé via transform CSS (contrairement au contenu HTML/texte, qui lui
+// devient flou). Un zoom SVG interne séparé sur #cfg-zoom-g avait été ajouté par
+// erreur en plus de celui-ci : comme <svg> est un enfant de #cfg-vp, les deux
+// transforms se cumulaient, décalant les nœuds par rapport aux fiches (qui, elles,
+// ne subissaient que le zoom CSS). Retiré — un seul zoom, qui suffit déjà.
 function cApply(){
   var x = Math.round(CTX);
   var y = Math.round(CTY);
@@ -212,9 +215,6 @@ function cApply(){
 
   document.getElementById('cfg-vp').style.transform =
     'translate3d(' + x + 'px,' + y + 'px,0) scale(' + s + ')';
-
-  var zg = document.getElementById('cfg-zoom-g');
-  if (zg) zg.setAttribute('transform', 'translate(' + x + ',' + y + ') scale(' + s + ')');
 
   document.getElementById('cfg-zlbl').textContent = Math.round(s*100) + '%';
 }
