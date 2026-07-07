@@ -793,6 +793,7 @@ function _wfdHandleEngineEvent(ev) {
         _wfdRenderJobCard(job);
       }
       _wfdUpdateLiveBadge();
+      peuplerSelectFlux();
       break;
     }
   }
