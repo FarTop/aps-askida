@@ -5089,8 +5089,17 @@ function sauvegarderConfig() {
     }
     // Artworks
     node.config.jobId      = g('aws-art-jobid')   || '{exportJobId}';
-    const _awsArtPrefix    = g('aws-art-prefix');
-    if (_awsArtPrefix) node.config.objectKey = _awsArtPrefix;
+    // Le champ aws-art-prefix n'est qu'un RAPPEL VISUEL du objectKey principal (même valeur
+    // pré-remplie au rendu, cf. hint 'Même préfixe que le nœud LIST précédent') — pas un
+    // champ indépendant. Ne l'utiliser pour écraser objectKey que si l'opération EST
+    // artwork_s3 : sinon ce champ périmé (jamais retouché par l'utilisateur) écrasait
+    // systématiquement toute modification faite sur l'onglet Opération, à chaque
+    // sauvegarde, quelle que soit l'opération réellement sélectionnée sur le nœud
+    // (bug trouvé le 07/07/2026 : "chemin de l'objet" jamais persisté).
+    if (node.config.operation === 'artwork_s3') {
+      const _awsArtPrefix = g('aws-art-prefix');
+      if (_awsArtPrefix) node.config.objectKey = _awsArtPrefix;
+    }
     node.config.titreVar   = g('aws-art-titre')    || '{Titre}';
     node.config.nommageId  = g('aws-art-nommage')  || '';
     node.config.mdViewId   = g('aws-art-mdview')   || '';
