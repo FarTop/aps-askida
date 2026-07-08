@@ -118,6 +118,34 @@ function _ouvrirVarDropdown(input) {
 
   let hasContent = false;
 
+  // 🗂️ Lookup — champ "Champ Iconik" (lkr-src) : nom de champ BRUT attendu
+  // (pas de variable {…}), donc liste dédiée court-circuitant tout le reste
+  // de ce dropdown (API Iconik, nœuds, variables custom — aucun n'est une
+  // valeur valide pour ce champ précis).
+  if (input && input.classList && input.classList.contains('lkr-src')) {
+    const lkMeta = (wfdData.metadata||[])
+      .map(m => m.nom||m.name||'')
+      .filter(Boolean)
+      .sort();
+    const lkItems = [];
+    lkMeta.forEach(m => {
+      const item = makeItem(m, 'Iconik', '#9b59b6'); // nom brut, pas de {}
+      if (item) lkItems.push(item);
+    });
+    if (lkItems.length) {
+      dd.appendChild(makeHeader('🗂️ Champs Iconik', '#9b59b6'));
+      lkItems.forEach(item => dd.appendChild(item));
+    } else {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'padding:14px;color:#555;text-align:center;font-family:var(--font-ui);';
+      empty.textContent = 'Aucun champ correspondant';
+      dd.appendChild(empty);
+    }
+    document.body.appendChild(dd);
+    _wfdVarDropdown = dd;
+    return;
+  }
+
   // ── Iconik API ────────────────────────────────────────────────────────────
   const iconikItems = [];
 _WFD_ICONIK_VARS.forEach(grp => {
@@ -3832,6 +3860,9 @@ function buildCfgFields(pfx, family, cfg) {
         <div class="lkr-main">
           <input class="lkr-src cfg-input lk-key" value="${escHtml(key)}" placeholder="Champ Iconik"
             list="${pfx}-wfd-lk-src-list" title="Champ source Iconik (ex: Titre, Realisateur…)">
+          <button type="button"
+            onclick="event.preventDefault();event.stopPropagation();_ouvrirVarDropdown(this.previousElementSibling)"
+            class="wfd-sv-var-btn" title="Choisir un champ Iconik disponible">{…}</button>
           <span class="lkr-arrow">→</span>
           <div class="lkr-tgt-wrap">
             <input class="lkr-tgt cfg-input lk-value" value="${escHtml(value)}" placeholder="Champ API cible"
@@ -3887,6 +3918,9 @@ function buildCfgFields(pfx, family, cfg) {
         <div class="lkr-main wfd-lk-person-grid">
           <input class="lkr-src cfg-input lk-key lk-person-key" value="${escHtml(key)}"
             placeholder="Champ Iconik" list="${pfx}-wfd-lk-src-list">
+          <button type="button"
+            onclick="event.preventDefault();event.stopPropagation();_ouvrirVarDropdown(this.previousElementSibling)"
+            class="wfd-sv-var-btn" title="Choisir un champ Iconik disponible">{…}</button>
           <span class="lkr-arrow">→</span>
           <span class="lkr-person-target">persons[]</span>
           <select class="lkr-role-sel lk-person-role" title="Rôle dans la liste des crédits">

@@ -2196,7 +2196,7 @@ nav { display: flex; gap: 2px; }
 /* ── Classes utilitaires wfd-config-panel — lot 53 (lookup, Champs) ─────── */
 .wfd-lk-child-grid    { display: grid; grid-template-columns: 1fr 1fr 28px; gap: 4px; margin-bottom: 2px; }
 .wfd-lk-children-margin { margin-left: 28px; margin-top: 2px; }
-.wfd-lk-person-grid   { grid-template-columns: 1fr 20px auto auto auto auto; }
+.wfd-lk-person-grid   { grid-template-columns: 1fr auto 20px auto auto auto auto; }
 .wfd-lk-format-sel    { font-size: 10px; padding: 3px 5px; border-radius: 4px; border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); color: var(--color-text-secondary); cursor: pointer; }
 .wfd-lk-credits-intro { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 12px; line-height: 1.6; }
 .wfd-lk-credits-hdrs  { display: grid; grid-template-columns: 1fr 20px 80px 1fr 24px; gap: 6px; font-size: 10px; color: var(--color-text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; padding: 0 0 6px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 4px; }
@@ -2266,7 +2266,7 @@ nav { display: flex; gap: 2px; }
 
 .lkr { border-bottom:0.5px solid var(--color-border-tertiary); padding:6px 0; }
 .lkr:last-child { border-bottom:none; }
-.lkr-main { display:grid; grid-template-columns:1fr 20px 1fr auto auto auto; gap:6px; align-items:center; }
+.lkr-main { display:grid; grid-template-columns:1fr auto 20px 1fr auto auto auto; gap:6px; align-items:center; }
 .lkr-src, .lkr-tgt { font-size:12px !important; }
 .lkr-tgt-wrap { position:relative; }
 .lkr-nested { position:absolute; right:6px; top:50%; transform:translateY(-50%);
