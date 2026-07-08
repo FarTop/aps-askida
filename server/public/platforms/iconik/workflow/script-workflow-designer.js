@@ -8049,6 +8049,9 @@ function lkAddPersonRow(pfx) {
     <div class="lkr-main wfd-lk-person-grid">
       <input class="lkr-src cfg-input lk-key lk-person-key" placeholder="Champ Iconik"
         list="${pfx}-wfd-lk-src-list">
+      <button type="button"
+        onclick="event.preventDefault();event.stopPropagation();_ouvrirVarDropdown(this.previousElementSibling)"
+        class="wfd-sv-var-btn" title="Choisir un champ Iconik disponible">{…}</button>
       <span class="lkr-arrow">→</span>
       <span class="lkr-person-target">persons[]</span>
       <select class="lkr-role-sel lk-person-role">
@@ -8211,7 +8214,8 @@ function lkAddRowFromSpec(path, type, required, enumValues) {
   const typeColors = { string:'#555', integer:'#e67e22', float:'#e67e22', boolean:'#9b59b6' };
   div.innerHTML =
     '<div class="wfd-grid-contacts">' +
-    '<input class="cfg-input lk-key" value="" placeholder="Valeur source" list="wfd-lk-field-source">' +
+    '<input class="cfg-input lk-key lkr-src" value="" placeholder="Valeur source" list="wfd-lk-field-source">' +
+    '<button type="button" onclick="event.preventDefault();event.stopPropagation();_ouvrirVarDropdown(this.previousElementSibling)" class="wfd-sv-var-btn" title="Choisir un champ Iconik disponible">{…}</button>' +
     '<input class="cfg-input lk-value" value="' + escHtml(path) + '" placeholder="Champ cible">' +
     '<input class="cfg-input lk-fallback" value="" placeholder="Fallback {var}" ' +
     'class="wfd-input-warn">' +
@@ -8420,7 +8424,8 @@ function _lkBuildParentRow(key, value, children, isList, fallback, rowType) {
   const _typeColors = { string:'#555', integer:'#e67e22', float:'#e67e22', boolean:'#9b59b6' };
   div.innerHTML =
     '<div class="wfd-grid-contacts">' +
-    '<input class="cfg-input lk-key"   placeholder="Valeur source"  value="' + escHtml(key   ||'') + '" list="wfd-lk-field-source" onchange="lkUpdateValueWidget(this)">' +
+    '<input class="cfg-input lk-key lkr-src"   placeholder="Valeur source"  value="' + escHtml(key   ||'') + '" list="wfd-lk-field-source" onchange="lkUpdateValueWidget(this)">' +
+    '<button type="button" onclick="event.preventDefault();event.stopPropagation();_ouvrirVarDropdown(this.previousElementSibling)" class="wfd-sv-var-btn" title="Choisir un champ Iconik disponible">{…}</button>' +
     '<span class="lk-value-wrap" style="position:relative;">' + lkBuildValueWidget(key||'', value||'') + '</span>' +
     '<input class="cfg-input lk-fallback" placeholder="Fallback {var}" value="' + escHtml(fallback||'') + '" list="' + _listId + '" ' +
     'title="Si la valeur source est vide, utiliser cette variable" ' +
