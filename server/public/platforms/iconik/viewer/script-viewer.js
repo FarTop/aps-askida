@@ -471,6 +471,7 @@ function cfg_buildCardSVG(chemin,nodeEl,nx,ny,nodeH){
   var title=_cfgEl('text');
   title.setAttribute('class','cfg-card-title-text');
   title.setAttribute('x',10); title.setAttribute('y',14);
+  title.dataset.label=titleTxt;
   var titleTip=_cfgEl('title'); titleTip.textContent=chemin; title.appendChild(titleTip);
   title.appendChild(document.createTextNode(titleTxt));
   g.appendChild(title);
@@ -513,6 +514,7 @@ function cfg_buildCardSVG(chemin,nodeEl,nx,ny,nodeH){
       var nm=_cfgEl('text');
       nm.setAttribute('class','cfg-card-rname');
       nm.setAttribute('x',20); nm.setAttribute('y',y+8);
+      nm.dataset.label=nmTxt;
       var nmTip=_cfgEl('title'); nmTip.textContent=t.nom; nm.appendChild(nmTip);
       nm.appendChild(document.createTextNode(nmTxt));
       g.appendChild(nm);
@@ -679,6 +681,67 @@ function cfg_buildExportSVG(){var zoomG=document.getElementById('cfg-zoom-g');va
       lines.push('<rect x="'+bx+'" y="'+by+'" width="'+w+'" height="13" rx="2" fill="'+bg+'" stroke="'+fg+'" stroke-width="0.8"/>');
       lines.push('<text x="'+(bx+5)+'" y="'+(by+10)+'" font-size="8" font-weight="bold" fill="'+fg+'">'+_esc(txt)+'</text>');
       bx+=w+4;
+    });
+  });
+  cards.forEach(function(card){
+    var cx=tx(_cfgNodeX(card)),cy=ty(_cfgNodeY(card));
+    var totalH=parseFloat(card.dataset.h)||140;
+    var TAB_W=Math.round(CARD_W*0.5),TAB_H=10;
+    // Onglet + corps (même tracé que cfg_buildCardSVG, décalé en cx,cy)
+    lines.push('<path d="M'+(cx+3)+','+(cy-TAB_H+3)+' Q'+(cx+3)+','+(cy-TAB_H)+' '+(cx+6)+','+(cy-TAB_H)+' H'+(cx+TAB_W-3)+' Q'+(cx+TAB_W)+','+(cy-TAB_H)+' '+(cx+TAB_W)+','+(cy-TAB_H+3)+' V'+cy+' H'+cx+' V'+(cy-TAB_H+3)+' Z" fill="#0c1a1d" stroke="#00bcd4" stroke-width="1.5"/>');
+    lines.push('<rect x="'+(cx+1)+'" y="'+(cy-1)+'" width="'+(TAB_W-2)+'" height="2.5" fill="#0c1a1d"/>');
+    lines.push('<path d="M'+cx+','+cy+' H'+(cx+CARD_W-8)+' Q'+(cx+CARD_W)+','+cy+' '+(cx+CARD_W)+','+(cy+8)+' V'+(cy+totalH-8)+' Q'+(cx+CARD_W)+','+(cy+totalH)+' '+(cx+CARD_W-8)+','+(cy+totalH)+' H'+(cx+8)+' Q'+cx+','+(cy+totalH)+' '+cx+','+(cy+totalH-8)+' V'+cy+' Z" fill="#0c1a1d" stroke="#00bcd4" stroke-width="1.5"/>');
+    // En-tête
+    var HDR_H=22;
+    lines.push('<rect x="'+cx+'" y="'+cy+'" width="'+CARD_W+'" height="'+HDR_H+'" fill="#0a1416"/>');
+    lines.push('<line x1="'+cx+'" y1="'+(cy+HDR_H)+'" x2="'+(cx+CARD_W)+'" y2="'+(cy+HDR_H)+'" stroke="#00bcd422"/>');
+    var titleEl=card.querySelector('.cfg-card-title-text');
+    var titleTxt=titleEl?(titleEl.dataset.label||''):'';
+    lines.push('<text x="'+(cx+10)+'" y="'+(cy+14)+'" font-size="10" font-weight="bold" fill="#00bcd4">'+_esc(titleTxt)+'</text>');
+    // Section Accès — rowGroups calculé d'abord pour savoir s'il faut le titre ACCES
+    // (querySelector('.cfg-card-sec-title') seul aurait été ambigu : il y a aussi le
+    // titre CHEMIN, toujours présent, avec la même classe)
+    var y=cy+HDR_H+7;
+    var rowGroups=[];var curRow=null;
+    Array.from(card.children).forEach(function(child){
+      if(child.classList.contains('cfg-card-dot')){ curRow={dot:child,name:null,permRect:null,permText:null}; rowGroups.push(curRow); }
+      else if(child.classList.contains('cfg-card-rname') && curRow){ curRow.name=child; }
+      else if(child.classList.contains('cfg-card-perm-rect') && curRow){ curRow.permRect=child; }
+      else if(child.classList.contains('cfg-card-perm-text') && curRow){ curRow.permText=child; }
+    });
+    if(rowGroups.length){
+      lines.push('<text x="'+(cx+10)+'" y="'+(y+7)+'" font-size="8" font-weight="bold" fill="#666">ACCES</text>');
+      y+=11;
+    }
+    if(!rowGroups.length){
+      lines.push('<text x="'+(cx+10)+'" y="'+(y+6)+'" font-size="10" font-style="italic" fill="#666">Aucun acces configure</text>');
+      y+=13;
+    } else {
+      rowGroups.forEach(function(row){
+        var isRG=row.dot.classList.contains('rg');
+        lines.push('<circle cx="'+(cx+12)+'" cy="'+(y+5)+'" r="2.5" fill="'+(isRG?'#9b59b6':'#e84393')+'"/>');
+        var nmTxt=row.name?(row.name.dataset.label||''):'';
+        lines.push('<text x="'+(cx+20)+'" y="'+(y+8)+'" font-size="10" fill="#999">'+_esc(nmTxt)+'</text>');
+        if(row.permRect && row.permText){
+          var isRW=row.permRect.classList.contains('rw');
+          var prX=cx+parseFloat(row.permRect.getAttribute('x')), prY=y;
+          var prW=parseFloat(row.permRect.getAttribute('width'));
+          lines.push('<rect x="'+prX+'" y="'+prY+'" width="'+prW+'" height="11" rx="2" fill="'+(isRW?'#0d3320':'#0d1f33')+'" stroke="'+(isRW?'#0DB852':'#2E75B6')+'" stroke-width="0.8"/>');
+          lines.push('<text x="'+(prX+4)+'" y="'+(prY+8)+'" font-size="8" font-weight="bold" fill="'+(isRW?'#0DB852':'#2E75B6')+'">'+_esc(row.permText.textContent||'')+'</text>');
+        }
+        y+=15;
+      });
+    }
+    // Séparateur + section Chemin
+    lines.push('<line x1="'+cx+'" y1="'+y+'" x2="'+(cx+CARD_W)+'" y2="'+y+'" stroke="#222"/>');
+    y+=7;
+    lines.push('<text x="'+(cx+10)+'" y="'+(y+7)+'" font-size="8" font-weight="bold" fill="#666">CHEMIN</text>');
+    y+=11;
+    var pathTspans=card.querySelectorAll('.cfg-card-empty-text tspan');
+    pathTspans.forEach(function(tspan){
+      var dy=parseFloat(tspan.getAttribute('dy'))||0;
+      y+=dy;
+      lines.push('<text x="'+(cx+10)+'" y="'+y+'" font-size="10" fill="#666">'+_esc(tspan.textContent||'')+'</text>');
     });
   });
   lines.push('</svg>');return lines.join('\n');}
