@@ -17,6 +17,38 @@ function visGetColPaths(){
   }
   return cols.map(function(c){return '/'+getPath(byId[c.id])+'/';});
 }
+
+// Résout un ID de collection Iconik vers son chemin complet (même format que
+// visGetColPaths : '/Parent/Enfant/'). Nécessaire car les associations
+// team/role-group.collections stockent l'ID stable de la collection
+// (voir readTeams côté serveur), pas son chemin — le chemin peut changer si
+// une collection est renommée/déplacée, l'ID non. Cache reconstruit à chaque
+// cfg_build() (cf. _cfgBuildColPathCache), pour éviter de repayer la marche
+// parent_id à chaque nœud/équipe.
+var _cfgColPathCache=null;
+function _cfgBuildColPathCache(){
+  var cols=collectionsData.collections||[];
+  var byId={};
+  cols.forEach(function(c){ byId[c.id]=c; });
+  var raw={}; // chemins SANS / englobants, pour la récursion interne
+  function getRawPath(c){
+    if(!c) return '';
+    if(raw[c.id]!==undefined) return raw[c.id];
+    var p;
+    if(!c.parent_id||!byId[c.parent_id]){ p=c.name||c.nom||''; }
+    else { p=getRawPath(byId[c.parent_id])+'/'+(c.name||c.nom||''); }
+    raw[c.id]=p;
+    return p;
+  }
+  var cache={};
+  cols.forEach(function(c){ cache[c.id]='/'+getRawPath(c)+'/'; });
+  _cfgColPathCache=cache;
+}
+function _cfgResolveColPath(idOrChemin){
+  if(!idOrChemin) return idOrChemin;
+  if(!_cfgColPathCache) _cfgBuildColPathCache();
+  return _cfgColPathCache[idOrChemin] || idOrChemin; // déjà un chemin (ancien format) ou ID inconnu -> tel quel
+}
 // ── CFG helpers: filter by root + depth, fill root select, apply UI ──────────
 function cfg_filterPathsByRootAndDepth(paths, rootPrefix, maxDepth){
   rootPrefix = (rootPrefix || '').trim();
@@ -356,6 +388,7 @@ function cfg_createNodeSVG(p){
 
 function cfg_build(cols){
   cfgPosMap={};
+  _cfgColPathCache=null; // invalidé — sera reconstruit à la volée depuis collectionsData
   var vp=document.getElementById('cfg-vp');
   Array.from(vp.children).forEach(function(c){if(c.tagName!=='svg')c.remove();});
   var svg=document.getElementById('cfg-svg');svg.innerHTML='';
@@ -398,7 +431,7 @@ function cfg_build(cols){
     cfg_fit();toast(cols.length+' collections · '+positions.length+' noeuds');
   });
 }
-function cfg_getTeams(chemin){var normC=chemin.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');var res=[];(teamsData.teams||[]).forEach(function(t){var f=(t.collections||[]).find(function(c){var ch=typeof c==='string'?c:(c.chemin||c.nom||'');var normCh=ch.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');return normCh===normC;});if(f)res.push({nom:t.nom,permission:(f.permission||''),isRG:false});});(roleGroupsData.roleGroups||[]).forEach(function(rg){var f=(rg.collections||[]).find(function(c){return(typeof c==='string'?c:c.chemin)===chemin;});if(f)res.push({nom:rg.nom,permission:(f.permission||''),isRG:true});});return res;}
+function cfg_getTeams(chemin){var normC=chemin.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');var res=[];(teamsData.teams||[]).forEach(function(t){var f=(t.collections||[]).find(function(c){var raw=typeof c==='string'?c:(c.chemin||c.nom||'');var ch=_cfgResolveColPath(raw);var normCh=ch.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');return normCh===normC;});if(f)res.push({nom:t.nom,permission:(f.permission||''),isRG:false});});(roleGroupsData.roleGroups||[]).forEach(function(rg){var f=(rg.collections||[]).find(function(c){var raw=typeof c==='string'?c:c.chemin;var ch=_cfgResolveColPath(raw);var normCh=(ch||'').toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');return normCh===normC;});if(f)res.push({nom:rg.nom,permission:(f.permission||''),isRG:true});});return res;}
 function cfg_toggleCard(chemin,nodeEl,nx,ny){if(cfgCards[chemin]){cfgCards[chemin].remove();delete cfgCards[chemin];nodeEl.classList.remove('open');return;}nodeEl.classList.add('open');var card=cfg_buildCardSVG(chemin,nodeEl,nx,ny,CFG_H);cfgCards[chemin]=card;document.getElementById('cfg-zoom-g').appendChild(card);}
 var CARD_W=210;
 
