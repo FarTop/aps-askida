@@ -127,20 +127,18 @@ class WfdTriggerServer {
       res.end(JSON.stringify({ received: true, fluxes: fluxes.length }));
 
       // Exécuter les flux avec le bon normaliseur selon le type
+      // NOTE : le dispatch Custom Action (Asset/Collection/Segment) vit désormais
+      // exclusivement dans wfd-engine-express.js (_dispatchCustomAction), seul
+      // chemin réellement actif — ce serveur HTTP standalone est inerte en mode
+      // Express (port=0, cf. start()). On garde ici un traitement générique par
+      // sécurité, sans dupliquer la logique de dispatch par contexte.
       for (const flux of fluxes) {
-        if (!isListener && _isCustomActionPayload(payload)) {
-          // Custom Action Iconik — dispatcher selon le contexte (Asset / Collection / Segment)
-          dispatchCustomAction(payload, flux, this).catch(err => {
-            console.error('[WFD Engine] Erreur CustomAction "' + flux.name + '" :', err.message);
-          });
-        } else {
-          const normalized = isListener
-            ? normalizeListenerPayload(payload, req)
-            : normalizeIconikPayload(payload);
-          this._runFlux(flux, normalized).catch(err => {
-            console.error('[WFD Engine] Erreur flux "' + flux.name + '" :', err.message);
-          });
-        }
+        const normalized = isListener
+          ? normalizeListenerPayload(payload, req)
+          : normalizeIconikPayload(payload);
+        this._runFlux(flux, normalized).catch(err => {
+          console.error('[WFD Engine] Erreur flux "' + flux.name + '" :', err.message);
+        });
       }
     });
   }
@@ -570,135 +568,11 @@ function _isCustomActionPayload(raw) {
   ));
 }
 
-// ── Dispatcher Custom Action ─────────────────────────────────────
-// Gère les 3 contextes : Asset → 1 run / Collection → N runs / Segment → 1 run
-async function dispatchCustomAction(raw, flux, server) {
-  // Support nouveau format (context) et ancien (object_type)
-  const context  = (raw.context || raw.object_type || 'ASSET').toUpperCase();
-  const onError  = (err) =>
-    console.error('[WFD CustomAction] Erreur flux "' + flux.name + '" :', err.message);
-
-  if (context === 'COLLECTION') {
-    // ── Collection → fetch assets → N runs parallèles ──────────
-    let assets = [];
-    const collectionId = (Array.isArray(raw.collection_ids) ? raw.collection_ids[0] : null)
-      || raw.object_id || '';
-    try {
-      const client = _buildTempIconikClient(raw);
-      const data   = await client.get(
-        '/API/assets/v1/collections/' + collectionId + '/content/?object_types=assets&per_page=200'
-      );
-      assets = (data.objects || []).filter(o =>
-        !o.object_type || o.object_type === 'assets'
-      );
-    } catch (e) {
-      console.error('[WFD CustomAction] Fetch collection "' + collectionId + '" échoué :', e.message);
-      // Fallback : 1 run avec collection_id disponible dans ctx
-      const normalized = normalizeIconikPayload(raw);
-      server._runFlux(flux, normalized).catch(onError);
-      return;
-    }
-
-    if (!assets.length) {
-      console.warn('[WFD CustomAction] Collection "' + collectionId + '" vide ou inaccessible');
-      return;
-    }
-
-    console.log('[WFD CustomAction] Collection "' + collectionId + '" → ' + assets.length + ' run(s)');
-    for (const asset of assets) {
-      const normalized = normalizeIconikPayload({
-        ...raw,
-        object_id      : asset.id || asset.object_id || '',
-        object_type    : 'assets',
-        _collection_id : collectionId,   // disponible via ctx.collection.id
-      });
-      server._runFlux(flux, normalized).catch(onError);
-    }
-
-  } else if (context === 'SEGMENT') {
-    // ── Segment → 1 run avec asset_id + segment_id ─────────────
-    const normalized = normalizeIconikPayload(raw);
-    // segment.id est déjà dans normalized.segment.id si raw.segment_id présent.
-    // Si segment_id absent : object_id peut être le segment lui-même.
-    // On enrichit avec les deux IDs clairement séparés.
-    normalized.segment = {
-      id     : raw.segment_id  || raw.object_id || '',
-      assetId: raw.asset_id    || '',
-    };
-    // asset.id doit pointer sur l'asset réel, pas le segment
-    if (raw.asset_id) normalized.asset = { id: raw.asset_id, type: 'assets' };
-    server._runFlux(flux, normalized).catch(onError);
-
-  } else {
-    // ── Asset → 1 run par asset_id (plusieurs sélections possibles) ──
-    const assetIds = Array.isArray(raw.asset_ids) && raw.asset_ids.length
-      ? raw.asset_ids
-      : (raw.object_id ? [raw.object_id] : []);
-
-    if (assetIds.length > 1) {
-      console.log('[WFD CustomAction] ' + assetIds.length + ' assets sélectionnés → ' + assetIds.length + ' run(s)');
-      for (const assetId of assetIds) {
-        const normalized = normalizeIconikPayload({ ...raw, asset_ids: [assetId] });
-        server._runFlux(flux, normalized).catch(onError);
-      }
-    } else {
-      const normalized = normalizeIconikPayload(raw);
-      server._runFlux(flux, normalized).catch(onError);
-    }
-  }
-}
-
-// ── Construire un client Iconik temporaire depuis un payload Custom Action ──
-// Utilisé pour le fetch de collection avant de lancer les runs
-function _buildTempIconikClient(raw) {
-  const https = require('https');
-  const http  = require('http');
-
-  const request = (method, path, body) => new Promise((resolve, reject) => {
-    const url = new URL(path, 'https://app.iconik.io');
-    const lib = url.protocol === 'https:' ? https : http;
-    const headers = {
-      'App-ID'      : raw.app_id     || '',
-      'Auth-Token'  : raw.auth_token || '',
-      'Content-Type': 'application/json',
-    };
-    const bodyStr = body ? JSON.stringify(body) : null;
-    if (bodyStr) headers['Content-Length'] = Buffer.byteLength(bodyStr);
-    const req = lib.request({
-      hostname: url.hostname,
-      port    : url.port || (url.protocol === 'https:' ? 443 : 80),
-      path    : url.pathname + url.search,
-      method, headers,
-    }, res => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (res.statusCode >= 400) {
-            const err = new Error('Iconik ' + res.statusCode + ' : ' + JSON.stringify(parsed).slice(0, 120));
-            err.statusCode = res.statusCode;
-            reject(err);
-          } else {
-            resolve(parsed);
-          }
-        } catch (e) { resolve(data); }
-      });
-    });
-    req.on('error', reject);
-    if (bodyStr) req.write(bodyStr);
-    req.end();
-  });
-
-  return {
-    get   : (p)    => request('GET',    p, null),
-    post  : (p, b) => request('POST',   p, b),
-    put   : (p, b) => request('PUT',    p, b),
-    patch : (p, b) => request('PATCH',  p, b),
-    delete: (p)    => request('DELETE', p, null),
-  };
-}
-
+// NOTE (10/07/2026) : le dispatch Custom Action par contexte (Asset/Collection/
+// Segment) a été retiré d'ici — il ne vivait que dans une branche jamais exécutée
+// (ce serveur HTTP standalone est inerte en mode Express, port=0) et divergeait
+// silencieusement de l'implémentation réellement active dans wfd-engine-express.js
+// (_dispatchCustomAction). Voir ce fichier pour le comportement à jour.
 
 // ── Export ───────────────────────────────────────────────────────
 const WfdTrigger = { WfdTriggerServer, normalizeIconikPayload, normalizeFilePayload, normalizeListenerPayload, setPublicUrl };

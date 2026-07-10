@@ -641,27 +641,14 @@ function _dispatchCustomAction(raw, flux, runFlux, WfdTrigger) {
   const context = (raw.context || raw.object_type || 'ASSET').toUpperCase();
 
   if (context === 'COLLECTION') {
+    // La collection cliquée EST le contexte du run — pas de fan-out vers ses
+    // assets enfants. Comportement volontaire (cf. investigation du 10/07/2026,
+    // job "AJOUTER ID SERIE" : un seul run, la collection ne bouge pas ses enfants).
     const collectionId = (Array.isArray(raw.collection_ids) ? raw.collection_ids[0] : null) || raw.object_id || '';
-    console.log('[WFD DEBUG] _dispatchCustomAction COLLECTION — collectionId:', collectionId);
-    // Lancer le flux avec la collection comme contexte directement
     runFlux(WfdTrigger.normalizeIconikPayload({
       ...raw, collection_ids: [collectionId],
       object_type: 'COLLECTION', context: 'COLLECTION',
     }));
-    return;
-    const client = _buildTempClient(raw);
-    client.get(`/API/assets/v1/collections/${collectionId}/content/?object_types=assets&per_page=200`)
-      .then(data => {
-        const assets = (data.objects || []).filter(o => !o.object_type || o.object_type === 'assets');
-        if (!assets.length) return;
-        for (const asset of assets) {
-          runFlux(WfdTrigger.normalizeIconikPayload({
-            ...raw, asset_ids: [asset.id || asset.object_id],
-            object_type: 'assets', _collection_id: collectionId,
-          }));
-        }
-      })
-      .catch(() => runFlux(WfdTrigger.normalizeIconikPayload(raw)));
   } else {
     const assetIds = Array.isArray(raw.asset_ids) && raw.asset_ids.length
       ? raw.asset_ids : (raw.object_id ? [raw.object_id] : []);
@@ -669,32 +656,6 @@ function _dispatchCustomAction(raw, flux, runFlux, WfdTrigger) {
       runFlux(WfdTrigger.normalizeIconikPayload({ ...raw, asset_ids: [assetId] }));
     }
   }
-}
-
-function _buildTempClient(raw) {
-  const https = require('https');
-  const http  = require('http');
-  const request = (method, p, body) => new Promise((resolve, reject) => {
-    const url = new URL(p, 'https://app.iconik.io');
-    const lib = url.protocol === 'https:' ? https : http;
-    const headers = { 'App-ID': raw.app_id || '', 'Auth-Token': raw.auth_token || '', 'Content-Type': 'application/json' };
-    const bodyStr = body ? JSON.stringify(body) : null;
-    if (bodyStr) headers['Content-Length'] = Buffer.byteLength(bodyStr);
-    const req = lib.request({
-      hostname: url.hostname, port: url.port || 443,
-      path: url.pathname + url.search, method, headers,
-    }, res => {
-      let d = ''; res.on('data', c => d += c);
-      res.on('end', () => { try { resolve(JSON.parse(d)); } catch(_) { resolve(d); } });
-    });
-    req.on('error', reject);
-    if (bodyStr) req.write(bodyStr);
-    req.end();
-  });
-  return {
-    get : p    => request('GET',  p, null),
-    post: (p,b) => request('POST', p, b),
-  };
 }
 
 // ── Export ───────────────────────────────────────────────────────
