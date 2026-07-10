@@ -2774,6 +2774,11 @@ function buildCfgFields(pfx, family, cfg) {
         </select>
       </div>
       <div class="cfg-field">
+        <label class="cfg-label">ID CIBLE <span class="wfd-label-9-555">(optionnel — sinon le déclencheur)</span></label>
+        <input id="${pfx}-fetch-meta-value" class="cfg-input" list="${pfx}-wfd-var-list"
+          value="${escHtml(cfg.fetchValue||'')}" placeholder="{collectionRaw.parent_id}">
+      </div>
+      <div class="cfg-field">
         <label class="cfg-label">VUE DE MÉTADONNÉES</label>
         <select id="${pfx}-fetch-meta-view" class="cfg-select" onchange="wfdFetchMetaViewChanged('${pfx}')">
           <option value="">— Toutes les vues —</option>${viewOpts}
@@ -4992,7 +4997,7 @@ function sauvegarderConfig() {
     } else {
       node.config.fetchSource = g('fetch-source-asset') || 'triggered';
     }
-    node.config.fetchValue     = g('fetch-value') || g('fetch-col-value') || '';
+    node.config.fetchValue     = g('fetch-value') || g('fetch-col-value') || g('fetch-meta-value') || '';
     const withMetaEl = document.getElementById('cfg-with-meta');
     node.config.withMetadata   = withMetaEl ? withMetaEl.checked : false;
     node.config.metadataViewId = g('fetch-meta-view') || g('meta-view') || '';
