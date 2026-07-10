@@ -548,25 +548,77 @@ async function fetch(node, ctx, iconikClient) {
   if (subType === 'collection') {
     const varName = r(cfg.fetchVar || cfg.storeAs || 'collection', ctx);
     const src     = cfg.fetchSource || 'parent';
-    let endpoint;
+    let col;
+
     if (src === 'id') {
       const colId = r(cfg.fetchValue || '{collection.id}', ctx);
-      endpoint = `/API/assets/v1/collections/${colId}/`;
+      col = await iconikClient.get(`/API/assets/v1/collections/${colId}/`);
+
+    } else if (src === 'path') {
+      // Corrigé le 10/07/2026 — auparavant identique à 'parent' (cfg.fetchValue
+      // jamais lu). Résolution par recherche titre + vérification du chemin
+      // via 'ancestors', même logique que celle historiquement prévue.
+      const colPath = r(cfg.fetchValue || '', ctx);
+      if (!colPath) throw new Error("Fetch collection par chemin : chemin manquant (fetchValue vide)");
+      const parts = colPath.split('/').map(p => p.trim()).filter(Boolean);
+      const title = parts[parts.length - 1];
+      const result = await iconikClient.post('/API/search/v1/search/', {
+        query: title, doc_types: ['collections'],
+      });
+      const candidates = result.objects || [];
+      col = candidates.find(c => {
+        const fullPath = (c.ancestors || []).map(a => a.title).join('/') + '/' + c.title;
+        return fullPath.includes(colPath) || c.title === title;
+      }) || candidates[0];
+      if (!col) return { port: 1 }; // non trouvé
+
     } else {
-      endpoint = `/API/assets/v1/collections/${r(ctx.collection?.id || '{collection.id}', ctx)}/`;
+      // Corrigé le 10/07/2026 — auparavant un no-op (re-fetchait la collection
+      // déjà connue dans ctx.collection.id, sans jamais remonter à son parent).
+      // Comportement à double entrée, selon ce qui a déclenché le flux :
+      //   - déclenché par un Asset  → parent = 1ère collection contenant l'asset
+      //   - déclenché par une Collection → parent = parent_id de cette collection
+      // ⚠️ Logique neuve, non encore vérifiée en environnement réel (formats de
+      // réponse Iconik à confirmer par un test console/curl avant mise en prod).
+      const assetId = ctx.asset?.id || '';
+      if (assetId) {
+        const cols = await iconikClient.get(`/API/assets/v1/assets/${assetId}/collections/`);
+        const list = cols.objects || cols.collections || [];
+        if (!list.length) return { port: 1 };
+        col = await iconikClient.get(`/API/assets/v1/collections/${list[0].id || list[0]}/`);
+      } else {
+        const currentId = r(ctx.collection?.id || '{collection.id}', ctx);
+        if (!currentId) throw new Error('Fetch collection parent : ni asset ni collection dans le contexte');
+        const current = await iconikClient.get(`/API/assets/v1/collections/${currentId}/`);
+        if (!current.parent_id) return { port: 1 }; // collection racine, pas de parent
+        col = await iconikClient.get(`/API/assets/v1/collections/${current.parent_id}/`);
+      }
     }
-    const data = await iconikClient.get(endpoint);
-    WfdContext.storeResult(ctx, varName, data);
+
+    if (!col || !col.id) return { port: 1 };
+    WfdContext.storeResult(ctx, varName, col);
     return { port: 0 };
   }
 
   // ── Métadonnées ──────────────────────────────────────────────
   if (subType === 'metadata') {
     const varName    = r(cfg.fetchVar || cfg.storeAs || 'metadata', ctx);
-    const assetId    = ctx.asset?.id || '';
-    const colId      = ctx.collection?.id || '';
-    const objectType = colId && !assetId ? 'collections' : 'assets';
-    const objectId   = objectType === 'collections' ? colId : assetId;
+    // ID cible explicite (ex: {collectionData.parent_id}) — prioritaire sur la
+    // déduction automatique depuis le contexte. Permet de lire les metadata
+    // d'un objet qui n'est ni l'asset ni la collection déclencheurs (ex: la
+    // Série parente d'une Saison). Rétrocompatible : si fetchValue est vide,
+    // comportement strictement inchangé.
+    const explicitId = cfg.fetchValue ? r(cfg.fetchValue, ctx) : '';
+    let objectType, objectId;
+    if (explicitId) {
+      objectType = cfg.fetchTarget === 'asset' ? 'assets' : 'collections';
+      objectId   = explicitId;
+    } else {
+      const assetId = ctx.asset?.id || '';
+      const colId   = ctx.collection?.id || '';
+      objectType = colId && !assetId ? 'collections' : 'assets';
+      objectId   = objectType === 'collections' ? colId : assetId;
+    }
     const viewId     = r(cfg.fetchMdViewId || cfg.metadataViewId || cfg.fetchMdView || '', ctx);
     const endpoint   = viewId
       ? `/API/metadata/v1/${objectType}/${objectId}/views/${viewId}/`
