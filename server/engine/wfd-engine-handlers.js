@@ -597,22 +597,52 @@ async function fetch(node, ctx, iconikClient) {
 
     if (!col || !col.id) return { port: 1 };
     WfdContext.storeResult(ctx, varName, col);
+    // Exposer quelques champs natifs a plat, meme convention que le fetch
+    // metadata (varName.champ) - reference directe utilisable en aval, et
+    // necessaire pour que l'apercu "derniere execution" du panneau ait
+    // quelque chose a montrer pour ce sous-type (jusqu'ici seul metadata le
+    // faisait).
+    ['id', 'title', 'parent_id'].forEach(f => {
+      if (col[f] !== undefined && col[f] !== null) WfdContext.setVar(ctx, varName + '.' + f, String(col[f]));
+    });
     return { port: 0 };
   }
 
   // ── Métadonnées ──────────────────────────────────────────────
   if (subType === 'metadata') {
     const varName    = r(cfg.fetchVar || cfg.storeAs || 'metadata', ctx);
-    // ID cible explicite (ex: {collectionData.parent_id}) — prioritaire sur la
-    // déduction automatique depuis le contexte. Permet de lire les metadata
-    // d'un objet qui n'est ni l'asset ni la collection déclencheurs (ex: la
-    // Série parente d'une Saison). Rétrocompatible : si fetchValue est vide,
-    // comportement strictement inchangé.
+    // ID cible explicite (ex: {collectionData.parent_id}) — prioritaire sur tout
+    // le reste. Rétrocompatible : si fetchValue est vide, comportement inchangé.
     const explicitId = cfg.fetchValue ? r(cfg.fetchValue, ctx) : '';
+    const metaSource = cfg.fetchSource || 'triggered';
     let objectType, objectId;
+
     if (explicitId) {
       objectType = cfg.fetchTarget === 'asset' ? 'assets' : 'collections';
       objectId   = explicitId;
+
+    } else if (metaSource === 'parent') {
+      // Lire directement les metadata du PARENT du déclencheur, sans exposer
+      // l'UUID intermediaire à l'utilisateur (ex: la Série d'une Saison).
+      // Deux cas selon ce qui a déclenché le flux :
+      //   - un Asset  -> sa 1ère collection contenante
+      //   - une Collection -> le parent_id de cette collection
+      const assetId = ctx.asset?.id || '';
+      if (assetId) {
+        const cols = await iconikClient.get(`/API/assets/v1/assets/${assetId}/collections/`);
+        const list = cols.objects || cols.collections || [];
+        if (!list.length) return { port: 1 }; // pas de collection parente
+        objectType = 'collections';
+        objectId   = list[0].id || list[0];
+      } else {
+        const currentId = ctx.collection?.id || '';
+        if (!currentId) throw new Error('Fetch metadata (parent) : ni asset ni collection dans le contexte');
+        const current = await iconikClient.get(`/API/assets/v1/collections/${currentId}/`);
+        if (!current.parent_id) return { port: 1 }; // collection racine, pas de parent
+        objectType = 'collections';
+        objectId   = current.parent_id;
+      }
+
     } else {
       const assetId = ctx.asset?.id || '';
       const colId   = ctx.collection?.id || '';
