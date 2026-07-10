@@ -36,6 +36,44 @@ function buildWfdVarDatalist(id) {
   return `<datalist id="${id}"></datalist>`;
 }
 
+// ── Contexte d'une Custom Action Iconik -> libelle humain + variable produite ──
+// Le contexte (ASSET/COLLECTION/SEGMENT) est deja synchronise depuis Iconik
+// (cf. sync-engine, mapCustomAction) et deja present sur chaque entree de
+// wfdData.customActions - on ne fait ici que le traduire pour l'affichage.
+// ── Met a jour l'affichage du contexte quand on change la Custom Action ────
+function _wfdTriggerCaContextChange(pfx) {
+  const sel = document.getElementById(pfx + '-custom-action-id');
+  const box = document.getElementById(pfx + '-trigger-ca-context');
+  if (!sel || !box) return;
+  const caId = sel.value;
+  if (!caId) { box.innerHTML = ''; return; }
+  const ca = (wfdData.customActions || []).find(a => (a.id || a.nom) === caId);
+  if (!ca) { box.innerHTML = ''; return; }
+  const info = _wfdCaContextInfo(ca.context);
+  box.innerHTML = `Ce déclencheur démarre sur : ${info.icon} ${info.label} — disponible ensuite dans tout le flux sous <code>${info.varName}</code>`;
+}
+
+// ── Bascule l'affichage des champs du fetch Metadonnees selon LAQUELLE ─────
+function _wfdFetchMetaSourceChange(pfx) {
+  const sel = document.getElementById(pfx + '-fetch-meta-source');
+  const targetWrap = document.getElementById(pfx + '-fetch-meta-target-wrap');
+  const valueWrap  = document.getElementById(pfx + '-fetch-meta-value-wrap');
+  if (!sel) return;
+  const src = sel.value;
+  if (targetWrap) targetWrap.classList.toggle('wfd-hidden', src === 'parent');
+  if (valueWrap)  valueWrap.classList.toggle('wfd-hidden', src !== 'id');
+}
+
+function _wfdCaContextInfo(context) {
+  const c = String(context || 'ASSET').toUpperCase();
+  const map = {
+    ASSET:      { icon: '🎬', label: 'un Asset',      varName: '{asset.id}' },
+    COLLECTION: { icon: '📁', label: 'une Collection', varName: '{collection.id}' },
+    SEGMENT:    { icon: '🎞️', label: 'un Segment',     varName: '{segment.id}' },
+  };
+  return map[c] || { icon: '❔', label: c, varName: '{asset.id}' };
+}
+
 // ── Variables : catégories ────────────────────────────────────────────────────
 const _WFD_ICONIK_VARS = [
   { group:'Asset',      vars:['{asset.id}','{asset.title}','{asset.status}','{asset.type}','{asset.created}','{asset.updated}'] },
@@ -2767,16 +2805,24 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
     <div id="${pfx}-fetch-metadata" class="${subType==='metadata'?'':'wfd-hidden'}">
       <div class="cfg-field">
+        <label class="cfg-label">LAQUELLE ?</label>
+        <select id="${pfx}-fetch-meta-source" class="cfg-select" onchange="_wfdFetchMetaSourceChange('${pfx}')">
+          <option value="triggered" ${(cfg.fetchSource||'triggered')==='triggered'?'selected':''}>Le déclencheur de ce workflow</option>
+          <option value="parent"    ${cfg.fetchSource==='parent'?'selected':''}>Le parent du déclencheur (ex : la Série d'une Saison)</option>
+          <option value="id"        ${cfg.fetchSource==='id'?'selected':''}>Un ID précis</option>
+        </select>
+      </div>
+      <div id="${pfx}-fetch-meta-target-wrap" class="cfg-field${cfg.fetchSource==='parent'?' wfd-hidden':''}">
         <label class="cfg-label">LIRE SUR</label>
         <select id="${pfx}-fetch-meta-target" class="cfg-select">
           <option value="asset"      ${(cfg.fetchTarget||'asset')==='asset'?'selected':''}>L'asset déclenché</option>
           <option value="collection" ${cfg.fetchTarget==='collection'?'selected':''}>Une collection</option>
         </select>
       </div>
-      <div class="cfg-field">
-        <label class="cfg-label">ID CIBLE <span class="wfd-label-9-555">(optionnel — sinon le déclencheur)</span></label>
+      <div id="${pfx}-fetch-meta-value-wrap" class="cfg-field${cfg.fetchSource==='id'?'':' wfd-hidden'}">
+        <label class="cfg-label">ID CIBLE</label>
         <input id="${pfx}-fetch-meta-value" class="cfg-input" list="${pfx}-wfd-var-list"
-          value="${escHtml(cfg.fetchValue||'')}" placeholder="{collectionRaw.parent_id}">
+          value="${escHtml(cfg.fetchValue||'')}" placeholder="{nom_variable.champ}">
       </div>
       <div class="cfg-field">
         <label class="cfg-label">VUE DE MÉTADONNÉES</label>
@@ -2864,6 +2910,12 @@ function buildCfgFields(pfx, family, cfg) {
         <input id="${pfx}-fetch-store-as" class="cfg-input wfd-input-green"
           value="${escHtml(cfg.storeAs||cfg.resultVar||cfg.fetchVar||'asset')}">
         <span class="wfd-mono-green">}</span>
+      </div>
+      <div class="wfd-mt8">
+        <button type="button" onclick="wfdFetchPreview('${pfx}')" class="cfg-btn wfd-fe-preview-btn">
+          👁 Aperçu — dernière exécution
+        </button>
+        <div id="${pfx}-fetch-preview" class="wfd-fe-preview-box wfd-hidden"></div>
       </div>
     </div>
     <div class="cfg-field">
@@ -4638,11 +4690,18 @@ function buildCfgFields(pfx, family, cfg) {
     <div id="${pfx}-trigger-ca-wrap" class="cfg-field${fields.includes('custom_action_id')?'':' wfd-hidden'}">
       <label class="cfg-label">Custom Action</label>
       <div class="wfd-row-gap6b">
-        <select id="${pfx}-custom-action-id" class="cfg-select wfd-flex1">
+        <select id="${pfx}-custom-action-id" class="cfg-select wfd-flex1" onchange="_wfdTriggerCaContextChange('${pfx}')">
           <option value="">— Sélectionner —</option>${caOpts}
         </select>
         <button class="cfg-btn wfd-pad-6-8" onclick="syncTriggerRefs()" title="Synchroniser depuis Iconik">↺</button>
       </div>
+      <div id="${pfx}-trigger-ca-context" class="wfd-hint-top4b">${(() => {
+        if (!cfg.customActionId) return '';
+        const _ca = (wfdData.customActions||[]).find(a => (a.id||a.nom) === cfg.customActionId);
+        if (!_ca) return '';
+        const _info = _wfdCaContextInfo(_ca.context);
+        return `Ce déclencheur démarre sur : ${_info.icon} ${_info.label} — disponible ensuite dans tout le flux sous <code>${_info.varName}</code>`;
+      })()}</div>
     </div>
     <div id="${pfx}-trigger-wh-wrap" class="cfg-field${fields.includes('webhook_id')?'':' wfd-hidden'}">
       <label class="cfg-label">Webhook Iconik</label>
@@ -4872,6 +4931,16 @@ function sauvegarderConfig() {
     node.config.collectionId = node.config.collectionIds[0] || '';
     node.config.customActionId   = g('custom-action-id');
 
+    // ── Contexte de la Custom Action (Asset/Collection/Segment) ────────────
+    // Deja synchronise depuis Iconik dans wfdData.customActions (cf. sync-engine).
+    // Stocke pour reference (documentation du flux, futur usage narratif) -
+    // le moteur, lui, continue de determiner le contexte depuis le payload
+    // recu a l'execution, cette valeur ne le remplace pas.
+    if (node.config.eventType === 'custom_action' && node.config.customActionId) {
+      const _caCtx = (wfdData.customActions || []).find(a => (a.id || a.nom) === node.config.customActionId);
+      if (_caCtx) node.config.context = String(_caCtx.context || 'ASSET').toUpperCase();
+    }
+
     // ── Enrichissement : chercher l'automation liée à cette custom action ──
     // Stocke les infos de déclenchement pour l'export Word (guide opérationnel)
     if (node.config.eventType === 'custom_action' && node.config.customActionId) {
@@ -4994,6 +5063,8 @@ function sauvegarderConfig() {
     // Lire la source selon le sous-type actif (évite de lire un select caché)
     if (node.config.fetchSubType === 'collection') {
       node.config.fetchSource = g('fetch-source-col') || 'triggered';
+    } else if (node.config.fetchSubType === 'metadata') {
+      node.config.fetchSource = g('fetch-meta-source') || 'triggered';
     } else {
       node.config.fetchSource = g('fetch-source-asset') || 'triggered';
     }
@@ -9626,6 +9697,65 @@ function httpForeachUseVar(pfx, varName) {
     inp.dispatchEvent(new Event('change', { bubbles: true }));
   }
   httpForeachDetect(pfx); // Rafraîchir pour mettre à jour le bouton actif
+}
+
+// ── Récupérer — aperçu WYSIWYG depuis la dernière exécution réelle ─────────
+// Ne fait aucun appel API : relit ce que ce flux a produit lors de son
+// dernier run (meme mecanisme que httpForeachPreview ci-dessous). Couvre
+// aussi bien le sous-type collection que metadata, puisque les deux
+// exposent maintenant des champs a plat (varName.champ) dans ctx.vars.
+function wfdFetchPreview(pfx) {
+  const previewEl = document.getElementById(pfx + '-fetch-preview');
+  if (!previewEl) return;
+
+  const storeAs = (document.getElementById(pfx + '-fetch-store-as')?.value || '').trim();
+  if (!storeAs) {
+    previewEl.innerHTML = '<span class="wfd-c-555">Renseignez d\'abord un nom de variable ci-dessus.</span>';
+    previewEl.classList.remove('wfd-hidden');
+    return;
+  }
+
+  try {
+    const history = JSON.parse(localStorage.getItem('wfd-run-history') || '{"runs":{},"index":[]}');
+    const flux    = typeof getFluxCourant === 'function' ? getFluxCourant() : null;
+    if (!flux) throw new Error('flux indisponible');
+
+    const lastRunId = (history.index || []).find(id => history.runs[id]?.fluxId === flux.id);
+    const lastRun    = lastRunId ? history.runs[lastRunId] : null;
+    if (!lastRun) {
+      previewEl.innerHTML = '<span class="wfd-c-555">Aucune exécution enregistrée pour ce flux — exécutez-le au moins une fois.</span>';
+      previewEl.classList.remove('wfd-hidden');
+      return;
+    }
+
+    // Rassembler toutes les variables dont le nom est storeAs ou storeAs.xxx,
+    // tous nœuds confondus du dernier run (une seule variable de ce nom ne
+    // peut raisonnablement provenir que de ce nœud ou d'un homonyme).
+    const found = {};
+    (lastRun.nodes || []).forEach(n => {
+      const vars = n.snapshot?.vars || {};
+      Object.entries(vars).forEach(([k, v]) => {
+        if (k === storeAs || k.startsWith(storeAs + '.')) found[k] = v;
+      });
+    });
+
+    const keys = Object.keys(found);
+    if (!keys.length) {
+      previewEl.innerHTML = '<span class="wfd-c-555">Rien trouvé sous ce nom dans le dernier run — le nœud a peut-être changé de nom depuis, ou n\'a pas encore tourné.</span>';
+      previewEl.classList.remove('wfd-hidden');
+      return;
+    }
+
+    previewEl.innerHTML = keys.sort().map(k => `
+      <div class="wfd-fe-prev-row">
+        <div class="wfd-fe-prev-val">{${escHtml(k)}}</div>
+        <div class="wfd-c-555-10">${escHtml(String(found[k]).slice(0, 200))}</div>
+      </div>`).join('');
+    previewEl.classList.remove('wfd-hidden');
+  } catch (e) {
+    previewEl.innerHTML = '<span class="wfd-c-555">Aperçu indisponible (' + escHtml(e.message) + ').</span>';
+    previewEl.classList.remove('wfd-hidden');
+  }
 }
 
 // ── HTTP Request foreach — aperçu pré-run ────────────────────────────────────
