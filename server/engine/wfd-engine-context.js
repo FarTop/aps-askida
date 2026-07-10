@@ -101,7 +101,7 @@ function resolvePath(path, ctx) {
   }
   let val = ctx;
   for (const part of parts) {
-    if (val === null || val === undefined) return undefined;
+    if (val === null || val === undefined) { val = undefined; break; }
     val = val[part];
   }
   // Si non trouvé au niveau ctx, essayer ctx.vars (ex: {asset_id} → ctx.vars.asset_id)
