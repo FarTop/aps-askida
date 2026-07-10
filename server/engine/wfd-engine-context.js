@@ -104,9 +104,13 @@ function resolvePath(path, ctx) {
     if (val === null || val === undefined) { val = undefined; break; }
     val = val[part];
   }
-  // Si non trouvé au niveau ctx, essayer ctx.vars (ex: {asset_id} → ctx.vars.asset_id)
-  if ((val === undefined || val === null) && parts.length === 1 && ctx.vars) {
-    val = ctx.vars[parts[0]];
+  // Si non trouvé au niveau ctx, essayer ctx.vars en clé plate avec le chemin
+  // complet (ex: {serieMetadata.BayardID} → ctx.vars['serieMetadata.BayardID'],
+  // posee telle quelle par le fetch metadata pour chaque champ expose — pas un
+  // chemin imbrique a parcourir, une seule cle contenant un point). Couvre au
+  // passage l'ancien cas a 1 segment ({asset_id} → ctx.vars.asset_id).
+  if ((val === undefined || val === null) && ctx.vars && Object.prototype.hasOwnProperty.call(ctx.vars, path)) {
+    val = ctx.vars[path];
   }
   // Si toujours non trouvé, essayer ctx.results (ex: {vfStatus.body.status} → ctx.results.vfStatus.body.status)
   if ((val === undefined || val === null) && ctx.results) {
