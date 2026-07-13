@@ -887,6 +887,7 @@ function dsn_exportPNG(){
   a.download='designer.svg';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   toast('Export SVG (ouvrir dans Inkscape/Illustrator pour convertir en PNG)');
+}
 function dsn_save() {
   if (!dNodes.length) { toast('Rien à sauvegarder'); return; }
   var draft = { nodes: dNodes, edges: dEdges, nextId: dNextId };
@@ -1006,7 +1007,6 @@ function dsn_checkDraft() {
   var raw = localStorage.getItem('dsnDraft');
   var btn = document.getElementById('btn-dsn-load');
   if (btn) btn.classList.toggle('hidden', !raw);
-} 
 }
 function dsn_exportExcel(){
   if (!window.askidaExportExcel){ toast('Export Excel indisponible'); return; }
