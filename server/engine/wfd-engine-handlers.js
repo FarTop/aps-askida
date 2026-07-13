@@ -1661,6 +1661,13 @@ async function create_tree(node, ctx, iconikClient) {
   // (ex: la Série, quand ce nœud crée seulement une Saison dessus). Sans ça,
   // le chainage ParentID ne fonctionne qu'a l'interieur d'un seul run.
   const parentSeedId = r(cfg.parentBayardId || '', ctx);
+  // Champs additionnels, appliques a CHAQUE collection creee (ex: Univers,
+  // recupere sur la Serie parente pour une creation de Saison) - resolus
+  // comme n'importe quel champ WFD, valeur figee au demarrage du run (pas
+  // re-resolue par niveau).
+  const extraFields = (cfg.extraFields || [])
+    .filter(f => f.key)
+    .map(f => ({ key: f.key, value: r(f.value || '', ctx) }));
 
   const created = [];
   let lastGeneratedId = parentSeedId || null; // BayardID du dernier niveau généré, pour chaîner ParentID
@@ -1676,6 +1683,12 @@ async function create_tree(node, ctx, iconikClient) {
 
     let generatedHere = null;
     const fields = {};
+
+    // Champs additionnels d'abord — les champs systeme (type/id/parent
+    // ci-dessous) prennent le dessus en cas de collision de nom.
+    extraFields.forEach(f => {
+      fields[f.key] = { field_values: [{ value: f.value }] };
+    });
 
     if (nodeDef.collectionType) {
       fields[typeFieldName] = { field_values: [{ value: r(nodeDef.collectionType, ctx) }] };

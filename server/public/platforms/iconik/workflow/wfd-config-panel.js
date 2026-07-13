@@ -54,6 +54,24 @@ function _wfdTriggerCaContextChange(pfx) {
 }
 
 // ── Bascule l'affichage des champs du fetch Metadonnees selon LAQUELLE ─────
+// ── Ajoute une ligne de champ supplementaire au noeud create_tree ─────────
+function _treeAddExtraField(pfx) {
+  const wrap = document.getElementById(pfx + '-tree-extra-fields');
+  if (!wrap) return;
+  const empty = wrap.querySelector('.wfd-text-444-11b');
+  if (empty) empty.remove();
+  const row = document.createElement('div');
+  row.className = 'lkr';
+  row.innerHTML = `
+    <div class="lkr-main">
+      <input class="cfg-input lk-key tree-extra-key" placeholder="Nom du champ (ex: Univers)">
+      <span class="lkr-arrow">→</span>
+      <input class="cfg-input lk-value tree-extra-value" list="${pfx}-wfd-var-list" placeholder="Valeur ou {variable}">
+      <button type="button" class="lkr-del" onclick="this.closest('.lkr').remove()" title="Supprimer">×</button>
+    </div>`;
+  wrap.appendChild(row);
+}
+
 function _wfdFetchMetaSourceChange(pfx) {
   const sel = document.getElementById(pfx + '-fetch-meta-source');
   const targetWrap = document.getElementById(pfx + '-fetch-meta-target-wrap');
@@ -5059,6 +5077,12 @@ function sauvegarderConfig() {
     node.config.parentFieldName = g('tree-parent-field') || '';
     node.config.typeFieldName   = g('tree-type-field') || '';
     node.config.parentBayardId  = g('tree-parent-bayard') || '';
+    node.config.extraFields = Array.from(document.querySelectorAll('#cfg-tree-extra-fields .lkr'))
+      .map(row => ({
+        key:   row.querySelector('.tree-extra-key')?.value.trim()   || '',
+        value: row.querySelector('.tree-extra-value')?.value.trim() || '',
+      }))
+      .filter(f => f.key);
     node.config.storeAs        = g('tree-store-as') || 'arbo';
     node.config.resultVar      = node.config.storeAs;
     node.config.description    = g('description');
@@ -5998,18 +6022,47 @@ function _buildCreateTreePanel(pfx, cfg, wfdData) {
   </div>
 
   <div class="cfg-field">
-    <label class="cfg-label">NOM DU CHAMP ID <span class="wfd-label-9-555">(optionnel — défaut "BayardID")</span></label>
-    <input id="${pfx}-tree-id-field" class="cfg-input" value="${escHtml(cfg.idFieldName||'')}" placeholder="BayardID">
+    <label class="cfg-label">CORRESPONDANCE DES CHAMPS</label>
+    <div class="wfd-hint-top3" style="margin-bottom:8px;">Comment ces 3 concepts s'appellent chez ce client — modifiable si le nom diffère.</div>
+    <div class="lkr" style="margin-bottom:4px;">
+      <div class="lkr-main">
+        <span class="cfg-input lk-key" style="background:transparent;border-color:transparent;color:#888;cursor:default;">Identifiant</span>
+        <span class="lkr-arrow">→</span>
+        <input id="${pfx}-tree-id-field" class="cfg-input lk-value" value="${escHtml(cfg.idFieldName||'BayardID')}">
+      </div>
+    </div>
+    <div class="lkr" style="margin-bottom:4px;">
+      <div class="lkr-main">
+        <span class="cfg-input lk-key" style="background:transparent;border-color:transparent;color:#888;cursor:default;">Référence vers le parent</span>
+        <span class="lkr-arrow">→</span>
+        <input id="${pfx}-tree-parent-field" class="cfg-input lk-value" value="${escHtml(cfg.parentFieldName||'ParentID')}">
+      </div>
+    </div>
+    <div class="lkr">
+      <div class="lkr-main">
+        <span class="cfg-input lk-key" style="background:transparent;border-color:transparent;color:#888;cursor:default;">Type de collection</span>
+        <span class="lkr-arrow">→</span>
+        <input id="${pfx}-tree-type-field" class="cfg-input lk-value" value="${escHtml(cfg.typeFieldName||'TypeCollection')}">
+      </div>
+    </div>
   </div>
 
   <div class="cfg-field">
-    <label class="cfg-label">NOM DU CHAMP PARENT <span class="wfd-label-9-555">(optionnel — défaut "ParentID")</span></label>
-    <input id="${pfx}-tree-parent-field" class="cfg-input" value="${escHtml(cfg.parentFieldName||'')}" placeholder="ParentID">
-  </div>
-
-  <div class="cfg-field">
-    <label class="cfg-label">NOM DU CHAMP TYPE <span class="wfd-label-9-555">(optionnel — défaut "TypeCollection")</span></label>
-    <input id="${pfx}-tree-type-field" class="cfg-input" value="${escHtml(cfg.typeFieldName||'')}" placeholder="TypeCollection">
+    <div class="wfd-row-sb-mb6">
+      <label class="cfg-label wfd-m0">CHAMPS SUPPLÉMENTAIRES <span class="wfd-label-9-555">(écrits sur chaque collection créée)</span></label>
+      <button type="button" class="cfg-btn wfd-pad-3-10b" onclick="_treeAddExtraField('${pfx}')">+ Ajouter</button>
+    </div>
+    <div id="${pfx}-tree-extra-fields">
+      ${(cfg.extraFields||[]).map((f,i) => `
+      <div class="lkr" data-idx="${i}">
+        <div class="lkr-main">
+          <input class="cfg-input lk-key tree-extra-key" value="${escHtml(f.key||'')}" placeholder="Nom du champ (ex: Univers)">
+          <span class="lkr-arrow">→</span>
+          <input class="cfg-input lk-value tree-extra-value" list="${pfx}-wfd-var-list" value="${escHtml(f.value||'')}" placeholder="Valeur ou {variable}">
+          <button type="button" class="lkr-del" onclick="this.closest('.lkr').remove()" title="Supprimer">×</button>
+        </div>
+      </div>`).join('') || '<div class="wfd-text-444-11b">Aucun champ supplémentaire — ajoutez-en un si besoin (ex: Univers pour une Saison).</div>'}
+    </div>
   </div>
 
   <div class="cfg-field">
