@@ -62,11 +62,37 @@ function resolve(template, ctx) {
       const val     = resolvePath(key, ctx);
       return (val !== undefined && val !== null && val !== '') ? ifTrue : ifFalse;
     }
-    // Transformations inline : {slug(Titre)}, {upper(Titre)}, {lower(Titre)}, {trim(Titre)}
-    const fnMatch = p.match(/^(slug|upper|lower|trim)\((.+)\)$/);
+    // Transformations inline : {slug(Titre)}, {upper(Titre)}, {lower(Titre)}, {trim(Titre)},
+    // {add(a,b,...)}, {pad(valeur,largeur)}
+    const fnMatch = p.match(/^(slug|upper|lower|trim|add|pad)\((.+)\)$/);
     if (fnMatch) {
-      const fn  = fnMatch[1];
-      const key = fnMatch[2].trim();
+      const fn      = fnMatch[1];
+      const argsStr = fnMatch[2];
+
+      // add/pad prennent plusieurs arguments separes par une virgule -
+      // traites a part, avant le cas general a 1 seul argument ci-dessous.
+      const resolveNum = (part) => {
+        const t = part.trim();
+        if (/^-?\d+(\.\d+)?$/.test(t)) return parseFloat(t);
+        const v = resolvePath(t, ctx);
+        const n = parseFloat(v);
+        return isNaN(n) ? 0 : n;
+      };
+
+      if (fn === 'add') {
+        const sum = argsStr.split(',').reduce((acc, part) => acc + resolveNum(part), 0);
+        return String(sum);
+      }
+      if (fn === 'pad') {
+        const parts = argsStr.split(',');
+        const t0 = parts[0].trim();
+        const rawVal = /^-?\d+(\.\d+)?$/.test(t0) ? t0 : String(resolvePath(t0, ctx) ?? '');
+        const width = parseInt(parts[1], 10) || 0;
+        return rawVal.padStart(width, '0');
+      }
+
+      // Cas existants : 1 seul argument, un chemin simple
+      const key = argsStr.trim();
       const raw = resolvePath(key, ctx);
       const val = raw !== undefined && raw !== null ? String(raw) : '';
       switch (fn) {
