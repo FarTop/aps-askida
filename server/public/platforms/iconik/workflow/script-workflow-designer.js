@@ -34,6 +34,7 @@ const FAMILIES = {
   acl         : { color:'#c0392b', icon:'🔐',  label:'Permissions',       desc:'Définit les droits d\'accès sur un asset' },
   create_asset: { color:'#27ae60', icon:'🎬',  label:'Créer asset',       desc:'Crée un nouvel asset dans Iconik' },
   create_col  : { color:'#16a085', icon:'📁',  label:'Créer collection',  desc:'Crée une nouvelle collection dans Iconik' },
+  create_tree : { color:'#16a085', icon:'🌳',  label:'Créer arborescence', desc:'Matérialise une arborescence de collections depuis un template' },
   link_file   : { color:'#e67e22', icon:'🔗',  label:'Relier fichier',    desc:'Associe un fichier physique à un asset' },
   cast        : { color:'#9b59b6', icon:'📡',  label:'Envoyer vers',      desc:'Envoie des données vers un système tiers' },
   transcode   : { color:'#e67e22', icon:'🎞️',  label:'Transcoder',        desc:'Lance un job de transcodage Iconik' },
@@ -473,7 +474,7 @@ const WFD_CAT_MAP = {
   },
   actions: {
     label : '⚙️ Actions',
-    nodes : ['action','update_meta','acl','create_asset','create_col','link_file','cast','transcode','relate'],
+    nodes : ['action','update_meta','acl','create_asset','create_col','create_tree','link_file','cast','transcode','relate'],
   },
   outputs: {
     label : '🔔 Sorties',
@@ -2550,6 +2551,15 @@ function buildPortsDef(family, config) {
       ],
     };
   }
+  if (family === 'create_tree') {
+    return {
+      inputs : [{ id:'in', label:'Entr\u00e9e' }],
+      outputs: [
+        { id:'out',   label:'Arborescence cr\u00e9\u00e9e', color:'#16a085' },
+        { id:'error', label:'Erreur',                  color:'#e74c3c' },
+      ],
+    };
+  }
   if (family === 'fetch') {
     return {
       inputs : [{ id:'in', label:'Entr\u00E9e' }],
@@ -2961,6 +2971,10 @@ function getNodeDetail(node) {
     sub  = c.name || '\u2014';
     body = c.recursive ? '\uD83D\uDD04 R\u00e9cursif' : '';
     if (c.resultVar) body += (body?' ':'') + '\u2192 {' + c.resultVar + '}';
+  } else if (node.family==='create_tree') {
+    sub  = c.templateId ? '\uD83C\uDF33 Template' : '\u2014';
+    body = c.parentId ? ('sous ' + c.parentId) : '';
+    if (c.storeAs) body += (body?' \u00b7 ':'') + '\u2192 {' + c.storeAs + '}';
   } else if (node.family==='decision') {
     sub  = c.field || '\u2014';
     body = (c.conditions||[]).map((cd,i) =>

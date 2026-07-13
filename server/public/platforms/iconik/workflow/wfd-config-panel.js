@@ -2097,6 +2097,9 @@ function buildCfgFields(pfx, family, cfg) {
 } else if (family === 'create_col') {
   html += _buildCreateColPanel(pfx, cfg, wfdData);
 
+} else if (family === 'create_tree') {
+  html += _buildCreateTreePanel(pfx, cfg, wfdData);
+
 } else if (family === 'link_file') {
   html += _buildLinkFilePanel(pfx, cfg, wfdData);
 
@@ -5048,6 +5051,13 @@ function sauvegarderConfig() {
   } else if (node.family==='create_col') {
     const d = _readCreateColConfig('cfg');
     node.config = { ...node.config, ...d };
+  } else if (node.family==='create_tree') {
+    node.config.templateId     = g('tree-template') || '';
+    node.config.parentId       = g('tree-parent') || '';
+    node.config.metadataViewId = g('tree-view') || '';
+    node.config.storeAs        = g('tree-store-as') || 'arbo';
+    node.config.resultVar      = node.config.storeAs;
+    node.config.description    = g('description');
   } else if (node.family==='fetch') {
     node.config.description     = g('description');
     node.config.storeAs         = g('fetch-store-as') || 'asset';
@@ -5937,6 +5947,69 @@ function _buildCreateColPanel(pfx, cfg, wfdData) {
     <label class="cfg-label">Description</label>
     <textarea id="${pfx}-cc-description" class="cfg-textarea" rows="2"
       placeholder="Ex : Créer la collection Saison si elle n'existe pas…">${escHtml(cfg.description||'')}</textarea>
+  </div>`;
+}
+
+// ── Créer arborescence (create_tree) ─────────────────────────────────────
+function _buildCreateTreePanel(pfx, cfg, wfdData) {
+  const viewOpts = (wfdData.mdViews||[]).map(v =>
+    `<option value="${v.id||v.name}" ${cfg.metadataViewId===(v.id||v.name)?'selected':''}>${escHtml(v.name||v.id)}</option>`).join('');
+
+  // Charger la liste des templates sauvegardés (rempli après le premier rendu,
+  // même mécanisme que les Saved Search de Recherche APS)
+  fetch('/api/arbo-templates')
+    .then(r => r.json())
+    .then(templates => {
+      const sel = document.getElementById(pfx + '-tree-template');
+      if (!sel) return;
+      const current = cfg.templateId || '';
+      sel.innerHTML = '<option value="">— Sélectionner un template —</option>' +
+        templates.map(t => `<option value="${t.id}" ${t.id===current?'selected':''}>${escHtml(t.name)}</option>`).join('');
+    }).catch(() => {});
+
+  return `
+  ${buildWfdVarDatalist(`${pfx}-wfd-var-list`)}
+
+  <div class="cfg-field">
+    <label class="cfg-label">TEMPLATE D'ARBORESCENCE</label>
+    <select id="${pfx}-tree-template" class="cfg-select">
+      <option value="">— Chargement… —</option>
+    </select>
+    <div class="wfd-hint-top3">
+      Défini et modifiable dans le canevas Designer du Viewer.
+    </div>
+  </div>
+
+  <div class="cfg-field">
+    <label class="cfg-label">CRÉER SOUS <span class="wfd-label-9-555">(optionnel — sinon le déclencheur)</span></label>
+    <input id="${pfx}-tree-parent" class="cfg-input" list="${pfx}-wfd-var-list"
+      value="${escHtml(cfg.parentId||'')}" placeholder="{collection.id}">
+  </div>
+
+  <div class="cfg-field">
+    <label class="cfg-label">VUE DE MÉTADONNÉES <span class="wfd-label-9-555">(pour BayardID / ParentID)</span></label>
+    <select id="${pfx}-tree-view" class="cfg-select">
+      <option value="">— Aucune —</option>${viewOpts}
+    </select>
+  </div>
+
+  <div class="cfg-field wfd-fetch-storecard">
+    <label class="cfg-label wfd-c-green4-mb6">STOCKER LE RÉSULTAT DANS</label>
+    <div class="wfd-row-gap6c">
+      <span class="wfd-mono-green">{</span>
+      <input id="${pfx}-tree-store-as" class="cfg-input wfd-input-green"
+        value="${escHtml(cfg.storeAs||'arbo')}">
+      <span class="wfd-mono-green">}</span>
+    </div>
+    <div class="wfd-hint-top3">
+      Expose <code>{nom.rootId}</code> (ID de la collection racine créée) et <code>{nom.count}</code>.
+    </div>
+  </div>
+
+  <div class="cfg-field">
+    <label class="cfg-label">Description</label>
+    <textarea id="${pfx}-description" class="cfg-textarea" rows="2"
+      placeholder="Ex : Crée l'arbo Série + Saison 1 à la création d'un univers…">${escHtml(cfg.description||'')}</textarea>
   </div>`;
 }
 
