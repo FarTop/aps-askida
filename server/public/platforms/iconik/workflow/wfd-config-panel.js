@@ -61,14 +61,12 @@ function _treeAddExtraField(pfx) {
   const empty = wrap.querySelector('.wfd-text-444-11b');
   if (empty) empty.remove();
   const row = document.createElement('div');
-  row.className = 'lkr';
+  row.className = 'tree-field-row';
   row.innerHTML = `
-    <div class="lkr-main">
-      <input class="cfg-input lk-key tree-extra-key" placeholder="Nom du champ (ex: Univers)">
-      <span class="lkr-arrow">→</span>
-      <input class="cfg-input lk-value tree-extra-value" list="${pfx}-wfd-var-list" placeholder="Valeur ou {variable}">
-      <button type="button" class="lkr-del" onclick="this.closest('.lkr').remove()" title="Supprimer">×</button>
-    </div>`;
+    <input class="cfg-input tree-field-input tree-extra-key" placeholder="Nom du champ (ex: Univers)">
+    <span class="lkr-arrow">→</span>
+    <input class="cfg-input tree-field-input tree-extra-value" list="${pfx}-wfd-var-list" placeholder="Valeur ou {variable}">
+    <button type="button" class="lkr-del" onclick="this.closest('.tree-field-row').remove()" title="Supprimer">×</button>`;
   wrap.appendChild(row);
 }
 
@@ -5077,7 +5075,7 @@ function sauvegarderConfig() {
     node.config.parentFieldName = g('tree-parent-field') || '';
     node.config.typeFieldName   = g('tree-type-field') || '';
     node.config.parentBayardId  = g('tree-parent-bayard') || '';
-    node.config.extraFields = Array.from(document.querySelectorAll('#cfg-tree-extra-fields .lkr'))
+    node.config.extraFields = Array.from(document.querySelectorAll('#cfg-tree-extra-fields .tree-field-row'))
       .map(row => ({
         key:   row.querySelector('.tree-extra-key')?.value.trim()   || '',
         value: row.querySelector('.tree-extra-value')?.value.trim() || '',
