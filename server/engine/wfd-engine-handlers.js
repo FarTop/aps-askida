@@ -3891,14 +3891,35 @@ function _apsSearchCritToFilter(crit, ctx) {
 
   // Critère collection browse — filtre sur ancestor_collections ou in_collections
   if (field === '__collection__') {
-    const colId = crit.value || '';
-    if (!colId) return null;
+    // Resoudre {collection.id} etc. — jusqu'ici jamais fait pour ce critere
+    // precis, contrairement a tous les autres champs (voir plus bas).
+    let rawColVal = crit.value || '';
+    if (rawColVal.includes('{')) rawColVal = WfdContext.resolve(rawColVal, ctx);
+
+    // Le picker en arbo stocke un tableau JSON (une ou plusieurs collections
+    // cochees) ; une valeur dynamique ({collection.id} resolu) est une simple
+    // chaine — les deux formes doivent marcher.
+    let colIds;
+    try {
+      const parsed = JSON.parse(rawColVal);
+      colIds = Array.isArray(parsed) ? parsed : [rawColVal];
+    } catch (e) {
+      colIds = rawColVal ? [rawColVal] : [];
+    }
+    colIds = colIds.filter(Boolean);
+    if (!colIds.length) return null;
+
+    const filterName = op === 'in_branch' ? 'ancestor_collections' : 'in_collections';
     if (op === 'in_branch') {
       // Toute la hiérarchie — ancestor_collections contient l'ID
-      return { name: 'ancestor_collections', value: colId, condition: 'must' };
+      return colIds.length === 1
+        ? { name: filterName, value: colIds[0], condition: 'must' }
+        : { name: filterName, values: colIds, condition: 'must' };
     } else {
       // Collection directe uniquement — in_collections contient l'ID
-      return { name: 'in_collections', value: colId, condition: 'must' };
+      return colIds.length === 1
+        ? { name: filterName, value: colIds[0], condition: 'must' }
+        : { name: filterName, values: colIds, condition: 'must' };
     }
   }
   const rawVal = crit.value || '';

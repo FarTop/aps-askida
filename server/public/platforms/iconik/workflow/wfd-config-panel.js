@@ -3041,6 +3041,7 @@ function buildCfgFields(pfx, family, cfg) {
         } else if (_isDate2) {
           valHtml2 = '<input type="date" class="cfg-input sr-crit-val sr-date-input wfd-date-dark-flex2" ' + _dp2 + ' value="' + (crit.value||'') + '">';
         } else if (crit.field === '__collection__') {
+          const _colMode2 = crit.colMode === 'var' ? 'var' : 'tree';
           const _colVal2 = crit.value || '';
           let _colIds2 = [];
           try { _colIds2 = JSON.parse(_colVal2); if (!Array.isArray(_colIds2)) _colIds2 = _colVal2 ? [_colVal2] : []; } catch(e) { _colIds2 = _colVal2 ? [_colVal2] : []; }
@@ -3048,15 +3049,25 @@ function buildCfgFields(pfx, family, cfg) {
           const _colTreeHtml2 = typeof wfdColTreeHtml === 'function'
             ? wfdColTreeHtml(_colPrefix2, JSON.stringify(_colIds2))
             : '<div id="' + _colPrefix2 + '-col-selected" class="wfd-hidden"></div><div id="' + _colPrefix2 + '-col-tags"></div><div id="' + _colPrefix2 + '-col-tree"></div>';
+          const _colModeSel = '<select class="cfg-select sr-crit-col-mode wfd-mb6" data-bidx="' + idx + '" data-cidx="' + ci + '" '
+            + 'onchange="srColModeChange(\'' + pfx + '\',' + idx + ',' + ci + ',this.value)">'
+            + '<option value="tree" ' + (_colMode2==='tree'?'selected':'') + '>Depuis l\'arbo</option>'
+            + '<option value="var"  ' + (_colMode2==='var' ?'selected':'') + '>Variable (ex: {collection.id})</option>'
+            + '</select>';
+          const _colBody2 = _colMode2 === 'var'
+            ? '<input class="cfg-input sr-crit-val wfd-mono-sm2" list="' + pfx + '-wfd-var-list" '
+              + 'value="' + escHtml(_colVal2 && !_colVal2.startsWith('[') ? _colVal2 : '') + '" '
+              + 'placeholder="{collection.id}" data-pfx="' + pfx + '" oninput="srAutoSave(this.dataset.pfx)">'
+            : '<div class="wfd-sr-col-tree-wrap">' + _colTreeHtml2 + '</div>'
+              + '<input type="hidden" class="sr-crit-val" value="' + escHtml(JSON.stringify(_colIds2)) + '">';
           valHtml2 = '<div class="wfd-sr-col-wrap">'
+            + _colModeSel
             + '<label class="wfd-sr-col-cb-label">'
             + '<input type="checkbox" class="sr-crit-col-op" data-bidx="' + idx + '" data-cidx="' + ci + '"'
             + ((crit.op||'in_branch')==='in_branch' ? ' checked' : '')
             + ' onchange="srAutoSave(\'' + pfx + '\')">'
             + 'Inclure les sous-dossiers</label>'
-            + '<div class="wfd-sr-col-tree-wrap">'
-            + _colTreeHtml2
-            + '</div><input type="hidden" class="sr-crit-val" value="' + escHtml(JSON.stringify(_colIds2)) + '"></div>';
+            + _colBody2 + '</div>';
         } else {
           valHtml2 = '<input class="cfg-input sr-crit-val wfd-input-flex2-mono10" value="' + (crit.value||'').replace(/"/g,'&quot;') + '" placeholder="valeur" data-pfx="' + pfx + '" oninput="srAutoSave(this.dataset.pfx)">';
         }
@@ -10046,6 +10057,7 @@ function srReadBlocks(pfx) {
         field,
         op,
         value : val,
+        colMode: isCol ? (critEl.querySelector('.sr-crit-col-mode')?.value || 'tree') : undefined,
         join  : critEl.querySelector('.cfg-btn')?.textContent?.trim() || (cidx > 0 ? 'AND' : ''),
       });
     });
@@ -10109,6 +10121,16 @@ function srFieldChange(pfx, bidx, cidx, val) {
     }
     srRerender(pfx, blocks);
   }
+  srAutoSave(pfx);
+}
+
+function srColModeChange(pfx, bidx, cidx, mode) {
+  const blocks = srReadBlocks(pfx);
+  if (blocks[bidx] && blocks[bidx].criteria[cidx]) {
+    blocks[bidx].criteria[cidx].colMode = mode;
+    blocks[bidx].criteria[cidx].value   = ''; // on change de mode, la valeur precedente ne veut plus rien dire
+  }
+  srRerender(pfx, blocks);
   srAutoSave(pfx);
 }
 
