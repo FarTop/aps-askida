@@ -127,6 +127,47 @@ async function set_var(node, ctx) {
 }
 
 // ── ID GENERATOR ─────────────────────────────────────────────────
+// ── Génération/réutilisation d'un Bayard ID via BayardRegistry ──────
+// Extrait de id_generator (comportement inchangé) pour être réutilisable
+// par d'autres handlers (ex: create_tree) qui génèrent des IDs pour des
+// objets qui ne sont ni ctx.asset ni ctx.collection (ex: une collection
+// tout juste créée, à un niveau arbitraire de l'arbo).
+async function _bayardIdFor(objectId, objectType, orgId, length, fallbackId) {
+  let id = fallbackId;
+  const { PrismaClient } = require('@prisma/client');
+  const { PrismaPg }     = require('@prisma/adapter-pg');
+  const adapter  = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const _prisma  = new PrismaClient({ adapter });
+  try {
+    const existing = objectId ? await _prisma.bayardRegistry.findFirst({ where: { assetId: objectId } }) : null;
+    if (existing) {
+      id = existing.bayardId;
+      console.log('[id_generator] ID existant réutilisé :', id, 'pour', objectType, objectId);
+    } else {
+      let attempts = 0;
+      while (attempts < 10) {
+        const conflict = await _prisma.bayardRegistry.findUnique({ where: { bayardId: id } });
+        if (!conflict) break;
+        const min = Math.pow(10, length - 1);
+        const max = Math.pow(10, length) - 1;
+        id = String(Math.floor(min + Math.random() * (max - min + 1)));
+        attempts++;
+      }
+      if (objectId) {
+        await _prisma.bayardRegistry.create({
+          data: { id: require('crypto').randomUUID(), bayardId: id, assetId: objectId, assetType: objectType, orgId }
+        });
+        console.log('[id_generator] Nouvel ID enregistré :', id, 'pour', objectType, objectId);
+      }
+    }
+  } catch(e) {
+    console.warn('[id_generator] BayardRegistry :', e.message);
+  } finally {
+    await _prisma.$disconnect();
+  }
+  return id;
+}
+
 async function id_generator(node, ctx, iconikClient) {
   const cfg    = node.config || {};
   const type   = cfg.idType   || 'numeric';
@@ -182,46 +223,12 @@ async function id_generator(node, ctx, iconikClient) {
 
   // Garantir l'unicité via BayardRegistry
   if (type === 'numeric') {
-    const { PrismaClient } = require('@prisma/client');
-    const { PrismaPg }     = require('@prisma/adapter-pg');
-    const adapter  = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-    const _prisma  = new PrismaClient({ adapter });
     const assetId    = ctx.asset?.id || ctx.vars?.asset_id || '';
     const colId      = ctx.collection?.id || ctx.vars?.collection_id || '';
     const objectId   = assetId || colId;
     const objectType = assetId ? 'asset' : (colId ? 'collection' : 'asset');
     const orgId      = ctx.vars?.orgId || 'default';
-    try {
-      // Vérifier si cet objet a déjà un ID enregistré
-      const existing = objectId ? await _prisma.bayardRegistry.findFirst({ where: { assetId: objectId } }) : null;
-      if (existing) {
-        id = existing.bayardId;
-        console.log('[id_generator] ID existant réutilisé :', id, 'pour', objectType, objectId);
-      } else {
-        // Chercher un ID unique (max 10 tentatives)
-        let attempts = 0;
-        while (attempts < 10) {
-          const conflict = await _prisma.bayardRegistry.findUnique({ where: { bayardId: id } });
-          if (!conflict) break;
-          // Collision — regénérer
-          const min = Math.pow(10, length - 1);
-          const max = Math.pow(10, length) - 1;
-          id = String(Math.floor(min + Math.random() * (max - min + 1)));
-          attempts++;
-        }
-        // Enregistrer le nouvel ID
-        if (objectId) {
-          await _prisma.bayardRegistry.create({
-            data: { id: require('crypto').randomUUID(), bayardId: id, assetId: objectId, assetType: objectType, orgId }
-          });
-          console.log('[id_generator] Nouvel ID enregistré :', id, 'pour', objectType, objectId);
-        }
-      }
-    } catch(e) {
-      console.warn('[id_generator] BayardRegistry :', e.message);
-    } finally {
-      await _prisma.$disconnect();
-    }
+    id = await _bayardIdFor(objectId, objectType, orgId, length, id);
   }
 
   // Stocker dans le contexte
@@ -1613,6 +1620,82 @@ async function create_col(node, ctx, iconikClient) {
   return action({ ...node, config: { ...node.config, actionType: 'collection_create' } }, ctx, iconikClient);
 }
 
+// ── CREATE_TREE ───────────────────────────────────────────────────
+// Matérialise récursivement une arborescence de Collections à partir d'un
+// template stocké (table ArboTemplate). Un template est un arbre de nœuds
+// { name, generateId, children[] } — "name" est résolu comme n'importe quel
+// champ WFD (peut contenir {trigger.Univers}, du texte fixe, etc.).
+// Quand generateId=true sur un niveau : génère/réutilise un BayardID (même
+// registre que id_generator), écrit BayardID + ParentID (chaîné depuis le
+// dernier niveau généré au-dessus) sur la Vue de métadonnées configurée.
+async function create_tree(node, ctx, iconikClient) {
+  requireIconik(iconikClient, 'create_tree');
+  const cfg        = node.config || {};
+  const templateId = cfg.templateId;
+  if (!templateId) throw new Error('Créer arborescence : aucun template sélectionné');
+
+  const { PrismaClient } = require('@prisma/client');
+  const { PrismaPg }     = require('@prisma/adapter-pg');
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const _prisma = new PrismaClient({ adapter });
+
+  let tpl;
+  try {
+    const row = await _prisma.arboTemplate.findUnique({ where: { id: templateId } });
+    if (!row) throw new Error('Template "' + templateId + '" introuvable');
+    tpl = row.config;
+  } finally {
+    await _prisma.$disconnect();
+  }
+
+  const rootParentId = r(cfg.parentId || '{collection.id}', ctx);
+  const viewId        = r(cfg.metadataViewId || '', ctx);
+  const orgId         = ctx.vars?.orgId || 'default';
+  const idLength      = Math.max(1, Math.min(64, parseInt(cfg.idLength) || 8));
+
+  const created = [];
+  let lastGeneratedId = null; // BayardID du dernier niveau généré au-dessus, pour chaîner ParentID
+
+  async function creerNiveau(nodeDef, parentIconikId) {
+    const title = r(nodeDef.name || 'Sans nom', ctx);
+
+    const col = await iconikClient.post('/API/assets/v1/collections/', {
+      title,
+      parent_id: parentIconikId || undefined,
+    });
+    if (!col.id) throw new Error('Échec création collection "' + title + '"');
+
+    let generatedHere = null;
+    if (nodeDef.generateId) {
+      const seedId = String(Math.floor(Math.pow(10, idLength - 1) + Math.random() * (Math.pow(10, idLength) * 0.9)));
+      generatedHere = await _bayardIdFor(col.id, 'collection', orgId, idLength, seedId);
+
+      if (viewId) {
+        const fields = { BayardID: { field_values: [{ value: generatedHere }] } };
+        if (lastGeneratedId) fields.ParentID = { field_values: [{ value: lastGeneratedId }] };
+        await iconikClient.put(`/API/metadata/v1/collections/${col.id}/views/${viewId}/`, { metadata_values: fields });
+      }
+      lastGeneratedId = generatedHere;
+    }
+
+    created.push({ id: col.id, title, parentIconikId, bayardId: generatedHere });
+
+    for (const child of (nodeDef.children || [])) {
+      await creerNiveau(child, col.id);
+    }
+    return col;
+  }
+
+  const rootCol = await creerNiveau(tpl, rootParentId);
+
+  const storeAs = cfg.storeAs || 'arbo';
+  WfdContext.storeResult(ctx, storeAs, { rootId: rootCol.id, created });
+  WfdContext.setVar(ctx, storeAs + '.rootId', rootCol.id);
+  WfdContext.setVar(ctx, storeAs + '.count', String(created.length));
+  console.log('[create_tree] Template "' + templateId + '" -> ' + created.length + ' collection(s) créée(s)');
+  return { port: 0 };
+}
+
 // ── LINK_FILE ─────────────────────────────────────────────────────
 async function link_file(node, ctx, iconikClient) {
   return action({ ...node, config: { ...node.config, actionType: 'file_create' } }, ctx, iconikClient);
@@ -2007,6 +2090,7 @@ const WfdHandlers = {
   acl,
   create_asset,
   create_col,
+  create_tree,
   link_file,
   cast,
   transcode,

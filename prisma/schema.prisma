@@ -932,3 +932,12 @@ model ApsSearch {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model ArboTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  config      Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
