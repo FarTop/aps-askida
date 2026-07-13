@@ -116,9 +116,9 @@ nav{display:flex;gap:2px;}
 .dsn-port:hover.bottom{transform:translateX(-50%) scale(1.3);}
 .dsn-port:hover.left{transform:translateY(-50%) scale(1.3);}
 .dsn-port:hover.right{transform:translateY(-50%) scale(1.3);}
-.dsn-actions{display:none;position:absolute;top:-22px;right:0;gap:2px;}
+.dsn-actions{display:none;position:absolute;top:-22px;right:0;gap:1px;}
 .dsn-node:hover .dsn-actions,.dsn-node.selected .dsn-actions{display:flex;}
-.dsn-act{background:var(--bg3);border:1px solid var(--border2);color:#888;font-size:10px;cursor:pointer;padding:2px 6px;border-radius:3px;font-family:var(--font);transition:all .1s;}
+.dsn-act{background:var(--bg3);border:1px solid var(--border2);color:#888;font-size:10px;cursor:pointer;padding:2px 5px;border-radius:3px;font-family:var(--font);transition:all .1s;}
 .dsn-act:hover{color:var(--text);}
 .dsn-act.add:hover{color:#2ecc71;border-color:#2ecc7155;}
 .dsn-act.dup:hover{color:var(--accent2);border-color:var(--accent2)55;}
