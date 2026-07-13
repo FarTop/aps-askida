@@ -929,7 +929,10 @@ function dTreeToTemplate() {
   function build(nodeId) {
     var n = dNodes.find(function(x) { return x.id === nodeId; });
     var kids = (childrenOf[nodeId] || []).map(build);
-    return { name: n.label, generateId: !!n.generateId, children: kids };
+    // x/y : ignores par create_tree (qui ne lit que name/generateId/children),
+    // utilises uniquement par dTemplateToTree pour retrouver la disposition
+    // dessinee plutot qu'un auto-layout generique au rechargement.
+    return { name: n.label, generateId: !!n.generateId, x: n.x, y: n.y, children: kids };
   }
   return build(roots[0].id);
 }
@@ -939,9 +942,14 @@ function dTemplateToTree(tpl) {
   var yByDepth = {};
   function place(nodeDef, parentId, depth) {
     var id = dNextId++;
-    var y = yByDepth[depth] || 40;
-    dNodes.push({ id: id, label: nodeDef.name, x: depth * (DSN_W + 80) + 60, y: y, color: null, generateId: !!nodeDef.generateId });
-    yByDepth[depth] = y + DSN_H + 30;
+    // Position dessinee si presente dans le template (sauvegarde apres ce
+    // patch), sinon repli sur l'auto-layout generique (anciens templates
+    // sauvegardes avant l'ajout de x/y).
+    var hasPos = typeof nodeDef.x === 'number' && typeof nodeDef.y === 'number';
+    var x = hasPos ? nodeDef.x : (depth * (DSN_W + 80) + 60);
+    var y = hasPos ? nodeDef.y : (yByDepth[depth] || 40);
+    dNodes.push({ id: id, label: nodeDef.name, x: x, y: y, color: null, generateId: !!nodeDef.generateId });
+    if (!hasPos) yByDepth[depth] = y + DSN_H + 30;
     if (parentId != null) dEdges.push({ from: parentId, to: id, fromSide: 'right', toSide: 'left' });
     (nodeDef.children || []).forEach(function(child) { place(child, id, depth + 1); });
     return id;
