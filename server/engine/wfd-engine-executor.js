@@ -207,6 +207,21 @@ async function executeFlux(flux, triggerPayload, nodeHandlers, iconikClient, onE
     WfdContext.setVar(ctx, '_iconik_app_id', triggerPayload.app_id || '');
   }
 
+  // Exposer à plat les champs saisis via la Vue de métadonnées attachée à la
+  // Custom Action (ex: formulaire "Univers" avant création d'arbo). Même
+  // convention que le fetch metadata : {trigger.NomChamp} plutôt que d'obliger
+  // à naviguer triggerPayload._metadata.NomChamp.field_values.0.value à la main.
+  const _triggerMeta = triggerPayload?._metadata || {};
+  Object.entries(_triggerMeta).forEach(([fieldName, fieldData]) => {
+    if (fieldName === '__separator__') return;
+    const values = (fieldData?.field_values || [])
+      .map(fv => fv.value)
+      .filter(v => v !== null && v !== undefined && v !== '');
+    if (!values.length) return;
+    const exposed = values.length === 1 ? String(values[0]) : JSON.stringify(values);
+    WfdContext.setVar(ctx, 'trigger.' + fieldName, exposed);
+  });
+
   // Stocker les infos de diagnostic du trigger (visible dans le snapshot)
   // Extraire le payload brut Iconik pour diagnostic
   const _rawPayload = triggerPayload?._raw || {};
