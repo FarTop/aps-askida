@@ -918,9 +918,11 @@ function dTreeToTemplate() {
   if (!dNodes.length) throw new Error('Le canevas est vide.');
   var childrenOf = {};
   var hasParent = {};
+  var edgeToChild = {}; // childId -> {fromSide, toSide} de SON edge entrante
   dEdges.forEach(function(e) {
     (childrenOf[e.from] = childrenOf[e.from] || []).push(e.to);
     hasParent[e.to] = true;
+    edgeToChild[e.to] = { fromSide: e.fromSide || 'right', toSide: e.toSide || 'left' };
   });
   var roots = dNodes.filter(function(n) { return !hasParent[n.id]; });
   if (roots.length !== 1) {
@@ -929,10 +931,16 @@ function dTreeToTemplate() {
   function build(nodeId) {
     var n = dNodes.find(function(x) { return x.id === nodeId; });
     var kids = (childrenOf[nodeId] || []).map(build);
-    // x/y : ignores par create_tree (qui ne lit que name/generateId/children),
-    // utilises uniquement par dTemplateToTree pour retrouver la disposition
-    // dessinee plutot qu'un auto-layout generique au rechargement.
-    return { name: n.label, generateId: !!n.generateId, x: n.x, y: n.y, children: kids };
+    var conn = edgeToChild[nodeId]; // absent pour la racine (pas de parent)
+    // x/y/fromSide/toSide : ignores par create_tree (qui ne lit que
+    // name/generateId/children), utilises uniquement par dTemplateToTree
+    // pour retrouver la disposition ET le connecteur exacts au rechargement.
+    return {
+      name: n.label, generateId: !!n.generateId, x: n.x, y: n.y,
+      fromSide: conn ? conn.fromSide : undefined,
+      toSide:   conn ? conn.toSide   : undefined,
+      children: kids,
+    };
   }
   return build(roots[0].id);
 }
@@ -950,7 +958,7 @@ function dTemplateToTree(tpl) {
     var y = hasPos ? nodeDef.y : (yByDepth[depth] || 40);
     dNodes.push({ id: id, label: nodeDef.name, x: x, y: y, color: null, generateId: !!nodeDef.generateId });
     if (!hasPos) yByDepth[depth] = y + DSN_H + 30;
-    if (parentId != null) dEdges.push({ from: parentId, to: id, fromSide: 'right', toSide: 'left' });
+    if (parentId != null) dEdges.push({ from: parentId, to: id, fromSide: nodeDef.fromSide || 'right', toSide: nodeDef.toSide || 'left' });
     (nodeDef.children || []).forEach(function(child) { place(child, id, depth + 1); });
     return id;
   }
