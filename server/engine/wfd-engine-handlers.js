@@ -1688,10 +1688,19 @@ async function create_tree(node, ctx, iconikClient) {
 
   const rootCol = await creerNiveau(tpl, rootParentId);
 
+  // IDs generes, exposes simplement : le premier (racine, ex: la Serie) et le
+  // dernier (le plus profond, ex: la Saison) - couvre le cas a 2 niveaux
+  // generateId sans obliger a indexer le tableau "created" a la main.
+  const generatedOnly = created.filter(c => c.bayardId);
+  const rootBayardId = generatedOnly.length ? generatedOnly[0].bayardId : '';
+  const lastBayardId = generatedOnly.length ? generatedOnly[generatedOnly.length - 1].bayardId : '';
+
   const storeAs = cfg.storeAs || 'arbo';
-  WfdContext.storeResult(ctx, storeAs, { rootId: rootCol.id, created });
+  WfdContext.storeResult(ctx, storeAs, { rootId: rootCol.id, created, rootBayardId, lastBayardId });
   WfdContext.setVar(ctx, storeAs + '.rootId', rootCol.id);
   WfdContext.setVar(ctx, storeAs + '.count', String(created.length));
+  WfdContext.setVar(ctx, storeAs + '.rootBayardId', rootBayardId);
+  WfdContext.setVar(ctx, storeAs + '.lastBayardId', lastBayardId);
   console.log('[create_tree] Template "' + templateId + '" -> ' + created.length + ' collection(s) créée(s)');
   return { port: 0 };
 }
