@@ -1648,10 +1648,14 @@ async function create_tree(node, ctx, iconikClient) {
     await _prisma.$disconnect();
   }
 
-  const rootParentId = r(cfg.parentId || '{collection.id}', ctx);
+  const rootParentId  = r(cfg.parentId || '{collection.id}', ctx);
   const viewId        = r(cfg.metadataViewId || '', ctx);
   const orgId         = ctx.vars?.orgId || 'default';
   const idLength      = Math.max(1, Math.min(64, parseInt(cfg.idLength) || 8));
+  // Noms de champs configurables — un autre client peut avoir un schema de
+  // metadata different (pas forcement "BayardID"/"ParentID").
+  const idFieldName     = cfg.idFieldName     || 'BayardID';
+  const parentFieldName = cfg.parentFieldName || 'ParentID';
 
   const created = [];
   let lastGeneratedId = null; // BayardID du dernier niveau généré au-dessus, pour chaîner ParentID
@@ -1671,8 +1675,9 @@ async function create_tree(node, ctx, iconikClient) {
       generatedHere = await _bayardIdFor(col.id, 'collection', orgId, idLength, seedId);
 
       if (viewId) {
-        const fields = { BayardID: { field_values: [{ value: generatedHere }] } };
-        if (lastGeneratedId) fields.ParentID = { field_values: [{ value: lastGeneratedId }] };
+        const fields = {};
+        fields[idFieldName] = { field_values: [{ value: generatedHere }] };
+        if (lastGeneratedId) fields[parentFieldName] = { field_values: [{ value: lastGeneratedId }] };
         await iconikClient.put(`/API/metadata/v1/collections/${col.id}/views/${viewId}/`, { metadata_values: fields });
       }
       lastGeneratedId = generatedHere;

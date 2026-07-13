@@ -5055,6 +5055,8 @@ function sauvegarderConfig() {
     node.config.templateId     = g('tree-template') || '';
     node.config.parentId       = g('tree-parent') || '';
     node.config.metadataViewId = g('tree-view') || '';
+    node.config.idFieldName     = g('tree-id-field') || '';
+    node.config.parentFieldName = g('tree-parent-field') || '';
     node.config.storeAs        = g('tree-store-as') || 'arbo';
     node.config.resultVar      = node.config.storeAs;
     node.config.description    = g('description');
@@ -5987,10 +5989,20 @@ function _buildCreateTreePanel(pfx, cfg, wfdData) {
   </div>
 
   <div class="cfg-field">
-    <label class="cfg-label">VUE DE MÉTADONNÉES <span class="wfd-label-9-555">(pour BayardID / ParentID)</span></label>
+    <label class="cfg-label">VUE DE MÉTADONNÉES <span class="wfd-label-9-555">(pour l'ID + son parent)</span></label>
     <select id="${pfx}-tree-view" class="cfg-select">
       <option value="">— Aucune —</option>${viewOpts}
     </select>
+  </div>
+
+  <div class="cfg-field">
+    <label class="cfg-label">NOM DU CHAMP ID <span class="wfd-label-9-555">(optionnel — défaut "BayardID")</span></label>
+    <input id="${pfx}-tree-id-field" class="cfg-input" value="${escHtml(cfg.idFieldName||'')}" placeholder="BayardID">
+  </div>
+
+  <div class="cfg-field">
+    <label class="cfg-label">NOM DU CHAMP PARENT <span class="wfd-label-9-555">(optionnel — défaut "ParentID")</span></label>
+    <input id="${pfx}-tree-parent-field" class="cfg-input" value="${escHtml(cfg.parentFieldName||'')}" placeholder="ParentID">
   </div>
 
   <div class="cfg-field wfd-fetch-storecard">
