@@ -6024,26 +6024,20 @@ function _buildCreateTreePanel(pfx, cfg, wfdData) {
   <div class="cfg-field">
     <label class="cfg-label">CORRESPONDANCE DES CHAMPS</label>
     <div class="wfd-hint-top3" style="margin-bottom:8px;">Comment ces 3 concepts s'appellent chez ce client — modifiable si le nom diffère.</div>
-    <div class="lkr" style="margin-bottom:4px;">
-      <div class="lkr-main">
-        <span class="cfg-input lk-key" style="background:transparent;border-color:transparent;color:#888;cursor:default;">Identifiant</span>
-        <span class="lkr-arrow">→</span>
-        <input id="${pfx}-tree-id-field" class="cfg-input lk-value" value="${escHtml(cfg.idFieldName||'BayardID')}">
-      </div>
+    <div class="tree-field-row">
+      <span class="tree-field-label">Identifiant</span>
+      <span class="lkr-arrow">→</span>
+      <input id="${pfx}-tree-id-field" class="cfg-input tree-field-input" value="${escHtml(cfg.idFieldName||'BayardID')}">
     </div>
-    <div class="lkr" style="margin-bottom:4px;">
-      <div class="lkr-main">
-        <span class="cfg-input lk-key" style="background:transparent;border-color:transparent;color:#888;cursor:default;">Référence vers le parent</span>
-        <span class="lkr-arrow">→</span>
-        <input id="${pfx}-tree-parent-field" class="cfg-input lk-value" value="${escHtml(cfg.parentFieldName||'ParentID')}">
-      </div>
+    <div class="tree-field-row">
+      <span class="tree-field-label">Référence vers le parent</span>
+      <span class="lkr-arrow">→</span>
+      <input id="${pfx}-tree-parent-field" class="cfg-input tree-field-input" value="${escHtml(cfg.parentFieldName||'ParentID')}">
     </div>
-    <div class="lkr">
-      <div class="lkr-main">
-        <span class="cfg-input lk-key" style="background:transparent;border-color:transparent;color:#888;cursor:default;">Type de collection</span>
-        <span class="lkr-arrow">→</span>
-        <input id="${pfx}-tree-type-field" class="cfg-input lk-value" value="${escHtml(cfg.typeFieldName||'TypeCollection')}">
-      </div>
+    <div class="tree-field-row">
+      <span class="tree-field-label">Type de collection</span>
+      <span class="lkr-arrow">→</span>
+      <input id="${pfx}-tree-type-field" class="cfg-input tree-field-input" value="${escHtml(cfg.typeFieldName||'TypeCollection')}">
     </div>
   </div>
 
@@ -6054,13 +6048,11 @@ function _buildCreateTreePanel(pfx, cfg, wfdData) {
     </div>
     <div id="${pfx}-tree-extra-fields">
       ${(cfg.extraFields||[]).map((f,i) => `
-      <div class="lkr" data-idx="${i}">
-        <div class="lkr-main">
-          <input class="cfg-input lk-key tree-extra-key" value="${escHtml(f.key||'')}" placeholder="Nom du champ (ex: Univers)">
-          <span class="lkr-arrow">→</span>
-          <input class="cfg-input lk-value tree-extra-value" list="${pfx}-wfd-var-list" value="${escHtml(f.value||'')}" placeholder="Valeur ou {variable}">
-          <button type="button" class="lkr-del" onclick="this.closest('.lkr').remove()" title="Supprimer">×</button>
-        </div>
+      <div class="tree-field-row" data-idx="${i}">
+        <input class="cfg-input tree-field-input tree-extra-key" value="${escHtml(f.key||'')}" placeholder="Nom du champ (ex: Univers)">
+        <span class="lkr-arrow">→</span>
+        <input class="cfg-input tree-field-input tree-extra-value" list="${pfx}-wfd-var-list" value="${escHtml(f.value||'')}" placeholder="Valeur ou {variable}">
+        <button type="button" class="lkr-del" onclick="this.closest('.tree-field-row').remove()" title="Supprimer">×</button>
       </div>`).join('') || '<div class="wfd-text-444-11b">Aucun champ supplémentaire — ajoutez-en un si besoin (ex: Univers pour une Saison).</div>'}
     </div>
   </div>
