@@ -774,8 +774,12 @@ function dRenderNode(node){
   var btnDel=document.createElement('button');btnDel.className='dsn-act del';btnDel.textContent='x';btnDel.title='Supprimer';btnDel.addEventListener('click',function(e){e.stopPropagation();dDeleteNode(node.id);});
   var btnGenId=document.createElement('button');btnGenId.className='dsn-act genid';btnGenId.textContent='\uD83D\uDD11';btnGenId.style.cssText=node.generateId?'background:#f1c40f;color:#000;':'';btnGenId.title=node.generateId?'G\u00e9n\u00e8re un Bayard ID ici (clic pour d\u00e9sactiver)':'Ne g\u00e9n\u00e8re pas d\'ID ici (clic pour activer)';
   btnGenId.addEventListener('click',function(e){e.stopPropagation();node.generateId=!node.generateId;dSnapshot();var old=document.getElementById('dn-'+node.id);if(old)old.remove();dRenderNode(node);dRedrawEdges();dUpdateExport();});
-  acts.appendChild(btnAdd);acts.appendChild(btnDup);acts.appendChild(btnGenId);acts.appendChild(btnDel);el.appendChild(acts);el.appendChild(folder);
+  var DSN_TYPES=['','S\u00e9rie','Saison','Episode','Unitaire'];
+  var btnType=document.createElement('button');btnType.className='dsn-act ctype';btnType.textContent=node.collectionType?node.collectionType.slice(0,3):'\u2014';btnType.style.cssText=node.collectionType?'background:#3498db;color:#fff;':'';btnType.title=node.collectionType?('Type : '+node.collectionType+' (clic pour changer)'):'Aucun type de collection (clic pour d\u00e9finir)';
+  btnType.addEventListener('click',function(e){e.stopPropagation();var idx=DSN_TYPES.indexOf(node.collectionType||'');node.collectionType=DSN_TYPES[(idx+1)%DSN_TYPES.length];dSnapshot();var old=document.getElementById('dn-'+node.id);if(old)old.remove();dRenderNode(node);dRedrawEdges();dUpdateExport();});
+  acts.appendChild(btnAdd);acts.appendChild(btnDup);acts.appendChild(btnGenId);acts.appendChild(btnType);acts.appendChild(btnDel);el.appendChild(acts);el.appendChild(folder);
   if(node.generateId){var badge=document.createElement('div');badge.textContent='\uD83D\uDD11';badge.title='G\u00e9n\u00e8re un Bayard ID \u00e0 ce niveau';badge.style.cssText='position:absolute;top:-8px;right:-8px;background:#f1c40f;color:#000;border-radius:50%;width:18px;height:18px;font-size:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);pointer-events:none;';folder.style.position='relative';folder.appendChild(badge);}
+  if(node.collectionType){var tbadge=document.createElement('div');tbadge.textContent=node.collectionType;tbadge.title='Type : '+node.collectionType;tbadge.style.cssText='position:absolute;bottom:-8px;left:6px;background:#3498db;color:#fff;border-radius:8px;padding:1px 6px;font-size:9px;box-shadow:0 1px 3px rgba(0,0,0,.4);pointer-events:none;';folder.style.position='relative';folder.appendChild(tbadge);}
   // Ports — attachés au folder
   ['top','right','bottom','left'].forEach(function(side){
     var port=document.createElement('div');port.className='dsn-port '+side;port.title='Tirer pour connecter';
@@ -936,7 +940,8 @@ function dTreeToTemplate() {
     // name/generateId/children), utilises uniquement par dTemplateToTree
     // pour retrouver la disposition ET le connecteur exacts au rechargement.
     return {
-      name: n.label, generateId: !!n.generateId, x: n.x, y: n.y,
+      name: n.label, generateId: !!n.generateId, collectionType: n.collectionType || '',
+      x: n.x, y: n.y,
       fromSide: conn ? conn.fromSide : undefined,
       toSide:   conn ? conn.toSide   : undefined,
       children: kids,
@@ -956,7 +961,7 @@ function dTemplateToTree(tpl) {
     var hasPos = typeof nodeDef.x === 'number' && typeof nodeDef.y === 'number';
     var x = hasPos ? nodeDef.x : (depth * (DSN_W + 80) + 60);
     var y = hasPos ? nodeDef.y : (yByDepth[depth] || 40);
-    dNodes.push({ id: id, label: nodeDef.name, x: x, y: y, color: null, generateId: !!nodeDef.generateId });
+    dNodes.push({ id: id, label: nodeDef.name, x: x, y: y, color: null, generateId: !!nodeDef.generateId, collectionType: nodeDef.collectionType || '' });
     if (!hasPos) yByDepth[depth] = y + DSN_H + 30;
     if (parentId != null) dEdges.push({ from: parentId, to: id, fromSide: nodeDef.fromSide || 'right', toSide: nodeDef.toSide || 'left' });
     (nodeDef.children || []).forEach(function(child) { place(child, id, depth + 1); });

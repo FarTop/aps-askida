@@ -5057,6 +5057,8 @@ function sauvegarderConfig() {
     node.config.metadataViewId = g('tree-view') || '';
     node.config.idFieldName     = g('tree-id-field') || '';
     node.config.parentFieldName = g('tree-parent-field') || '';
+    node.config.typeFieldName   = g('tree-type-field') || '';
+    node.config.parentBayardId  = g('tree-parent-bayard') || '';
     node.config.storeAs        = g('tree-store-as') || 'arbo';
     node.config.resultVar      = node.config.storeAs;
     node.config.description    = g('description');
@@ -6003,6 +6005,17 @@ function _buildCreateTreePanel(pfx, cfg, wfdData) {
   <div class="cfg-field">
     <label class="cfg-label">NOM DU CHAMP PARENT <span class="wfd-label-9-555">(optionnel — défaut "ParentID")</span></label>
     <input id="${pfx}-tree-parent-field" class="cfg-input" value="${escHtml(cfg.parentFieldName||'')}" placeholder="ParentID">
+  </div>
+
+  <div class="cfg-field">
+    <label class="cfg-label">NOM DU CHAMP TYPE <span class="wfd-label-9-555">(optionnel — défaut "TypeCollection")</span></label>
+    <input id="${pfx}-tree-type-field" class="cfg-input" value="${escHtml(cfg.typeFieldName||'')}" placeholder="TypeCollection">
+  </div>
+
+  <div class="cfg-field">
+    <label class="cfg-label">BAYARD ID PARENT <span class="wfd-label-9-555">(optionnel — si la racine du template a déjà un parent créé ailleurs, ex : la Série pour un template Saison seule)</span></label>
+    <input id="${pfx}-tree-parent-bayard" class="cfg-input" list="${pfx}-wfd-var-list"
+      value="${escHtml(cfg.parentBayardId||'')}" placeholder="{serieMetadata.BayardID}">
   </div>
 
   <div class="cfg-field wfd-fetch-storecard">

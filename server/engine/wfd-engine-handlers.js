@@ -1653,12 +1653,17 @@ async function create_tree(node, ctx, iconikClient) {
   const orgId         = ctx.vars?.orgId || 'default';
   const idLength      = Math.max(1, Math.min(64, parseInt(cfg.idLength) || 8));
   // Noms de champs configurables — un autre client peut avoir un schema de
-  // metadata different (pas forcement "BayardID"/"ParentID").
+  // metadata different (pas forcement "BayardID"/"ParentID"/"TypeCollection").
   const idFieldName     = cfg.idFieldName     || 'BayardID';
   const parentFieldName = cfg.parentFieldName || 'ParentID';
+  const typeFieldName    = cfg.typeFieldName    || 'TypeCollection';
+  // Amorce optionnelle : BayardID d'un ancetre créé lors d'un run PRECEDENT
+  // (ex: la Série, quand ce nœud crée seulement une Saison dessus). Sans ça,
+  // le chainage ParentID ne fonctionne qu'a l'interieur d'un seul run.
+  const parentSeedId = r(cfg.parentBayardId || '', ctx);
 
   const created = [];
-  let lastGeneratedId = null; // BayardID du dernier niveau généré au-dessus, pour chaîner ParentID
+  let lastGeneratedId = parentSeedId || null; // BayardID du dernier niveau généré, pour chaîner ParentID
 
   async function creerNiveau(nodeDef, parentIconikId) {
     const title = r(nodeDef.name || 'Sans nom', ctx);
@@ -1670,20 +1675,25 @@ async function create_tree(node, ctx, iconikClient) {
     if (!col.id) throw new Error('Échec création collection "' + title + '"');
 
     let generatedHere = null;
+    const fields = {};
+
+    if (nodeDef.collectionType) {
+      fields[typeFieldName] = { field_values: [{ value: r(nodeDef.collectionType, ctx) }] };
+    }
+
     if (nodeDef.generateId) {
       const seedId = String(Math.floor(Math.pow(10, idLength - 1) + Math.random() * (Math.pow(10, idLength) * 0.9)));
       generatedHere = await _bayardIdFor(col.id, 'collection', orgId, idLength, seedId);
-
-      if (viewId) {
-        const fields = {};
-        fields[idFieldName] = { field_values: [{ value: generatedHere }] };
-        if (lastGeneratedId) fields[parentFieldName] = { field_values: [{ value: lastGeneratedId }] };
-        await iconikClient.put(`/API/metadata/v1/collections/${col.id}/views/${viewId}/`, { metadata_values: fields });
-      }
+      fields[idFieldName] = { field_values: [{ value: generatedHere }] };
+      if (lastGeneratedId) fields[parentFieldName] = { field_values: [{ value: lastGeneratedId }] };
       lastGeneratedId = generatedHere;
     }
 
-    created.push({ id: col.id, title, parentIconikId, bayardId: generatedHere });
+    if (viewId && Object.keys(fields).length) {
+      await iconikClient.put(`/API/metadata/v1/collections/${col.id}/views/${viewId}/`, { metadata_values: fields });
+    }
+
+    created.push({ id: col.id, title, parentIconikId, bayardId: generatedHere, collectionType: nodeDef.collectionType || null });
 
     for (const child of (nodeDef.children || [])) {
       await creerNiveau(child, col.id);
