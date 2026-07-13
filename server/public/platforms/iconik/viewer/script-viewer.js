@@ -772,7 +772,10 @@ function dRenderNode(node){
   var btnAdd=document.createElement('button');btnAdd.className='dsn-act add';btnAdd.textContent='+';btnAdd.title='Ajouter enfant';btnAdd.addEventListener('click',function(e){e.stopPropagation();dAddChild(node.id);});
   var btnDup=document.createElement('button');btnDup.className='dsn-act dup';btnDup.textContent='[]';btnDup.title='Dupliquer';btnDup.addEventListener('click',function(e){e.stopPropagation();dDuplicate(node.id);});
   var btnDel=document.createElement('button');btnDel.className='dsn-act del';btnDel.textContent='x';btnDel.title='Supprimer';btnDel.addEventListener('click',function(e){e.stopPropagation();dDeleteNode(node.id);});
-  acts.appendChild(btnAdd);acts.appendChild(btnDup);acts.appendChild(btnDel);el.appendChild(acts);el.appendChild(folder);
+  var btnGenId=document.createElement('button');btnGenId.className='dsn-act genid';btnGenId.textContent='\uD83D\uDD11';btnGenId.style.cssText=node.generateId?'background:#f1c40f;color:#000;':'';btnGenId.title=node.generateId?'G\u00e9n\u00e8re un Bayard ID ici (clic pour d\u00e9sactiver)':'Ne g\u00e9n\u00e8re pas d\'ID ici (clic pour activer)';
+  btnGenId.addEventListener('click',function(e){e.stopPropagation();node.generateId=!node.generateId;dSnapshot();var old=document.getElementById('dn-'+node.id);if(old)old.remove();dRenderNode(node);dRedrawEdges();dUpdateExport();});
+  acts.appendChild(btnAdd);acts.appendChild(btnDup);acts.appendChild(btnGenId);acts.appendChild(btnDel);el.appendChild(acts);el.appendChild(folder);
+  if(node.generateId){var badge=document.createElement('div');badge.textContent='\uD83D\uDD11';badge.title='G\u00e9n\u00e8re un Bayard ID \u00e0 ce niveau';badge.style.cssText='position:absolute;top:-8px;right:-8px;background:#f1c40f;color:#000;border-radius:50%;width:18px;height:18px;font-size:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.4);pointer-events:none;';folder.style.position='relative';folder.appendChild(badge);}
   // Ports — attachés au folder
   ['top','right','bottom','left'].forEach(function(side){
     var port=document.createElement('div');port.className='dsn-port '+side;port.title='Tirer pour connecter';
@@ -902,6 +905,101 @@ function dsn_loadDraft() {
   dNextId = draft.nextId || 1;
   dFullRedraw();
   toast('\u2713 Brouillon restauré — ' + dNodes.length + ' nœuds');
+}
+
+// ── Conversion canevas <-> template WFD (ArboTemplate) ──────────────────
+// Le canevas (dNodes/dEdges, une boîte + un lien par dossier) et le
+// template consommé par le nœud create_tree (arbre imbriqué
+// {name, generateId, children[]}) ne sont pas la même forme — on convertit
+// dans les deux sens, sans jamais faire porter cette conversion par
+// l'utilisateur.
+function dTreeToTemplate() {
+  if (!dNodes.length) throw new Error('Le canevas est vide.');
+  var childrenOf = {};
+  var hasParent = {};
+  dEdges.forEach(function(e) {
+    (childrenOf[e.from] = childrenOf[e.from] || []).push(e.to);
+    hasParent[e.to] = true;
+  });
+  var roots = dNodes.filter(function(n) { return !hasParent[n.id]; });
+  if (roots.length !== 1) {
+    throw new Error('Il faut exactement 1 dossier racine (sans parent) — trouvé ' + roots.length + '. Vérifiez les connexions.');
+  }
+  function build(nodeId) {
+    var n = dNodes.find(function(x) { return x.id === nodeId; });
+    var kids = (childrenOf[nodeId] || []).map(build);
+    return { name: n.label, generateId: !!n.generateId, children: kids };
+  }
+  return build(roots[0].id);
+}
+
+function dTemplateToTree(tpl) {
+  dNodes = []; dEdges = []; dNextId = 1;
+  var yByDepth = {};
+  function place(nodeDef, parentId, depth) {
+    var id = dNextId++;
+    var y = yByDepth[depth] || 40;
+    dNodes.push({ id: id, label: nodeDef.name, x: depth * (DSN_W + 80) + 60, y: y, color: null, generateId: !!nodeDef.generateId });
+    yByDepth[depth] = y + DSN_H + 30;
+    if (parentId != null) dEdges.push({ from: parentId, to: id, fromSide: 'right', toSide: 'left' });
+    (nodeDef.children || []).forEach(function(child) { place(child, id, depth + 1); });
+    return id;
+  }
+  place(tpl, null, 0);
+  dFullRedraw();
+}
+
+// ── Sauver le canevas comme template WFD (table ArboTemplate) ───────────
+function dsn_saveAsTemplate() {
+  var tpl;
+  try { tpl = dTreeToTemplate(); }
+  catch (e) { toast('\u2717 ' + e.message); return; }
+
+  var currentId = window._dsnTemplateId || '';
+  var currentName = window._dsnTemplateName || '';
+  var name = prompt('Nom du template :', currentName || 'Nouveau template');
+  if (!name) return;
+
+  var method = (currentId && name === currentName) ? 'PUT' : 'POST';
+  var url = method === 'PUT' ? ('/api/arbo-templates/' + currentId) : '/api/arbo-templates';
+
+  fetch(url, {
+    method: method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name, config: tpl }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(saved) {
+    if (saved.error) { toast('\u2717 ' + saved.error); return; }
+    window._dsnTemplateId = saved.id;
+    window._dsnTemplateName = saved.name;
+    toast('\u2713 Template "' + saved.name + '" sauvegardé');
+  })
+  .catch(function(e) { toast('\u2717 Erreur réseau : ' + e.message); });
+}
+
+// ── Charger un template WFD existant dans le canevas ────────────────────
+function dsn_loadTemplate() {
+  fetch('/api/arbo-templates')
+    .then(function(r) { return r.json(); })
+    .then(function(templates) {
+      if (!templates.length) { toast('Aucun template sauvegardé'); return; }
+      var list = templates.map(function(t, i) { return (i + 1) + '. ' + t.name; }).join('\n');
+      var choice = prompt('Charger quel template ?\n' + list + '\n\nEntrez le numéro :');
+      var idx = parseInt(choice, 10) - 1;
+      if (isNaN(idx) || !templates[idx]) return;
+      var picked = templates[idx];
+      fetch('/api/arbo-templates/' + picked.id)
+        .then(function(r) { return r.json(); })
+        .then(function(full) {
+          dSnapshot();
+          dTemplateToTree(full.config);
+          window._dsnTemplateId = full.id;
+          window._dsnTemplateName = full.name;
+          toast('\u2713 Template "' + full.name + '" chargé — ' + dNodes.length + ' dossier(s)');
+        });
+    })
+    .catch(function(e) { toast('\u2717 Erreur réseau : ' + e.message); });
 }
 
 function dsn_checkDraft() {
