@@ -135,3 +135,6 @@ table td.td-path{font-size:10px;color:#999 !important;max-width:300px;overflow:h
 .aps-col-tree-wrap   { max-height: 120px; overflow-y: auto; background: #050505; border: 1px solid #2a2a2a; border-radius: 3px; }
 .aps-col-tree-node   { padding: 3px 6px 3px calc(6px + var(--indent, 0) * 12px); cursor: pointer; font-size: 10px; color: #aaa; }
 .aps-col-tree-node.selected { color: #8e44ad; background: #1a0a2a; }
+.aps-col-tree-arrow  { display:inline-block; width:14px; cursor:pointer; color:#666; }
+.aps-col-tree-arrow-spacer { display:inline-block; width:14px; }
+.aps-col-mode-sel    { margin-bottom:6px; }

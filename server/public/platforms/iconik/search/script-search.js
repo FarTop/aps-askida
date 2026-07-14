@@ -309,10 +309,11 @@ function lireBlocs() {
         _val = row.querySelector('.aps-crit-val') ? row.querySelector('.aps-crit-val').value : '';
       }
       block.criteria.push({
-        field : _field,
-        op    : _op,
-        value : _val,
-        join  : joinEl ? joinEl.textContent.trim() : 'AND',
+        field  : _field,
+        op     : _op,
+        value  : _val,
+        colMode: _isCol ? (row.querySelector('.aps-col-mode-sel')?.value || 'tree') : undefined,
+        join   : joinEl ? joinEl.textContent.trim() : 'AND',
       });
     });
   });
@@ -385,23 +386,68 @@ function buildColTagsHtml(selectedIds, blockId, ci) {
   }).join('');
 }
 
+// État d'expansion de l'arbo, par critère (clé = blockId_ci) — sans ça,
+// chaque nœud se dépliait toujours entièrement, impossible à replier sur
+// un environnement avec beaucoup de collections.
+var _colTreeExpanded = {};
+function _colTreeKey(blockId, ci) { return blockId + '_' + ci; }
+
+function toggleColTreeNode(blockId, ci, nodeId, ev) {
+  if (ev) ev.stopPropagation(); // ne pas déclencher la sélection du critère
+  const key = _colTreeKey(blockId, ci);
+  if (!_colTreeExpanded[key]) _colTreeExpanded[key] = new Set();
+  const set = _colTreeExpanded[key];
+  if (set.has(nodeId)) set.delete(nodeId); else set.add(nodeId);
+  lireBlocs();
+  rerendreBlocs();
+}
+
 function buildColTreeHtml(selectedIds, blockId, ci) {
   if (!Object.keys(_colDict).length) return '<div class="aps-col-empty-msg">Collections non chargées</div>';
-  // Construire l'arbo depuis _colDict
+  const key = _colTreeKey(blockId, ci);
+  if (!_colTreeExpanded[key]) _colTreeExpanded[key] = new Set();
+  const expanded = _colTreeExpanded[key];
+
+  // Déplier automatiquement le chemin vers ce qui est déjà sélectionné, pour
+  // ne pas perdre de vue un choix existant en rouvrant le critère.
+  selectedIds.forEach(id => {
+    let cur = _colDict[id];
+    while (cur && cur.parent_id) {
+      expanded.add(cur.parent_id);
+      cur = _colDict[cur.parent_id];
+    }
+  });
+
   const roots = Object.entries(_colDict).filter(([id,c]) => !c.parent_id);
   function renderNode(id, depth) {
     const col = _colDict[id];
     if (!col) return '';
     const children = Object.entries(_colDict).filter(([cid,c]) => c.parent_id === id);
     const selected = selectedIds.includes(id);
-    let html = '<div onclick="toggleCol(\'' + blockId + '\''+ ',' + ci + ',\''+id+'\')" class="aps-col-tree-node'+(selected?' selected':'')+'" style="--indent:'+depth+';">'
-      + (children.length ? '▸ ' : '  ') + col.name + '</div>';
-    if (children.length) {
+    const isExpanded = expanded.has(id);
+    const arrow = children.length
+      ? '<span class="aps-col-tree-arrow" onclick="toggleColTreeNode(\''+blockId+'\','+ci+',\''+id+'\',event)">' + (isExpanded ? '▾' : '▸') + '</span>'
+      : '<span class="aps-col-tree-arrow-spacer"></span>';
+    let html = '<div class="aps-col-tree-node'+(selected?' selected':'')+'" style="--indent:'+depth+';">'
+      + arrow
+      + '<span onclick="toggleCol(\'' + blockId + '\''+ ',' + ci + ',\''+id+'\')">' + col.name + '</span>'
+      + '</div>';
+    if (children.length && isExpanded) {
       children.forEach(([cid]) => { html += renderNode(cid, depth+1); });
     }
     return html;
   }
   return roots.map(([id]) => renderNode(id, 0)).join('');
+}
+
+function onColModeChange(blockId, ci, mode) {
+  lireBlocs();
+  const block = _blocks.find(b => b.id == blockId);
+  if (block && block.criteria[ci]) {
+    block.criteria[ci].colMode = mode;
+    block.criteria[ci].value   = ''; // la valeur precedente ne veut plus rien dire dans l'autre mode
+  }
+  rerendreBlocs();
 }
 
 function toggleCol(blockId, ci, colId) {
@@ -452,15 +498,25 @@ function rerendreBlocs() {
       ).join('');
       const isColField = crit.field === '__collection__';
       const colIds = isColField ? _parseColIds(crit.value) : [];
+      const colMode = crit.colMode === 'id' ? 'id' : 'tree';
+      const colModeSel = isColField ? (
+        '<select class="aps-select aps-col-mode-sel" onchange="onColModeChange(' + block.id + ',' + ci + ',this.value)">' +
+        '<option value="tree" ' + (colMode==='tree'?'selected':'') + '>Depuis l\'arbo</option>' +
+        '<option value="id"   ' + (colMode==='id'  ?'selected':'') + '>Par ID</option>' +
+        '</select>'
+      ) : '';
       const colBrowse = isColField ? (
         '<div class="aps-col-browse-wrap">' +
-        '<div class="aps-col-tags">' + buildColTagsHtml(colIds, block.id, ci) + '</div>' +
+        colModeSel +
         '<label class="aps-col-sub-label">' +
         '<input type="checkbox" class="aps-crit-col-sub" data-bid="'+block.id+'" data-ci="'+ci+'"' + ((crit.op||'in_branch')==='in_branch'?' checked':'') + ' onchange="onColSubChange(this)">' +
         'Inclure les sous-dossiers</label>' +
-        '<div class="aps-col-tree-wrap">' +
-        buildColTreeHtml(colIds, block.id, ci) +
-        '</div><input type="hidden" class="aps-crit-val" value=\''+JSON.stringify(colIds)+'\'></div>'
+        (colMode === 'id'
+          ? '<input class="aps-input aps-crit-val" placeholder="ID de la collection" value="' + (colIds[0]||'').replace(/"/g,'&quot;') + '">'
+          : '<div class="aps-col-tags">' + buildColTagsHtml(colIds, block.id, ci) + '</div>' +
+            '<div class="aps-col-tree-wrap">' + buildColTreeHtml(colIds, block.id, ci) + '</div>' +
+            '<input type="hidden" class="aps-crit-val" value=\''+JSON.stringify(colIds)+'\'>') +
+        '</div>'
       ) : '';
       return '<div class="aps-crit-row">' +
         (ci > 0
