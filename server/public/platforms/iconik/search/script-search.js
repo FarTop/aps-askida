@@ -511,7 +511,7 @@ async function lancerRecherche() {
         parentIds = pr.map(o => o.id).filter(Boolean);
         if (!parentIds.length) { blockResults[block.id] = []; continue; }
       }
-      const body = { object_types:[block.objectType], query:'', filters:[], limit:limit, offset:0 };
+      const body = { doc_types:[block.objectType], query:'', filters:[], limit:limit, offset:0 };
       if (parentIds && parentIds.length) body.collection_ids = parentIds;
       for (const crit of block.criteria) {
         const f = _critToFilter(crit);

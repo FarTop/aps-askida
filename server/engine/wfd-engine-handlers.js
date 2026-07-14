@@ -3861,7 +3861,10 @@ function _apsSearchBuildBody(block, parentIds, limit, ctx) {
 
   const objectType = OBJECT_TYPE_MAP[block.objectType] || block.objectType || 'assets';
   const body = {
-    object_types : [objectType],
+    doc_types : [objectType],  // Corrige le 14/07/2026 - la doc Iconik utilise
+                                // "doc_types", pas "object_types". L'ancien nom
+                                // etait silencieusement ignore par l'API, qui
+                                // retombait sur une recherche vide sans erreur.
     query        : '',
     filters      : [],
     limit        : limit,
