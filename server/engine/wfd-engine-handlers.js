@@ -3860,48 +3860,51 @@ function _apsSearchBuildBody(block, parentIds, limit, ctx) {
   };
 
   const objectType = OBJECT_TYPE_MAP[block.objectType] || block.objectType || 'assets';
+  const criteria    = block.criteria || [];
+  const queryString = _apsSearchCriteriaToQuery(criteria, ctx);
+
   const body = {
-    doc_types : [objectType],  // Corrige le 14/07/2026 - la doc Iconik utilise
-                                // "doc_types", pas "object_types". L'ancien nom
-                                // etait silencieusement ignore par l'API, qui
-                                // retombait sur une recherche vide sans erreur.
-    query        : '',
-    filters      : [],
-    limit        : limit,
-    offset       : 0,
+    doc_types : [objectType],
+    // Corrige le 14/07/2026 (doc_types) puis le 14/07/2026 (query au lieu de
+    // filters) : confirme en direct que le tableau "filters" est ignore par
+    // cet endpoint Iconik (payload envoye correctement forme, verifie en
+    // isolant via la console, resultats jamais scopes) - seule la syntaxe
+    // "query" (type Elasticsearch/Lucene : field:"valeur", AND/OR, wildcards)
+    // produit un vrai filtrage. Confirme avec parent_id sur une vraie
+    // collection (2 enfants directs exacts retournes, rien d'etranger).
+    query     : queryString,
+    filters   : [],  // conserve vide pour compat de forme, plus jamais peuple
+    limit     : limit,
+    offset    : 0,
   };
 
-  // Relation parent → filtre collection_ids
+  // Relation parent → collection_ids (mecanisme distinct, PAS reverifie avec
+  // le meme niveau de certitude que "query" - a tester separement si utilise)
   if (parentIds && parentIds.length) {
     body.collection_ids = parentIds;
-  }
-
-  // Critères → filters Iconik
-  const criteria = block.criteria || [];
-  for (const crit of criteria) {
-    const filter = _apsSearchCritToFilter(crit, ctx);
-    if (filter) body.filters.push(filter);
   }
 
   return body;
 }
 
-// Traduit un critère APS en filtre Iconik search
-function _apsSearchCritToFilter(crit, ctx) {
+// Echappe une valeur pour l'inserer dans la syntaxe query Iconik (guillemets
+// et antislash, au minimum - suffisant pour les cas rencontres jusqu'ici)
+function _apsSearchEscVal(v) {
+  return String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+// Traduit UN critère en terme de requête (chaîne), pas en objet filtre —
+// le tableau "filters" natif d'Iconik s'est révélé ignoré par cet endpoint.
+function _apsSearchCritToQueryTerm(crit, ctx) {
   if (!crit.field) return null;
   const field = crit.field;
   const op    = crit.op || 'equals';
 
-  // Critère collection browse — filtre sur ancestor_collections ou in_collections
+  // Critère collection browse
   if (field === '__collection__') {
-    // Resoudre {collection.id} etc. — jusqu'ici jamais fait pour ce critere
-    // precis, contrairement a tous les autres champs (voir plus bas).
     let rawColVal = crit.value || '';
     if (rawColVal.includes('{')) rawColVal = WfdContext.resolve(rawColVal, ctx);
 
-    // Le picker en arbo stocke un tableau JSON (une ou plusieurs collections
-    // cochees) ; une valeur dynamique ({collection.id} resolu) est une simple
-    // chaine — les deux formes doivent marcher.
     let colIds;
     try {
       const parsed = JSON.parse(rawColVal);
@@ -3912,81 +3915,61 @@ function _apsSearchCritToFilter(crit, ctx) {
     colIds = colIds.filter(Boolean);
     if (!colIds.length) return null;
 
-    const filterName = op === 'in_branch' ? 'ancestor_collections' : 'in_collections';
-    if (op === 'in_branch') {
-      // Toute la hiérarchie — ancestor_collections contient l'ID
-      return colIds.length === 1
-        ? { name: filterName, value: colIds[0], condition: 'must' }
-        : { name: filterName, values: colIds, condition: 'must' };
-    } else {
-      // Collection directe uniquement — in_collections contient l'ID
-      return colIds.length === 1
-        ? { name: filterName, value: colIds[0], condition: 'must' }
-        : { name: filterName, values: colIds, condition: 'must' };
-    }
+    // Direct (parent_id) : verifie en conditions reelles le 14/07/2026.
+    // Branche entiere (ancestor_collections) : par analogie, PAS encore
+    // verifie independamment - a tester si utilise en pratique.
+    const fieldName = op === 'in_branch' ? 'ancestor_collections' : 'parent_id';
+    const terms = colIds.map(id => fieldName + ':"' + _apsSearchEscVal(id) + '"');
+    return terms.length === 1 ? terms[0] : '(' + terms.join(' OR ') + ')';
   }
+
   const rawVal = crit.value || '';
   const val   = rawVal.includes('{') ? WfdContext.resolve(rawVal, ctx) : rawVal;
 
-  // Champs système Iconik — query_string vs metadata_values
   const SYSTEM_FIELDS = ['id','title','date_created','date_modified','object_type','status','archive_status','external_id'];
   const isSystem = SYSTEM_FIELDS.includes(field);
+  const fname = isSystem ? field : 'metadata.' + field;
+  const v = _apsSearchEscVal(val);
 
-  // Construire le filtre selon l'opérateur
   switch (op) {
-    case 'equals':
-      return isSystem
-        ? { name: field, value: val, condition: 'must' }
-        : { name: 'metadata.' + field, value: val, condition: 'must' };
-
-    case 'not_equals':
-      return isSystem
-        ? { name: field, value: val, condition: 'must_not' }
-        : { name: 'metadata.' + field, value: val, condition: 'must_not' };
-
-    case 'contains':
-      return { name: isSystem ? field : 'metadata.' + field, value: '*' + val + '*', condition: 'must' };
-
-    case 'not_contains':
-      return { name: isSystem ? field : 'metadata.' + field, value: '*' + val + '*', condition: 'must_not' };
-
-    case 'starts_with':
-      return { name: isSystem ? field : 'metadata.' + field, value: val + '*', condition: 'must' };
-
-    case 'is_empty':
-      return { name: isSystem ? field : 'metadata.' + field, value: '', condition: 'must_not', filter_type: 'exists' };
-
-    case 'is_not_empty':
-      return { name: isSystem ? field : 'metadata.' + field, value: '*', condition: 'must', filter_type: 'exists' };
-
-    case 'before':
-      return { name: isSystem ? field : 'metadata.' + field, range: { lt: val }, condition: 'must' };
-
-    case 'after':
-      return { name: isSystem ? field : 'metadata.' + field, range: { gt: val }, condition: 'must' };
-
-    case 'gt':
-      return { name: isSystem ? field : 'metadata.' + field, range: { gt: val }, condition: 'must' };
-
-    case 'lt':
-      return { name: isSystem ? field : 'metadata.' + field, range: { lt: val }, condition: 'must' };
-
-    case 'contains_any':
-      return { name: isSystem ? field : 'metadata.' + field, values: val.split(',').map(v => v.trim()), condition: 'must' };
-
-    case 'contains_all':
-      return { name: isSystem ? field : 'metadata.' + field, values: val.split(',').map(v => v.trim()), condition: 'must', match: 'all' };
-
-    case 'is_true':
-      return { name: isSystem ? field : 'metadata.' + field, value: 'true', condition: 'must' };
-
-    case 'is_false':
-      return { name: isSystem ? field : 'metadata.' + field, value: 'false', condition: 'must' };
-
+    case 'equals':        return fname + ':"' + v + '"';
+    case 'not_equals':    return 'NOT ' + fname + ':"' + v + '"';
+    case 'contains':      return fname + ':*' + v + '*';
+    case 'not_contains':  return 'NOT ' + fname + ':*' + v + '*';
+    case 'starts_with':   return fname + ':' + v + '*';
+    case 'is_empty':      return 'NOT _exists_:' + fname;
+    case 'is_not_empty':  return '_exists_:' + fname;
+    case 'before':        return fname + ':<"' + v + '"';
+    case 'after':         return fname + ':>"' + v + '"';
+    case 'gt':             return fname + ':>' + v;
+    case 'lt':             return fname + ':<' + v;
+    case 'contains_any': {
+      const vals = val.split(',').map(x => x.trim()).filter(Boolean);
+      return vals.length ? '(' + vals.map(x => fname + ':"' + _apsSearchEscVal(x) + '"').join(' OR ') + ')' : null;
+    }
+    case 'contains_all': {
+      const vals = val.split(',').map(x => x.trim()).filter(Boolean);
+      return vals.length ? '(' + vals.map(x => fname + ':"' + _apsSearchEscVal(x) + '"').join(' AND ') + ')' : null;
+    }
+    case 'is_true':  return fname + ':true';
+    case 'is_false': return fname + ':false';
     default:
       console.warn('[APS SEARCH] Opérateur inconnu :', op);
       return null;
   }
+}
+
+// Assemble tous les critères d'un bloc en une seule chaîne query, en
+// respectant le AND/OR de chaque critère (join) vis-à-vis du précédent.
+function _apsSearchCriteriaToQuery(criteria, ctx) {
+  const parts = [];
+  criteria.forEach(crit => {
+    const term = _apsSearchCritToQueryTerm(crit, ctx);
+    if (!term) return;
+    if (parts.length) parts.push(crit.join === 'OR' ? 'OR' : 'AND');
+    parts.push(term);
+  });
+  return parts.length ? '(' + parts.join(' ') + ')' : '';
 }
 
 // Évalue l'expression booléenne "1 AND 2 AND (3 OR 4) AND NOT 5"

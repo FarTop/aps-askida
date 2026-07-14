@@ -511,12 +511,9 @@ async function lancerRecherche() {
         parentIds = pr.map(o => o.id).filter(Boolean);
         if (!parentIds.length) { blockResults[block.id] = []; continue; }
       }
-      const body = { doc_types:[block.objectType], query:'', filters:[], limit:limit, offset:0 };
+      const queryString = _criteriaToQuery(block.criteria);
+      const body = { doc_types:[block.objectType], query:queryString, filters:[], limit:limit, offset:0 };
       if (parentIds && parentIds.length) body.collection_ids = parentIds;
-      for (const crit of block.criteria) {
-        const f = _critToFilter(crit);
-        if (f) body.filters.push(f);
-      }
       const r = await fetch(_BASE + '/' + _env + '/API/search/v1/search/', {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
       });
@@ -534,41 +531,68 @@ async function lancerRecherche() {
   }
 }
 
-function _critToFilter(crit) {
+// Echappe une valeur pour la syntaxe query Iconik (guillemets/antislash)
+function _escQueryVal(v) {
+  return String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+// Traduit UN critère en terme de requête (chaîne) — le tableau "filters"
+// natif d'Iconik s'est révélé ignoré par cet endpoint (verifie le 14/07/2026
+// en console : payload correctement forme, jamais applique aux resultats).
+// Seule la syntaxe "query" (type Elasticsearch/Lucene) filtre reellement.
+function _critToQueryTerm(crit) {
   if (!crit.field) return null;
-  // Collection browse — supporte la multi-sélection (tableau JSON d'IDs)
   if (crit.field === '__collection__') {
     const colIds = _parseColIds(crit.value);
     if (!colIds.length) return null;
-    const fname2 = crit.op === 'in_branch' ? 'ancestor_collections' : 'in_collections';
-    return colIds.length === 1
-      ? { name:fname2, value:colIds[0], condition:'must' }
-      : { name:fname2, values:colIds, condition:'must' };
+    // Direct (parent_id) : verifie en conditions reelles le 14/07/2026.
+    // Branche entiere (ancestor_collections) : par analogie, pas encore
+    // verifie independamment.
+    const fname2 = crit.op === 'in_branch' ? 'ancestor_collections' : 'parent_id';
+    const terms = colIds.map(id => fname2 + ':"' + _escQueryVal(id) + '"');
+    return terms.length === 1 ? terms[0] : '(' + terms.join(' OR ') + ')';
   }
   const SYS = ['id','title','date_created','date_modified','object_type','status','archive_status','external_id'];
   const fname = SYS.includes(crit.field) ? crit.field : 'metadata.' + crit.field;
   const val = crit.value || '';
+  const v = _escQueryVal(val);
   switch (crit.op) {
-    case 'equals':       return { name:fname, value:val, condition:'must' };
-    case 'not_equals':   return { name:fname, value:val, condition:'must_not' };
-    case 'contains':     return { name:fname, value:'*'+val+'*', condition:'must' };
-    case 'not_contains': return { name:fname, value:'*'+val+'*', condition:'must_not' };
-    case 'starts_with':  return { name:fname, value:val+'*', condition:'must' };
-    case 'is_empty':     return { name:fname, value:'', condition:'must_not', filter_type:'exists' };
-    case 'is_not_empty': return { name:fname, value:'*', condition:'must', filter_type:'exists' };
+    case 'equals':       return fname + ':"' + v + '"';
+    case 'not_equals':   return 'NOT ' + fname + ':"' + v + '"';
+    case 'contains':     return fname + ':*' + v + '*';
+    case 'not_contains': return 'NOT ' + fname + ':*' + v + '*';
+    case 'starts_with':  return fname + ':' + v + '*';
+    case 'is_empty':     return 'NOT _exists_:' + fname;
+    case 'is_not_empty': return '_exists_:' + fname;
     case 'between': {
       const parts = val.split('|');
-      return { name:fname, range:{ gt:parts[0]||'', lt:parts[1]||'' }, condition:'must' };
+      return fname + ':[' + _escQueryVal(parts[0]||'*') + ' TO ' + _escQueryVal(parts[1]||'*') + ']';
     }
-    case 'before':       return { name:fname, range:{ lt:val }, condition:'must' };
-    case 'after':        return { name:fname, range:{ gt:val }, condition:'must' };
-    case 'gt':           return { name:fname, range:{ gt:val }, condition:'must' };
-    case 'lt':           return { name:fname, range:{ lt:val }, condition:'must' };
-    case 'contains_any': return { name:fname, values:val.split(',').map(v=>v.trim()), condition:'must' };
-    case 'is_true':      return { name:fname, value:'true', condition:'must' };
-    case 'is_false':     return { name:fname, value:'false', condition:'must' };
-    default:             return null;
+    case 'before': return fname + ':<"' + v + '"';
+    case 'after':  return fname + ':>"' + v + '"';
+    case 'gt':     return fname + ':>' + v;
+    case 'lt':     return fname + ':<' + v;
+    case 'contains_any': {
+      const vals = val.split(',').map(x=>x.trim()).filter(Boolean);
+      return vals.length ? '(' + vals.map(x => fname + ':"' + _escQueryVal(x) + '"').join(' OR ') + ')' : null;
+    }
+    case 'is_true':  return fname + ':true';
+    case 'is_false': return fname + ':false';
+    default:         return null;
   }
+}
+
+// Assemble les critères d'un bloc en une seule chaîne query, en respectant
+// le AND/OR de chaque critère par rapport au précédent.
+function _criteriaToQuery(criteria) {
+  const parts = [];
+  (criteria || []).forEach(crit => {
+    const term = _critToQueryTerm(crit);
+    if (!term) return;
+    if (parts.length) parts.push(crit.join === 'OR' ? 'OR' : 'AND');
+    parts.push(term);
+  });
+  return parts.length ? '(' + parts.join(' ') + ')' : '';
 }
 
 function _evalExpr(expr, allIds) {
