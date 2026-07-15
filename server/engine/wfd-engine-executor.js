@@ -362,18 +362,40 @@ async function executeLoopNode(node, graph, ctx, nodeHandlers, iconikClient, onE
 
   const cfg     = node.config || {};
   const loopVar = cfg.loopVar || 'item';
+  const mode    = cfg.loopSource || 'variable';
 
-  // loopSource peut s'écrire avec ou sans accolades ({saisonAssets.objects}
-  // ou saisonAssets.objects) — on extrait le chemin et on lit la valeur BRUTE
-  // via resolvePath, sans passer par resolve() qui convertirait un tableau
-  // en chaîne de caractères (String(array)) et le détruirait au passage.
-  let sourcePath = (cfg.loopSource || '').trim();
-  const braceMatch = sourcePath.match(/^\{(.+)\}$/);
-  if (braceMatch) sourcePath = braceMatch[1];
+  let items;
+  if (mode === 'variable') {
+    // loopVariablePath peut s'écrire avec ou sans accolades
+    // ({saisonAssets.objects} ou saisonAssets.objects) — on extrait le
+    // chemin et on lit la valeur BRUTE via resolvePath, sans passer par
+    // resolve() qui convertirait un tableau en chaîne de caractères
+    // (String(array)) et le détruirait au passage.
+    let sourcePath = (cfg.loopVariablePath || '').trim();
+    const braceMatch = sourcePath.match(/^\{(.+)\}$/);
+    if (braceMatch) sourcePath = braceMatch[1];
 
-  let items = WfdContext.resolvePath(sourcePath, ctx);
-  if (!Array.isArray(items)) items = ctx.vars?.[sourcePath];
-  if (!Array.isArray(items)) items = [];
+    items = WfdContext.resolvePath(sourcePath, ctx);
+    if (!Array.isArray(items)) items = ctx.vars?.[sourcePath];
+    if (!Array.isArray(items)) items = [];
+  } else {
+    // Modes 'files'/'assets'/'collection'/'list'/'metadata' : prévus côté
+    // panneau (choix dans le menu, sélecteur de collection, etc.) mais
+    // jamais câblés côté exécution — ni avant ce commit, ni maintenant.
+    // Échec explicite plutôt que de faire semblant que la boucle a tourné
+    // avec 0 élément silencieusement.
+    const onError = cfg.onError || 'stop';
+    const msg = `Boucle : le mode "${mode}" n'est pas encore implémenté côté exécution — utilisez "Variable existante" avec une Recherche APS en amont.`;
+    if (onError === 'stop') {
+      WfdContext.addError(ctx, node.name, msg, 'fatal');
+      ctx.status = 'failed';
+      emit(onEvent, 'node:error', { nodeId: node.id, message: msg, severity: 'fatal', fluxId: ctx.fluxId, runId: ctx.runId });
+      return;
+    }
+    WfdContext.addError(ctx, node.name, msg, 'warn');
+    emit(onEvent, 'node:error', { nodeId: node.id, message: msg, severity: 'warn', fluxId: ctx.fluxId, runId: ctx.runId });
+    items = [];
+  }
 
   for (let i = 0; i < items.length; i++) {
     const raw = items[i];
