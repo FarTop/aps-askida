@@ -397,6 +397,9 @@ async function executeLoopNode(node, graph, ctx, nodeHandlers, iconikClient, onE
     items = [];
   }
 
+  const itemErrors = [];
+  const loopOnError = cfg.onError || 'stop';
+
   for (let i = 0; i < items.length; i++) {
     const raw = items[i];
     WfdContext.setVar(ctx, loopVar, typeof raw === 'string' ? raw : JSON.stringify(raw));
@@ -413,14 +416,33 @@ async function executeLoopNode(node, graph, ctx, nodeHandlers, iconikClient, onE
 
     await followPort(node, 0, graph, ctx, nodeHandlers, iconikClient, onEvent, resolveClient);
 
-    // Une erreur fatale dans le corps de boucle arrête tout le flux, pas
-    // seulement l'itération courante — cohérent avec le comportement des
-    // autres nœuds (onError: 'stop').
     if (ctx.status === 'failed') {
-      emit(onEvent, 'node:done', { nodeId: node.id, port: 0, name: node.name, family: node.family, fluxId: ctx.fluxId, runId: ctx.runId, count: i + 1 });
-      return;
+      // Un nœud du corps de boucle a échoué avec onError:'stop' — au lieu de
+      // stopper tout le flux net, on transporte l'erreur (principe WFD :
+      // l'erreur voyage jusqu'à une notification qui sait d'où elle vient),
+      // et c'est le réglage DE LA BOUCLE qui décide de la suite.
+      const lastErr = ctx.errors[ctx.errors.length - 1]?.message || 'Erreur inconnue';
+      itemErrors.push({ index: i, item: raw, message: lastErr });
+
+      if (loopOnError === 'stop') {
+        emit(onEvent, 'node:done', { nodeId: node.id, port: 0, name: node.name, family: node.family, fluxId: ctx.fluxId, runId: ctx.runId, count: i + 1 });
+        return;
+      }
+
+      // 'continue' ou 'port' : l'échec de CET élément ne stoppe pas les
+      // suivants — on relève le drapeau global pour poursuivre la boucle.
+      ctx.status = 'running';
+      if (loopOnError === 'port') {
+        await followPort(node, 2, graph, ctx, nodeHandlers, iconikClient, onEvent, resolveClient);
+      }
     }
   }
+
+  // Erreurs accumulées, exposées pour qu'une Notification/Historique en aval
+  // puisse rapporter precisement ce qui a echoue (quel element, quel message)
+  // plutot que de deviner ou de rester muette.
+  WfdContext.setVar(ctx, loopVar + '_errors', JSON.stringify(itemErrors));
+  WfdContext.setVar(ctx, loopVar + '_error_count', String(itemErrors.length));
 
   emit(onEvent, 'node:done', { nodeId: node.id, port: 1, name: node.name, family: node.family, fluxId: ctx.fluxId, runId: ctx.runId, count: items.length });
   await followPort(node, 1, graph, ctx, nodeHandlers, iconikClient, onEvent, resolveClient);

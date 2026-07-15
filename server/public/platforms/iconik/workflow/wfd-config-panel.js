@@ -1878,6 +1878,7 @@ function buildCfgFields(pfx, family, cfg) {
         <label class="cfg-label">Concurrence max</label>
         <input id="${pfx}-loop-concurrency" type="number" class="cfg-input"
           value="${cfg.concurrency||1}" min="1" max="20" placeholder="1 = séquentiel">
+        <div class="wfd-hint-top3">⚠ Pas encore implémenté — l'exécution reste toujours séquentielle quelle que soit cette valeur.</div>
       </div>
       <div class="cfg-field">
         <label class="cfg-label">Si erreur sur un élément</label>
