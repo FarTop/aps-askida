@@ -287,6 +287,14 @@ async function executeNode(node, graph, ctx, nodeHandlers, iconikClient, onEvent
     return await followPort(node, 0, graph, ctx, nodeHandlers, iconikClient, onEvent);
   }
 
+  // La Boucle a besoin de piloter elle-même le graphe (répéter le port
+  // "Chaque élément" une fois par item, puis suivre "Terminé") — un handler
+  // classique (appelé une fois, un seul port en retour) ne peut pas faire ça.
+  // Traitée à part, avant le dispatch générique ci-dessous.
+  if (node.family === 'loop') {
+    return await executeLoopNode(node, graph, ctx, nodeHandlers, iconikClient, onEvent, resolveClient);
+  }
+
   // Trouver le handler pour cette famille
   const handler = nodeHandlers[node.family];
   if (!handler) {
@@ -344,6 +352,56 @@ async function executeNode(node, graph, ctx, nodeHandlers, iconikClient, onEvent
 
   // Suivre les connexions depuis le port de sortie
   await followPort(node, port, graph, ctx, nodeHandlers, iconikClient, onEvent, resolveClient);
+}
+
+// ── Exécuter un nœud Boucle : itère réellement sur chaque élément ────────
+// Ports : 0 = "Chaque élément" (corps de boucle, répété), 1 = "Terminé"
+// (suite normale du flux, une seule fois, après le dernier item).
+async function executeLoopNode(node, graph, ctx, nodeHandlers, iconikClient, onEvent, resolveClient) {
+  emit(onEvent, 'node:start', { nodeId: node.id, name: node.name, family: node.family, fluxId: ctx.fluxId, runId: ctx.runId });
+
+  const cfg     = node.config || {};
+  const loopVar = cfg.loopVar || 'item';
+
+  // loopSource peut s'écrire avec ou sans accolades ({saisonAssets.objects}
+  // ou saisonAssets.objects) — on extrait le chemin et on lit la valeur BRUTE
+  // via resolvePath, sans passer par resolve() qui convertirait un tableau
+  // en chaîne de caractères (String(array)) et le détruirait au passage.
+  let sourcePath = (cfg.loopSource || '').trim();
+  const braceMatch = sourcePath.match(/^\{(.+)\}$/);
+  if (braceMatch) sourcePath = braceMatch[1];
+
+  let items = WfdContext.resolvePath(sourcePath, ctx);
+  if (!Array.isArray(items)) items = ctx.vars?.[sourcePath];
+  if (!Array.isArray(items)) items = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const raw = items[i];
+    WfdContext.setVar(ctx, loopVar, typeof raw === 'string' ? raw : JSON.stringify(raw));
+    WfdContext.setVar(ctx, loopVar + '_index', String(i));
+    // Objet : exposer aussi ses champs à plat (même convention que le reste
+    // du moteur), ex: {item.id}, {item.title} — sans avoir à parser du JSON.
+    if (raw && typeof raw === 'object') {
+      Object.entries(raw).forEach(([k, v]) => {
+        if (v !== null && v !== undefined && typeof v !== 'object') {
+          WfdContext.setVar(ctx, loopVar + '.' + k, String(v));
+        }
+      });
+    }
+
+    await followPort(node, 0, graph, ctx, nodeHandlers, iconikClient, onEvent, resolveClient);
+
+    // Une erreur fatale dans le corps de boucle arrête tout le flux, pas
+    // seulement l'itération courante — cohérent avec le comportement des
+    // autres nœuds (onError: 'stop').
+    if (ctx.status === 'failed') {
+      emit(onEvent, 'node:done', { nodeId: node.id, port: 0, name: node.name, family: node.family, fluxId: ctx.fluxId, runId: ctx.runId, count: i + 1 });
+      return;
+    }
+  }
+
+  emit(onEvent, 'node:done', { nodeId: node.id, port: 1, name: node.name, family: node.family, fluxId: ctx.fluxId, runId: ctx.runId, count: items.length });
+  await followPort(node, 1, graph, ctx, nodeHandlers, iconikClient, onEvent, resolveClient);
 }
 
 // ── Suivre les connexions depuis un port ────────────────────────
