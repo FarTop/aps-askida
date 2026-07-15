@@ -1201,7 +1201,7 @@ async function action(node, ctx, iconikClient) {
       const exportPayload = {};
       if (cfg.createFolderAsset)  exportPayload.export_to_asset_folder = true;
       if (cfg.overwrite !== undefined) exportPayload.overwrite = cfg.overwrite === true || cfg.overwrite === 'true';
-      if (cfg.fileName) exportPayload.file_name = r(cfg.fileName, ctx).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '');
+      if (cfg.fileName) exportPayload.file_name = r(cfg.fileName, ctx).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-\/]/g, '');
       console.log('[DEBUG export] aid:', aid, '| elId:', elId, '| payload:', JSON.stringify(exportPayload));
       result = await iconikClient.post(`/API/files/v1/assets/${aid}/export_locations/${elId}/`, exportPayload);
       console.log('[DEBUG export] result:', JSON.stringify(result));
