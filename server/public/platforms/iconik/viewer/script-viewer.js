@@ -1,4 +1,4 @@
-var collectionsData={collections:[]},teamsData={teams:[]},roleGroupsData={roleGroups:[]};
+var collectionsData={collections:[]},teamsData={teams:[]},roleGroupsData={roleGroups:[]},categoriesData={categories:[]};
 
 // Normalise collectionsData en chemins strings via parent_id
 function visGetColPaths(){
@@ -16,6 +16,59 @@ function visGetColPaths(){
     return c._vpath;
   }
   return cols.map(function(c){return '/'+getPath(byId[c.id])+'/';});
+}
+
+// Résout un ID de collection Iconik vers son chemin complet (même format que
+// visGetColPaths : '/Parent/Enfant/'). Nécessaire car les associations
+// team/role-group.collections stockent l'ID stable de la collection
+// (voir readTeams côté serveur), pas son chemin — le chemin peut changer si
+// une collection est renommée/déplacée, l'ID non. Cache reconstruit à chaque
+// cfg_build() (cf. _cfgBuildColPathCache), pour éviter de repayer la marche
+// parent_id à chaque nœud/équipe.
+var _cfgColPathCache=null;
+function _cfgBuildColPathCache(){
+  var cols=collectionsData.collections||[];
+  var byId={};
+  cols.forEach(function(c){ byId[c.id]=c; });
+  var raw={}; // chemins SANS / englobants, pour la récursion interne
+  function getRawPath(c){
+    if(!c) return '';
+    if(raw[c.id]!==undefined) return raw[c.id];
+    var p;
+    if(!c.parent_id||!byId[c.parent_id]){ p=c.name||c.nom||''; }
+    else { p=getRawPath(byId[c.parent_id])+'/'+(c.name||c.nom||''); }
+    raw[c.id]=p;
+    return p;
+  }
+  var cache={};
+  cols.forEach(function(c){ cache[c.id]='/'+getRawPath(c)+'/'; });
+  _cfgColPathCache=cache;
+}
+function _cfgResolveColPath(idOrChemin){
+  if(!idOrChemin) return idOrChemin;
+  if(!_cfgColPathCache) _cfgBuildColPathCache();
+  return _cfgColPathCache[idOrChemin] || idOrChemin; // déjà un chemin (ancien format) ou ID inconnu -> tel quel
+}
+
+// Catégories/vues applicables à l'objet Collection — relation GLOBALE (au niveau
+// système Iconik, pas propre à une collection précise) : "une vue est attribuée à
+// l'objet collection en général", donc la même liste s'applique à tous les nœuds.
+// Calculée une seule fois par cfg_build() (cf. reset dans cfg_build), pas par nœud.
+// Même logique que Settings (cat.viewIdsByType.collections, sans fallback sur
+// object_types — cf. script-settings.js, commentaire 'pas de fallback').
+var _cfgMdInfo=null;
+function _cfgBuildMdInfo(){
+  var cats=categoriesData.categories||[];
+  var result=[]; // [{ nom, vues:[...noms] }] — uniquement les catégories ayant ≥1 vue pour collections
+  cats.forEach(function(cat){
+    var vues=(cat.viewIdsByType && cat.viewIdsByType.collections) || [];
+    if(vues.length) result.push({ nom:cat.nom||cat.name||'', vues:vues });
+  });
+  _cfgMdInfo=result;
+}
+function cfg_getMdInfo(){
+  if(!_cfgMdInfo) _cfgBuildMdInfo();
+  return _cfgMdInfo;
 }
 // ── CFG helpers: filter by root + depth, fill root select, apply UI ──────────
 function cfg_filterPathsByRootAndDepth(paths, rootPrefix, maxDepth){
@@ -80,17 +133,18 @@ async function loadData(){
     const envsRes = await fetch('/api/environments/credentials');
     const envs = await envsRes.json();
     const env = (envs || []).find(function(e){ return e.isDefault; }) || (envs || [])[0];
-    if (!env) { collectionsData={collections:[]}; teamsData={teams:[]}; roleGroupsData={roleGroups:[]}; return; }
+    if (!env) { collectionsData={collections:[]}; teamsData={teams:[]}; roleGroupsData={roleGroups:[]}; categoriesData={categories:[]}; return; }
     const snapRes = await fetch('/api/ikon/snapshot/' + encodeURIComponent(env.environment));
-    if (!snapRes.ok) { collectionsData={collections:[]}; teamsData={teams:[]}; roleGroupsData={roleGroups:[]}; return; }
+    if (!snapRes.ok) { collectionsData={collections:[]}; teamsData={teams:[]}; roleGroupsData={roleGroups:[]}; categoriesData={categories:[]}; return; }
     const snap = await snapRes.json();
     collectionsData = { collections: snap.collections || [] };
     teamsData       = { teams: snap.teams || [] };
     roleGroupsData  = { roleGroups: snap.roleGroups || [] };
+    categoriesData  = { categories: snap.categories || [] };
     var b=document.getElementById('orgBadge'); if(b) b.textContent = (snap.env && snap.env.name) || '';
   } catch(e) {
     console.warn('[Viewer] Erreur chargement snapshot :', e);
-    collectionsData={collections:[]}; teamsData={teams:[]}; roleGroupsData={roleGroups:[]};
+    collectionsData={collections:[]}; teamsData={teams:[]}; roleGroupsData={roleGroups:[]}; categoriesData={categories:[]};
   }
 }
 document.addEventListener('DOMContentLoaded',loadData);
@@ -138,6 +192,35 @@ var cfgWasDragging = false;
 var cfgDragMoved = 0;
 
 var cfgCards={},cfgAllOn=false;
+// Légende des fiches — quelles sections afficher (Teams/Catégories/Vues).
+// Persisté en localStorage ; réutilisable tel quel pour le mode Workflow plus tard.
+var cfgLegend=(function(){
+  try{ var saved=JSON.parse(localStorage.getItem('cfgCardLegend')||'{}'); return { teams: saved.teams!==false, categories: !!saved.categories, views: !!saved.views }; }
+  catch(e){ return { teams:true, categories:false, views:false }; }
+})();
+function cfg_toggleLegend(key){
+  cfgLegend[key]=!cfgLegend[key];
+  try{ localStorage.setItem('cfgCardLegend', JSON.stringify(cfgLegend)); }catch(e){}
+  var btn=document.getElementById('btn-lgd-'+key);
+  if(btn) btn.classList.toggle('on', cfgLegend[key]);
+  // Reconstruire toutes les fiches déjà ouvertes avec la nouvelle sélection
+  Object.keys(cfgCards).forEach(function(chemin){
+    var old=cfgCards[chemin];
+    var x=_cfgNodeX(old), y=_cfgNodeY(old);
+    var nodeEl=document.querySelector('.cfg-node[data-chemin="'+chemin+'"]');
+    old.remove();
+    var card=cfg_buildCardSVG(chemin,nodeEl,x,y-CFG_H-10,CFG_H);
+    cfgCards[chemin]=card;
+    document.getElementById('cfg-zoom-g').appendChild(card);
+  });
+  if(Object.keys(cfgCards).length) cfg_redrawConnections();
+}
+document.addEventListener('DOMContentLoaded',function(){
+  ['teams','categories','views'].forEach(function(k){
+    var btn=document.getElementById('btn-lgd-'+k);
+    if(btn) btn.classList.toggle('on', cfgLegend[k]);
+  });
+});
 var CFG_W=150,CFG_H=88,CFG_HGAP=240,CFG_VGAP=20;
 
 document.addEventListener('DOMContentLoaded',function(){
@@ -356,6 +439,8 @@ function cfg_createNodeSVG(p){
 
 function cfg_build(cols){
   cfgPosMap={};
+  _cfgColPathCache=null; // invalidé — sera reconstruit à la volée depuis collectionsData
+  _cfgMdInfo=null; // idem pour catégories/vues (relation globale, calculée une fois)
   var vp=document.getElementById('cfg-vp');
   Array.from(vp.children).forEach(function(c){if(c.tagName!=='svg')c.remove();});
   var svg=document.getElementById('cfg-svg');svg.innerHTML='';
@@ -398,26 +483,15 @@ function cfg_build(cols){
     cfg_fit();toast(cols.length+' collections · '+positions.length+' noeuds');
   });
 }
-function cfg_getTeams(chemin){var normC=chemin.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');var res=[];(teamsData.teams||[]).forEach(function(t){var f=(t.collections||[]).find(function(c){var ch=typeof c==='string'?c:(c.chemin||c.nom||'');var normCh=ch.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');return normCh===normC;});if(f)res.push({nom:t.nom,permission:(f.permission||''),isRG:false});});(roleGroupsData.roleGroups||[]).forEach(function(rg){var f=(rg.collections||[]).find(function(c){return(typeof c==='string'?c:c.chemin)===chemin;});if(f)res.push({nom:rg.nom,permission:(f.permission||''),isRG:true});});return res;}
+function cfg_getTeams(chemin){var normC=chemin.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');var res=[];(teamsData.teams||[]).forEach(function(t){var f=(t.collections||[]).find(function(c){var raw=typeof c==='string'?c:(c.chemin||c.nom||'');var ch=_cfgResolveColPath(raw);var normCh=ch.toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');return normCh===normC;});if(f)res.push({nom:t.nom,permission:(f.permission||''),isRG:false});});(roleGroupsData.roleGroups||[]).forEach(function(rg){var f=(rg.collections||[]).find(function(c){var raw=typeof c==='string'?c:c.chemin;var ch=_cfgResolveColPath(raw);var normCh=(ch||'').toLowerCase().replace(/\/+$/,'').replace(/^\/+/,'');return normCh===normC;});if(f)res.push({nom:rg.nom,permission:(f.permission||''),isRG:true});});return res;}
 function cfg_toggleCard(chemin,nodeEl,nx,ny){if(cfgCards[chemin]){cfgCards[chemin].remove();delete cfgCards[chemin];nodeEl.classList.remove('open');return;}nodeEl.classList.add('open');var card=cfg_buildCardSVG(chemin,nodeEl,nx,ny,CFG_H);cfgCards[chemin]=card;document.getElementById('cfg-zoom-g').appendChild(card);}
 var CARD_W=210;
 
 // Découpe un chemin en lignes qui tiennent dans la largeur de la fiche
 // (approximation par nombre de caractères — cohérent avec l'heuristique déjà
 // utilisée pour les badges des nœuds, cf. cfg_createNodeSVG).
-function _cfgWrapPath(text, maxChars){
-  var segments=text.split('/');
-  var lines=[]; var cur='';
-  segments.forEach(function(seg,i){
-    var piece=(i<segments.length-1)?seg+'/':seg;
-    if(cur.length+piece.length>maxChars && cur.length>0){ lines.push(cur); cur=piece; }
-    else { cur+=piece; }
-  });
-  if(cur) lines.push(cur);
-  return lines.length?lines:[''];
-}
-
-// Construit la fiche de détail (équipes ayant accès + chemin complet) en SVG
+// Construit la fiche de détail (teams, catégories, vues métadonnées — sections
+// activables via cfgLegend) en SVG
 // natif — même raison que cfg_createNodeSVG : rester net à tout niveau de zoom.
 // Retourne le <g> avec sa hauteur calculée stockée dans dataset.h (équivalent
 // SVG de offsetHeight, utilisé par l'algorithme d'évitement de collision de
@@ -426,13 +500,27 @@ function cfg_buildCardSVG(chemin,nodeEl,nx,ny,nodeH){
   var h0=nodeH||CFG_H;
   var cx=nx, cy=ny+h0+10;
   var nom=chemin.split('/').filter(Boolean).pop()||chemin;
-  var teams=cfg_getTeams(chemin);
-  var pathLines=_cfgWrapPath(chemin,32);
+  var teams=cfgLegend.teams?cfg_getTeams(chemin):[];
+  var mdInfo=(cfgLegend.categories||cfgLegend.views)?cfg_getMdInfo():[];
+  var catNames=cfgLegend.categories?mdInfo.map(function(c){return c.nom;}):[];
+  var viewNames=[];
+  if(cfgLegend.views){
+    var seen={};
+    mdInfo.forEach(function(c){ (c.vues||[]).forEach(function(v){ if(!seen[v]){seen[v]=true; viewNames.push(v);} }); });
+  }
 
   var HDR_H=22, SEC_PAD=7, SEC_TITLE_H=11, ROW_H=15;
-  var accesH=SEC_PAD+(teams.length?SEC_TITLE_H:0)+(teams.length?teams.length*ROW_H:13)+4;
-  var cheminH=SEC_PAD+SEC_TITLE_H+pathLines.length*12+8;
-  var totalH=HDR_H+accesH+cheminH;
+  var totalH=HDR_H;
+  if(cfgLegend.teams){
+    totalH += SEC_PAD+(teams.length?SEC_TITLE_H:0)+(teams.length?teams.length*ROW_H:13);
+  }
+  if(cfgLegend.categories){
+    totalH += SEC_PAD+SEC_TITLE_H+(catNames.length?catNames.length*ROW_H:13);
+  }
+  if(cfgLegend.views){
+    totalH += SEC_PAD+SEC_TITLE_H+(viewNames.length?viewNames.length*ROW_H:13);
+  }
+  totalH += 6;
 
   var g=_cfgEl('g');
   g.setAttribute('class','cfg-card-svg');
@@ -471,6 +559,7 @@ function cfg_buildCardSVG(chemin,nodeEl,nx,ny,nodeH){
   var title=_cfgEl('text');
   title.setAttribute('class','cfg-card-title-text');
   title.setAttribute('x',10); title.setAttribute('y',14);
+  title.dataset.label=titleTxt;
   var titleTip=_cfgEl('title'); titleTip.textContent=chemin; title.appendChild(titleTip);
   title.appendChild(document.createTextNode(titleTxt));
   g.appendChild(title);
@@ -487,78 +576,136 @@ function cfg_buildCardSVG(chemin,nodeEl,nx,ny,nodeH){
   });
   g.appendChild(closeBtn);
 
-  var y=HDR_H+SEC_PAD;
-  if(teams.length){
-    var accTitle=_cfgEl('text');
-    accTitle.setAttribute('class','cfg-card-sec-title');
-    accTitle.setAttribute('x',10); accTitle.setAttribute('y',y+7);
-    accTitle.textContent='ACCES';
-    g.appendChild(accTitle);
+  var y=HDR_H;
+
+  // Section Teams (Accès) — propre à CHAQUE collection (contrairement aux 2 suivantes)
+  if(cfgLegend.teams){
+    y+=SEC_PAD;
+    if(teams.length){
+      var accTitle=_cfgEl('text');
+      accTitle.setAttribute('class','cfg-card-sec-title');
+      accTitle.setAttribute('x',10); accTitle.setAttribute('y',y+7);
+      accTitle.textContent='TEAMS';
+      g.appendChild(accTitle);
+      y+=SEC_TITLE_H;
+      teams.forEach(function(t){
+        var dot=_cfgEl('circle');
+        dot.setAttribute('class','cfg-card-dot'+(t.isRG?' rg':''));
+        dot.setAttribute('cx',12); dot.setAttribute('cy',y+5); dot.setAttribute('r',2.5);
+        g.appendChild(dot);
+        var nmTxt=t.nom.length>20?t.nom.slice(0,19)+'…':t.nom;
+        var nm=_cfgEl('text');
+        nm.setAttribute('class','cfg-card-rname');
+        nm.setAttribute('x',20); nm.setAttribute('y',y+8);
+        nm.dataset.label=nmTxt;
+        var nmTip=_cfgEl('title'); nmTip.textContent=t.nom; nm.appendChild(nmTip);
+        nm.appendChild(document.createTextNode(nmTxt));
+        g.appendChild(nm);
+        if(t.permission){
+          var isRW=t.permission==='Read & Write';
+          var pTxt=isRW?'R&W':'RO';
+          var pw=Math.max(pTxt.length*6+8,20);
+          var pr=_cfgEl('rect');
+          pr.setAttribute('class','cfg-card-perm-rect'+(isRW?' rw':''));
+          pr.setAttribute('x',CARD_W-10-pw); pr.setAttribute('y',y);
+          pr.setAttribute('width',pw); pr.setAttribute('height',11); pr.setAttribute('rx',2);
+          g.appendChild(pr);
+          var pt=_cfgEl('text');
+          pt.setAttribute('class','cfg-card-perm-text'+(isRW?' rw':''));
+          pt.setAttribute('x',CARD_W-10-pw+4); pt.setAttribute('y',y+8);
+          pt.textContent=pTxt;
+          g.appendChild(pt);
+        }
+        y+=ROW_H;
+      });
+    } else {
+      var emptyT=_cfgEl('text');
+      emptyT.setAttribute('class','cfg-card-empty-text');
+      emptyT.setAttribute('x',10); emptyT.setAttribute('y',y+6);
+      emptyT.textContent='Aucune team configuree';
+      g.appendChild(emptyT);
+      y+=13;
+    }
+    y+=4;
+    var divT=_cfgEl('line');
+    divT.setAttribute('class','cfg-card-divider');
+    divT.setAttribute('x1',0); divT.setAttribute('y1',y);
+    divT.setAttribute('x2',CARD_W); divT.setAttribute('y2',y);
+    g.appendChild(divT);
+  }
+
+  // Section Catégories — relation GLOBALE à l'objet Collection (identique sur
+  // toutes les fiches), pas propre à cette collection précise.
+  if(cfgLegend.categories){
+    y+=SEC_PAD;
+    var catTitle=_cfgEl('text');
+    catTitle.setAttribute('class','cfg-card-sec-title');
+    catTitle.setAttribute('x',10); catTitle.setAttribute('y',y+7);
+    catTitle.textContent='CATEGORIES';
+    g.appendChild(catTitle);
     y+=SEC_TITLE_H;
-  }
-  if(!teams.length){
-    var empty=_cfgEl('text');
-    empty.setAttribute('class','cfg-card-empty-text');
-    empty.setAttribute('x',10); empty.setAttribute('y',y+6);
-    empty.textContent='Aucun acces configure';
-    g.appendChild(empty);
-    y+=13;
-  } else {
-    teams.forEach(function(t){
-      var dot=_cfgEl('circle');
-      dot.setAttribute('class','cfg-card-dot'+(t.isRG?' rg':''));
-      dot.setAttribute('cx',12); dot.setAttribute('cy',y+5); dot.setAttribute('r',2.5);
-      g.appendChild(dot);
-      var nmTxt=t.nom.length>20?t.nom.slice(0,19)+'…':t.nom;
-      var nm=_cfgEl('text');
-      nm.setAttribute('class','cfg-card-rname');
-      nm.setAttribute('x',20); nm.setAttribute('y',y+8);
-      var nmTip=_cfgEl('title'); nmTip.textContent=t.nom; nm.appendChild(nmTip);
-      nm.appendChild(document.createTextNode(nmTxt));
-      g.appendChild(nm);
-      if(t.permission){
-        var isRW=t.permission==='Read & Write';
-        var pTxt=isRW?'R&W':'RO';
-        var pw=Math.max(pTxt.length*6+8,20);
-        var pr=_cfgEl('rect');
-        pr.setAttribute('class','cfg-card-perm-rect'+(isRW?' rw':''));
-        pr.setAttribute('x',CARD_W-10-pw); pr.setAttribute('y',y);
-        pr.setAttribute('width',pw); pr.setAttribute('height',11); pr.setAttribute('rx',2);
-        g.appendChild(pr);
-        var pt=_cfgEl('text');
-        pt.setAttribute('class','cfg-card-perm-text'+(isRW?' rw':''));
-        pt.setAttribute('x',CARD_W-10-pw+4); pt.setAttribute('y',y+8);
-        pt.textContent=pTxt;
-        g.appendChild(pt);
-      }
-      y+=ROW_H;
-    });
+    if(!catNames.length){
+      var emptyC=_cfgEl('text');
+      emptyC.setAttribute('class','cfg-card-empty-text');
+      emptyC.setAttribute('x',10); emptyC.setAttribute('y',y+6);
+      emptyC.textContent='Aucune categorie pour Collection';
+      g.appendChild(emptyC);
+      y+=13;
+    } else {
+      catNames.forEach(function(nomCat){
+        var dot=_cfgEl('circle');
+        dot.setAttribute('class','cfg-card-dot cat');
+        dot.setAttribute('cx',12); dot.setAttribute('cy',y+5); dot.setAttribute('r',2.5);
+        g.appendChild(dot);
+        var txt=nomCat.length>24?nomCat.slice(0,23)+'…':nomCat;
+        var nm=_cfgEl('text');
+        nm.setAttribute('class','cfg-card-rname');
+        nm.setAttribute('x',20); nm.setAttribute('y',y+8);
+        nm.appendChild(document.createTextNode(txt));
+        g.appendChild(nm);
+        y+=ROW_H;
+      });
+    }
+    y+=4;
+    var divC=_cfgEl('line');
+    divC.setAttribute('class','cfg-card-divider');
+    divC.setAttribute('x1',0); divC.setAttribute('y1',y);
+    divC.setAttribute('x2',CARD_W); divC.setAttribute('y2',y);
+    g.appendChild(divC);
   }
 
-  var divLine=_cfgEl('line');
-  divLine.setAttribute('class','cfg-card-divider');
-  divLine.setAttribute('x1',0); divLine.setAttribute('y1',y);
-  divLine.setAttribute('x2',CARD_W); divLine.setAttribute('y2',y);
-  g.appendChild(divLine);
-  y+=SEC_PAD;
-
-  var chTitle=_cfgEl('text');
-  chTitle.setAttribute('class','cfg-card-sec-title');
-  chTitle.setAttribute('x',10); chTitle.setAttribute('y',y+7);
-  chTitle.textContent='CHEMIN';
-  g.appendChild(chTitle);
-  y+=SEC_TITLE_H;
-
-  var pathText=_cfgEl('text');
-  pathText.setAttribute('class','cfg-card-empty-text');
-  pathLines.forEach(function(line,i){
-    var tspan=_cfgEl('tspan');
-    tspan.setAttribute('x',10);
-    tspan.setAttribute('dy', i===0? (y+6) : 12);
-    tspan.textContent=line;
-    pathText.appendChild(tspan);
-  });
-  g.appendChild(pathText);
+  // Section Vues métadonnées — même relation globale que Catégories
+  if(cfgLegend.views){
+    y+=SEC_PAD;
+    var vTitle=_cfgEl('text');
+    vTitle.setAttribute('class','cfg-card-sec-title');
+    vTitle.setAttribute('x',10); vTitle.setAttribute('y',y+7);
+    vTitle.textContent='VUES METADONNEES';
+    g.appendChild(vTitle);
+    y+=SEC_TITLE_H;
+    if(!viewNames.length){
+      var emptyV=_cfgEl('text');
+      emptyV.setAttribute('class','cfg-card-empty-text');
+      emptyV.setAttribute('x',10); emptyV.setAttribute('y',y+6);
+      emptyV.textContent='Aucune vue pour Collection';
+      g.appendChild(emptyV);
+      y+=13;
+    } else {
+      viewNames.forEach(function(nomVue){
+        var dot=_cfgEl('circle');
+        dot.setAttribute('class','cfg-card-dot view');
+        dot.setAttribute('cx',12); dot.setAttribute('cy',y+5); dot.setAttribute('r',2.5);
+        g.appendChild(dot);
+        var txt=nomVue.length>24?nomVue.slice(0,23)+'…':nomVue;
+        var nm=_cfgEl('text');
+        nm.setAttribute('class','cfg-card-rname');
+        nm.setAttribute('x',20); nm.setAttribute('y',y+8);
+        nm.appendChild(document.createTextNode(txt));
+        g.appendChild(nm);
+        y+=ROW_H;
+      });
+    }
+  }
 
   return g;
 }
@@ -660,7 +807,24 @@ function cfg_buildExportSVG(){var zoomG=document.getElementById('cfg-zoom-g');va
     var w=CARD_W, h=parseFloat(card.dataset.h)||140;
     minX=Math.min(minX,x);minY=Math.min(minY,y-14);
     maxX=Math.max(maxX,x+w);maxY=Math.max(maxY,y+h);
-  });var W=maxX-minX+PAD*2,H=maxY-minY+PAD*2;function tx(v){return v-minX+PAD;}function ty(v){return v-minY+PAD;}function shiftPath(d){return d.replace(/([MLHV])\s*(-?\d+\.?\d*)/g,function(_,cmd,val){val=parseFloat(val);if(cmd==='H')return'H'+(val-minX+PAD);if(cmd==='V')return'V'+(val-minY+PAD);return cmd+val;}).replace(/([ML])\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/g,function(_,cmd,a,b){return cmd+(parseFloat(a)-minX+PAD)+','+(parseFloat(b)-minY+PAD);});}var lines=[];lines.push('<?xml version="1.0" encoding="UTF-8"?>');lines.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">');lines.push('<rect width="'+W+'" height="'+H+'" fill="#0d0d0d"/>');lines.push('<style>text{font-family:"Courier New",monospace;dominant-baseline:auto;}</style>');
+  });var W=maxX-minX+PAD*2,H=maxY-minY+PAD*2;function tx(v){return v-minX+PAD;}function ty(v){return v-minY+PAD;}function shiftPath(d){return d.replace(/([MLHV])\s*(-?\d+\.?\d*)/g,function(_,cmd,val){val=parseFloat(val);if(cmd==='H')return'H'+(val-minX+PAD);if(cmd==='V')return'V'+(val-minY+PAD);return cmd+val;}).replace(/([ML])\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/g,function(_,cmd,a,b){return cmd+(parseFloat(a)-minX+PAD)+','+(parseFloat(b)-minY+PAD);});}
+  // Décalage des tracés de fiche (M/Q/H/V/Z, avec courbes Q à 2 paires de
+  // coordonnées pour les coins arrondis) — via un parseur par tokens plutôt
+  // qu'une regex simple, plus fiable pour ce genre de tracé mixte.
+  function shiftCardPath(d,cx,cy){
+    var tokens=d.match(/[MLHVQZ]|-?\d+\.?\d*/g)||[];
+    var out=[]; var cmd=null; var i=0;
+    while(i<tokens.length){
+      var t=tokens[i];
+      if(/^[MLHVQZ]$/.test(t)){ cmd=t; out.push(cmd); i++; }
+      else if(cmd==='H'){ out.push(String(parseFloat(t)+cx)); i++; }
+      else if(cmd==='V'){ out.push(String(parseFloat(t)+cy)); i++; }
+      else if(cmd==='M'||cmd==='L'||cmd==='Q'){ out.push((parseFloat(tokens[i])+cx)+','+(parseFloat(tokens[i+1])+cy)); i+=2; }
+      else { i++; }
+    }
+    return out.join(' ');
+  }
+  var lines=[];lines.push('<?xml version="1.0" encoding="UTF-8"?>');lines.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">');lines.push('<rect width="'+W+'" height="'+H+'" fill="#0d0d0d"/>');lines.push('<style>text{font-family:"Courier New",monospace;dominant-baseline:auto;}</style>');
   var connG=zoomG?zoomG.querySelector('.cfg-connectors'):null;
   if(connG)connG.querySelectorAll('path').forEach(function(path){var d=path.getAttribute('d');if(!d)return;var stroke=path.classList.contains('hi')?'#C8D100':'#aaaaaa';lines.push('<path d="'+shiftPath(d)+'" fill="none" stroke="'+stroke+'" stroke-width="1.5"/>');});
   nodes.forEach(function(el){
@@ -679,6 +843,47 @@ function cfg_buildExportSVG(){var zoomG=document.getElementById('cfg-zoom-g');va
       lines.push('<rect x="'+bx+'" y="'+by+'" width="'+w+'" height="13" rx="2" fill="'+bg+'" stroke="'+fg+'" stroke-width="0.8"/>');
       lines.push('<text x="'+(bx+5)+'" y="'+(by+10)+'" font-size="8" font-weight="bold" fill="'+fg+'">'+_esc(txt)+'</text>');
       bx+=w+4;
+    });
+  });
+  cards.forEach(function(card){
+    var cx=tx(_cfgNodeX(card)),cy=ty(_cfgNodeY(card));
+    // Parcours générique des enfants dans l'ordre du DOM — reflète fidèlement
+    // n'importe quelle combinaison de sections (Teams/Catégories/Vues, selon
+    // cfgLegend) sans avoir à connaître leur structure à l'avance. Chaque
+    // élément porte déjà ses propres coordonnées relatives (posées par
+    // cfg_buildCardSVG) ; on les décale simplement par (cx,cy).
+    Array.from(card.children).forEach(function(el){
+      var tag=el.tagName.toLowerCase();
+      var cls=el.getAttribute('class')||'';
+      if(tag==='path'){
+        lines.push('<path d="'+shiftCardPath(el.getAttribute('d'),cx,cy)+'" fill="#0c1a1d" stroke="#00bcd4" stroke-width="1.5"/>');
+      } else if(tag==='rect'){
+        var rx=cx+parseFloat(el.getAttribute('x')||0), ry=cy+parseFloat(el.getAttribute('y')||0);
+        var rw=el.getAttribute('width'), rh=el.getAttribute('height'), rr=el.getAttribute('rx')||0;
+        var fill='#0c1a1d', stroke='';
+        if(cls.indexOf('hdr-bg')>=0) fill='#0a1416';
+        else if(cls.indexOf('perm-rect')>=0){ var isRW=cls.indexOf('rw')>=0; fill=isRW?'#0d3320':'#0d1f33'; stroke=isRW?'#0DB852':'#2E75B6'; }
+        lines.push('<rect x="'+rx+'" y="'+ry+'" width="'+rw+'" height="'+rh+'" rx="'+rr+'" fill="'+fill+'"'+(stroke?' stroke="'+stroke+'" stroke-width="0.8"':'')+'/>');
+      } else if(tag==='line'){
+        var lx1=cx+parseFloat(el.getAttribute('x1')||0), ly1=cy+parseFloat(el.getAttribute('y1')||0);
+        var lx2=cx+parseFloat(el.getAttribute('x2')||0), ly2=cy+parseFloat(el.getAttribute('y2')||0);
+        lines.push('<line x1="'+lx1+'" y1="'+ly1+'" x2="'+lx2+'" y2="'+ly2+'" stroke="#222"/>');
+      } else if(tag==='circle'){
+        var ccx=cx+parseFloat(el.getAttribute('cx')||0), ccy=cy+parseFloat(el.getAttribute('cy')||0);
+        var cr=el.getAttribute('r')||2.5;
+        var dotFill=cls.indexOf('rg')>=0?'#9b59b6':cls.indexOf('cat')>=0?'#e67e22':cls.indexOf('view')>=0?'#00bcd4':'#e84393';
+        lines.push('<circle cx="'+ccx+'" cy="'+ccy+'" r="'+cr+'" fill="'+dotFill+'"/>');
+      } else if(tag==='text'){
+        var tx2=cx+parseFloat(el.getAttribute('x')||0), ty2=cy+parseFloat(el.getAttribute('y')||0);
+        var txt=el.dataset.label!==undefined?el.dataset.label:(el.textContent||'');
+        var style='font-size="10" fill="#999"';
+        if(cls.indexOf('title-text')>=0) style='font-size="10" font-weight="bold" fill="#00bcd4"';
+        else if(cls.indexOf('close-btn')>=0) style='font-size="12" fill="#666"';
+        else if(cls.indexOf('sec-title')>=0) style='font-size="8" font-weight="bold" fill="#666"';
+        else if(cls.indexOf('empty-text')>=0) style='font-size="10" font-style="italic" fill="#666"';
+        else if(cls.indexOf('perm-text')>=0){ var isRW2=cls.indexOf('rw')>=0; style='font-size="8" font-weight="bold" fill="'+(isRW2?'#0DB852':'#2E75B6')+'"'; }
+        lines.push('<text x="'+tx2+'" y="'+ty2+'" '+style+'>'+_esc(txt)+'</text>');
+      }
     });
   });
   lines.push('</svg>');return lines.join('\n');}

@@ -82,6 +82,8 @@ nav{display:flex;gap:2px;}
 #cfg-svg .cfg-card-rname{font-size:10px;fill:var(--text-mid);}
 #cfg-svg .cfg-card-dot{fill:#e84393;}
 #cfg-svg .cfg-card-dot.rg{fill:#9b59b6;}
+#cfg-svg .cfg-card-dot.cat{fill:#e67e22;}
+#cfg-svg .cfg-card-dot.view{fill:#00bcd4;}
 #cfg-svg .cfg-card-perm-rect{fill:#0d1f33;}
 #cfg-svg .cfg-card-perm-rect.rw{fill:#0d3320;}
 #cfg-svg .cfg-card-perm-text{font-size:8px;font-weight:700;fill:#2E75B6;}
