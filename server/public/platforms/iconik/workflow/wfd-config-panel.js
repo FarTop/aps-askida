@@ -1263,6 +1263,15 @@ const _colTree = wfdColTreeHtml(prefix, preselected);
         </label>
       </div>
       <div class="cfg-field wfd-mt8">
+        <div class="wfd-c-888-10-mb3">Asset à exporter <span class="wfd-c-555">(optionnel — défaut : l'asset déclencheur)</span></div>
+        <input id="${prefix}-export-asset-id" class="cfg-input wfd-mono-xs" list="${prefix}-wfd-var-list"
+          value="${escHtml(_cfgNode?.config?.assetId||'')}"
+          placeholder="{asset_id} ou {coverAsset.id}">
+        <div class="wfd-hint-top3">
+          Utile quand l'asset à exporter n'est pas celui qui a déclenché le flux (ex : un artwork trouvé par Recherche APS)
+        </div>
+      </div>
+      <div class="cfg-field wfd-mt8">
         <div class="wfd-c-888-10-mb3">Nom du fichier exporté <span class="wfd-c-555">(optionnel — supporte les variables)</span></div>
         <input id="${prefix}-file-name" class="cfg-input wfd-mono-xs" list="${prefix}-wfd-var-list"
           value="${escHtml(_cfgNode?.config?.fileName||'')}"
@@ -5435,6 +5444,7 @@ function sauvegarderConfig() {
       node.config.createFolderAsset = document.getElementById('cfg-create-folder-asset')?.checked === true;
       node.config.overwrite         = document.getElementById('cfg-overwrite')?.checked === true;
       node.config.fileName          = document.getElementById('cfg-file-name')?.value?.trim() || '';
+      node.config.assetId           = document.getElementById('cfg-export-asset-id')?.value?.trim() || '';
     }
   } else if (node.family==='postit') {
     node.config.text  = document.getElementById('cfg-postit-text')?.value || '';
