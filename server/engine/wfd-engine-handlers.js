@@ -3861,7 +3861,7 @@ function _apsSearchBuildBody(block, parentIds, limit, ctx) {
 
   const objectType = OBJECT_TYPE_MAP[block.objectType] || block.objectType || 'assets';
   const criteria    = block.criteria || [];
-  const queryString = _apsSearchCriteriaToQuery(criteria, ctx);
+  const queryString = _apsSearchCriteriaToQuery(criteria, ctx, objectType);
 
   const body = {
     doc_types : [objectType],
@@ -3895,7 +3895,7 @@ function _apsSearchEscVal(v) {
 
 // Traduit UN critère en terme de requête (chaîne), pas en objet filtre —
 // le tableau "filters" natif d'Iconik s'est révélé ignoré par cet endpoint.
-function _apsSearchCritToQueryTerm(crit, ctx) {
+function _apsSearchCritToQueryTerm(crit, ctx, objectType) {
   if (!crit.field) return null;
   const field = crit.field;
   const op    = crit.op || 'equals';
@@ -3915,10 +3915,20 @@ function _apsSearchCritToQueryTerm(crit, ctx) {
     colIds = colIds.filter(Boolean);
     if (!colIds.length) return null;
 
-    // Direct (parent_id) : verifie en conditions reelles le 14/07/2026.
-    // Branche entiere (ancestor_collections) : par analogie, PAS encore
-    // verifie independamment - a tester si utilise en pratique.
-    const fieldName = op === 'in_branch' ? 'ancestor_collections' : 'parent_id';
+    // Le nom de champ depend de CE QU'ON CHERCHE, pas seulement de la case
+    // "sous-dossiers" - bug corrige le 14/07/2026 : le champ etait toujours
+    // parent_id/ancestor_collections, meme quand objectType='assets', alors
+    // qu'un Asset n'a pas de parent_id (verifie en conditions reelles :
+    // in_collections retrouve les assets, parent_id retrouve les collections
+    // filles - deux champs Iconik distincts, pas interchangeables).
+    const isCollectionSearch = objectType === 'collections';
+    let fieldName;
+    if (op === 'in_branch') {
+      fieldName = 'ancestor_collections'; // verifie pour les assets ; pour les
+                                            // collections, pas reverifie independamment
+    } else {
+      fieldName = isCollectionSearch ? 'parent_id' : 'in_collections';
+    }
     const terms = colIds.map(id => fieldName + ':"' + _apsSearchEscVal(id) + '"');
     return terms.length === 1 ? terms[0] : '(' + terms.join(' OR ') + ')';
   }
@@ -3961,10 +3971,10 @@ function _apsSearchCritToQueryTerm(crit, ctx) {
 
 // Assemble tous les critères d'un bloc en une seule chaîne query, en
 // respectant le AND/OR de chaque critère (join) vis-à-vis du précédent.
-function _apsSearchCriteriaToQuery(criteria, ctx) {
+function _apsSearchCriteriaToQuery(criteria, ctx, objectType) {
   const parts = [];
   criteria.forEach(crit => {
-    const term = _apsSearchCritToQueryTerm(crit, ctx);
+    const term = _apsSearchCritToQueryTerm(crit, ctx, objectType);
     if (!term) return;
     if (parts.length) parts.push(crit.join === 'OR' ? 'OR' : 'AND');
     parts.push(term);

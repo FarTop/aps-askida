@@ -567,7 +567,7 @@ async function lancerRecherche() {
         parentIds = pr.map(o => o.id).filter(Boolean);
         if (!parentIds.length) { blockResults[block.id] = []; continue; }
       }
-      const queryString = _criteriaToQuery(block.criteria);
+      const queryString = _criteriaToQuery(block.criteria, block.objectType);
       const body = { doc_types:[block.objectType], query:queryString, filters:[], limit:limit, offset:0 };
       if (parentIds && parentIds.length) body.collection_ids = parentIds;
       const r = await fetch(_BASE + '/' + _env + '/API/search/v1/search/', {
@@ -596,15 +596,19 @@ function _escQueryVal(v) {
 // natif d'Iconik s'est révélé ignoré par cet endpoint (verifie le 14/07/2026
 // en console : payload correctement forme, jamais applique aux resultats).
 // Seule la syntaxe "query" (type Elasticsearch/Lucene) filtre reellement.
-function _critToQueryTerm(crit) {
+function _critToQueryTerm(crit, objectType) {
   if (!crit.field) return null;
   if (crit.field === '__collection__') {
     const colIds = _parseColIds(crit.value);
     if (!colIds.length) return null;
-    // Direct (parent_id) : verifie en conditions reelles le 14/07/2026.
-    // Branche entiere (ancestor_collections) : par analogie, pas encore
-    // verifie independamment.
-    const fname2 = crit.op === 'in_branch' ? 'ancestor_collections' : 'parent_id';
+    // Le nom de champ depend de ce qu'on cherche - bug corrige le 14/07/2026 :
+    // toujours parent_id avant, meme en cherchant des assets (qui n'ont pas
+    // ce champ - in_collections est le bon pour eux, verifie en conditions
+    // reelles).
+    const isCollectionSearch = objectType === 'collections';
+    const fname2 = crit.op === 'in_branch'
+      ? 'ancestor_collections'
+      : (isCollectionSearch ? 'parent_id' : 'in_collections');
     const terms = colIds.map(id => fname2 + ':"' + _escQueryVal(id) + '"');
     return terms.length === 1 ? terms[0] : '(' + terms.join(' OR ') + ')';
   }
@@ -640,10 +644,10 @@ function _critToQueryTerm(crit) {
 
 // Assemble les critères d'un bloc en une seule chaîne query, en respectant
 // le AND/OR de chaque critère par rapport au précédent.
-function _criteriaToQuery(criteria) {
+function _criteriaToQuery(criteria, objectType) {
   const parts = [];
   (criteria || []).forEach(crit => {
-    const term = _critToQueryTerm(crit);
+    const term = _critToQueryTerm(crit, objectType);
     if (!term) return;
     if (parts.length) parts.push(crit.join === 'OR' ? 'OR' : 'AND');
     parts.push(term);
