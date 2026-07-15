@@ -3844,6 +3844,19 @@ async function aps_search(node, ctx, iconikClient) {
   WfdContext.setVar(ctx, resultVar, JSON.stringify(finalResults));
   WfdContext.setVar(ctx, resultVar + '.count', String(finalResults.length));
 
+  // Quand il n'y a exactement qu'UN résultat, exposer ses champs usuels a
+  // plat (meme convention que le fetch metadata) - evite d'obliger a ecrire
+  // {resultVar.objects.0.id} partout ou une recherche ne sert qu'a retrouver
+  // "l'objet unique s'il existe" (cas tres frequent : artwork trouve ou non).
+  if (finalResults.length === 1) {
+    const only = finalResults[0];
+    ['id', 'title', 'object_type', 'external_id'].forEach(f => {
+      if (only[f] !== undefined && only[f] !== null) {
+        WfdContext.setVar(ctx, resultVar + '.' + f, String(only[f]));
+      }
+    });
+  }
+
   console.log('[APS SEARCH] Résultat final bloc', returnBlock, ':', finalResults.length, 'objet(s)');
   return finalResults.length > 0 ? { port: 0 } : { port: 1 };
 }
