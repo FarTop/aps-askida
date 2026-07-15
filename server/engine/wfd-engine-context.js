@@ -63,8 +63,8 @@ function resolve(template, ctx) {
       return (val !== undefined && val !== null && val !== '') ? ifTrue : ifFalse;
     }
     // Transformations inline : {slug(Titre)}, {upper(Titre)}, {lower(Titre)}, {trim(Titre)},
-    // {add(a,b,...)}, {pad(valeur,largeur)}
-    const fnMatch = p.match(/^(slug|upper|lower|trim|add|pad)\((.+)\)$/);
+    // {add(a,b,...)}, {pad(valeur,largeur)}, {filebase(NomDeFichier)}
+    const fnMatch = p.match(/^(slug|upper|lower|trim|add|pad|filebase)\((.+)\)$/);
     if (fnMatch) {
       const fn      = fnMatch[1];
       const argsStr = fnMatch[2];
@@ -101,6 +101,16 @@ function resolve(template, ctx) {
         case 'upper': return val.toUpperCase();
         case 'lower': return val.toLowerCase();
         case 'trim':  return val.trim();
+        case 'filebase': {
+          // Retire l'extension (ex: "cover.png" -> "cover"), PUIS applique la
+          // meme normalisation que slug() — evite le probleme "point disparu,
+          // fusionne dans le nom" quand un titre de fichier (avec extension)
+          // est utilise tel quel dans slug(). Trouve en conditions reelles :
+          // "Star_Trek_..._seasonpng.png" (extension dupliquee/mal formee).
+          const noExt = val.replace(/\.[a-zA-Z0-9]{1,6}$/, '');
+          return noExt.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                      .replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '').replace(/_+/g, '_').replace(/^_|_$/g, '');
+        }
         default:      return val;
       }
     }
