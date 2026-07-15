@@ -444,14 +444,29 @@ if (document.readyState === 'loading') {
 // Construit les champs spécifiques au canal — chacun sur sa propre ligne labelisée
 // ── Loop helpers ─────────────────────────────────────────────
 function buildLoopSourceFields(pfx, cfg) {
-  const src = cfg.loopSource || 'files';
+  const src = cfg.loopSource || 'variable';
+  if (src === 'variable') return `
+    <div class="cfg-field">
+      <label class="cfg-label">Variable à parcourir <span class="wfd-c-555">(le tableau, pas un élément)</span></label>
+      <input id="${pfx}-loop-var-path" class="cfg-input" list="${pfx}-wfd-var-list"
+        value="${escHtml(cfg.loopVariablePath||'')}" placeholder="{saisonAssets.objects}">
+      <div class="wfd-hint-top3">
+        Pointe vers le résultat d'un nœud précédent (ex : Recherche APS) — pas une collection choisie ici, une variable déjà calculée plus haut dans le flux.
+      </div>
+    </div>`;
   if (src === 'files') return `
+    <div class="cfg-field wfd-mb8">
+      <div class="wfd-text-orange-11b">⚠ Ce mode n'est pas encore implémenté côté exécution — la boucle échouera proprement avec un message clair si utilisée telle quelle.</div>
+    </div>
     <div class="cfg-field">
       <label class="cfg-label">Filtre extension (optionnel)</label>
       <input id="${pfx}-loop-filter" class="cfg-input" value="${cfg.loopFilter||''}"
         placeholder="MXF, MP4, MOV — laisser vide pour tous">
     </div>`;
   if (src === 'assets') return `
+  <div class="cfg-field wfd-mb8">
+    <div class="wfd-text-orange-11b">⚠ Ce mode n'est pas encore implémenté côté exécution — la boucle échouera proprement avec un message clair si utilisée telle quelle. Utilisez plutôt « Variable existante » avec une Recherche APS en amont.</div>
+  </div>
   <div class="cfg-field">
     <label class="cfg-label">Collection source</label>
     ${wfdColTreeHtml(`${pfx}-loop`,
@@ -462,11 +477,17 @@ function buildLoopSourceFields(pfx, cfg) {
     )}
   </div>`;
   if (src === 'list') return `
+    <div class="cfg-field wfd-mb8">
+      <div class="wfd-text-orange-11b">⚠ Ce mode n'est pas encore implémenté côté exécution.</div>
+    </div>
     <div class="cfg-field">
       <label class="cfg-label">Liste JSON</label>
       <textarea id="${pfx}-loop-list" class="cfg-textarea wfd-mono-sm">${cfg.loopList||''}</textarea>
     </div>`;
   if (src === 'metadata') return `
+    <div class="cfg-field wfd-mb8">
+      <div class="wfd-text-orange-11b">⚠ Ce mode n'est pas encore implémenté côté exécution.</div>
+    </div>
     <div class="cfg-field">
       <label class="cfg-label">Champ métadonnée (multi-valeur)</label>
       <input id="${pfx}-loop-metafield" class="cfg-input" value="${cfg.loopMetaField||''}"
@@ -1840,6 +1861,7 @@ function buildCfgFields(pfx, family, cfg) {
     <div class="cfg-field">
       <label class="cfg-label">Source des éléments à itérer</label>
       <select id="${pfx}-loop-source" class="cfg-select" onchange="_loopSourceChange('${pfx}')">
+        <option value="variable"   ${cfg.loopSource==='variable'   ?'selected':''}>🔗 Variable existante (résultat d'un autre nœud)</option>
         <option value="files"      ${cfg.loopSource==='files'      ?'selected':''}>📄 Fichiers de l'asset entrant</option>
         <option value="assets"     ${cfg.loopSource==='assets'     ?'selected':''}>🎬 Assets d'une collection</option>
         <option value="collection" ${cfg.loopSource==='collection' ?'selected':''}>📁 Sous-collections</option>
@@ -1856,6 +1878,7 @@ function buildCfgFields(pfx, family, cfg) {
         <label class="cfg-label">Concurrence max</label>
         <input id="${pfx}-loop-concurrency" type="number" class="cfg-input"
           value="${cfg.concurrency||1}" min="1" max="20" placeholder="1 = séquentiel">
+        <div class="wfd-hint-top3">⚠ Pas encore implémenté — l'exécution reste toujours séquentielle quelle que soit cette valeur.</div>
       </div>
       <div class="cfg-field">
         <label class="cfg-label">Si erreur sur un élément</label>
@@ -5532,7 +5555,8 @@ function sauvegarderConfig() {
     if (typeof wfdScriptBuffer !== 'undefined' && wfdScriptBuffer !== null)
       node.config.code = wfdScriptBuffer;
   } else if (node.family==='loop') {
-    node.config.loopSource     = document.getElementById('cfg-loop-source')?.value     || 'files';
+    node.config.loopSource     = document.getElementById('cfg-loop-source')?.value     || 'variable';
+    node.config.loopVariablePath = document.getElementById('cfg-loop-var-path')?.value || '';
     node.config.loopFilter     = document.getElementById('cfg-loop-filter')?.value     || '';
     node.config.loopCollection = document.getElementById('cfg-loop-collection')?.value || '';
     node.config.loopList       = document.getElementById('cfg-loop-list')?.value       || '';

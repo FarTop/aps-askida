@@ -434,32 +434,6 @@ async function qc(node, ctx) {
 // Port 0 = émettre chaque élément (executor doit gérer la répétition)
 // Pour l'instant : injecte loopVar = premier élément et continue.
 // Un vrai loop nécessite un mécanisme d'itération dans l'executor.
-async function loop(node, ctx) {
-  const cfg    = node.config || {};
-  const source = r(cfg.loopSource || '', ctx);
-  const loopVar = cfg.loopVar || 'item';
-
-  // Résoudre la source comme un tableau depuis le contexte
-  let items = WfdContext.resolvePath(source, ctx);
-  if (!Array.isArray(items)) {
-    // Essayer ctx.vars
-    items = ctx.vars[source];
-  }
-  if (!Array.isArray(items)) items = [];
-
-  // Stocker les items pour que l'executor puisse les itérer
-  WfdContext.storeResult(ctx, '_loop_items_' + node.id, items);
-  WfdContext.storeResult(ctx, '_loop_var_' + node.id, loopVar);
-
-  // En mode simplifié : poser le premier item et continuer
-  // (le moteur d'itération complet est à implémenter dans executor)
-  if (items.length > 0) {
-    WfdContext.setVar(ctx, loopVar, typeof items[0] === 'string' ? items[0] : JSON.stringify(items[0]));
-  }
-
-  return { port: 0 };
-}
-
 // ── SCRIPT ───────────────────────────────────────────────────────
 // Exécute un script JS dans un contexte restreint
 // La fonction doit retourner { port } ou une string (nom de port)
@@ -2117,7 +2091,7 @@ const WfdHandlers = {
 
   // Logique
   decision,
-  loop,
+  // loop retiré — géré directement par l'executor (voir wfd-engine-executor.js)
   qc,
   approval,
 
