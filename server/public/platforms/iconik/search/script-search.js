@@ -612,7 +612,7 @@ function _critToQueryTerm(crit, objectType) {
     const terms = colIds.map(id => fname2 + ':"' + _escQueryVal(id) + '"');
     return terms.length === 1 ? terms[0] : '(' + terms.join(' OR ') + ')';
   }
-  const SYS = ['id','title','date_created','date_modified','object_type','status','archive_status','external_id'];
+  const SYS = ['id','title','media_type','date_created','date_modified','object_type','status','archive_status','external_id'];
   const fname = SYS.includes(crit.field) ? crit.field : 'metadata.' + crit.field;
   const val = crit.value || '';
   const v = _escQueryVal(val);

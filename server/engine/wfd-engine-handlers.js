@@ -3933,7 +3933,7 @@ function _apsSearchCritToQueryTerm(crit, ctx, objectType) {
   const rawVal = crit.value || '';
   const val   = rawVal.includes('{') ? WfdContext.resolve(rawVal, ctx) : rawVal;
 
-  const SYSTEM_FIELDS = ['id','title','date_created','date_modified','object_type','status','archive_status','external_id'];
+  const SYSTEM_FIELDS = ['id','title','media_type','date_created','date_modified','object_type','status','archive_status','external_id'];
   const isSystem = SYSTEM_FIELDS.includes(field);
   const fname = isSystem ? field : 'metadata.' + field;
   const v = _apsSearchEscVal(val);

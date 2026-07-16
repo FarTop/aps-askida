@@ -2987,6 +2987,7 @@ function buildCfgFields(pfx, family, cfg) {
   const SYSTEM_FIELDS = [
     { name:'id',             label:'ID',             type:'string' },
     { name:'title',          label:'Titre',          type:'string' },
+    { name:'media_type',     label:'Type de média',  type:'string' },
     { name:'date_created',   label:'Date création',  type:'date'   },
     { name:'date_modified',  label:'Date modif.',    type:'date'   },
     { name:'object_type',    label:'Type objet',     type:'string' },
