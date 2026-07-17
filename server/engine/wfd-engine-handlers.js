@@ -3775,6 +3775,10 @@ async function aps_search(node, ctx, iconikClient) {
   const returnBlock = cfg.returnBlock ?? 1;
   const limit      = cfg.limit      || 500;
   const resultVar  = cfg.resultVar  || 'search_results';
+  // Mode : 'retrieve' (défaut historique — ramène returnBlock) ou 'presence'
+  // (vérifie qu'aucun bloc n'est vide, expose missing/complete). L'absence de
+  // cfg.mode = comportement identique à avant → rétrocompat totale.
+  const mode       = cfg.mode       || 'retrieve';
 
   if (!blocks.length) throw new Error('Recherche APS : aucun bloc défini');
 
@@ -3839,6 +3843,30 @@ async function aps_search(node, ctx, iconikClient) {
         WfdContext.setVar(ctx, resultVar + '.' + f, String(only[f]));
       }
     });
+  }
+
+  // Mode "vérifier présence" : le nœud ne sert pas à ramener un résultat mais à
+  // garantir que CHAQUE bloc actif a au moins un objet. Expose les sorties
+  // déclarées (missing/complete/count par label) et route selon la complétude.
+  // Ports (mêmes indices que le mode ramener) : 0 = complet, 1 = incomplet,
+  // 2 = erreur (déjà géré plus haut sur échec API).
+  if (mode === 'presence') {
+    const missing = [];
+    const counts  = {};
+    for (const block of blocks) {
+      if (!activeBlocks.has(block.id)) continue;
+      const lbl = (block.label && String(block.label).trim()) || ('bloc' + block.id);
+      const n   = (blockResults[block.id] || []).length;
+      counts[lbl] = n;
+      WfdContext.setVar(ctx, resultVar + '.count.' + lbl, String(n));
+      if (n === 0) missing.push(lbl);
+    }
+    const complete = missing.length === 0;
+    WfdContext.setVar(ctx, resultVar + '.missing', missing.join(', '));
+    WfdContext.setVar(ctx, resultVar + '.complete', String(complete));
+    WfdContext.storeResult(ctx, resultVar, { objects: finalResults, total: finalResults.length, missing, complete, counts });
+    console.log('[APS SEARCH] Mode présence :', complete ? 'complet' : ('incomplet — manque : ' + missing.join(', ')));
+    return { port: complete ? 0 : 1 };
   }
 
   console.log('[APS SEARCH] Résultat final bloc', returnBlock, ':', finalResults.length, 'objet(s)');

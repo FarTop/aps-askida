@@ -3124,6 +3124,9 @@ function buildCfgFields(pfx, family, cfg) {
     <div class="sr-block wfd-sr-block" data-bidx="${idx}">
       <div class="wfd-row-gap8-mb8">
         <span class="wfd-sr-block-label">Bloc ${block.id}</span>
+        <input class="cfg-input sr-block-name wfd-flex2b" data-bidx="${idx}"
+               value="${escHtml(block.label||'')}" placeholder="label (ex: cover)"
+               oninput="srAutoSave('${pfx}')">
         <select class="cfg-select sr-obj-type wfd-flex2b" data-bidx="${idx}"
                 onchange="srAutoSave('${pfx}')">
           ${OBJECT_TYPES.map(o => `<option value="${o.value}" ${block.objectType===o.value?'selected':''}>${o.label}</option>`).join('')}
@@ -3174,6 +3177,13 @@ function buildCfgFields(pfx, family, cfg) {
   <div class="wfd-sr-refresh-hint">
     💡 Les champs MD proviennent du snapshot. Cliquez sur <b>Actualiser</b> (⟳) dans la toolbar pour obtenir les champs à jour depuis Iconik.
   </div>
+  <div class="cfg-field">
+    <label class="cfg-label">Mode</label>
+    <select id="${pfx}-sr-mode" class="cfg-select wfd-flex1" onchange="srSetMode('${pfx}', this.value)">
+      <option value="retrieve" ${(cfg.mode||'retrieve')==='retrieve'?'selected':''}>Ramener les résultats</option>
+      <option value="presence" ${cfg.mode==='presence'?'selected':''}>Vérifier présence (chaque bloc ≥ 1)</option>
+    </select>
+  </div>
   <div class="cfg-field wfd-flex-gap8c">
     <div class="wfd-flex1">
       <label class="cfg-label">Variable de stockage</label>
@@ -3223,9 +3233,13 @@ function buildCfgFields(pfx, family, cfg) {
   <div class="wfd-code-block-mt">
     <div class="wfd-section-up">Ports de sortie</div>
     <div class="wfd-col-gap4-fs11">
+      ${cfg.mode==='presence' ? `
+      <span>🟢 <b>Complet</b> — tous les blocs ont au moins un résultat</span>
+      <span>🟠 <b>Incomplet</b> — un bloc vide (liste dans <code>{${escHtml(cfg.resultVar||'search_results')}.missing}</code>)</span>
+      <span>🔴 <b>Erreur</b> — erreur API Iconik</span>` : `
       <span>🟣 <b>Résultats trouvés</b> — au moins un objet retourné</span>
       <span>🟠 <b>Aucun résultat</b> — recherche vide</span>
-      <span>🔴 <b>Erreur</b> — erreur API Iconik</span>
+      <span>🔴 <b>Erreur</b> — erreur API Iconik</span>`}
     </div>
   </div>`;
 
@@ -5269,6 +5283,7 @@ function sauvegarderConfig() {
     node.config.returnBlock = parseInt(document.getElementById('cfg-sr-return-block')?.value) || 1;
     node.config.limit       = parseInt(document.getElementById('cfg-sr-limit')?.value) || 500;
     node.config.resultVar   = document.getElementById('cfg-sr-result-var')?.value?.trim() || 'search_results';
+    node.config.mode        = document.getElementById('cfg-sr-mode')?.value || 'retrieve';
     node.ports = buildPortsDef('aps_search', node.config);
 
   } else if (node.family==='checker') {
@@ -10096,7 +10111,8 @@ function srReadBlocks(pfx) {
         join  : critEl.querySelector('.cfg-btn')?.textContent?.trim() || (cidx > 0 ? 'AND' : ''),
       });
     });
-    blocks.push({ id, objectType, parentBlock, criteria });
+    const label = blockEl.querySelector('.sr-block-name')?.value?.trim() || '';
+    blocks.push({ id, objectType, parentBlock, criteria, label });
   });
   return blocks;
 }
@@ -10233,8 +10249,26 @@ function srAutoSave(pfx) {
   node.config.returnBlock = parseInt(document.getElementById(pfx+'-sr-return-block')?.value) || 1;
   node.config.limit       = parseInt(document.getElementById(pfx+'-sr-limit')?.value) || 500;
   node.config.resultVar   = document.getElementById(pfx+'-sr-result-var')?.value?.trim() || 'search_results';
+  node.config.mode        = document.getElementById(pfx+'-sr-mode')?.value || node.config.mode || 'retrieve';
   // Persister vers le serveur sans déclencher renderCanvas
   if (typeof _sauvegarderEtatVersServeur === 'function') _sauvegarderEtatVersServeur();
+}
+
+// Changement de mode (Ramener / Vérifier présence) : structurel car il change
+// les libellés des ports → on reconstruit node.ports, on persiste, on redessine
+// le canvas et on rouvre le panel pour rafraîchir la légende. Même approche que
+// srAddBlock/srRemoveBlock (opérations structurelles déjà acceptées).
+function srSetMode(pfx, value) {
+  if (pfx !== 'cfg') return;
+  const flux = typeof getFluxCourant === 'function' ? getFluxCourant() : null;
+  const node = flux && selectedNodeId ? flux.nodes.find(n => n.id === selectedNodeId) : null;
+  if (!node || node.family !== 'aps_search') return;
+  node.config.blocks = srReadBlocks(pfx);           // préserver les éditions en cours
+  node.config.mode   = value || 'retrieve';
+  if (typeof buildPortsDef === 'function') node.ports = buildPortsDef('aps_search', node.config);
+  if (typeof _sauvegarderEtatVersServeur === 'function') _sauvegarderEtatVersServeur();
+  if (typeof renderCanvas === 'function') renderCanvas();
+  if (typeof ouvrirConfigPanel === 'function') ouvrirConfigPanel(node);
 }
 
 function srRerender(pfx, blocks) {

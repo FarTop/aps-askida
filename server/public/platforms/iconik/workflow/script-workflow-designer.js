@@ -2456,6 +2456,18 @@ function buildPortsDef(family, config) {
     };
   }
   if (family === 'aps_search') {
+    // Mode présence : mêmes ids/indices (found/empty/error) pour ne casser
+    // aucune connexion existante ; seuls les libellés/couleurs changent.
+    if (config && config.mode === 'presence') {
+      return {
+        inputs : [{ id:'in', label:'Entrée' }],
+        outputs: [
+          { id:'found', label:'Complet',   color:'#27ae60' },
+          { id:'empty', label:'Incomplet', color:'#e67e22' },
+          { id:'error', label:'Erreur',    color:'#e74c3c' },
+        ],
+      };
+    }
     return {
       inputs : [{ id:'in', label:'Entrée' }],
       outputs: [
