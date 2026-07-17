@@ -124,8 +124,14 @@ la table officielle « Required » donne les artworks obligatoires par niveau �
 
 - Série : cover, poster, hero
 - Saison : cover, poster, hero, **season_box**
-- Épisode : cover, poster, hero (+ vidéo + sous-titres) — episodic optionnel
+- Épisode : **aucun artwork obligatoire** (episodic optionnel) + vidéo + sous-titres
 - Unitaire (Program) : cover, poster, hero, **box** (+ vidéo + sous-titres)
+
+> **Correction 2026-07-17** — la ligne Épisode indiquait à tort « cover, poster,
+> hero ». La table officielle (*Partner API – Onboarding external*, p.9) marque
+> cover/poster/hero requis pour **Program, Series & Season uniquement**. L'Épisode
+> n'a donc **aucun artwork obligatoire** (seul `episodic_art` le concerne, et il est
+> optionnel). Corrigé après relecture directe de la doc lors de la session du 17/07.
 
 Les Vérificateurs de l'ancien workflow testaient plus large **volontairement** (au
 cas où Bayard ajouterait des optionnels éditorialement) — pas une erreur. Note : ces
