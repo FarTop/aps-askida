@@ -3580,6 +3580,28 @@ async function aws_s3(node, ctx, iconikClient) {
         }
       });
 
+      // ── URLs typées par artwork ─────────────────────────────────────────────
+      // Depuis que les artworks sont des assets dont le nom conserve le type
+      // (startrek_cover.png), le type est directement dans la clé S3 déposée —
+      // plus besoin d'intercepter les subjobs Iconik (ancien artwork_s3, qui
+      // existait parce qu'Iconik renommait les Files rattachés comme l'asset).
+      // On pose une variable s3_<type>_url par type trouvé, EN PLUS du
+      // s3_image_url générique. La boucle déposant un artwork typé par
+      // itération, chaque variable est posée une seule fois → elles s'accumulent
+      // au lieu de s'écraser, et restent lisibles après la boucle par la Table
+      // de correspondance. episodic/title sont optionnels : capturés si présents.
+      var ARTWORK_TOKENS = ['cover','poster','hero','box','season','episodic','title'];
+      var IMG_EXT = /\.(jpe?g|png)$/i;
+      ARTWORK_TOKENS.forEach(function(tok) {
+        var hit = keys.find(function(k) {
+          return IMG_EXT.test(k) && k.toLowerCase().includes(tok);
+        });
+        if (hit) {
+          WfdContext.setVar(ctx, 's3_' + tok + '_url', base + hit);
+          console.log('[AWS S3] artwork typé', tok, '→ s3_' + tok + '_url =', hit);
+        }
+      });
+
       return { port: 0 };
     }
     return { port: 1 };
