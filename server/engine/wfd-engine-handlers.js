@@ -2738,11 +2738,27 @@ async function _handleHttpForeach(node, ctx, iconikClient) {
     const url  = baseUrl + interpolateForeach(cfg.endpoint || '', val, i);
 
     let body = undefined;
-    if (!['GET','DELETE'].includes(method) && cfg.feBody) {
-      body = interpolateForeach(cfg.feBody, val, i);
-      try { JSON.parse(body); } catch(e) {
-        WfdContext.addError(ctx, node.name, `Foreach body JSON invalide pour "${val}" : ${e.message}`, 'warn');
-        continue;
+    if (!['GET','DELETE'].includes(method)) {
+      // Mode declaratif (prefere) : les donnees envoyees sont decrites par des
+      // lignes "champ cible <- source", saisies dans le panneau. Le designer
+      // metier n'ecrit ni JSON ni syntaxe {{...}} ; le moteur assemble le corps.
+      if (Array.isArray(cfg.feFields) && cfg.feFields.length) {
+        const payload = {};
+        cfg.feFields.forEach(function(f) {
+          if (!f || !f.key) return;
+          if      (f.src === 'slug')  payload[f.key] = slug;               // francis-ford-coppola
+          else if (f.src === 'index') payload[f.key] = i;                  // 0, 1, 2...
+          else if (f.src === 'job')   payload[f.key] = cfg.feJob || null;  // director, actor...
+          else                        payload[f.key] = val;                // Francis Ford Coppola
+        });
+        body = JSON.stringify(payload);
+      } else if (cfg.feBody) {
+        // Retrocompat : anciennes etapes configurees avec un body JSON a la main.
+        body = interpolateForeach(cfg.feBody, val, i);
+        try { JSON.parse(body); } catch(e) {
+          WfdContext.addError(ctx, node.name, `Foreach body JSON invalide pour "${val}" : ${e.message}`, 'warn');
+          continue;
+        }
       }
     }
 
