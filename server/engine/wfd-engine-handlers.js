@@ -3865,6 +3865,36 @@ async function aps_search(node, ctx, iconikClient) {
         WfdContext.setVar(ctx, resultVar + '.' + f, String(only[f]));
       }
     });
+
+    // ── Aplatissement des metadonnees du resultat unique ────────────────────
+    // Meme convention que le Fetch (qui expose {Titre}, {Synopsis}...) : une
+    // recherche qui ramene UN objet doit donner acces a ses champs sans qu'on
+    // rebranche un Fetch derriere juste pour les lire.
+    //
+    // Verifie en console le 18/07 : la reponse de recherche Iconik contient
+    // DEJA "metadata" par defaut - inutile de demander include_fields (qui se
+    // comporte en liste blanche et ferait disparaitre id/title/object_type).
+    //
+    // Deux formats possibles selon la source :
+    //   - recherche Iconik  : metadata = { Titre: ['x'], Genres: ['a','b'] }
+    //   - fetch Iconik      : metadata_values = { Titre: { field_values:[{value}] } }
+    // On accepte les deux pour que le meme nom de variable marche partout.
+    const _mdFlat = only.metadata || null;
+    const _mdVals = only.metadata_values || null;
+    const _expose = (fieldName, values) => {
+      if (fieldName === '__separator__') return;
+      const clean = (values || []).filter(v => v !== null && v !== undefined && v !== '');
+      if (!clean.length) return;
+      const exposed = clean.length === 1 ? String(clean[0]) : JSON.stringify(clean);
+      WfdContext.setVar(ctx, fieldName, exposed);                    // {Titre}
+      WfdContext.setVar(ctx, resultVar + '.' + fieldName, exposed);  // {monResultat.Titre}
+    };
+    if (_mdFlat && typeof _mdFlat === 'object') {
+      Object.entries(_mdFlat).forEach(([f, v]) => _expose(f, Array.isArray(v) ? v : [v]));
+    }
+    if (_mdVals && typeof _mdVals === 'object') {
+      Object.entries(_mdVals).forEach(([f, d]) => _expose(f, (d?.field_values || []).map(fv => fv.value)));
+    }
   }
 
   // Mode "vérifier présence" : le nœud ne sert pas à ramener un résultat mais à
