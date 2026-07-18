@@ -957,6 +957,14 @@ async function lookup(node, ctx) {
         const fbKey = row.fallback.replace(/^\{|\}$/g, '');
         val = ctx.vars?.[fbKey] ?? r(row.fallback, ctx);
       }
+
+      // Un placeholder non resolu ({s3_cover_url} quand l'artwork optionnel
+      // n'existe pas) revient tel quel, non vide : sans ce garde-fou il partait
+      // dans le payload et l'API le rejetait ("must be a valid URL"). Une
+      // variable absente doit se traduire par un champ absent, pas par du texte.
+      if (typeof val === 'string' && /^\{[A-Za-z_][A-Za-z0-9_.]*\}$/.test(val.trim())) {
+        return;
+      }
       if (val === undefined || val === null || val === '') return;
 
       // Si la ligne a des sous-lignes de traduction, appliquer la traduction
