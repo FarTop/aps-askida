@@ -4317,7 +4317,7 @@ function buildCfgFields(pfx, family, cfg) {
         <!-- Onglets source de données -->
         <div class="wfd-hseq-sourcelbl">Source des données</div>
         <div class="wfd-hseq-modewrap-real">
-          ${modes.map(m => `<button onclick="hseqModeChange(this,'${m}')" class="hseq-mode-btn wfd-hseq-modebtn-real${mode===m?' active':''}"
+          ${modes.map(m => `<button onclick="hseqModeChange(this,'${m}')" class="hseq-mode-btn wfd-hseq-modebtn-real${mode===m?' active-blue-tab':' inactive-tab'}"
             data-mode="${m}"
             >${modeLabels[m]}</button>`).join('')}
         </div>
@@ -4350,7 +4350,6 @@ function buildCfgFields(pfx, family, cfg) {
           <div class="hseq-mode-foreach${mode!=='foreach'?' wfd-hidden':''}">
             <div class="wfd-hint-sec">Variable source (champ Iconik multi-valeur)</div>
             <input class="cfg-input hseq-fe-source wfd-hseq-fesource-real" value="${escHtml(step.feSourceVar||'')}"
-              placeholder="{Realisateur}"
               list="${pfx}-wfd-var-list">
             <div class="wfd-hseq-grid-2-gap6-mb6">
               <div>
@@ -9383,6 +9382,19 @@ function hseqAddStep(pfx) {
     <div class="hseq-step-body">
       <div class="wfd-hint-sec">Nom de l'étape</div>
       <input class="cfg-input hseq-name wfd-name-input-mb8" placeholder="Ex : Créer le contenu">
+
+      <!-- Méthode + Endpoint — une seule fois, hors des panneaux de mode.
+           Dupliqués par mode, plusieurs .hseq-endpoint coexistaient et la
+           lecture prenait le premier (souvent celui d'un panneau masqué),
+           ce qui faisait perdre l'endpoint à la sauvegarde. -->
+      <div class="wfd-hseq-grid-100-1fr">
+        <div><div class="wfd-hint-sec">Méthode</div>
+          <select class="cfg-select hseq-method wfd-fs11" onchange="hseqUpdateHeader(this)"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></div>
+        <div><div class="wfd-hint-sec">Endpoint</div>
+          <input class="cfg-input hseq-endpoint wfd-mono-sm" placeholder="/api/..." oninput="hseqUpdateHeader(this)"></div>
+      </div>
+
+      <div class="wfd-hseq-sourcelbl">Source des données</div>
       <div class="wfd-hseq-toggle-wrap">
         <button onclick="hseqModeChange(this,'action')"    class="hseq-mode-btn wfd-tab-seg inactive-tab" data-mode="action">Action</button>
         <button onclick="hseqModeChange(this,'simple')"   class="hseq-mode-btn wfd-tab-seg active-blue-tab" data-mode="simple">Requête simple</button>
@@ -9394,24 +9406,12 @@ function hseqAddStep(pfx) {
           <div class="wfd-hseq-hint-italic">Sélectionner une connexion pour voir les actions disponibles.</div>
         </div>
         <div class="hseq-mode-simple">
-          <div class="wfd-hseq-grid-100-1fr">
-            <div><div class="wfd-hint-sec">Méthode</div>
-              <select class="cfg-select hseq-method wfd-fs11"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></div>
-            <div><div class="wfd-hint-sec">Endpoint</div>
-              <input class="cfg-input hseq-endpoint wfd-mono-sm" placeholder="/api/..."></div>
-          </div>
           <div class="wfd-hint-sec">Body JSON</div>
           <textarea class="cfg-textarea hseq-body wfd-mono-sm2" rows="3"></textarea>
         </div>
         <div class="hseq-mode-foreach wfd-hidden">
-          <div class="wfd-hint-sec">Variable source</div>
-          <input class="cfg-input hseq-fe-source wfd-hseq-input-mono-mb6" placeholder="{Realisateur}">
-          <div class="wfd-hseq-grid-100-1fr">
-            <div><div class="wfd-hint-sec">Méthode</div>
-              <select class="cfg-select hseq-method wfd-fs11"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></div>
-            <div><div class="wfd-hint-sec">Endpoint</div>
-              <input class="cfg-input hseq-endpoint wfd-mono-sm" placeholder="/api/..."></div>
-          </div>
+          <div class="wfd-hint-sec">Variable source (champ Iconik multi-valeur)</div>
+          <input class="cfg-input hseq-fe-source wfd-hseq-input-mono-mb6">
           <div class="wfd-hseq-grid-1-1">
             <div><div class="wfd-hint-sec">Rôle (job)</div>
               <select class="cfg-select hseq-fe-job wfd-fs11">
@@ -9423,9 +9423,16 @@ function hseqAddStep(pfx) {
           <div class="wfd-hint-sec">Données envoyées (une requête par valeur)</div>
           <div class="hseq-fe-fields"></div>
           <button onclick="hseqAddFeField(this)" class="wfd-hseq-addfield-btn">+ Donnée</button>
+          <div class="wfd-hseq-append-row">
+            <input type="checkbox" class="hseq-fe-append" id="hseq-append-new-${n}">
+            <label for="hseq-append-new-${n}" class="wfd-hseq-append-lbl">Ajouter au résultat existant (ne pas écraser)</label>
+          </div>
         </div>
         <div class="hseq-mode-verify wfd-hidden">
-          <input class="cfg-input hseq-endpoint wfd-mono-sm" placeholder="/api/...">
+          <div class="wfd-hint-sec">Champ à vérifier</div>
+          <input class="cfg-input hseq-verify-path wfd-mono-sm">
+          <div class="wfd-hint-sec">Valeur attendue</div>
+          <input class="cfg-input hseq-verify-expected wfd-mono-sm">
         </div>
       </div>
       <div class="wfd-hseq-result-row">
