@@ -3875,6 +3875,13 @@ async function aps_search(node, ctx, iconikClient) {
     });
 
     // ── Aplatissement des metadonnees du resultat unique ────────────────────
+    // Uniquement en mode "ramener". Un noeud en mode "verifier presence" est un
+    // TEST, pas une source de donnees : il ne doit rien injecter dans le
+    // contexte. Sans cette restriction, une Presence dont le bloc de retour
+    // trouve un artwork aplatissait les metadonnees de CET artwork en variables
+    // nues, ecrasant les variables editoriales (constate en publiant une Serie :
+    // original_title valait "Cover.png", le nom du fichier d'artwork).
+    //
     // Meme convention que le Fetch (qui expose {Titre}, {Synopsis}...) : une
     // recherche qui ramene UN objet doit donner acces a ses champs sans qu'on
     // rebranche un Fetch derriere juste pour les lire.
@@ -3887,8 +3894,8 @@ async function aps_search(node, ctx, iconikClient) {
     //   - recherche Iconik  : metadata = { Titre: ['x'], Genres: ['a','b'] }
     //   - fetch Iconik      : metadata_values = { Titre: { field_values:[{value}] } }
     // On accepte les deux pour que le meme nom de variable marche partout.
-    const _mdFlat = only.metadata || null;
-    const _mdVals = only.metadata_values || null;
+    const _mdFlat = mode === 'presence' ? null : (only.metadata || null);
+    const _mdVals = mode === 'presence' ? null : (only.metadata_values || null);
     const _expose = (fieldName, values) => {
       if (fieldName === '__separator__') return;
       const clean = (values || []).filter(v => v !== null && v !== undefined && v !== '');
