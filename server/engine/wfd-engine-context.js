@@ -39,6 +39,52 @@ function createContext(triggerPayload = {}) {
   };
 }
 
+// ── Horodatage courant dans un fuseau donne ──────────────────────
+// Rend un ISO 8601 AVEC decalage ("2026-07-20T18:30:00+02:00"), et non un
+// UTC brut : une date de notification doit etre lisible telle quelle par
+// celui qui la consulte, sans conversion mentale.
+//
+// S'appuie sur Intl.DateTimeFormat (natif Node) : aucune dependance, et le
+// passage heure d'ete / heure d'hiver est gere automatiquement pour tout
+// fuseau IANA.
+//
+// Un fuseau inconnu leve une ERREUR. Se rabattre silencieusement sur UTC
+// produirait une date fausse de deux heures dans une notification - trahison
+// pire qu'un echec visible.
+function _nowInZone(tz, fmt) {
+  const d    = new Date();
+  const zone = tz || process.env.APS_TIMEZONE || 'Europe/Paris';
+  let parts;
+  try {
+    parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: zone, hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    }).formatToParts(d).reduce((a, p) => (a[p.type] = p.value, a), {});
+  } catch (_) {
+    throw new Error(`now() : fuseau horaire inconnu "${zone}" (attendu un identifiant IANA, ex. Europe/Paris)`);
+  }
+  const Y  = parts.year, M = parts.month, D = parts.day;
+  const H  = parts.hour === '24' ? '00' : parts.hour;   // minuit rendu "24" par certaines locales
+  const mi = parts.minute, S = parts.second;
+
+  // Decalage = heure murale du fuseau lue comme si elle etait UTC, moins l'UTC reel.
+  const asUTC  = Date.UTC(+Y, +M - 1, +D, +H, +mi, +S);
+  const utcSec = Math.floor(d.getTime() / 1000) * 1000;
+  const offMin = Math.round((asUTC - utcSec) / 60000);
+  const sign   = offMin >= 0 ? '+' : '-';
+  const ao     = Math.abs(offMin);
+  const off    = `${sign}${String(Math.floor(ao / 60)).padStart(2, '0')}:${String(ao % 60).padStart(2, '0')}`;
+
+  switch ((fmt || '').toLowerCase()) {
+    case 'date':      return `${Y}-${M}-${D}`;
+    case 'time':      return `${H}:${mi}:${S}`;
+    case 'timestamp': return String(d.getTime());
+    case 'utc':       return d.toISOString();
+    default:          return `${Y}-${M}-${D}T${H}:${mi}:${S}${off}`;
+  }
+}
+
 // ── Résoudre une variable dans le contexte ───────────────────────
 // Supporte :
 //   {asset.id}              → ctx.asset.id
@@ -61,6 +107,15 @@ function resolve(template, ctx) {
       const ifFalse = condMatch[3];
       const val     = resolvePath(key, ctx);
       return (val !== undefined && val !== null && val !== '') ? ifTrue : ifFalse;
+    }
+    // Horodatage courant : {now}, {now(Europe/Paris)}, {now(Europe/Paris,date)}
+    // Un horodatage de notification doit etre exact : on ne se rabat pas sur
+    // {startedAt} (debut du run), qui peut preceder l'evenement de plusieurs
+    // minutes a cause des temps d'export S3.
+    const nowMatch = p.match(/^now(?:\(([^)]*)\))?$/);
+    if (nowMatch) {
+      const args = (nowMatch[1] || '').split(',').map(s => s.trim()).filter(Boolean);
+      return _nowInZone(args[0], args[1]);
     }
     // Transformations inline : {slug(Titre)}, {upper(Titre)}, {lower(Titre)}, {trim(Titre)},
     // {add(a,b,...)}, {pad(valeur,largeur)}, {filebase(NomDeFichier)}
