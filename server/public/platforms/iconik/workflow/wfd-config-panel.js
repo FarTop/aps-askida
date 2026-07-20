@@ -4393,6 +4393,11 @@ function buildCfgFields(pfx, family, cfg) {
 
         </div><!-- /mode-panels -->
 
+        <!-- Condition d'exécution : ne concerne pas tous les objets -->
+        <div class="wfd-hint-sec">N'exécuter que si cette donnée est présente <span class="wfd-hseq-opt-lbl">(facultatif)</span></div>
+        <input class="cfg-input hseq-skip-if-empty wfd-mono-sm" value="${escHtml(step.skipIfEmpty||'')}"
+          list="${pfx}-wfd-var-list">
+
         <!-- Résultat + comportement sur erreur -->
         <div class="wfd-hseq-result-row-real">
           <span class="wfd-hseq-result-lbl-real">Résultat →</span>
@@ -9435,6 +9440,8 @@ function hseqAddStep(pfx) {
           <input class="cfg-input hseq-verify-expected wfd-mono-sm">
         </div>
       </div>
+      <div class="wfd-hint-sec">N'exécuter que si cette donnée est présente <span class="wfd-hseq-opt-lbl">(facultatif)</span></div>
+      <input class="cfg-input hseq-skip-if-empty wfd-mono-sm">
       <div class="wfd-hseq-result-row">
         <span class="wfd-hseq-result-lbl">Résultat →</span>
         <span class="wfd-mono-sec-12">{</span>
@@ -9619,6 +9626,7 @@ function hseqReadSteps(pfx) {
       endpoint  : body?.querySelector('.hseq-endpoint')?.value || '',
       resultVar : (body?.querySelector('.hseq-result-var')?.value || '').replace(/^\{|\}$/g, ''),
       onError   : body?.querySelector('.hseq-on-error')?.value  || 'stop',
+      skipIfEmpty: body?.querySelector('.hseq-skip-if-empty')?.value?.trim() || '',
     };
     if (mode === 'action') {
       s.actionId  = body?.querySelector('.hseq-action-id')?.value  || '';

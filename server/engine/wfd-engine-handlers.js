@@ -2989,6 +2989,24 @@ async function handleHttpSequence(node, ctx, iconikClient) {
 
     console.log('[HTTP Sequence] Étape', i + 1, '/', steps.length, '—', virtualNode.name, '| httpMode:', step.httpMode, '| actionId:', step.actionId, '| feSourceVar:', step.feSourceVar);
 
+    // Condition d'execution : une etape peut ne concerner qu'une partie des
+    // objets traites. L'etape video n'a pas de sens pour une Serie ou une
+    // Saison, qui n'en ont pas : elle echouait en 422 "url required" a chaque
+    // run et arretait la sequence, obligeant a la passer en "continuer" - ce
+    // qui masquait alors les vraies pannes.
+    //
+    // Renseigner "N'executer que si" avec une variable ({s3_video_url}) : si
+    // elle est absente, vide ou non resolue, l'etape est SAUTEE, pas mise en
+    // echec. Une etape sans condition s'execute toujours (retrocompat).
+    if (step.skipIfEmpty) {
+      const _cond = WfdContext.resolve(step.skipIfEmpty, ctx);
+      if (_cond === undefined || _cond === null || _cond === ''
+          || /^\{[A-Za-z_][A-Za-z0-9_.]*\}$/.test(String(_cond).trim())) {
+        console.log('[HTTP Sequence] Étape', i + 1, 'ignorée —', step.skipIfEmpty, 'est absent');
+        continue;
+      }
+    }
+
     try {
       const result = await handleHttpRequest(virtualNode, ctx, iconikClient);
       // Si feAppend : concaténer au résultat existant plutôt qu'écraser
