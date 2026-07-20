@@ -3062,7 +3062,7 @@ async function workflow_history(node, ctx, iconikClient) {
   const cfg = node.config || {};
 
   // Résoudre les paramètres
-  const targetId  = r(cfg.targetId  || '{asset_id}', ctx) || ctx.vars?.asset_id || ctx.asset?.id || '';
+  const targetId  = r(cfg.targetId || ((cfg.target || 'asset') === 'collection' ? '{collection.id}' : '{asset_id}'), ctx) || ctx.vars?.asset_id || ctx.asset?.id || '';
   const mdViewId  = cfg.mdViewId  || '';
   const mdField   = cfg.mdField   || '';
   const mode      = cfg.whMode    || 'add';     // 'add' | 'update'
@@ -3117,9 +3117,15 @@ async function workflow_history(node, ctx, iconikClient) {
     : visibleLine;
 
   // Lire la valeur actuelle du champ
-  const endpoint = mdViewId
-    ? `/API/metadata/v1/assets/${targetId}/views/${mdViewId}/`
+  // La cible peut etre un asset ou une collection. L'endpoint etait fige sur
+  // /assets/ : pointer une collection produisait un PUT sur
+  // /API/metadata/v1/assets/{id de collection}/ -> 500. Or l'historique d'une
+  // publication appartient a la collection publiee, pas a un de ses assets.
+  const _whIsCol = (cfg.target || 'asset') === 'collection';
+  const _whBase  = _whIsCol
+    ? `/API/metadata/v1/collections/${targetId}/`
     : `/API/metadata/v1/assets/${targetId}/`;
+  const endpoint = mdViewId ? `${_whBase}views/${mdViewId}/` : _whBase;
 
   let existing = {};
   try {

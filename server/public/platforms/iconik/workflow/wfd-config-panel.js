@@ -3676,12 +3676,24 @@ function buildCfgFields(pfx, family, cfg) {
   const _whMessage = cfg.whMessage || '';
 
   html += `
+  <!-- Cible : asset ou collection -->
+  <div class="cfg-field">
+    <label class="cfg-label">Cible</label>
+    <div class="wfd-row-gap6b">
+      ${[['asset','🎬 Asset'],['collection','📁 Collection']].map(([k,lbl]) => `
+        <label class="wfd-um-target-lbl${(cfg.target||'asset')===k?' checked-purple':''}">
+          <input type="radio" name="${pfx}-wh-target" value="${k}" ${(cfg.target||'asset')===k?'checked':''}>
+          ${lbl}
+        </label>`).join('')}
+    </div>
+  </div>
+
   <!-- Identifiant cible -->
   <div class="cfg-field">
     <label class="cfg-label">Identifiant cible</label>
     <input id="${pfx}-wh-target-id" class="cfg-input wfd-mono" list="${pfx}-wfd-var-list"
-      value="${escHtml(cfg.targetId||'{asset_id}')}"
-      placeholder="{asset_id}">
+      value="${escHtml(cfg.targetId||((cfg.target||'asset')==='collection'?'{collection.id}':'{asset_id}'))}"
+      placeholder="${(cfg.target||'asset')==='collection'?'{collection.id}':'{asset_id}'}">
   </div>
 
   <!-- Vue MD -->
@@ -5373,7 +5385,9 @@ function sauvegarderConfig() {
 
   } else if (node.family==='workflow_history') {
     const g2 = id => document.getElementById('cfg-'+id);
-    node.config.targetId    = g2('wh-target-id')?.value?.trim()  || '{asset_id}';
+    node.config.target      = document.querySelector(`input[name="cfg-wh-target"]:checked`)?.value || node.config.target || 'asset';
+    node.config.targetId    = g2('wh-target-id')?.value?.trim()
+                              || (node.config.target === 'collection' ? '{collection.id}' : '{asset_id}');
     node.config.mdViewId    = g2('wh-md-view')?.value            || '';
     node.config.mdField     = g2('wh-md-field')?.value           || '';
     node.config.whMode      = g2('wh-mode')?.value               || 'add';
