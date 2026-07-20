@@ -33,6 +33,17 @@ function requireIconik(iconikClient, nodeFamily) {
 }
 
 // Évaluer une condition (utilisé par decision et qc)
+// Une variable qui n'existe pas revient telle quelle apres resolution :
+// "{s3_cover_url}" au lieu d'une URL. La chaine n'etant pas vide, elle serait
+// envoyee a l'API ou ecrite dans Iconik comme une valeur legitime.
+// Regle commune : une variable absente doit se traduire par un CHAMP ABSENT,
+// jamais par du texte. Le motif est volontairement etroit (un identifiant
+// entoure d'accolades, rien d'autre) pour ne pas ecarter une vraie valeur
+// contenant des accolades, une URL, "0" ou une chaine quelconque.
+function _isUnresolvedPlaceholder(v) {
+  return typeof v === 'string' && /^\{[A-Za-z_][A-Za-z0-9_.]*\}$/.test(v.trim());
+}
+
 function evalCondition(actual, op, expected) {
   const a = String(actual ?? '');
   const e = String(expected ?? '');
@@ -962,9 +973,7 @@ async function lookup(node, ctx) {
       // n'existe pas) revient tel quel, non vide : sans ce garde-fou il partait
       // dans le payload et l'API le rejetait ("must be a valid URL"). Une
       // variable absente doit se traduire par un champ absent, pas par du texte.
-      if (typeof val === 'string' && /^\{[A-Za-z_][A-Za-z0-9_.]*\}$/.test(val.trim())) {
-        return;
-      }
+      if (_isUnresolvedPlaceholder(val)) return;
       if (val === undefined || val === null || val === '') return;
 
       // Si la ligne a des sous-lignes de traduction, appliquer la traduction
@@ -1325,10 +1334,15 @@ async function action(node, ctx, iconikClient) {
       const viewId = r(cfg.viewId || '', ctx);
       const fields = {};
       (cfg.fields || []).forEach(f => {
-        fields[r(f.key, ctx)] = { field_values: [{ value: r(f.value || '', ctx) }] };
+        const _v = r(f.value || '', ctx);
+        // Meme regle que partout : une variable absente ne touche pas au champ.
+        if (_isUnresolvedPlaceholder(_v)) return;
+        fields[r(f.key, ctx)] = { field_values: [{ value: _v }] };
       });
       result = await iconikClient.put(
-        `/API/metadata/v1/collections/${colId}/views/${viewId}/`,
+        viewId
+          ? `/API/metadata/v1/collections/${colId}/views/${viewId}/`
+          : `/API/metadata/v1/collections/${colId}/`,
         { metadata_values: fields }
       );
       break;
@@ -1543,11 +1557,20 @@ async function update_meta(node, ctx, iconikClient) {
   // Mode "champ par champ" (sans vue) : appel direct sans viewId
   // Iconik n'accepte que PUT → GET d'abord pour merger les valeurs existantes
   if (mode === 'fields') {
-    const aid      = r(cfg.targetId || cfg.assetId || '{asset.id}', ctx);
+    // La cible peut etre un asset ou une collection. Verifie en console le
+    // 19/07 : ecrire sur /collections/{id}/ SANS vue fonctionne, et le champ
+    // est bien enregistre meme s'il n'appartient a aucune vue. Les vues ne
+    // servent qu'a l'AFFICHAGE dans Iconik - elles ne conditionnent pas
+    // l'ecriture. Cela evite d'avoir a faire varier un viewId par niveau
+    // (Serie / Saison / Episode / Unitaire) dans un noeud partage.
+    const _isCol   = cfg.target === 'collection';
+    const _defaultId = _isCol ? '{collection.id}' : '{asset.id}';
+    const oid      = r(cfg.targetId || cfg.assetId || _defaultId, ctx);
     const mdViewId = r(cfg.mdViewId || '', ctx);
-    const endpoint = mdViewId
-      ? `/API/metadata/v1/assets/${aid}/views/${mdViewId}/`
-      : `/API/metadata/v1/assets/${aid}/`;
+    const _base    = _isCol
+      ? `/API/metadata/v1/collections/${oid}/`
+      : `/API/metadata/v1/assets/${oid}/`;
+    const endpoint = mdViewId ? `${_base}views/${mdViewId}/` : _base;
     let existing = {};
     try {
       const current = await iconikClient.get(endpoint);
@@ -1557,6 +1580,12 @@ async function update_meta(node, ctx, iconikClient) {
     (cfg.fields || []).forEach(f => {
       if (!f.key) return;
       const val = r(f.value || '', ctx);
+      // Variable non resolue ({s3_cover_url} sur un niveau qui n'a pas cet
+      // artwork, {generated_id} quand aucun ID n'a ete genere) : on ne touche
+      // pas au champ. Sans ce garde-fou on ecrirait le texte du placeholder,
+      // ou - via la branche field_values:[] - on EFFACERAIT une valeur
+      // existante. Une variable absente ne doit jamais degrader une donnee.
+      if (_isUnresolvedPlaceholder(val)) return;
       fields[r(f.key, ctx)] = { field_values: val !== '' ? [{ value: val }] : [] };
     });
     const result = await iconikClient.put(endpoint, { metadata_values: fields });
