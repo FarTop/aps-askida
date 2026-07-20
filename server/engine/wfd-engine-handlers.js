@@ -2469,9 +2469,9 @@ async function handleHttpRequest(node, ctx, iconikClient) {
   // Codes à ignorer — depuis la config du nœud OU depuis l'action
   const _ignoreCodes = [...(cfg.ignoreCodes || []), ...(action.ignoreCodes || [])].map(Number);
 
-  // Upsert : si POST retourne 422, retenter avec PATCH sur {endpoint}/{external_id}
+  // Upsert : si POST retourne 422, retenter avec PUT sur {endpoint}/{external_id}
   // Mais pas si 422 est dans les codes ignorés
-  console.log('[DEBUG 422] status:', response.status, '| body:', JSON.stringify(responseBody)?.slice(0, 300));
+  console.log('[HTTP]', method, url, '→', response.status, '| body:', JSON.stringify(responseBody)?.slice(0, 300));
   if (response.status === 422 && method === 'POST' && cfg.upsert !== false && !_ignoreCodes.includes(422)) {
     try {
       // Extraire l'external_id depuis le body pour construire l'URL du PATCH
@@ -2484,10 +2484,12 @@ async function handleHttpRequest(node, ctx, iconikClient) {
         } catch(_) {}
       }
       // Utiliser PUT pour l'upsert (PATCH non supporté par certaines APIs comme VodFactory)
+      console.log('[UPSERT] 422 sur POST → nouvelle tentative en PUT', patchUrl);
       const patchResponse = await globalThis.fetch(patchUrl, { method: 'PUT', headers, body });
       const patchText = await patchResponse.text();
       let patchBody;
       try { patchBody = JSON.parse(patchText); } catch(_) { patchBody = patchText; }
+      console.log('[UPSERT] PUT', patchUrl, '→', patchResponse.status, '| body:', JSON.stringify(patchBody)?.slice(0, 300));
       const patchResult = { status: patchResponse.status, ok: patchResponse.ok, url, method: 'PUT', body: patchBody, upserted: true };
       WfdContext.storeResult(ctx, resultVar, patchResult);
       WfdContext.setVar(ctx, resultVar + '_status', String(patchResponse.status));
@@ -2506,6 +2508,16 @@ async function handleHttpRequest(node, ctx, iconikClient) {
     } catch(e) {
       throw new Error('Erreur upsert PATCH : ' + e.message);
     }
+  }
+
+  // Un 422 qui NE declenche PAS d'upsert : dire pourquoi. Sans cela le log
+  // montre un echec sans expliquer que la reprise en PUT a ete court-circuitee.
+  if (response.status === 422) {
+    const _why = method !== 'POST'      ? `methode ${method} (upsert seulement sur POST)`
+               : cfg.upsert === false   ? 'upsert desactive sur cette etape'
+               : _ignoreCodes.includes(422) ? '422 fait partie des codes a ignorer'
+               : 'raison inconnue';
+    console.log('[UPSERT] non declenche —', _why);
   }
 
   const _ignored = _ignoreCodes.includes(response.status);
