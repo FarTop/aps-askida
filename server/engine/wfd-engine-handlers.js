@@ -507,6 +507,106 @@ async function resolveByName(client, id, name, listEndpoint, nameField) {
 
 // ── FETCH (Récupérer) ─────────────────────────────────────────────
 // Appelle l'API Iconik et stocke le résultat dans ctx.results
+// ── Extraction des metadonnees techniques d'un asset ──────────────────────────
+// Process :
+//   1. GET /file_sets/       -> format_id du fichier original
+//   2. GET /formats/{id}/    -> composants et metadonnees
+// Pose {duration} (secondes), {duration_ms}, {width}, {height}, {video_codec},
+// {video_quality}, {fps}, {bitrate}, {container}, {file_size}, {audio_*}...
+//
+// Factorise pour etre appelable depuis le Fetch (option "infos techniques")
+// comme depuis la Recherche : la duree d'une video est une donnee dont un
+// workflow media a besoin sans devoir rebrancher un Fetch juste pour la lire.
+// Non bloquant : une erreur est stockee, elle n'interrompt pas le flux.
+async function _extractTechnical(assetId, varName, ctx, iconikClient) {
+  if (!assetId || !iconikClient) return;
+
+    try {
+      // Étape 1 : récupérer le format_id via file_sets
+      const fileSetsRes = await iconikClient.get(`/API/files/v1/assets/${assetId}/file_sets/`);
+      const fileSets    = fileSetsRes?.objects || [];
+      const formatId    = fileSets[0]?.format_id;
+
+      // Stocker le nom du fichier original (utile pour construire les chemins S3)
+      console.log('[DEBUG filename] fileSets count:', fileSets.length, '| first name:', fileSets[0]?.name, '| first original_name:', fileSets[0]?.original_name);
+      const _filename = fileSets[0]?.name || fileSets[0]?.original_name || '';
+      if (_filename) {
+        WfdContext.setVar(ctx, varName + '_filename', _filename);
+        WfdContext.setVar(ctx, 'filename', _filename);
+        // Sans extension
+        const _filenameNoExt = _filename.replace(/\.[^.]+$/, '');
+        WfdContext.setVar(ctx, varName + '_filename_noext', _filenameNoExt);
+        WfdContext.setVar(ctx, 'filename_noext', _filenameNoExt);
+      }
+
+      if (!formatId) {
+        WfdContext.storeResult(ctx, varName + '_formats', { error: 'Aucun file_set trouvé' });
+      } else {
+        // Étape 2 : récupérer le format complet
+        const fmt = await iconikClient.get(`/API/files/v1/assets/${assetId}/formats/${formatId}/`);
+
+        // Métadonnées générales (format.metadata = array)
+        const gm = (Array.isArray(fmt.metadata) ? fmt.metadata[0] : fmt.metadata) || {};
+
+        // Composants : sélection par kind_of_stream
+        // - "Video"   → height, width, duration (ms), chroma, bit_depth, format (codec)
+        // - "General" → codecs_video, audio_codecs
+        // - "Audio"   → channel_s, audio_codecs
+        const components = fmt.components || [];
+        const vm = components.find(c => c.metadata?.kind_of_stream === 'Video')?.metadata   || {};
+        const gmc= components.find(c => c.metadata?.kind_of_stream === 'General')?.metadata || {};
+        const am = components.find(c =>
+          c.metadata?.kind_of_stream === 'Audio' || c.metadata?.channel_s
+        )?.metadata || {};
+
+        // Durée : component vidéo → duration en ms
+        if (vm.duration) {
+          const durMs = parseInt(vm.duration);
+          WfdContext.setVar(ctx, 'duration_ms', String(durMs));
+          WfdContext.setVar(ctx, 'duration',    String(Math.round(durMs / 1000)));
+        }
+
+        // Général (depuis format.metadata[0])
+        if (gm.format)           WfdContext.setVar(ctx, 'container',  gm.format);
+        if (gm.overall_bit_rate) WfdContext.setVar(ctx, 'bitrate',    gm.overall_bit_rate);
+        if (gm.size)             WfdContext.setVar(ctx, 'file_size',  gm.size);
+        if (gm.frame_rate)       WfdContext.setVar(ctx, 'fps',        gm.frame_rate);
+
+        // Vidéo (depuis component kind_of_stream=Video)
+        if (vm.width)              WfdContext.setVar(ctx, 'width',       vm.width);
+        if (vm.height)             WfdContext.setVar(ctx, 'height',      vm.height);
+        // Codec vidéo : dans le component General (codecs_video) ou Video (format)
+        const videoCodec = gmc.codecs_video || vm.format || vm.commercial_name || '';
+        if (videoCodec)            WfdContext.setVar(ctx, 'video_codec', videoCodec);
+        if (vm.chroma_subsampling) WfdContext.setVar(ctx, 'chroma',      vm.chroma_subsampling);
+        if (vm.bit_depth)          WfdContext.setVar(ctx, 'bit_depth',   vm.bit_depth);
+
+        // video_quality : max(width, height) pour couvrir portrait ET paysage
+        const vw = parseInt(vm.width  || '0');
+        const vh = parseInt(vm.height || '0');
+        if (vw || vh) {
+          const vmax = Math.max(vw, vh);
+          WfdContext.setVar(ctx, 'video_quality', vmax >= 3840 ? 'UHD' : vmax >= 1280 ? 'HD' : 'SD');
+        }
+
+        // Audio
+        const audioTracks = components.filter(c =>
+          c.metadata?.kind_of_stream === 'Audio' || c.metadata?.channel_s
+        ).length;
+        if (audioTracks)             WfdContext.setVar(ctx, 'audio_tracks', String(audioTracks));
+        const audioCodec = am.audio_codecs || gmc.audio_codecs || '';
+        if (audioCodec)              WfdContext.setVar(ctx, 'audio_codec',  audioCodec);
+
+        WfdContext.storeResult(ctx, varName + '_formats', {
+          formatId, components: components.length, gm, vm, gmc, am
+        });
+      }
+    } catch(e) {
+      // Non bloquant
+      WfdContext.storeResult(ctx, varName + '_formats', { error: e.message });
+    }
+}
+
 async function fetch(node, ctx, iconikClient) {
   requireIconik(iconikClient, 'fetch');
   const cfg      = node.config || {};
@@ -753,96 +853,8 @@ async function fetch(node, ctx, iconikClient) {
   }
 
   // ── Métadonnées techniques (withFormats) ──────────────────────────────────
-  // Process :
-  //   1. GET /file_sets/ → récupérer le format_id du fichier original
-  //   2. GET /formats/{formatId}/ → récupérer les composants et métadonnées
-  // Les données techniques sont dans format.components (video = component avec codecs_video)
-  // et dans format.metadata (général : frame_rate, size, overall_bit_rate)
   if (cfg.withFormats) {
-    try {
-      // Étape 1 : récupérer le format_id via file_sets
-      const fileSetsRes = await iconikClient.get(`/API/files/v1/assets/${assetId}/file_sets/`);
-      const fileSets    = fileSetsRes?.objects || [];
-      const formatId    = fileSets[0]?.format_id;
-
-      // Stocker le nom du fichier original (utile pour construire les chemins S3)
-      console.log('[DEBUG filename] fileSets count:', fileSets.length, '| first name:', fileSets[0]?.name, '| first original_name:', fileSets[0]?.original_name);
-      const _filename = fileSets[0]?.name || fileSets[0]?.original_name || '';
-      if (_filename) {
-        WfdContext.setVar(ctx, varName + '_filename', _filename);
-        WfdContext.setVar(ctx, 'filename', _filename);
-        // Sans extension
-        const _filenameNoExt = _filename.replace(/\.[^.]+$/, '');
-        WfdContext.setVar(ctx, varName + '_filename_noext', _filenameNoExt);
-        WfdContext.setVar(ctx, 'filename_noext', _filenameNoExt);
-      }
-
-      if (!formatId) {
-        WfdContext.storeResult(ctx, varName + '_formats', { error: 'Aucun file_set trouvé' });
-      } else {
-        // Étape 2 : récupérer le format complet
-        const fmt = await iconikClient.get(`/API/files/v1/assets/${assetId}/formats/${formatId}/`);
-
-        // Métadonnées générales (format.metadata = array)
-        const gm = (Array.isArray(fmt.metadata) ? fmt.metadata[0] : fmt.metadata) || {};
-
-        // Composants : sélection par kind_of_stream
-        // - "Video"   → height, width, duration (ms), chroma, bit_depth, format (codec)
-        // - "General" → codecs_video, audio_codecs
-        // - "Audio"   → channel_s, audio_codecs
-        const components = fmt.components || [];
-        const vm = components.find(c => c.metadata?.kind_of_stream === 'Video')?.metadata   || {};
-        const gmc= components.find(c => c.metadata?.kind_of_stream === 'General')?.metadata || {};
-        const am = components.find(c =>
-          c.metadata?.kind_of_stream === 'Audio' || c.metadata?.channel_s
-        )?.metadata || {};
-
-        // Durée : component vidéo → duration en ms
-        if (vm.duration) {
-          const durMs = parseInt(vm.duration);
-          WfdContext.setVar(ctx, 'duration_ms', String(durMs));
-          WfdContext.setVar(ctx, 'duration',    String(Math.round(durMs / 1000)));
-        }
-
-        // Général (depuis format.metadata[0])
-        if (gm.format)           WfdContext.setVar(ctx, 'container',  gm.format);
-        if (gm.overall_bit_rate) WfdContext.setVar(ctx, 'bitrate',    gm.overall_bit_rate);
-        if (gm.size)             WfdContext.setVar(ctx, 'file_size',  gm.size);
-        if (gm.frame_rate)       WfdContext.setVar(ctx, 'fps',        gm.frame_rate);
-
-        // Vidéo (depuis component kind_of_stream=Video)
-        if (vm.width)              WfdContext.setVar(ctx, 'width',       vm.width);
-        if (vm.height)             WfdContext.setVar(ctx, 'height',      vm.height);
-        // Codec vidéo : dans le component General (codecs_video) ou Video (format)
-        const videoCodec = gmc.codecs_video || vm.format || vm.commercial_name || '';
-        if (videoCodec)            WfdContext.setVar(ctx, 'video_codec', videoCodec);
-        if (vm.chroma_subsampling) WfdContext.setVar(ctx, 'chroma',      vm.chroma_subsampling);
-        if (vm.bit_depth)          WfdContext.setVar(ctx, 'bit_depth',   vm.bit_depth);
-
-        // video_quality : max(width, height) pour couvrir portrait ET paysage
-        const vw = parseInt(vm.width  || '0');
-        const vh = parseInt(vm.height || '0');
-        if (vw || vh) {
-          const vmax = Math.max(vw, vh);
-          WfdContext.setVar(ctx, 'video_quality', vmax >= 3840 ? 'UHD' : vmax >= 1280 ? 'HD' : 'SD');
-        }
-
-        // Audio
-        const audioTracks = components.filter(c =>
-          c.metadata?.kind_of_stream === 'Audio' || c.metadata?.channel_s
-        ).length;
-        if (audioTracks)             WfdContext.setVar(ctx, 'audio_tracks', String(audioTracks));
-        const audioCodec = am.audio_codecs || gmc.audio_codecs || '';
-        if (audioCodec)              WfdContext.setVar(ctx, 'audio_codec',  audioCodec);
-
-        WfdContext.storeResult(ctx, varName + '_formats', {
-          formatId, components: components.length, gm, vm, gmc, am
-        });
-      }
-    } catch(e) {
-      // Non bloquant
-      WfdContext.storeResult(ctx, varName + '_formats', { error: e.message });
-    }
+    await _extractTechnical(assetId, varName, ctx, iconikClient);
   }
 
   return { port: 0 };
@@ -3984,6 +3996,22 @@ async function aps_search(node, ctx, iconikClient) {
     }
     if (_mdVals && typeof _mdVals === 'object') {
       Object.entries(_mdVals).forEach(([f, d]) => _expose(f, (d?.field_values || []).map(fv => fv.value)));
+    }
+
+    // ── Infos techniques du resultat unique (option "withFormats") ──────────
+    // Meme logique que l'aplatissement des metadonnees : une recherche qui
+    // ramene UN asset doit pouvoir donner acces a sa duree, sa resolution ou
+    // son codec sans qu'on rebranche un Fetch derriere juste pour ca.
+    //
+    // Repond a un cas concret : la duree en secondes est exigee par certaines
+    // APIs de livraison, mais {duration} restait vide car aucun Fetch du flux
+    // ne demandait les formats - et aucun ne visait l'asset video.
+    //
+    // Reserve au mode "ramener" et aux ASSETS : une Presence est un test, et
+    // une collection n'a pas de formats. Non bloquant.
+    if (cfg.withFormats && mode !== 'presence'
+        && (only.object_type === 'assets' || only.object_type === 'asset' || !only.object_type)) {
+      await _extractTechnical(only.id, resultVar, ctx, iconikClient);
     }
   }
 

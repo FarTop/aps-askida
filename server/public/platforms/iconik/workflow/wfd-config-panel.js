@@ -3229,6 +3229,18 @@ function buildCfgFields(pfx, family, cfg) {
     </div>
   </div>
 
+  <!-- Infos techniques du résultat unique -->
+  <div class="cfg-field">
+    <label class="cfg-label wfd-flex-gap4">
+      <input type="checkbox" id="${pfx}-sr-with-formats" ${cfg.withFormats?'checked':''}
+             onchange="srAutoSave('${pfx}')">
+      Ramener aussi les infos techniques (durée, résolution, codec)
+    </label>
+    <div class="cfg-hint">
+      Si la recherche ne ramène qu'un seul média, expose sa durée en secondes, sa résolution et son codec.
+    </div>
+  </div>
+
   <!-- Ports -->
   <div class="wfd-code-block-mt">
     <div class="wfd-section-up">Ports de sortie</div>
@@ -10331,6 +10343,7 @@ function srAutoSave(pfx) {
   node.config.limit       = parseInt(document.getElementById(pfx+'-sr-limit')?.value) || 500;
   node.config.resultVar   = document.getElementById(pfx+'-sr-result-var')?.value?.trim() || 'search_results';
   node.config.mode        = document.getElementById(pfx+'-sr-mode')?.value || node.config.mode || 'retrieve';
+  node.config.withFormats = !!document.getElementById(pfx+'-sr-with-formats')?.checked;
   // Persister vers le serveur sans déclencher renderCanvas
   if (typeof _sauvegarderEtatVersServeur === 'function') _sauvegarderEtatVersServeur();
 }
