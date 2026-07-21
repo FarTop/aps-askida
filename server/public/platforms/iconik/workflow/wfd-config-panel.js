@@ -5163,6 +5163,9 @@ function sauvegarderConfig() {
     node.config.parentFieldName = g('tree-parent-field') || '';
     node.config.typeFieldName   = g('tree-type-field') || '';
     node.config.parentBayardId  = g('tree-parent-bayard') || '';
+    node.config.orderFieldName  = (g('tree-order-field') || '').trim();
+    node.config.orderPad        = g('tree-order-pad')  || '';
+    node.config.orderSeed       = (g('tree-order-seed')  || '').trim();
     node.config.extraFields = Array.from(document.querySelectorAll('#cfg-tree-extra-fields .tree-field-row'))
       .map(row => ({
         key:   row.querySelector('.tree-extra-key')?.value.trim()   || '',
@@ -6152,6 +6155,19 @@ function _buildCreateTreePanel(pfx, cfg, wfdData) {
     <label class="cfg-label">BAYARD ID PARENT <span class="wfd-label-9-555">(optionnel — si la racine du template a déjà un parent créé ailleurs, ex : la Série pour un template Saison seule)</span></label>
     <input id="${pfx}-tree-parent-bayard" class="cfg-input" list="${pfx}-wfd-var-list"
       value="${escHtml(cfg.parentBayardId||'')}" placeholder="{serieMetadata.BayardID}">
+  </div>
+
+  <div class="cfg-field">
+    <label class="cfg-label">NUMÉRO D'ORDRE <span class="wfd-label-9-555">(optionnel — calculé en base, pas par comptage : deux créations rapprochées ne peuvent pas obtenir le même numéro)</span></label>
+    <div class="wfd-row-gap6c">
+      <input id="${pfx}-tree-order-field" class="cfg-input" list="${pfx}-um-meta-list"
+        value="${escHtml(cfg.orderFieldName||'')}" placeholder="Champ, ex : NumeroSaison">
+      <input id="${pfx}-tree-order-pad" class="cfg-input wfd-w80" type="number" min="0" max="6"
+        value="${escHtml(cfg.orderPad||'')}" placeholder="Zéros">
+    </div>
+    <input id="${pfx}-tree-order-seed" class="cfg-input" list="${pfx}-wfd-var-list"
+      value="${escHtml(cfg.orderSeed||'')}" placeholder="Amorce, ex : {search_results.count}">
+    <div class="cfg-hint">L'amorce ne sert qu'à la première création sous un parent, pour ne pas repartir à 1 sur une arborescence existante.</div>
   </div>
 
   <div class="cfg-field wfd-fetch-storecard">

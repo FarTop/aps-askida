@@ -143,6 +143,50 @@ async function set_var(node, ctx) {
 // par d'autres handlers (ex: create_tree) qui génèrent des IDs pour des
 // objets qui ne sont ni ctx.asset ni ctx.collection (ex: une collection
 // tout juste créée, à un niveau arbitraire de l'arbo).
+// ── Compteur atomique (numero d'ordre) ───────────────────────────
+// Le calcul d'un numero par "compter les existants + 1" est faux des que
+// deux creations se suivent : la recherche Iconik ne voit pas encore la
+// precedente (latence d'indexation), et deux runs simultanes lisent le meme
+// compte. Les deux produisent le meme numero.
+//
+// PostgreSQL tranche la question en une instruction : INSERT ... ON CONFLICT
+// DO UPDATE ... RETURNING est atomique, donc deux appels concurrents rendent
+// necessairement deux valeurs differentes.
+//
+// `seed` sert uniquement a la PREMIERE creation sous un parent donne : il
+// amorce le compteur au nombre d'objets deja presents dans Iconik, pour ne
+// pas repartir a 1 sur une arborescence existante. Ensuite il est ignore.
+async function _nextOrderNumber(scope, key, seed) {
+  const { PrismaClient } = require('@prisma/client');
+  const { PrismaPg }     = require('@prisma/adapter-pg');
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const _prisma = new PrismaClient({ adapter });
+  try {
+    // Creation paresseuse : evite une migration Prisma et rend le noeud
+    // utilisable immediatement. Idempotent, donc sans cout apres le 1er appel.
+    await _prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ApsCounter" (
+        "scope" TEXT NOT NULL,
+        "key"   TEXT NOT NULL,
+        "value" INTEGER NOT NULL,
+        "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY ("scope", "key")
+      )`);
+    const rows = await _prisma.$queryRawUnsafe(`
+      INSERT INTO "ApsCounter" ("scope","key","value")
+      VALUES ($1, $2, $3)
+      ON CONFLICT ("scope","key")
+      DO UPDATE SET "value" = "ApsCounter"."value" + 1, "updatedAt" = now()
+      RETURNING "value"`,
+      String(scope), String(key), Number(seed) + 1);
+    const val = Number(rows?.[0]?.value);
+    console.log(`[compteur] ${scope}/${key} → ${val}` + (Number(seed) ? ` (amorce ${seed})` : ''));
+    return val;
+  } finally {
+    await _prisma.$disconnect();
+  }
+}
+
 async function _bayardIdFor(objectId, objectType, orgId, length, fallbackId) {
   let id = fallbackId;
   const { PrismaClient } = require('@prisma/client');
@@ -1684,6 +1728,12 @@ async function create_tree(node, ctx, iconikClient) {
   // (ex: la Série, quand ce nœud crée seulement une Saison dessus). Sans ça,
   // le chainage ParentID ne fonctionne qu'a l'interieur d'un seul run.
   const parentSeedId = r(cfg.parentBayardId || '', ctx);
+  // Numero d'ordre atomique (optionnel) : si un champ est renseigne, sa valeur
+  // vient de PostgreSQL et non d'un comptage Iconik. Le compteur est porte par
+  // le PARENT, donc chaque Serie numerote ses Saisons independamment.
+  const orderField = (cfg.orderFieldName || '').trim();
+  const orderPad   = Math.max(0, Math.min(6, parseInt(cfg.orderPad) || 0));
+  const orderSeed  = parseInt(r(cfg.orderSeed || '0', ctx)) || 0;
   // Champs additionnels, appliques a CHAQUE collection creee (ex: Univers,
   // recupere sur la Serie parente pour une creation de Saison) - resolus
   // comme n'importe quel champ WFD, valeur figee au demarrage du run (pas
@@ -1696,6 +1746,22 @@ async function create_tree(node, ctx, iconikClient) {
   let lastGeneratedId = parentSeedId || null; // BayardID du dernier niveau généré, pour chaîner ParentID
 
   async function creerNiveau(nodeDef, parentIconikId) {
+    // Le numero d'ordre est calcule AVANT le titre : le nom de la collection
+    // ("Saison {NumeroSaison}") et la metadonnee doivent porter la meme
+    // valeur. Le calculer apres exposerait au cas ou le titre dit 03 et le
+    // champ 04. La variable prend le nom du champ, donc le template la
+    // designe naturellement : {NumeroSaison}, {NumeroEpisode}.
+    let orderValue = null;
+    if (orderField) {
+      try {
+        const n = await _nextOrderNumber(orderField, String(parentIconikId || 'racine'), orderSeed);
+        orderValue = orderPad ? String(n).padStart(orderPad, '0') : String(n);
+        WfdContext.setVar(ctx, orderField, orderValue);
+      } catch (e) {
+        console.warn('[compteur] echec, champ et titre sans numero :', e.message);
+      }
+    }
+
     const title = r(nodeDef.name || 'Sans nom', ctx);
 
     const col = await iconikClient.post('/API/assets/v1/collections/', {
@@ -1723,6 +1789,13 @@ async function create_tree(node, ctx, iconikClient) {
       fields[idFieldName] = { field_values: [{ value: generatedHere }] };
       if (lastGeneratedId) fields[parentFieldName] = { field_values: [{ value: lastGeneratedId }] };
       lastGeneratedId = generatedHere;
+    }
+
+    // Numero d'ordre : deja calcule en tete de fonction, pour que le titre et
+    // la metadonnee portent la meme valeur. Un echec du compteur ne fait pas
+    // perdre la collection deja creee - on continue sans le champ.
+    if (orderField && orderValue !== null) {
+      fields[orderField] = { field_values: [{ value: orderValue }] };
     }
 
     if (viewId && Object.keys(fields).length) {
