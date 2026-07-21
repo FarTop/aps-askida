@@ -726,7 +726,10 @@ async function exporterWordFlux() {
     // ── SECTION 3 — SCHÉMA DU WORKFLOW ───────────────────────
     doc.push(secTitle('3', 'Schéma du workflow', true));
     doc.push(txt(
-      'Le workflow se déclenche automatiquement. Les étapes s\'enchaînent comme suit :', { after: 160 }
+      // Ne pas affirmer un declenchement automatique : la section 2 vient de
+      // decrire un declenchement manuel par Custom Action. Le schema decrit un
+      // enchainement, pas un mode de declenchement.
+      'Enchaînement des étapes :', { after: 160 }
     ));
 
     const FAM_EN = {
@@ -775,7 +778,25 @@ async function exporterWordFlux() {
     const fetchViewName = (typeof wfdData !== 'undefined' && wfdData.mdViews)
       ? (wfdData.mdViews.find(v => v.id === fetchCfg.metadataViewId)?.name || fetchCfg.metadataViewId || '')
       : (fetchCfg.metadataViewId || '');
-    if (fetchViewName) {
+    // Un workflow multi-niveaux lit plusieurs vues : n'en annoncer qu'une
+    // laisserait croire que les autres n'existent pas. On rassemble toutes
+    // celles reellement referencees par les noeuds.
+    const _vues = [];
+    allNodes.forEach(function(n) {
+      const c = n.config || {};
+      [c.metadataViewId, c.mdViewId, c.viewId].forEach(function(v) {
+        if (v && _vues.indexOf(v) === -1) _vues.push(v);
+      });
+    });
+    const _nomsVues = _vues.map(function(v) {
+      return (typeof wfdData !== 'undefined' && wfdData.mdViews)
+        ? (wfdData.mdViews.find(function(x){ return x.id === v; })?.name || v) : v;
+    });
+    if (_nomsVues.length === 1) {
+      doc.push(txt('Vue Iconik utilisée : ' + _nomsVues[0], { size: 16, color: '555555', after: 120, italics: true }));
+    } else if (_nomsVues.length > 1) {
+      doc.push(txt('Vues Iconik utilisées : ' + _nomsVues.join(' · '), { size: 16, color: '555555', after: 120, italics: true }));
+    } else if (fetchViewName) {
       doc.push(txt('Vue Iconik utilisée : ' + fetchViewName, { size: 16, color: '555555', after: 120, italics: true }));
     }
     if (mdFields.length) {
@@ -833,7 +854,39 @@ async function exporterWordFlux() {
 
     // Nœuds avec config significative uniquement
     const specNodes = groupNodes.filter(n => _hasSignificantConfig(n));
-    specNodes.forEach((node, idx) => {
+
+    // Presentation par branche quand le workflow en comporte : le lecteur suit
+    // un niveau du debut a la fin au lieu de sauter de l'un a l'autre.
+    const _branches = _groupNodesByBranch(allNodes, allConns);
+    const _sections = [];
+    if (_branches) {
+      _branches.forEach(g => {
+        const ns = specNodes.filter(n => g.nodes.some(x => x.id === n.id));
+        if (ns.length) _sections.push({ label: g.label, nodes: ns });
+      });
+      // Filet : un noeud oublie par le regroupement doit rester documente.
+      const placed = new Set(_sections.flatMap(x => x.nodes.map(n => n.id)));
+      const reste = specNodes.filter(n => !placed.has(n.id));
+      if (reste.length) _sections.push({ label: 'Autres etapes', nodes: reste });
+    } else {
+      _sections.push({ label: null, nodes: specNodes });
+    }
+
+    let _num = 0;
+    _sections.forEach((sec, si) => {
+      if (sec.label) {
+        _num = 0;
+        doc.push(new Paragraph({
+          keepNext: true,
+          pageBreakBefore: si > 0,
+          spacing: { before: si > 0 ? 0 : 500, after: 200 },
+          children: [
+            new TextRun({ text: '5.' + (si + 1) + '  ', size: 22, font: 'Arial', color: 'AAAAAA', bold: true }),
+            new TextRun({ text: sec.label, size: 28, font: 'Arial', color: '0F4761', bold: true })
+          ]
+        }));
+      }
+      sec.nodes.forEach((node, idx) => {
       const cfg   = node.config || {};
       const fam   = FAMILIES[node.family] || {};
       const fHex  = _famColor(node.family);
@@ -849,7 +902,8 @@ async function exporterWordFlux() {
         border: { left: { style: BorderStyle.SINGLE, size: 18, color: fHex, space: 8 } },
         indent: { left: 260 },
         children: [
-          new TextRun({ text: '5.' + (idx + 1) + '  ', size: 18, font: 'Arial', color: 'AAAAAA', bold: true }),
+          new TextRun({ text: (sec.label ? '5.' + (si + 1) + '.' + (++_num) : '5.' + (idx + 1)) + '  ',
+            size: 18, font: 'Arial', color: 'AAAAAA', bold: true }),
           new TextRun({ text: node.name || '', size: 24, font: 'Arial', color: '111111', bold: true }),
           new TextRun({ text: '   ' + (fam.label || '').toUpperCase(), size: 12, font: 'Arial', color: fHex, bold: true })
         ]
@@ -883,6 +937,7 @@ async function exporterWordFlux() {
         }));
       }
       doc.push(sp());
+      });
     });
 
     // ── SECTION 5 — NŒUDS REQUIS POUR L'ORCHESTRATEUR ────────
@@ -1158,6 +1213,84 @@ async function exporterWordFlux() {
 // ═══════════════════════════════════════════════════════════════
 
 // ── Tri BFS des nœuds dans l'ordre séquentiel ────────────────
+// ── Regroupement des noeuds par branche ───────────────────────
+// La section 5 enumerait les noeuds dans l'ordre du tri topologique. Sur un
+// workflow a branches paralleles, la lecture saute d'une branche a l'autre
+// (Collection Check, Fetch Saison, Collection Check, Count ?...) et les noms
+// se repetent sans qu'on puisse les distinguer : quatre "Collection Check",
+// six "Attendre", six "AWS S3". Le lecteur ne peut pas suivre.
+//
+// On identifie la decision qui ouvre les branches — celle dont les ports
+// mènent aux sous-graphes exclusifs les plus larges — puis on classe chaque
+// noeud : tronc commun (avant la decision, ou partage par plusieurs
+// branches), ou branche donnee. Le document raconte alors un parcours par
+// niveau au lieu d'une liste plate.
+function _groupNodesByBranch(nodes, conns) {
+  const out = {};
+  conns.forEach(c => { (out[c.fromNode] = out[c.fromNode] || []).push(c); });
+
+  function reachable(startId) {
+    const seen = new Set(); const stack = [startId];
+    while (stack.length) {
+      const cur = stack.pop();
+      if (seen.has(cur)) continue;
+      seen.add(cur);
+      (out[cur] || []).forEach(c => stack.push(c.toNode));
+    }
+    return seen;
+  }
+
+  // La bonne decision est celle qui separe le plus : on compte les noeuds
+  // atteignables par un seul de ses ports.
+  let best = null;
+  nodes.filter(n => n.family === 'decision').forEach(dec => {
+    const ports = out[dec.id] || [];
+    if (ports.length < 2) return;
+    const sets = ports.map(c => ({ port: c.fromPort, set: reachable(c.toNode) }));
+    let exclusive = 0;
+    sets.forEach((s, i) => s.set.forEach(id => {
+      if (!sets.some((o, j) => j !== i && o.set.has(id))) exclusive++;
+    }));
+    if (!best || exclusive > best.exclusive) best = { dec, sets, exclusive };
+  });
+
+  // Pas de branches nettes : on garde la presentation lineaire.
+  if (!best || best.exclusive < 3) return null;
+
+  function labelOf(port) {
+    const ps = (typeof buildPortsDef === 'function')
+      ? (buildPortsDef(best.dec.family, best.dec.config || {}).outputs || []) : [];
+    return (ps[port] && ps[port].label) || ('Branche ' + (port + 1));
+  }
+
+  const assign = {};
+  best.sets.forEach((s, i) => s.set.forEach(id => {
+    if (best.sets.some((o, j) => j !== i && o.set.has(id))) { assign[id] = null; return; }
+    if (assign[id] === undefined) assign[id] = labelOf(s.port);
+  }));
+
+  // Le tronc commun couvre deux moments opposes : ce qui precede
+  // l'aiguillage (identification, controles) et ce qui suit la reconvergence
+  // (publication, verification, statut). Les melanger brouillerait le recit ;
+  // on les separe en regardant si le noeud peut ATTEINDRE la decision.
+  const groups = [];
+  const commun = nodes.filter(n => !assign[n.id]);
+  const amont  = commun.filter(n => n.id === best.dec.id || reachable(n.id).has(best.dec.id));
+  const aval   = commun.filter(n => !amont.some(x => x.id === n.id));
+  if (amont.length) groups.push({ label: 'Etapes communes — avant aiguillage', nodes: amont });
+  const vus = new Set();
+  best.sets.forEach(s => {
+    const lbl = labelOf(s.port);
+    if (vus.has(lbl)) return;
+    vus.add(lbl);
+    const ns = nodes.filter(n => assign[n.id] === lbl);
+    if (ns.length) groups.push({ label: 'Branche ' + lbl, nodes: ns });
+  });
+  if (aval.length) groups.push({ label: 'Etapes communes — publication et verification', nodes: aval });
+  return groups.length > 1 ? groups : null;
+}
+
+// ── Tri par flux ──────────────────────────────────────────────
 function _sortNodesByFlow(nodes, conns) {
   const inDeg = {};
   nodes.forEach(n => { inDeg[n.id] = 0; });
@@ -2189,7 +2322,11 @@ function _buildOperationalGuide(nodes, conns) {
       );
     }
 
-    guide.triggerSteps.push('Déclenchement manuel : sélectionner l\'asset dans Iconik → menu Actions → « ' + caName + ' ».');
+    // Le declencheur porte son contexte : une Custom Action de collection ne
+    // se lance pas sur un asset. Ecrire "asset" partout etait faux des que le
+    // workflow travaille au niveau collection.
+    const _cible = (trigCfg.context === 'COLLECTION') ? 'la collection' : 'l\'asset';
+    guide.triggerSteps.push('Déclenchement manuel : sélectionner ' + _cible + ' dans Iconik → menu Actions → « ' + caName + ' ».');
     guide.triggerColor = '0F4761';
 
   } else if (trigCfg.eventType === 'metadata_changed') {
@@ -2215,15 +2352,26 @@ function _buildOperationalGuide(nodes, conns) {
   // ── Suivi ─────────────────────────────────────────────────────
   const historyNodes = nodes.filter(function(n){ return n.family === 'workflow_history'; });
   if (historyNodes.length) {
-    guide.followUpSteps.push('Le statut du workflow est visible dans le champ métadonnée de l\'asset dans Iconik.');
+    // Le noeud Historique stocke sa vue dans mdViewId — metadataViewId
+    // appartient a Creer arborescence. La lecture etait donc toujours vide et
+    // le document affirmait "vue Historique" quelle que soit la realite.
+    // Depuis l'ecriture sans vue, il faut aussi savoir le dire.
+    const _cibleSuivi = historyNodes.some(function(h){ return (h.config||{}).target === 'collection'; })
+      ? 'de la collection' : 'de l\'asset';
+    guide.followUpSteps.push('Le statut du workflow est visible dans les métadonnées ' + _cibleSuivi + ' dans Iconik.');
+    const _vus = {};
     historyNodes.forEach(function(hn) {
       const cfg = hn.config || {};
-      const viewId = cfg.metadataViewId || '';
+      const champ = cfg.mdField || '(champ non renseigné)';
+      const viewId = cfg.mdViewId || '';
       const viewName = (typeof wfdData !== 'undefined' && wfdData.mdViews)
         ? (wfdData.mdViews.find(function(v){ return v.id === viewId; })?.name || viewId)
         : viewId;
-      const msg = cfg.message ? ' — Format : « ' + cfg.message.slice(0,60) + (cfg.message.length>60?'…':'') + ' »' : '';
-      guide.followUpSteps.push('Nœud « ' + hn.name + ' » : écrit dans la vue « ' + (viewName || 'Historique') + ' »' + msg);
+      const ou = viewId ? ('la vue « ' + viewName + ' »') : 'directement, sans vue';
+      const cle = champ + '|' + ou;
+      if (_vus[cle]) return;   // huit noeuds ecrivant au meme endroit = une ligne
+      _vus[cle] = true;
+      guide.followUpSteps.push('Champ « ' + champ + ' » — écrit ' + ou + '.');
     });
   }
 
@@ -2232,23 +2380,32 @@ function _buildOperationalGuide(nodes, conns) {
   checkerNodes.forEach(function(cn) {
     const checks = cn.config?.checks || [];
     if (checks.length) {
-      guide.followUpSteps.push('Vérifications automatiques (' + cn.name + ') : ' + checks.map(function(c){ return c.label || c.endpoint || '?'; }).join(', ') + '.');
+      // "artwork, artwork, artwork" n'apprend rien : on compte les doublons de
+      // libelle plutot que de les repeter.
+      const _cpt = {};
+      checks.forEach(function(c){ const l = c.label || c.endpoint || '?'; _cpt[l] = (_cpt[l]||0)+1; });
+      const _liste = Object.keys(_cpt).map(function(l){ return _cpt[l] > 1 ? (l + ' ×' + _cpt[l]) : l; });
+      guide.followUpSteps.push('Vérifications automatiques (' + cn.name + ') : ' + _liste.join(', ') + '.');
     }
   });
 
   // ── Causes d'échec ────────────────────────────────────────────
   // Wait For — timeout possible
+  // Six noeuds Attendre identiques produisaient six fois les deux memes
+  // phrases. On dedoublonne sur le contenu, pas sur le nom du noeud.
   const waitNodes = nodes.filter(function(n){ return n.family === 'wait_for'; });
+  const _dejaVu = {};
+  function _pousserEchec(txt) { if (!_dejaVu[txt]) { _dejaVu[txt] = true; guide.failureSteps.push(txt); } }
   waitNodes.forEach(function(wn) {
     const cfg = wn.config || {};
     const tout = (cfg.interval && cfg.maxRetries) ? (cfg.interval * cfg.maxRetries) : null;
-    guide.failureSteps.push(
-      '« ' + wn.name + ' » : timeout après ' + (tout ? tout + 's' : 'N tentatives') +
+    _pousserEchec(
+      'Attente d\'un export : timeout après ' + (tout ? tout + 's' : 'N tentatives') +
       ' si la condition « ' + (cfg.path||'status') + ' = ' + (cfg.expected||'COMPLETED') + ' » n\'est pas atteinte.'
     );
     if (cfg.failValues) {
       const fv = Array.isArray(cfg.failValues) ? cfg.failValues.join(', ') : cfg.failValues;
-      guide.failureSteps.push('Échec immédiat si le statut retourné est : ' + fv + '.');
+      _pousserEchec('Échec immédiat si le statut retourné est : ' + fv + '.');
     }
   });
 
