@@ -609,10 +609,18 @@ async function exporterWordFlux() {
     // On préfère lkRows (données réelles du nœud) à wfdMappings
     const mappingRows = lkRows.length ? lkRows : (mappingObj?.rows || []);
 
+    // Deux representations du workflow coexistent : le diagramme graphique en
+    // page paysage (ci-dessous) et un tableau lineaire en section Schema. Les
+    // deux suivent l'ordre du graphe et, sur un workflow a branches, sautent
+    // de l'une a l'autre sans le montrer. Desactives tant que le generateur
+    // de diagramme du Viewer n'est pas termine : mieux vaut pas de schema
+    // qu'un schema trompeur. Une seule ligne a repasser a true.
+    const INCLURE_SCHEMA = false;
+
     // ═══════════════════════════════════════════════════════
     // SECTION PAYSAGE : SCHÉMA GRAPHIQUE
     // ═══════════════════════════════════════════════════════
-    const flowchartElements = await buildFlowchartDocx(flux, docx);
+    const flowchartElements = INCLURE_SCHEMA ? await buildFlowchartDocx(flux, docx) : [];
 
     // ═══════════════════════════════════════════════════════
     // SECTION PORTRAIT : DOCUMENT COMPLET
@@ -626,12 +634,6 @@ async function exporterWordFlux() {
     // obliger a renumeroter tout le document a la main.
     let _secNo = 0;
     const nextSec = () => String(++_secNo);
-
-    // Le schema est un tableau lineaire dans l'ordre du graphe : sur un
-    // workflow a branches, il saute de l'une a l'autre et n'apprend rien.
-    // Desactive tant que le generateur de diagramme du Viewer n'est pas
-    // termine — mieux vaut pas de schema qu'un schema trompeur.
-    const INCLURE_SCHEMA = false;
 
     const _sCtx = nextSec();
     doc.push(secTitle(_sCtx, 'Contexte et objectifs', true));
@@ -1232,12 +1234,14 @@ async function exporterWordFlux() {
           children: coverPage
         },
         // Section 2 : paysage — schéma graphique (sans header/footer)
-        {
+        // Retiree entierement quand le schema est desactive : une section
+        // sans contenu laisserait une page blanche en travers du document.
+        ...(INCLURE_SCHEMA ? [{
           properties: {
             page: { size: { width: 16838, height: 11906 }, margin: { top: 851, right: 851, bottom: 851, left: 851 } }
           },
           children: flowchartElements
-        },
+        }] : []),
         // Section 3 : portrait — document avec header/footer Askida
         {
           headers: { default: _header },
