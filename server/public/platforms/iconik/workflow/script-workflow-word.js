@@ -633,7 +633,8 @@ async function exporterWordFlux() {
     // termine — mieux vaut pas de schema qu'un schema trompeur.
     const INCLURE_SCHEMA = false;
 
-    doc.push(secTitle(nextSec(), 'Contexte et objectifs', true));
+    const _sCtx = nextSec();
+    doc.push(secTitle(_sCtx, 'Contexte et objectifs', true));
 
     doc.push(txt(
       'Ce document décrit les spécifications techniques et fonctionnelles du workflow ' +
@@ -643,14 +644,14 @@ async function exporterWordFlux() {
     doc.push(txt('— Les éditeurs de solutions d\'orchestration souhaitant reproduire ce workflow dans leur plateforme.', { indent: 240, after: 200 }));
 
     // Périmètre auto depuis les familles présentes
-    doc.push(subTitle('1.1 Périmètre'));
+    doc.push(subTitle(_sCtx + '.1 Périmètre'));
     doc.push(txt('Le workflow couvre les opérations suivantes :', { after: 120 }));
     const perimeter = _buildPerimeter(allNodes);
     perimeter.forEach(line => doc.push(txt('— ' + line, { indent: 240, after: 60 })));
     doc.push(sp());
 
     // Systèmes impliqués
-    doc.push(subTitle('1.2 Systèmes impliqués', true));
+    doc.push(subTitle(_sCtx + '.2 Systèmes impliqués', true));
     const systems = _buildSystems(allNodes);
     doc.push(new Table({
       width: { size: TW, type: WidthType.DXA },
@@ -660,6 +661,46 @@ async function exporterWordFlux() {
         ...systems.map((s, i) => dataRow([s.name, s.role, s.usage], i, [2000, 2800, 4560]))
       ]
     }));
+    doc.push(sp());
+
+    // ── 1.3 LIVRABLES ASSOCIÉS ──────────────────────────────────
+    // Le docx porte la logique, les autres exports portent les appels. Sans
+    // ce renvoi, un integrateur peut prendre le script Python pour une
+    // implementation complete alors qu'il execute les etapes lineairement,
+    // sans reproduire l'aiguillage. Le dire ici transforme une limite en
+    // repartition assumee entre livrables.
+    const _slugDoc = org.replace(/\s+/g, '-');
+    const _nomFlux = (flux.name || 'workflow').replace(/\s+/g, '-');
+    doc.push(subTitle(_sCtx + '.3 Livrables associés', true));
+    doc.push(txt(
+      'Ce document décrit la logique du workflow : les branches, les conditions et les prérequis. ' +
+      'Le détail exact des appels API se trouve dans les livrables suivants, générés depuis la même source.',
+      { after: 120 }
+    ));
+    doc.push(new Table({
+      width: { size: TW, type: WidthType.DXA },
+      columnWidths: [3400, 4160, 1800],
+      rows: [
+        headerRow([['Fichier', 3400], ['Contenu', 4160], ['Usage', 1800]]),
+        ...[
+          [_slugDoc + '-' + _nomFlux + '-api-ops.html',
+           'Chaque appel HTTP, nœud par nœud : méthode, endpoint et corps de requête.',
+           'Consulter, partager'],
+          [_slugDoc + '-' + _nomFlux + '-postman.json',
+           'Les mêmes appels, importables dans Postman.',
+           'Tester à la main'],
+          [_slugDoc + '-' + _nomFlux + '-api-ops.py',
+           'Script complet : clients S3 et API cible, attente des exports, création puis mise à jour, table de correspondance des champs.',
+           'Reproduire']
+        ].map((r, i) => dataRow(r, i, [3400, 4160, 1800]))
+      ]
+    }));
+    doc.push(sp());
+    doc.push(txt(
+      'Le script exécute les étapes de façon linéaire et ne reproduit pas l\'aiguillage : ' +
+      'la logique de branchement est décrite dans le présent document.',
+      { after: 120, italics: true, color: '555555', size: 18 }
+    ));
     doc.push(sp());
 
     // ── SECTION 2 — GUIDE OPÉRATIONNEL ──────────────────────────
