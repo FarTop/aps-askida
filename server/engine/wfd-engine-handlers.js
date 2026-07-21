@@ -153,9 +153,21 @@ async function set_var(node, ctx) {
 // DO UPDATE ... RETURNING est atomique, donc deux appels concurrents rendent
 // necessairement deux valeurs differentes.
 //
-// `seed` sert uniquement a la PREMIERE creation sous un parent donne : il
-// amorce le compteur au nombre d'objets deja presents dans Iconik, pour ne
-// pas repartir a 1 sur une arborescence existante. Ensuite il est ignore.
+// Mais un compteur qui ne fait QUE s'incrementer ne redescend jamais : une
+// collection creee puis supprimee laisse un trou definitif. Tenable en
+// production, intenable en phase de test.
+//
+// D'ou la fenetre de rafale : le compteur ne prime sur Iconik que pendant
+// quelques minutes.
+//
+//   - dans la fenetre  : GREATEST(amorce, valeur+1) — l'indexation Iconik n'a
+//                        pas suivi, seul le compteur sait ou on en est
+//   - hors fenetre     : on reprend l'amorce — la recherche reflete la
+//                        realite, suppressions comprises
+//
+// On garde ainsi la protection contre les doublons sans figer les trous.
+const _ORDER_BURST_MINUTES = 5;
+
 async function _nextOrderNumber(scope, key, seed) {
   const { PrismaClient } = require('@prisma/client');
   const { PrismaPg }     = require('@prisma/adapter-pg');
@@ -176,11 +188,19 @@ async function _nextOrderNumber(scope, key, seed) {
       INSERT INTO "ApsCounter" ("scope","key","value")
       VALUES ($1, $2, $3)
       ON CONFLICT ("scope","key")
-      DO UPDATE SET "value" = "ApsCounter"."value" + 1, "updatedAt" = now()
-      RETURNING "value"`,
-      String(scope), String(key), Number(seed) + 1);
+      DO UPDATE SET
+        "value" = CASE
+          WHEN "ApsCounter"."updatedAt" < now() - ($4 || ' minutes')::interval
+            THEN $3
+          ELSE GREATEST($3, "ApsCounter"."value" + 1)
+        END,
+        "updatedAt" = now()
+      RETURNING "value", ("ApsCounter"."updatedAt" < now() - ($4 || ' minutes')::interval) AS resync`,
+      String(scope), String(key), Number(seed) + 1, String(_ORDER_BURST_MINUTES));
     const val = Number(rows?.[0]?.value);
-    console.log(`[compteur] ${scope}/${key} → ${val}` + (Number(seed) ? ` (amorce ${seed})` : ''));
+    console.log(`[compteur] ${scope}/${key} → ${val}`
+      + (Number(seed) ? ` (amorce ${Number(seed) + 1})` : '')
+      + (rows?.[0]?.resync ? ' [resynchronisé sur Iconik]' : ''));
     return val;
   } finally {
     await _prisma.$disconnect();
