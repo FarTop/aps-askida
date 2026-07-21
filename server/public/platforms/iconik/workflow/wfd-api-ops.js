@@ -161,6 +161,80 @@ function opsForNode(node, flux) {
       op('—', '(planificateur)', 'Declenchement : ' + (cfg.schedule||cfg.cron||'{schedule}'));
       break;
 
+    // ── Recherche APS ────────────────────────────────────────
+    // Absente jusqu'ici : les noeuds aps_search ne produisaient aucune
+    // operation, et buildApiOpsFromFlux ecarte les noeuds sans operation
+    // (.filter(n => n.ops.length > 0)). Sur BAYARD|PUBLISH|VODFACTORY, 17
+    // noeuds sur 76 disparaissaient donc de Postman, du HTML et du Python —
+    // precisement les controles de presence des artworks, videos et
+    // sous-titres. Le lecteur croyait tenir la liste complete des appels.
+    //
+    // Le body reproduit celui du moteur (_apsSearchBuildBody) : doc_types +
+    // syntaxe "query" Lucene. Le tableau "filters" natif d'Iconik est ignore
+    // par cet endpoint — verifie en conditions reelles — d'ou son maintien a
+    // vide, pour la forme seulement.
+    case 'aps_search': {
+      const SYSTEM_FIELDS = ['id','title','media_type','date_created','date_modified','object_type','status','archive_status','external_id'];
+      const TYPE_MAP = { asset:'assets', collection:'collections', segment:'segments', saved_search:'saved_searches', format:'formats', storage:'storages' };
+      const escV = v => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+      (cfg.blocks || []).forEach((block, bi) => {
+        const objectType = TYPE_MAP[block.objectType] || block.objectType || 'assets';
+        const isCol = objectType === 'collections';
+        const collectionIds = [];
+        const terms = [];
+
+        (block.criteria || []).forEach(crit => {
+          if (!crit.field) return;
+          const opName = crit.op || 'equals';
+          const val    = crit.value || '';
+
+          if (crit.field === '__collection__') {
+            // Un asset se retrouve par in_collections, une collection fille
+            // par parent_id : deux champs Iconik distincts, pas
+            // interchangeables.
+            const fname = (opName === 'in_branch') ? 'ancestor_collections' : (isCol ? 'parent_id' : 'in_collections');
+            terms.push(fname + ':"' + escV(val) + '"');
+            collectionIds.push(val);
+            return;
+          }
+
+          const fname = SYSTEM_FIELDS.includes(crit.field) ? crit.field : 'metadata.' + crit.field;
+          const v = escV(val);
+          if      (opName === 'equals')       terms.push(fname + ':"' + v + '"');
+          else if (opName === 'not_equals')   terms.push('NOT ' + fname + ':"' + v + '"');
+          else if (opName === 'contains')     terms.push(fname + ':*' + v + '*');
+          else if (opName === 'not_contains') terms.push('NOT ' + fname + ':*' + v + '*');
+          else if (opName === 'starts_with')  terms.push(fname + ':' + v + '*');
+          else if (opName === 'is_empty')     terms.push('NOT _exists_:' + fname);
+          else if (opName === 'is_not_empty') terms.push('_exists_:' + fname);
+          else if (opName === 'before')       terms.push(fname + ':<"' + v + '"');
+          else if (opName === 'after')        terms.push(fname + ':>"' + v + '"');
+          else if (opName === 'gt')           terms.push(fname + ':>' + v);
+          else if (opName === 'lt')           terms.push(fname + ':<' + v);
+          else                                 terms.push(fname + ':"' + v + '"');
+        });
+
+        const body = {
+          doc_types: [objectType],
+          query    : terms.join(' AND '),
+          filters  : [],
+          limit    : parseInt(cfg.limit) || 100,
+          offset   : 0
+        };
+        if (collectionIds.length) body.collection_ids = collectionIds;
+
+        const quoi = (block.criteria || [])
+          .filter(c => c.field && c.field !== '__collection__')
+          .map(c => c.field + ' ' + (c.op || 'equals') + ' ' + (c.value || ''))
+          .join(', ');
+        op('POST', '/API/search/v1/search/',
+          'Recherche ' + objectType + ((cfg.blocks || []).length > 1 ? ' — bloc ' + (bi + 1) : '') + (quoi ? ' : ' + quoi : ''),
+          body);
+      });
+      break;
+    }
+
     case 'fetch': {
       op('GET', '/API/assets/v1/assets/{asset_id}/', 'Recuperer les proprietes de l\'asset');
       const viewId = cfg.metadataViewId || cfg.fetchMdViewId;
