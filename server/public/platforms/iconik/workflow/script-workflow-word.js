@@ -622,7 +622,18 @@ async function exporterWordFlux() {
 
 
     // ── SECTION 1 — CONTEXTE ET OBJECTIFS ────────────────────
-    doc.push(secTitle('1', 'Contexte et objectifs', true));  // ORDRE OK
+    // Numerotation dynamique : retirer ou ajouter une section ne doit pas
+    // obliger a renumeroter tout le document a la main.
+    let _secNo = 0;
+    const nextSec = () => String(++_secNo);
+
+    // Le schema est un tableau lineaire dans l'ordre du graphe : sur un
+    // workflow a branches, il saute de l'une a l'autre et n'apprend rien.
+    // Desactive tant que le generateur de diagramme du Viewer n'est pas
+    // termine — mieux vaut pas de schema qu'un schema trompeur.
+    const INCLURE_SCHEMA = false;
+
+    doc.push(secTitle(nextSec(), 'Contexte et objectifs', true));
 
     doc.push(txt(
       'Ce document décrit les spécifications techniques et fonctionnelles du workflow ' +
@@ -652,7 +663,8 @@ async function exporterWordFlux() {
     doc.push(sp());
 
     // ── SECTION 2 — GUIDE OPÉRATIONNEL ──────────────────────────
-    doc.push(secTitle('2', 'Guide opérationnel', true));
+    const _sGuide = nextSec();
+    doc.push(secTitle(_sGuide, 'Guide opérationnel', true));
     doc.push(txt(
       'Cette section décrit ce qu\'un utilisateur Iconik doit faire pour déclencher et suivre ce workflow, ' +
       'indépendamment de toute solution d\'orchestration.', { after: 200 }
@@ -661,7 +673,7 @@ async function exporterWordFlux() {
     const opGuide = _buildOperationalGuide(allNodes, allConns);
 
     // 4.1 Prérequis utilisateur
-    doc.push(subTitle('2.1 Prérequis — Métadonnées à renseigner', true));
+    doc.push(subTitle(_sGuide + '.1 Prérequis — Métadonnées à renseigner', true));
     doc.push(txt(
       'Avant de déclencher le workflow, les champs suivants doivent être renseignés sur l\'asset dans Iconik :', { after: 160 }
     ));
@@ -684,7 +696,7 @@ async function exporterWordFlux() {
 
     // 4.2 Déclenchement
     doc.push(new Paragraph({ pageBreakBefore: true, spacing: { before: 0, after: 0 }, children: [] }));
-    doc.push(subTitle('2.2 Déclenchement du workflow', true));
+    doc.push(subTitle(_sGuide + '.2 Déclenchement du workflow', true));
     opGuide.triggerSteps.forEach(function(step) {
       doc.push(new Paragraph({
         spacing: { before: 0, after: 60 },
@@ -697,7 +709,7 @@ async function exporterWordFlux() {
 
     // 4.3 Suivi
     if (opGuide.followUpSteps.length) {
-      doc.push(subTitle('2.3 Suivi et résultat', true));
+      doc.push(subTitle(_sGuide + '.3 Suivi et résultat', true));
       opGuide.followUpSteps.forEach(function(step) {
         doc.push(new Paragraph({
           spacing: { before: 0, after: 60 },
@@ -711,7 +723,7 @@ async function exporterWordFlux() {
 
     // 4.4 Conditions d'échec
     if (opGuide.failureSteps.length) {
-      doc.push(subTitle('2.4 Causes d\'échec et diagnostic', true));
+      doc.push(subTitle(_sGuide + '.4 Causes d\'échec et diagnostic', true));
       opGuide.failureSteps.forEach(function(step) {
         doc.push(new Paragraph({
           spacing: { before: 0, after: 60 },
@@ -723,8 +735,9 @@ async function exporterWordFlux() {
       doc.push(sp());
     }
 
-    // ── SECTION 3 — SCHÉMA DU WORKFLOW ───────────────────────
-    doc.push(secTitle('3', 'Schéma du workflow', true));
+    // ── SECTION — SCHÉMA DU WORKFLOW (desactive) ─────────────
+    if (INCLURE_SCHEMA) {
+    doc.push(secTitle(nextSec(), 'Schéma du workflow', true));
     doc.push(txt(
       // Ne pas affirmer un declenchement automatique : la section 2 vient de
       // decrire un declenchement manuel par Custom Action. Le schema decrit un
@@ -767,13 +780,15 @@ async function exporterWordFlux() {
       ]
     }));
     doc.push(sp());
+    }  // fin INCLURE_SCHEMA
 
     // ── SECTION 4 — PRÉREQUIS ET CONFIGURATION ───────────────
-    doc.push(secTitle('4', 'Prérequis et configuration', true));
+    const _sPre = nextSec();
+    doc.push(secTitle(_sPre, 'Prérequis et configuration', true));
 
     // 3.1 Champs MD — depuis wfdData.metadata croisé avec lkRows + update_meta
     const mdFields = _buildMetadataFields(allNodes, mappingRows);
-    doc.push(subTitle('4.1 Champs de métadonnées Iconik'));
+    doc.push(subTitle(_sPre + '.1 Champs de métadonnées Iconik'));
     // Nom de la vue depuis wfdData
     const fetchViewName = (typeof wfdData !== 'undefined' && wfdData.mdViews)
       ? (wfdData.mdViews.find(v => v.id === fetchCfg.metadataViewId)?.name || fetchCfg.metadataViewId || '')
@@ -837,7 +852,7 @@ async function exporterWordFlux() {
 
     // 3.2 Connexions API depuis wfdConnexions (connexionId des noeuds du flux)
     doc.push(new Paragraph({ pageBreakBefore: true, spacing: { before: 0, after: 0 }, children: [] }));
-    doc.push(subTitle('4.2 Connexions API requises', true));
+    doc.push(subTitle(_sPre + '.2 Connexions API requises', true));
     const apiConns = _buildApiConnectionsFromNodes(allNodes);
     doc.push(new Table({
       width: { size: TW, type: WidthType.DXA },
@@ -850,7 +865,8 @@ async function exporterWordFlux() {
     doc.push(sp());
 
     // ── SECTION 5 — SPÉCIFICATIONS TECHNIQUES PAR ÉTAPE ──────
-    doc.push(secTitle('5', 'Spécifications techniques par étape', true));
+    const _sSpec = nextSec();
+    doc.push(secTitle(_sSpec, 'Spécifications techniques par étape', true));
 
     // Nœuds avec config significative uniquement
     const specNodes = groupNodes.filter(n => _hasSignificantConfig(n));
@@ -881,7 +897,7 @@ async function exporterWordFlux() {
           pageBreakBefore: si > 0,
           spacing: { before: si > 0 ? 0 : 500, after: 200 },
           children: [
-            new TextRun({ text: '5.' + (si + 1) + '  ', size: 22, font: 'Arial', color: 'AAAAAA', bold: true }),
+            new TextRun({ text: _sSpec + '.' + (si + 1) + '  ', size: 22, font: 'Arial', color: 'AAAAAA', bold: true }),
             new TextRun({ text: sec.label, size: 28, font: 'Arial', color: '0F4761', bold: true })
           ]
         }));
@@ -902,7 +918,7 @@ async function exporterWordFlux() {
         border: { left: { style: BorderStyle.SINGLE, size: 18, color: fHex, space: 8 } },
         indent: { left: 260 },
         children: [
-          new TextRun({ text: (sec.label ? '5.' + (si + 1) + '.' + (++_num) : '5.' + (idx + 1)) + '  ',
+          new TextRun({ text: (sec.label ? _sSpec + '.' + (si + 1) + '.' + (++_num) : _sSpec + '.' + (idx + 1)) + '  ',
             size: 18, font: 'Arial', color: 'AAAAAA', bold: true }),
           new TextRun({ text: node.name || '', size: 24, font: 'Arial', color: '111111', bold: true }),
           new TextRun({ text: '   ' + (fam.label || '').toUpperCase(), size: 12, font: 'Arial', color: fHex, bold: true })
@@ -941,7 +957,7 @@ async function exporterWordFlux() {
     });
 
     // ── SECTION 5 — NŒUDS REQUIS POUR L'ORCHESTRATEUR ────────
-    doc.push(secTitle('6', 'Nœuds requis pour l\'orchestrateur', true));
+    doc.push(secTitle(nextSec(), 'Nœuds requis pour l\'orchestrateur', true));
     doc.push(txt(
       'Tout orchestrateur souhaitant implémenter ce workflow doit disposer des types de nœuds suivants :', { after: 160 }
     ));
@@ -960,7 +976,7 @@ async function exporterWordFlux() {
     // ── SECTION 6 — LIMITATIONS CONNUES ──────────────────────
     const limitations = _buildLimitations(allNodes);
     if (limitations.length) {
-      doc.push(secTitle('7', 'Limitations connues et points en suspens', true));
+      doc.push(secTitle(nextSec(), 'Limitations connues et points en suspens', true));
       doc.push(new Table({
         width: { size: TW, type: WidthType.DXA },
         columnWidths: [2400, 1600, 5360],
@@ -975,7 +991,7 @@ async function exporterWordFlux() {
     // ── SECTION 7 — PSEUDO-CODE DES ÉTAPES CLÉS ──────────────
     const pseudoItems = _buildPseudocode(allNodes, mappingRows);
     if (pseudoItems.length) {
-      const secNum = limitations.length ? '8' : '7';
+      const secNum = nextSec();
       doc.push(secTitle(secNum, 'Logique des étapes clés (pseudo-code)', true));
       doc.push(txt(
         'Cette section décrit la logique interne des étapes complexes, indépendamment de tout orchestrateur.', { after: 200 }
@@ -998,7 +1014,7 @@ async function exporterWordFlux() {
 
 
     // ── SECTION RÉCAPITULATIVE ───────────────────────────────────
-    const lastSecNum = pseudoItems.length ? (limitations.length ? 9 : 8) : (limitations.length ? 8 : 7);
+    const lastSecNum = nextSec();
     doc.push(secTitle(String(lastSecNum), 'Récapitulatif', true));
 
     // Récap 1 : Variables utilisées
