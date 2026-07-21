@@ -1765,14 +1765,19 @@ async function create_tree(node, ctx, iconikClient) {
   const created = [];
   let lastGeneratedId = parentSeedId || null; // BayardID du dernier niveau généré, pour chaîner ParentID
 
-  async function creerNiveau(nodeDef, parentIconikId) {
+  async function creerNiveau(nodeDef, parentIconikId, isRoot = false) {
     // Le numero d'ordre est calcule AVANT le titre : le nom de la collection
     // ("Saison {NumeroSaison}") et la metadonnee doivent porter la meme
     // valeur. Le calculer apres exposerait au cas ou le titre dit 03 et le
     // champ 04. La variable prend le nom du champ, donc le template la
     // designe naturellement : {NumeroSaison}, {NumeroEpisode}.
+    // Seule la RACINE du template est numerotee : c'est elle qui represente
+    // l'objet (la Saison, l'Episode). Les niveaux inferieurs sont de la
+    // structure - un dossier d'artworks n'a pas de numero de saison. Sans
+    // cette restriction, chaque sous-collection ouvrait son propre compteur
+    // et recevait le meme numero que son parent.
     let orderValue = null;
-    if (orderField) {
+    if (orderField && isRoot) {
       try {
         const n = await _nextOrderNumber(orderField, String(parentIconikId || 'racine'), orderSeed);
         orderValue = orderPad ? String(n).padStart(orderPad, '0') : String(n);
@@ -1825,12 +1830,12 @@ async function create_tree(node, ctx, iconikClient) {
     created.push({ id: col.id, title, parentIconikId, bayardId: generatedHere, collectionType: nodeDef.collectionType || null });
 
     for (const child of (nodeDef.children || [])) {
-      await creerNiveau(child, col.id);
+      await creerNiveau(child, col.id, false);
     }
     return col;
   }
 
-  const rootCol = await creerNiveau(tpl, rootParentId);
+  const rootCol = await creerNiveau(tpl, rootParentId, true);
 
   // IDs generes, exposes simplement : le premier (racine, ex: la Serie) et le
   // dernier (le plus profond, ex: la Saison) - couvre le cas a 2 niveaux
