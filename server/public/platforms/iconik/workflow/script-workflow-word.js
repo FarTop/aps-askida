@@ -2148,6 +2148,84 @@ function _buildNodeSpecs(node, cfg, det, mappingRows, conns, allNodes) {
       break;
     }
 
+    // ── Recherche APS ────────────────────────────────────────
+    // La famille n'etait pas traitee : les sections "Recherche APS" du
+    // document sortaient vides. Sur BAYARD|PUBLISH|VODFACTORY cela
+    // representait 17 noeuds sur 76 - tous les controles de presence.
+    //
+    // On decrit le critere en clair ET la requete HTTP correspondante : le
+    // lecteur qui reconstruit le workflow ailleurs a besoin de l'appel exact,
+    // celui qui le maintient a besoin de l'intention.
+    case 'aps_search': {
+      const SYSTEM_FIELDS = ['id','title','media_type','date_created','date_modified','object_type','status','archive_status','external_id'];
+      const TYPE_MAP = { asset:'assets', collection:'collections', segment:'segments', saved_search:'saved_searches', format:'formats', storage:'storages' };
+      const OPS_FR = {
+        equals:'est égal à', not_equals:'est différent de', contains:'contient',
+        not_contains:'ne contient pas', starts_with:'commence par',
+        is_empty:'est vide', is_not_empty:'est renseigné',
+        before:'avant', after:'après', gt:'supérieur à', lt:'inférieur à',
+        in_branch:'dans la branche'
+      };
+      const escV = v => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+      add('Protocole', 'HTTPS — API Iconik');
+      add('Opération', 'POST recherche');
+      add('Résultat dans', cfg.resultVar ? '{' + cfg.resultVar + '}' : undefined, { mono: true });
+      add('Limite', cfg.limit);
+
+      (cfg.blocks || []).forEach((block, bi) => {
+        const objectType = TYPE_MAP[block.objectType] || block.objectType || 'assets';
+        const isCol = objectType === 'collections';
+        const prefixe = ((cfg.blocks || []).length > 1) ? 'Bloc ' + (bi + 1) + ' — ' : '';
+        const terms = [];
+        const humain = [];
+
+        (block.criteria || []).forEach(crit => {
+          if (!crit.field) return;
+          const opName = crit.op || 'equals';
+          const val    = crit.value || '';
+
+          if (crit.field === '__collection__') {
+            const fname = (opName === 'in_branch') ? 'ancestor_collections' : (isCol ? 'parent_id' : 'in_collections');
+            terms.push(fname + ':"' + escV(val) + '"');
+            humain.push('située dans la collection ' + val);
+            return;
+          }
+
+          const fname = SYSTEM_FIELDS.includes(crit.field) ? crit.field : 'metadata.' + crit.field;
+          const v = escV(val);
+          if      (opName === 'equals')       terms.push(fname + ':"' + v + '"');
+          else if (opName === 'not_equals')   terms.push('NOT ' + fname + ':"' + v + '"');
+          else if (opName === 'contains')     terms.push(fname + ':*' + v + '*');
+          else if (opName === 'not_contains') terms.push('NOT ' + fname + ':*' + v + '*');
+          else if (opName === 'starts_with')  terms.push(fname + ':' + v + '*');
+          else if (opName === 'is_empty')     terms.push('NOT _exists_:' + fname);
+          else if (opName === 'is_not_empty') terms.push('_exists_:' + fname);
+          else if (opName === 'before')       terms.push(fname + ':<"' + v + '"');
+          else if (opName === 'after')        terms.push(fname + ':>"' + v + '"');
+          else if (opName === 'gt')           terms.push(fname + ':>' + v);
+          else if (opName === 'lt')           terms.push(fname + ':<' + v);
+          else                                 terms.push(fname + ':"' + v + '"');
+
+          humain.push(crit.field + ' ' + (OPS_FR[opName] || opName) + (val ? ' « ' + val + ' »' : ''));
+        });
+
+        add(prefixe + 'Recherche', objectType === 'collections' ? 'Collections' : (objectType === 'assets' ? 'Assets' : objectType));
+        if (humain.length) addL(prefixe + 'Critères', humain);
+
+        const body = {
+          doc_types: [objectType],
+          query    : terms.join(' AND '),
+          filters  : [],
+          limit    : parseInt(cfg.limit) || 100,
+          offset   : 0
+        };
+        add(prefixe + 'Requête', 'POST /API/search/v1/search/', { mono: true });
+        addL(prefixe + 'Corps de requête', JSON.stringify(body, null, 2).split('\n'));
+      });
+      break;
+    }
+
     case 'loop': {
       const srcLabels = { files:'Fichiers asset', assets:'Assets collection', collection:'Sous-collections', list:'Liste JSON', metadata:'Champ meta' };
       add('Source de boucle', srcLabels[cfg.loopSource] || cfg.loopSource);
