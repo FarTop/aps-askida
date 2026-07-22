@@ -2520,7 +2520,9 @@ function _buildNodeSpecs(node, cfg, det, mappingRows, conns, allNodes) {
         });
 
         add(prefixe + 'Recherche', objectType === 'collections' ? 'Collections' : (objectType === 'assets' ? 'Assets' : objectType));
-        if (humain.length) addL(prefixe + 'Critères', humain);
+        // cellLines attend des objets { value, mono? } : lui passer des
+        // chaines rendait des cellules vides, sans erreur.
+        if (humain.length) addL(prefixe + 'Critères', humain.map(t => ({ value: t })));
 
         const body = {
           doc_types: [objectType],
@@ -2530,7 +2532,8 @@ function _buildNodeSpecs(node, cfg, det, mappingRows, conns, allNodes) {
           offset   : 0
         };
         add(prefixe + 'Requête', 'POST /API/search/v1/search/', { mono: true });
-        addL(prefixe + 'Corps de requête', JSON.stringify(body, null, 2).split('\n'));
+        addL(prefixe + 'Corps de requête',
+          JSON.stringify(body, null, 2).split('\n').map(l => ({ value: l, mono: true })));
       });
       break;
     }
