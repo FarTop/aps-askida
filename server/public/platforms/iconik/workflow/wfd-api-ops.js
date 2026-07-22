@@ -276,6 +276,47 @@ function opsForNode(node, flux) {
       break;
     }
 
+    // ── Creer arborescence ───────────────────────────────────
+    // Famille absente : create_tree ne produisait aucune operation, et
+    // buildApiOpsFromFlux ecarte les noeuds sans operation. Les quatre
+    // workflows CREER perdaient donc leur noeud central - sur CREER SERIE et
+    // CREER UNITAIRE, c'est un des deux seuls noeuds du flux.
+    //
+    // Le noeud enchaine deux appels par niveau du modele d'arborescence :
+    // creation de la collection, puis ecriture des metadonnees dans la vue.
+    case 'create_tree': {
+      const idField     = cfg.idFieldName     || 'BayardID';
+      const parentField = cfg.parentFieldName || 'ParentID';
+      const typeField   = cfg.typeFieldName   || 'TypeCollection';
+
+      op('POST', '/API/assets/v1/collections/',
+        'Créer la collection — répété pour chaque niveau du modèle d\'arborescence',
+        {
+          title    : '<titre du niveau, variables résolues>',
+          parent_id: cfg.parentId || '{collection.id}'
+        });
+
+      // Les champs ecrits : systeme + supplementaires. On montre la forme
+      // exacte attendue par Iconik (field_values), pas un objet a plat.
+      const champs = {};
+      champs[idField]   = { field_values: [{ value: '<identifiant généré>' }] };
+      champs[typeField] = { field_values: [{ value: '<type du niveau>' }] };
+      if (cfg.parentBayardId) {
+        champs[parentField] = { field_values: [{ value: cfg.parentBayardId }] };
+      }
+      if (cfg.orderFieldName) {
+        champs[cfg.orderFieldName] = { field_values: [{ value: '<numéro d\'ordre, calculé en base>' }] };
+      }
+      (cfg.extraFields || []).forEach(f => {
+        if (f.key) champs[f.key] = { field_values: [{ value: String(f.value ?? '') }] };
+      });
+
+      op('PUT', '/API/metadata/v1/collections/{id}/views/' + (cfg.metadataViewId || '{viewId}') + '/',
+        'Écrire les métadonnées de la collection créée',
+        { metadata_values: champs });
+      break;
+    }
+
     case 'fetch': {
       op('GET', '/API/assets/v1/assets/{asset_id}/', 'Recuperer les proprietes de l\'asset');
       const viewId = cfg.metadataViewId || cfg.fetchMdViewId;
