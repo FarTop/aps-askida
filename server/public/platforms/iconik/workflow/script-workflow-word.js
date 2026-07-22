@@ -1977,6 +1977,27 @@ function _buildNodeSpecs(node, cfg, det, mappingRows, conns, allNodes) {
                  (c.value !== undefined && c.value !== '' ? ' "' + c.value + '"' : '')
         })));
       }
+
+      // Une sortie non branchee arrete le workflow sans rien ecrire ni
+      // signaler. C'est un choix de conception legitime - un garde-fou qui
+      // refuse une operation invalide - mais invisible pour qui lit le
+      // document, et surtout pour l'utilisateur qui ne verra rien se passer.
+      const _sorties = (conns || []).filter(c => c.fromNode === node.id).map(c => c.fromPort);
+      const _defaut  = conds.length;   // le port par defaut suit les conditions
+      const _libDef  = cfg.defaultLabel || 'Par défaut';
+      if (_sorties.indexOf(_defaut) === -1) {
+        addL('Sortie « ' + _libDef +' » — non branchée', [
+          { value: 'Aucune suite n\'est câblée sur cette sortie : le workflow s\'arrête sans rien écrire et sans message.' },
+          { value: 'L\'utilisateur ne verra donc rien se produire. C\'est le comportement attendu lorsque l\'opération demandée n\'est pas valide à cet endroit de l\'arborescence.' }
+        ]);
+      }
+      const _nonBranchees = conds
+        .map((c, i) => ({ i, lbl: c.label || ('Port ' + (i + 1)) }))
+        .filter(x => _sorties.indexOf(x.i) === -1);
+      if (_nonBranchees.length) {
+        addL('Autres sorties non branchées',
+          _nonBranchees.map(x => ({ value: x.lbl + ' — le workflow s\'arrête sans message.' })));
+      }
       break;
     }
 
@@ -2459,6 +2480,19 @@ function _buildNodeSpecs(node, cfg, det, mappingRows, conns, allNodes) {
         { label: 'Identifiant',            value: cfg.idFieldName     || 'BayardID' },
         { label: 'Référence vers parent',  value: cfg.parentFieldName || 'ParentID' },
         { label: 'Type de collection',     value: cfg.typeFieldName   || 'TypeCollection' }
+      ]);
+
+      // L'identifiant est le pivot de toute la chaine : il devient
+      // l'external_id chez le partenaire. Ses deux proprietes ne se devinent
+      // pas a la lecture de la configuration, et les omettre exposerait a une
+      // reimplementation naive - un aleatoire non enregistre creerait des
+      // doublons a la moindre republication.
+      addL('Génération de l\'identifiant', [
+        { label: 'Champ',      value: cfg.idFieldName || 'BayardID' },
+        { label: 'Format',     value: 'Numérique à ' + (cfg.idLength || 8) + ' chiffres' },
+        { label: 'Unicité',    value: 'Garantie par un registre en base : aucune collision avec un identifiant déjà attribué.' },
+        { label: 'Rejouable',  value: 'Relancer le workflow sur la même collection rend le même identifiant, jamais un nouveau.' },
+        { label: 'Rôle',       value: 'Devient l\'identifiant externe du contenu chez le partenaire de diffusion.' }
       ]);
 
       if (cfg.parentBayardId) add('Identifiant du parent', cfg.parentBayardId, { mono: true });
@@ -3182,6 +3216,31 @@ function _buildOperationalGuide(nodes, conns) {
     // workflow travaille au niveau collection.
     const _cible = (trigCfg.context === 'COLLECTION') ? 'la collection' : 'l\'asset';
     guide.triggerSteps.push('Déclenchement manuel : sélectionner ' + _cible + ' dans Iconik → menu Actions → « ' + caName + ' ».');
+
+    // Une Decision dont la sortie par defaut n'est pas branchee est un
+    // garde-fou : elle interrompt le workflow quand l'operation n'est pas
+    // valide a cet endroit. Rien ne s'affiche alors cote utilisateur, qui
+    // peut croire a une panne. Le guide doit le dire avant, pas apres.
+    const _gardes = nodes.filter(function(n) {
+      if (n.family !== 'decision') return false;
+      const nb = (n.config && n.config.conditions ? n.config.conditions.length : 0);
+      const portsUtilises = (conns || []).filter(function(c){ return c.fromNode === n.id; }).map(function(c){ return c.fromPort; });
+      return portsUtilises.indexOf(nb) === -1;
+    });
+    _gardes.forEach(function(g) {
+      const cds = (g.config && g.config.conditions) || [];
+      const attendus = cds.map(function(c){ return c.value; }).filter(Boolean);
+      if (!attendus.length) return;
+      guide.triggerSteps.push(
+        'L\'action doit être lancée depuis le bon niveau : ' +
+        (g.config.field || 'le contexte') + ' doit valoir ' +
+        attendus.map(function(v){ return '« ' + v + ' »'; }).join(' ou ') + '.'
+      );
+      guide.triggerSteps.push(
+        'Lancée ailleurs, l\'action ne produit rien et n\'affiche aucun message : ce n\'est pas une panne, mais un refus de créer un objet au mauvais endroit de l\'arborescence.'
+      );
+    });
+
     guide.triggerColor = '0F4761';
 
   } else if (trigCfg.eventType === 'metadata_changed') {
