@@ -406,12 +406,38 @@ async function executeLoopNode(node, graph, ctx, nodeHandlers, iconikClient, onE
     WfdContext.setVar(ctx, loopVar + '_index', String(i));
     // Objet : exposer aussi ses champs à plat (même convention que le reste
     // du moteur), ex: {item.id}, {item.title} — sans avoir à parser du JSON.
+    //
+    // L'aplatissement s'arretait au premier niveau : `typeof v !== 'object'`
+    // ecartait tout ce qui n'etait pas une valeur simple. {item.id} marchait,
+    // mais {item.metadata.BayardID} n'existait pas — et rien ne le signalait :
+    // la variable non resolue laissait un trou dans l'URL, qui devenait
+    // /api/contents//action-statuses et rendait 404.
+    //
+    // Or les metadonnees d'une recherche Iconik sont imbriquees ET les
+    // valeurs sont des TABLEAUX :
+    //     { metadata: { BayardID: ["67939181"] } }
+    // d'ou la notation {item.metadata.BayardID.0}. On descend donc
+    // recursivement, en indexant les tableaux par leur position.
+    //
+    // Profondeur bornee : une structure profonde ou cyclique ne doit pas
+    // remplir le contexte de milliers de variables.
+    const MAX_PROFONDEUR = 6;
+    const aplatir = (valeur, prefixe, profondeur) => {
+      if (profondeur > MAX_PROFONDEUR) return;
+      if (Array.isArray(valeur)) {
+        valeur.forEach((v, idx) => aplatir(v, prefixe + '.' + idx, profondeur + 1));
+        return;
+      }
+      if (valeur && typeof valeur === 'object') {
+        Object.entries(valeur).forEach(([k, v]) => aplatir(v, prefixe + '.' + k, profondeur + 1));
+        return;
+      }
+      if (valeur !== null && valeur !== undefined) {
+        WfdContext.setVar(ctx, prefixe, String(valeur));
+      }
+    };
     if (raw && typeof raw === 'object') {
-      Object.entries(raw).forEach(([k, v]) => {
-        if (v !== null && v !== undefined && typeof v !== 'object') {
-          WfdContext.setVar(ctx, loopVar + '.' + k, String(v));
-        }
-      });
+      Object.entries(raw).forEach(([k, v]) => aplatir(v, loopVar + '.' + k, 1));
     }
 
     await followPort(node, 0, graph, ctx, nodeHandlers, iconikClient, onEvent, resolveClient);
