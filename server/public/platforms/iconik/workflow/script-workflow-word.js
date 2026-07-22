@@ -1845,9 +1845,49 @@ function _buildNodeSpecs(node, cfg, det, mappingRows, conns, allNodes) {
 
   switch (node.family) {
 
+    // ── Minuterie ────────────────────────────────────────────
+    // Traitee a part : une minuterie n'a ni asset ni contexte de selection,
+    // la ligne "Asset ID transmis" du declencheur manuel n'a aucun sens ici.
+    // Et l'expression cron brute n'est lisible que par qui en connait la
+    // syntaxe - le noeud porte pourtant la frequence en clair.
+    case 'timer': {
+      const JOURS = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+      const hh = String(cfg.cronHour ?? 0).padStart(2, '0');
+      const mm = String(cfg.cronMinute ?? 0).padStart(2, '0');
+
+      if (cfg.timerMode === 'cron') {
+        let quand;
+        if (cfg.cronFreq === 'daily') {
+          quand = 'Tous les jours à ' + hh + ':' + mm;
+        } else if (cfg.cronFreq === 'weekly') {
+          const js = (cfg.cronDays || []).map(d => JOURS[d]).filter(Boolean);
+          quand = 'Toutes les semaines à ' + hh + ':' + mm + (js.length ? ' — ' + js.join(', ') : '');
+        } else if (cfg.cronFreq === 'monthly') {
+          quand = 'Tous les mois le ' + (cfg.cronMday || 1) + ' à ' + hh + ':' + mm;
+        } else {
+          quand = 'Selon l\'expression ci-dessous';
+        }
+        add('Déclenchement', quand);
+        add('Fuseau horaire', cfg.timezone || 'Heure du serveur');
+        add('Expression cron', cfg.cronExpr, { mono: true });
+
+      } else if (cfg.timerMode === 'oneshot') {
+        add('Déclenchement', 'Une seule fois');
+        add('Date et heure', cfg.oneshotDatetime);
+        add('Fuseau horaire', cfg.timezone || 'Heure du serveur');
+
+      } else {
+        const U = { minutes: 'minute(s)', hours: 'heure(s)', days: 'jour(s)' };
+        add('Déclenchement', 'Toutes les ' + (cfg.intervalVal || '?') + ' ' + (U[cfg.intervalUnit] || cfg.intervalUnit || ''));
+        add('Première exécution', cfg.intervalStart);
+      }
+
+      add('Données transmises', 'Aucune — le workflow part sans contexte et recherche lui-même les objets à traiter.');
+      break;
+    }
+
     case 'trigger':
     case 'watchfolder':
-    case 'timer':
     case 'listener': {
       add('Type d\'événement', cfg.eventType || cfg.variant);
       add('Asset ID transmis', cfg.assetId || 'Oui — via le contexte du déclencheur');
