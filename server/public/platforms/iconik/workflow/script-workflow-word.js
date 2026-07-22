@@ -1106,32 +1106,39 @@ async function exporterWordFlux() {
 
     // ── CONSTRUCTION DU DOCUMENT ──────────────────────────────
 
-    // ── Logos Askida — lecture depuis le filesystem ─────────────
-    // Le chemin est relatif au fichier HTML courant (window.location)
+    // ── Logos Askida ────────────────────────────────────────────
+    // Le chargement passait par window.wfdEngine.readAsBase64, une API
+    // Electron. Depuis le passage a l'architecture serveur, cet objet
+    // n'existe plus dans le navigateur : la condition etait toujours fausse,
+    // les logos ne se chargeaient jamais et le document retombait
+    // silencieusement sur le texte de repli. La charte graphique avait
+    // disparu sans qu'aucune erreur ne le signale.
+    //
+    // Les images sont servies par Express depuis /public : un fetch sur le
+    // meme chemin relatif suffit. L'appel Electron reste tente en premier
+    // pour rester compatible avec une execution en application de bureau.
     let _logoHeaderB64 = null;
     let _logoFooterB64 = null;
-    try {
-      const _basePath = window.location.pathname
-        .replace(/\/[^\/]+$/, '')           // dossier du HTML courant
-        .replace(/^\//,'')                   // retirer le / initial sur Windows
-        .replace(/^file:\/\/\//i, '');     // retirer le préfixe file:///
 
-      // Sur Windows : C:/Users/.../workflow → on construit le chemin absolu
-      const _toAbs = (rel) => {
-        // Si window.wfdEngine.readAsBase64 est disponible, on passe le chemin
-        // relatif et le main process le résout depuis __dirname
-        return rel;
-      };
-
+    const _chargerLogo = async (chemin) => {
       if (window.wfdEngine && typeof window.wfdEngine.readAsBase64 === 'function') {
-        const _rh = await window.wfdEngine.readAsBase64(_ASKIDA_LOGO_HEADER_PATH);
-        const _rf = await window.wfdEngine.readAsBase64(_ASKIDA_LOGO_FOOTER_PATH);
-        if (_rh.ok) _logoHeaderB64 = _rh.data;
-        if (_rf.ok) _logoFooterB64 = _rf.data;
+        try {
+          const r = await window.wfdEngine.readAsBase64(chemin);
+          if (r && r.ok) return r.data;
+        } catch (_) { /* on tente le fetch ci-dessous */ }
       }
-    } catch(_e) {
-      console.warn('WFD Word: logos non chargés depuis', _ASKIDA_LOGO_HEADER_PATH, '—', _e.message);
-    }
+      try {
+        const rep = await fetch(chemin);
+        if (!rep.ok) { console.warn('WFD Word: logo introuvable —', chemin, rep.status); return null; }
+        return new Uint8Array(await rep.arrayBuffer());
+      } catch (e) {
+        console.warn('WFD Word: logo non charge —', chemin, e.message);
+        return null;
+      }
+    };
+
+    _logoHeaderB64 = await _chargerLogo(_ASKIDA_LOGO_HEADER_PATH);
+    _logoFooterB64 = await _chargerLogo(_ASKIDA_LOGO_FOOTER_PATH);
 
     // Construit un ImageRun si les données sont disponibles, sinon null
     const _mkLogo = (b64, w, h) => b64 ? new ImageRun({ data: b64, transformation: { width: w, height: h }, type: 'png' }) : null;
