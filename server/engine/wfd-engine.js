@@ -21,6 +21,16 @@ function createEngine(options = {}) {
   // Registre des flux actifs
   let _fluxes = [];
 
+  // Installe ou retire la planification d'un flux selon son etat courant.
+  // Idempotent : appelable a chaque activation comme a chaque enregistrement.
+  function _replanifier(fluxId) {
+    if (!trigger.isActive(fluxId)) { trigger.unscheduleTimer(fluxId); return; }
+    const flux = _fluxes.find(f => f.id === fluxId);
+    const tmr  = flux?.nodes?.find(n => n.family === 'timer');
+    if (flux && tmr) trigger.scheduleTimer(flux, tmr.config || {});
+    else trigger.unscheduleTimer(fluxId);   // la minuterie a pu etre retiree
+  }
+
   const trigger = new WfdTrigger.WfdTriggerServer({
     port,
     executor     : WfdExecutor,
@@ -38,6 +48,9 @@ function createEngine(options = {}) {
     // ── Gestion des flux ───────────────────────────────────────
     loadFluxes(fluxes) {
       _fluxes = fluxes || [];
+      // Un rechargement complet remplace toutes les definitions : les
+      // planifications en cours peuvent porter sur d'anciens reglages.
+      _fluxes.forEach(f => _replanifier(f.id));
     },
     // Ajoute/remplace un seul flux dans le registre sans écraser les autres —
     // utilisé par /wfd/activate pour éviter le décalage d'ordre où loadFluxes()
@@ -48,6 +61,21 @@ function createEngine(options = {}) {
     upsertFlux(flux) {
       const idx = _fluxes.findIndex(f => f.id === flux.id);
       if (idx >= 0) _fluxes[idx] = flux; else _fluxes.push(flux);
+      // La planification doit suivre la definition, pas seulement
+      // l'activation. Deux raisons :
+      //
+      //   - /wfd/activate appelle activateFlux AVANT upsertFlux : a
+      //     l'activation, _fluxes peut encore contenir l'ancienne version du
+      //     flux, voire pas de version du tout. Planifier la depuis
+      //     activateFlux seul reprogrammait donc l'ancien reglage.
+      //   - modifier la minuterie d'un flux deja actif ne repassait par
+      //     aucune activation : l'ancienne planification restait en place et
+      //     le changement semblait sans effet.
+      //
+      // upsertFlux recoit toujours la definition a jour : c'est le bon
+      // endroit. scheduleTimer nettoie l'existant, l'operation est donc sans
+      // risque de doublon quel que soit l'ordre d'appel.
+      _replanifier(flux.id);
     },
     removeFlux(fluxId) {
       _fluxes = _fluxes.filter(f => f.id !== fluxId);
@@ -61,9 +89,7 @@ function createEngine(options = {}) {
     // tourne depuis sa creation).
     activateFlux(fluxId)   {
       trigger.activateFlux(fluxId);
-      const flux = _fluxes.find(f => f.id === fluxId);
-      const tmr  = flux?.nodes?.find(n => n.family === 'timer');
-      if (flux && tmr) trigger.scheduleTimer(flux, tmr.config || {});
+      _replanifier(fluxId);
     },
     deactivateFlux(fluxId) {
       trigger.unscheduleTimer(fluxId);
