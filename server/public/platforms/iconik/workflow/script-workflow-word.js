@@ -2535,6 +2535,72 @@ function _buildNodeSpecs(node, cfg, det, mappingRows, conns, allNodes) {
       break;
     }
 
+    // ── Creer arborescence ───────────────────────────────────
+    // Famille non traitee : les sections sortaient vides. C'est pourtant le
+    // noeud central des workflows de creation - sur CREER SERIE et CREER
+    // UNITAIRE, c'est un des deux seuls noeuds du flux, donc le document
+    // entier ne disait rien.
+    case 'create_tree': {
+      add('Protocole', 'HTTPS — API Iconik');
+      add('Opération', 'POST création de collection, puis PUT métadonnées');
+      add('Modèle d\'arborescence (ID)', cfg.templateId, { mono: true });
+
+      // Emplacement : la valeur par defaut du moteur est {collection.id},
+      // soit la collection depuis laquelle l'action est declenchee. Le dire,
+      // sinon un champ vide se lit comme "a la racine" - ce qui est faux.
+      add('Créer sous',
+        cfg.parentId
+          ? cfg.parentId
+          : 'Non renseigné — la collection depuis laquelle l\'action est déclenchée',
+        { mono: !!cfg.parentId });
+
+      add('Vue de métadonnées (ID)', cfg.metadataViewId, { mono: true });
+      const _vt = (typeof wfdData !== 'undefined' && wfdData.mdViews)
+        ? wfdData.mdViews.find(v => v.id === cfg.metadataViewId) : null;
+      if (_vt) add('Vue de métadonnées', _vt.name);
+
+      addL('Correspondance des champs', [
+        { label: 'Identifiant',            value: cfg.idFieldName     || 'BayardID' },
+        { label: 'Référence vers parent',  value: cfg.parentFieldName || 'ParentID' },
+        { label: 'Type de collection',     value: cfg.typeFieldName   || 'TypeCollection' }
+      ]);
+
+      if (cfg.parentBayardId) add('Identifiant du parent', cfg.parentBayardId, { mono: true });
+
+      if ((cfg.extraFields || []).length) {
+        addL('Champs supplémentaires écrits',
+          cfg.extraFields.map(f => ({ label: f.key || '', value: String(f.value ?? ''), mono: true })));
+      }
+
+      // Numero d'ordre : calcule en base, pas par comptage. Le preciser evite
+      // qu'un integrateur reimplemente un "compter + 1" - faux des que deux
+      // creations se suivent.
+      if (cfg.orderFieldName) {
+        addL('Numéro d\'ordre', [
+          { label: 'Champ',   value: cfg.orderFieldName },
+          { label: 'Zéros',   value: String(cfg.orderPad || '—') },
+          { label: 'Amorce',  value: String(cfg.orderSeed || '—'), mono: true },
+          { value: 'Calculé de façon atomique en base, et non par comptage des objets existants : deux créations rapprochées ne peuvent pas obtenir le même numéro.' }
+        ]);
+      }
+
+      add('Résultat dans', cfg.resultVar ? '{' + cfg.resultVar + '}' : undefined, { mono: true });
+      break;
+    }
+
+    // ── Variable ─────────────────────────────────────────────
+    case 'set_var': {
+      const MODES = { set:'Définir', append:'Ajouter à la fin', prepend:'Ajouter au début', increment:'Incrémenter', clear:'Vider' };
+      if ((cfg.assignments || []).length) {
+        addL('Affectations', cfg.assignments.map(a => ({
+          label: '{' + (a.key || '?') + '}',
+          value: (MODES[a.mode] || a.mode || 'Définir') + ' — ' + String(a.value ?? ''),
+          mono: true
+        })));
+      }
+      break;
+    }
+
     case 'loop': {
       const srcLabels = { files:'Fichiers asset', assets:'Assets collection', collection:'Sous-collections', list:'Liste JSON', metadata:'Champ meta' };
       add('Source de boucle', srcLabels[cfg.loopSource] || cfg.loopSource);
