@@ -52,8 +52,23 @@ function createEngine(options = {}) {
     removeFlux(fluxId) {
       _fluxes = _fluxes.filter(f => f.id !== fluxId);
     },
-    activateFlux(fluxId)   { trigger.activateFlux(fluxId); },
-    deactivateFlux(fluxId) { trigger.deactivateFlux(fluxId); },
+    // Activer un flux ne faisait que le marquer actif. Les declencheurs
+    // "webhook" s'en contentent : ils sont resolus a la reception d'une
+    // requete, par _matchFluxes. Un timer, lui, doit etre PLANIFIE — et
+    // scheduleTimer n'etait appele nulle part. Un flux a minuterie etait donc
+    // actif dans l'interface et ne partait jamais, sans qu'aucun message ne
+    // le signale (constate sur BAYARD|STATUSES|VODFACTORY, qui n'a jamais
+    // tourne depuis sa creation).
+    activateFlux(fluxId)   {
+      trigger.activateFlux(fluxId);
+      const flux = _fluxes.find(f => f.id === fluxId);
+      const tmr  = flux?.nodes?.find(n => n.family === 'timer');
+      if (flux && tmr) trigger.scheduleTimer(flux, tmr.config || {});
+    },
+    deactivateFlux(fluxId) {
+      trigger.unscheduleTimer(fluxId);
+      trigger.deactivateFlux(fluxId);
+    },
     isActive(fluxId)       { return trigger.isActive(fluxId); },
 
     // ── Démarrage / arrêt ──────────────────────────────────────

@@ -28,6 +28,9 @@ class WfdTriggerServer {
 
     this._server      = null;
     this._watchers    = [];
+    // Un timer par flux, pour pouvoir le retirer a la desactivation sans
+    // toucher aux autres. _watchers ne stocke que des fermetures anonymes.
+    this._timers      = {};
     this._activeFluxes = new Set(); // IDs des flux activés
   }
 
@@ -274,7 +277,17 @@ class WfdTriggerServer {
 
 
   // ── Timer (interval / cron / oneshot) ─────────────────────────────────
+  unscheduleTimer(fluxId) {
+    const t = this._timers[fluxId];
+    if (!t) return;
+    try { t.close(); } catch (_) {}
+    delete this._timers[fluxId];
+  }
+
   scheduleTimer(flux, cfg = {}) {
+    // Reprogrammer sans nettoyer laisserait deux planifications actives : le
+    // flux partirait deux fois a chaque echeance.
+    this.unscheduleTimer(flux.id);
     const mode = cfg.timerMode || 'interval';
 
     const runFlux = () => {
@@ -289,14 +302,18 @@ class WfdTriggerServer {
       const units = { minutes: 60000, hours: 3600000, days: 86400000 };
       const ms    = (parseInt(cfg.intervalVal) || 30) * (units[cfg.intervalUnit] || 60000);
       const t     = setInterval(runFlux, ms);
-      this._watchers.push({ close: () => clearInterval(t) });
+      this._timers[flux.id] = { close: () => clearInterval(t) };
+      this._watchers.push(this._timers[flux.id]);
       console.log('[WFD Timer] Interval ' + cfg.intervalVal + ' ' + cfg.intervalUnit + ' — flux "' + flux.name + '"');
 
     } else if (mode === 'cron') {
       const expr = cfg.cronExpr || '0 9 * * 1-5';
-      const t    = _scheduleCron(expr, runFlux);
-      if (t) this._watchers.push({ close: () => clearInterval(t) });
-      console.log('[WFD Timer] Cron "' + expr + '" — flux "' + flux.name + '"');
+      const t    = _scheduleCron(expr, runFlux, cfg.timezone);
+      if (t) {
+        this._timers[flux.id] = { close: () => clearInterval(t) };
+        this._watchers.push(this._timers[flux.id]);
+      }
+      console.log('[WFD Timer] Cron "' + expr + '" (' + (cfg.timezone || 'heure serveur') + ') — flux "' + flux.name + '"');
 
     } else if (mode === 'oneshot') {
       const target = cfg.oneshotDatetime ? new Date(cfg.oneshotDatetime).getTime() : 0;
@@ -430,7 +447,40 @@ class WfdTriggerServer {
 
 
 // ── Planificateur cron minimaliste (sans dépendance externe) ────────────────
-function _scheduleCron(expr, fn) {
+function _scheduleCron(expr, fn, timezone) {
+  // La verification tourne toutes les 30 s : sans garde, une echeance
+  // "02:00" est rencontree DEUX fois dans la meme minute et le flux part
+  // deux fois. On retient la derniere minute declenchee.
+  var _derniereMinute = null;
+
+  // Le fuseau configure sur le noeud etait ignore : l'heure lue etait celle
+  // du serveur. Tant que le serveur est a Paris cela coincide, mais le
+  // reglage ne servait a rien et un deplacement d'infrastructure aurait
+  // decale toutes les planifications sans prevenir.
+  function _maintenant() {
+    if (!timezone) return new Date();
+    try {
+      var p = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone, hour12: false,
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', weekday: 'short'
+      }).formatToParts(new Date());
+      var g = function(t) { var x = p.find(function(o){ return o.type === t; }); return x ? x.value : null; };
+      var jours = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+      return {
+        getMinutes: function(){ return parseInt(g('minute')); },
+        getHours  : function(){ var h = parseInt(g('hour')); return h === 24 ? 0 : h; },
+        getDate   : function(){ return parseInt(g('day')); },
+        getMonth  : function(){ return parseInt(g('month')) - 1; },
+        getDay    : function(){ return jours[g('weekday')]; },
+        getFullYear: function(){ return parseInt(g('year')); }
+      };
+    } catch (e) {
+      console.warn('[WFD Timer] Fuseau inconnu "' + timezone + '", heure serveur utilisee');
+      return new Date();
+    }
+  }
+
   function match(field, val) {
     if (field === '*') return true;
     return field.split(',').some(function(part) {
@@ -442,7 +492,7 @@ function _scheduleCron(expr, fn) {
     });
   }
   function check() {
-    var d     = new Date();
+    var d     = _maintenant();
     var parts = expr.trim().split(' ');
     if (parts.length < 5) return;
     if (match(parts[0], d.getMinutes())  &&
@@ -450,6 +500,9 @@ function _scheduleCron(expr, fn) {
         match(parts[2], d.getDate())     &&
         match(parts[3], d.getMonth()+1)  &&
         match(parts[4], d.getDay())) {
+      var cle = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() + ' ' + d.getHours() + ':' + d.getMinutes();
+      if (cle === _derniereMinute) return;   // deja parti dans cette minute
+      _derniereMinute = cle;
       fn();
     }
   }
