@@ -9,9 +9,15 @@ suspens de la veille — puis une **longue session de conception du Workflow
 Builder** qui a occupé tout l'après-midi.
 
 Cette seconde partie est fondatrice : elle a produit l'inventaire complet des
-40 nœuds de WFD, le classement Core / façade / service, et six décisions
+40 nœuds de WFD, le classement Core / façade / service, et les décisions
 d'architecture qui contraignent tout ce qui suivra. Elle a aussi fait remonter
 plusieurs sujets qu'on croyait indépendants et qui ne le sont pas.
+
+La séance s'est poursuivie jusqu'à couvrir **toute la revue de conception** :
+catalogue révisé, déclaration des façades et des Core, manifeste de livraison,
+versionnement, canevas et cloisonnement. Le workflow PUBLISH a été démonté
+contre sa configuration réelle pour éprouver l'ensemble — il tient en dix
+étapes au lieu de soixante-seize.
 
 ---
 
@@ -490,26 +496,443 @@ premier run réel.
 **Propagation d'erreur ↔ Modèle de données.** Une erreur qui traverse est une
 donnée qui traverse. La première ne peut pas se définir avant le second.
 
+
+---
+
+## Suite de la revue — l'après-midi
+
+### Le critère qui a tout réorganisé
+
+Formulé par Farid après que j'ai célébré « 30 nœuds → 1 » comme une victoire :
+
+> Le nombre de nœuds n'est un problème que lorsque la lecture n'a aucun sens.
+> Je préfère 10 nœuds qui montrent bien les étapes que 5 qui cumulent un
+> paramétrage en mode diplômé de polytechnique. Le mot clé est visibilité et
+> compréhension narrative.
+
+**Règle retenue : on ne fusionne que ce qui raconte la même chose.** Le partage
+de code n'est pas une raison — il se règle dans l'implémentation, pas dans le
+catalogue.
+
+Appliqué aux décisions du matin, il en a annulé deux :
+
+- **`Verify` et `Wait` se reséparent.** Ils partagent 80 % de leur code, mais
+  « vérifie » et « attends que » ne racontent pas la même chose. Une case à
+  cocher qui transforme un contrôle en attente de dix minutes cache le sens.
+- **`Transform` revient.** Les fonctions inline (`{slug(x)}`, `{pad(x,2)}`) font
+  le travail mais sont **invisibles sur le canevas**. Une normalisation de nom
+  fait partie de l'histoire du workflow.
+
+Il en a confirmé une : retirer les modes `foreach` et `verify` de
+`HTTP Request`.
+
+Et il a corrigé une erreur de ma proposition sur les erreurs : j'avais fait
+disparaître la notification en la transformant en réglage. **Elle reste un
+réglage, mais s'affiche sur le canevas** comme une étape terminale.
+
+### Catalogue arrêté
+
+**12 Core en service**
+
+```
+Trigger · Decision · Loop · Verify · Wait · Set Variable
+Transform · Lookup · HTTP Request · HTTP Sequence · History · Deliver
+```
+
+**5 déclarés, hors première coupe** — QC, Script, Delay, Approval, Call
+Workflow. Ils entreront quand un besoin se présentera.
+
+**6 façades** — Search, Fetch, Set Metadata, Action, Create Tree, S3.
+**2 services** — registre d'identifiants externes, compteur d'ordre.
+**1 ressource** — le manifeste de livraison.
+
+**Règle d'entrée** : un nœud entre au catalogue quand il sert. Le workflow VOD
+Factory reconstruit dans le Builder servira de test.
+
+### Les déclarations
+
+Les 6 façades et les 12 Core ont été déclarés dans un format unique : libellé,
+aide, nature de chaque champ, valeur par défaut, comportement si vide, et pour
+les façades la manière dont elles se déplient en appel HTTP.
+
+Trois choses apparues en les écrivant :
+
+- **`Fetch` porte 23 champs** pour lire les métadonnées d'un objet. Cinq
+  suffisent. Accumulation typique d'un développement au fil de l'eau.
+- **`Action` affiche `assetId`, `fileName`, `overwrite`, `createFolderAsset`**
+  quelles que soient ses 85 opérations. Le panneau montre tout, tout le temps —
+  d'où la déclaration imbriquée, une par opération.
+- **`upsert` remonte en champ visible.** Le 422→PUT était appliqué
+  automatiquement par le moteur, sans que rien ne le dise. Il devient
+  « Créer ou mettre à jour ».
+
+Et une troisième fuite de présentation, après `pageBreakBefore` et les
+positions : **`lookup` stocke `lkActiveTab`, `lkApiFolded`, `lkSourceFolded`** —
+l'état de pliage de l'interface, dans la configuration métier.
+
+### Le manifeste — un seul, pas quatre
+
+Proposition de Farid : s'appuyer sur la mécanique des blocs liés plutôt que
+d'ajouter un concept. Validée, avec une correction sur les ports.
+
+**Chaque composant porte deux jeux de critères**, dans le même langage :
+
+```
+season_box_art
+  s'applique si   TypeCollection  est  Saison
+  trouvé par      dans la collection · titre contient _season
+```
+
+Le premier dit **quand** le composant compte, le second **où** le trouver.
+L'opérateur `in_list` existe déjà, donc `cover_art` s'écrit
+`TypeCollection dans [Série, Saison, Unitaire]`.
+
+Les quatre manifestes envisagés le matin se replient en un, sans colonne
+conditionnelle ni héritage.
+
+**Sur les ports** — écartés. Un port route un flux ; ici on sélectionne des
+composants, et le résultat reste une livraison. Des ports réintroduiraient les
+quatre branches qu'on cherche à supprimer. La variable par composant, en
+revanche, est nécessaire : c'est le `produces`.
+
+### Le chemin de destination — quatre chemins, une règle
+
+Vérification faite sur la configuration réelle. Les quatre chemins S3 :
+
+| Branche | Chemin |
+|---|---|
+| Série | `{Univers}_{BayardID}` |
+| Saison | `{Univers}_{BayardID}` / `{title}_{BayardID}` |
+| Épisode | `{Univers}_{BayardID}` / `{title}_{BayardID}` / `{title}` |
+| Unitaire | `{title}` |
+
+C'est **la chaîne des ancêtres**, chaque niveau contribuant un segment dont le
+format dépend du type de collection — pas de la branche :
+
+```
+segments par niveau
+  Série      {Univers}_{BayardID}
+  Saison     {title}_{BayardID}
+  Épisode    {title}
+  Unitaire   {title}
+```
+
+Quatre lignes au lieu de quatre chemins écrits à la main avec des noms de
+variables différents. Le chemin Épisode utilisait `{saisonData.ParentID}` pour
+remonter au `BayardID` de la série — détour né du fait que la branche n'avait
+récupéré que la saison. `Deliver` remontant la hiérarchie lui-même, cinq
+variables disparaissent : `serieData`, `saisonData`, `collectionData`,
+`saisonInfo`, `collectionCheck`.
+
+### Deux sources possibles pour un composant
+
+Point soulevé par Farid : dans la première version, les artworks étaient des
+**fichiers attachés à l'asset**, déposés par le panneau File.
+
+Le changement de méthode vient d'une contrainte en cascade :
+
+```
+VOD Factory impose une hiérarchie
+  → Série et Saison deviennent des collections Iconik
+    → une collection ne peut pas porter de fichiers
+      → les artworks doivent être des assets
+        → une seule procédure pour l'utilisateur
+```
+
+Vérifié dans l'API : assets, collections, segments et formats sont
+**recherchables** ; les fichiers sont **navigables** — on descend depuis
+l'asset.
+
+Le manifeste porte donc les deux sources, et `appliesTo` (collection ou asset)
+conditionne celles qui sont autorisées. Une collection ne pouvant pas porter de
+fichiers, le mode « fichiers de l'objet » se grise tout seul. La contrainte
+Iconik devient visible à la saisie plutôt qu'en production.
+
+---
+
+## PUBLISH démonté — le test de l'ensemble
+
+Confronté à la configuration réelle des 76 nœuds.
+
+| Aujourd'hui | Devient |
+|---|---|
+| 17 Recherches | 2 Verify · le reste absorbé par le manifeste et la hiérarchie |
+| 6 Export + 6 Attendre + 6 S3 + 6 Boucles | **1 Deliver** |
+| 7 Décisions | 1 — l'aiguillage par type disparaît |
+| 4 Vérificateurs | 1 Verify, paramétré par le manifeste |
+| 3 Fetch | 1 — les ancêtres se résolvent seuls |
+| 9 Set Metadata + 8 History | 2 + le réglage d'erreur |
+| Générateur d'ID + sa Décision | 1 appel au service |
+
+**Résultat — dix étapes :**
+
+```
+Trigger · Fetch · Verify · Deliver · Set Metadata · Lookup
+HTTP Sequence · Verify · Set Metadata · History
+⚠ en cas d'erreur : statut Echoué · historique · Slack
+```
+
+Elles se lisent comme une phrase : *je récupère, je vérifie, je livre,
+j'enregistre, je traduis, je publie, je constate, je note.*
+
+### La séquence HTTP — même motif que les boucles
+
+Sept étapes qui racontent trois choses : **cinq appels `POST /api/persons`
+identiques**, ne différant que par le rôle — director, actor, creator, writer,
+producer.
+
+Et les cinq rôles sont **déjà déclarés dans la table de correspondance**
+(`Realisateur → persons[job=director]`…). Les recopier en cinq étapes répète une
+information qui existe.
+
+```
+Publier chez VOD Factory
+  1. Créer les personnes        les rôles déclarés dans la table
+  2. Créer ou mettre à jour le contenu
+  3. Créer ou mettre à jour la vidéo    si présente
+```
+
+« Créer les personnes » reste **visible** comme étape — on ne la fait pas
+disparaître dans la table, on cesse de l'écrire cinq fois.
+
+### Reliquats identifiés
+
+- **`Bayard ID ?`** teste `is_empty` avec la valeur `{asset.metadata.PrimeID}` —
+  métadonnée qui n'existe plus dans Iconik. Code mort.
+- **`Fetch Saison Titre`** disparaît : le titre de la saison porte déjà le
+  numéro (gabarit Viewer `Saison {NumeroSaison}`), et la remontée de hiérarchie
+  le fournit. La mécanique de numérotation reste dans `Create Tree`.
+
+---
+
+## Versionnement
+
+**Aucun aujourd'hui.** `Flow` porte `nodes` et `connections` directement ; un
+enregistrement écrase. Et `upsertFlux` replanifie immédiatement — corriger
+STATUSES à 1h59 et enregistrer à moitié le fait tourner à 2h00.
+
+Trois conséquences, dont une qui touche le positionnement d'Askida :
+
+- éditer un workflow actif, c'est modifier la production
+- aucun retour arrière
+- **la documentation ment** — le docx généré la semaine dernière décrit un
+  workflow qui a changé depuis. « Ce que je vous livre est non questionnable »
+  suppose que le document et le workflow soient la même chose.
+
+De même, un run référence un `flowId`, pas une version : impossible de savoir ce
+qui a réellement tourné.
+
+**Décision — brouillon / publié**
+
+| | |
+|---|---|
+| Brouillon | ce qu'on édite, écrasé à chaque enregistrement |
+| Publier | geste explicite, crée une version figée |
+| Production | exécute la dernière version publiée, jamais le brouillon |
+
+Un **run** enregistre la version exécutée. Un **export** enregistre la version
+décrite — le docx porte « version 7 », et c'est un fait. Le retour arrière
+devient : republier la version précédente.
+
+Toutes les versions publiées sont conservées : un workflow de 76 nœuds pèse
+environ 200 Ko.
+
+---
+
+## Le canevas
+
+### Deux principes de Farid, qui donnent l'algorithme
+
+> Un workflow qui ne peut pas se représenter avec des connexions en angle droit
+> est « bordélique ».
+
+> Je lis un workflow comme un livre : d'où ça vient, comment c'est venu,
+> qu'est-ce qu'on fait, où ça va.
+
+La lecture « comme un livre » correspond exactement aux catégories sémantiques —
+Trigger, puis lectures et transformations, puis actions, puis journalisation. Un
+placement qui suit le sens du flux produit cette lecture sans effort.
+
+Et le critère de l'angle droit est plus fort qu'il n'y paraît : un routage
+orthogonal propre n'est possible que si le graphe a peu de croisements.
+**L'intuition esthétique mesure en fait le couplage du workflow.**
+
+### Décisions
+
+- **Disposition en couches** — rang par distance au déclencheur, ordre calculé
+  pour minimiser les croisements. C'est ce que le `Tidy` actuel ne fait pas : il
+  ordonne sans regarder les liaisons, d'où un résultat que Farid n'ose pas
+  appliquer sur PUBLISH.
+- **Routage orthogonal**, avec points de passage évitant les nœuds.
+- **Placement manuel conservé** — le rangement est une proposition qu'on accepte
+  ou annule, jamais une réécriture silencieuse.
+- **Le nombre de croisements devient un indicateur affiché.** Pas un blocage :
+  *« 14 croisements — ce workflow est difficile à lire »*. La règle du
+  « bordélique », rendue mesurable.
+
+L'algorithme de couches ne sera pas réécrit : `bpmn-auto-layout` l'implémente
+sous Apache 2.0.
+
+### Interface
+
+Canevas au centre, panneaux sur les côtés — mais **des étiquettes de bord** qui
+révèlent le bon panneau, à la place du bandeau surchargé de boutons.
+
+---
+
+## Cloisonnement et déclencheurs
+
+Le modèle existe déjà en base et il est complet :
+
+```
+Organisation  →  Environment (plateforme + prod/qa/dev)  →  Flow
+                 Project     →  Permission (user, resource, niveau)
+```
+
+**Rien ne l'applique.** `flows.findMany({ where: { envId } })` avec l'environnement
+marqué par défaut — pas de `req.user`, aucun contrôle, aucune authentification
+dans le projet. Cohérent pour un prototype mono-utilisateur, plus du tout dès
+que le Builder sert à plusieurs.
+
+**Conséquence pour les déclencheurs** : l'environnement porte déjà la
+plateforme. Un workflow dans un environnement Iconik propose les déclencheurs
+Iconik ; un workflow Pulse It proposera ceux d'Embrace. **L'utilisateur ne
+choisit pas la plateforme, elle découle de l'environnement** — le paquet est
+sélectionné par le contexte, pas par un champ.
+
+**L'authentification est une couche APS, en amont du Builder** : elle gérera
+l'accès à la documentation, aux workspaces, aux workflows, aux connexions et aux
+environnements. Le Builder consomme le cloisonnement, il ne le décide pas.
+
+---
+
+## Les trois critères de conception
+
+Dégagés en chemin, et ce sont eux qui ont servi à trancher :
+
+1. **On ne fusionne que ce qui raconte la même chose.** Le partage de code n'est
+   pas une raison.
+2. **Si c'est déductible, ce n'est pas stocké.** La portabilité et le caractère
+   destructif se calculent ; les écrire dans le pivot garantirait qu'ils
+   dérivent.
+3. **Un nœud qui ne peut pas résumer ce qu'il fait en quelques lignes cache
+   quelque chose.** Soit la ressource externe est trop riche, soit le nœud fait
+   trop.
+
+Le troisième est né d'une inquiétude de Farid — *« ça commence à faire peur, on
+rejoint Vantage où beaucoup de choses sont faites hors designer »*. Le critère
+qui distingue : **la chose extérieure change-t-elle ce que le workflow fait, ou
+seulement comment on le construit ?** Le contexte de test ne change rien à
+l'exécution ; le manifeste et le modèle d'arborescence, si. D'où la parade : le
+nœud affiche **le contenu**, pas la référence.
+
+---
+
+## Opérations destructives
+
+Relevé en inventoriant `Action` : `asset_delete`, `collection_delete`,
+`format_delete`, `acl_remove` existent déjà, et **rien ne les distingue de
+`collection_create`**. Même nœud, même liste déroulante, aucun avertissement.
+
+Un workflow de purge est, selon Farid, *« très sensible et peut occasionner des
+incidents critiques »*.
+
+**Décisions**
+
+- Le **caractère destructif est déclaré par la façade**, pas par l'utilisateur —
+  propriété transversale, comme la portabilité.
+- **Garde de cardinalité** : *« refuser si plus de N objets correspondent »*. Un
+  filtre trop large ne détruit pas, il s'arrête. C'est le même champ que la
+  cardinalité du manifeste.
+- L'**exécution à blanc** attendra : la page Recherche montre déjà ce qui
+  correspond. Elle deviendra utile quand plusieurs étapes précéderont la
+  suppression.
+
+---
+
+## Le contexte de test
+
+Le mécanisme existe déjà, enfermé dans le nœud Trigger : neuf gabarits de
+payload, un éditeur JSON, et l'exécution réelle du flux.
+
+Deux limites : **il exécute vraiment**, et il n'est disponible ni au sélecteur
+de variables ni à la page Recherche.
+
+**Décision** : le sortir du nœud et en faire un **contexte de conception**
+attaché au workflow — un objet réel, choisi une fois.
+
+```
+Contexte de test
+  Collection   [ Ernest et Célestine — S01E03 ]  ⟲
+```
+
+Trois usages : le sélecteur affiche les valeurs réelles même sans run ; la page
+Recherche évalue `{collection.id}` et rend vraie la validation immédiate du
+manifeste ; le test du déclencheur préremplit son payload.
+
+Il résout les étapes de **lecture**. Pour les **écritures**, trois sources par
+ordre de préférence — un run réel, le contexte de test, la spec — et le
+sélecteur dit laquelle il a utilisée, parce qu'une valeur venant d'une spec n'a
+pas le même statut qu'une valeur observée.
+
+---
+
+## Famille ouverte — les opérations média
+
+Soulevée par Farid à propos du transcodage et du montage broadcast :
+dérusher, faire un subclip, consolider, purger la source.
+
+Aucun nœud actuel ne fabrique un asset à partir d'un extrait. Ce n'est ni un
+appel HTTP ni une façade — c'est une opération sur le média lui-même, et elle a
+un point commun avec le packager : les deux manipulent des essences plutôt que
+des données.
+
+À vérifier : Iconik expose `time_start` / `time_end` sur les segments (APS en
+crée déjà). Reste à confirmer ce que renvoie un GET pour savoir si les mark
+in/out sont exploitables sans passer par la contrainte des segments dans
+l'interface.
+
+```bash
+curl -s "http://localhost:3000/api/iconik/qa/API/assets/v1/assets/{ID}/segments/" | python3 -m json.tool
+```
+
+---
+
+## Ordre de construction retenu
+
+Le modèle de données conditionne la propagation d'erreur, qui conditionne le
+catalogue. Le packager conditionne la boucle et le Vérificateur. Le catalogue
+conditionne le panneau.
+
+1. **Format pivot** — avec le champ `version`
+2. **Paquet Iconik** — les 6 façades déclarées, avec leur dépliage
+3. **Convertisseur pivot → WFD** — pour que le Builder soit exécutable dès le
+   premier jour sans toucher au moteur
+4. **Sélecteur de variables** — lecteur des instantanés déjà persistés
+5. **Packager** — manifeste sur la mécanique des blocs
+6. **Panneau déclaratif** — 9 natures pour 236 champs
+7. **Canevas** — couches, orthogonal, placement manuel conservé
+
 ---
 
 ## Décisions en suspens
 
-À trancher avant de figer le catalogue :
+Les cinq décisions ouvertes en début d'après-midi ont toutes été tranchées :
 
-1. **Les six coquilles vides** — Call Workflow, Approval, Export, Publish, le
-   throttle de `gate`, les trois canaux de `Notify`. Implémenter ou ne pas
-   porter ?
-2. **`Transcode`** — façade Iconik dans le code, Core FFmpeg dans l'intention.
-   Deux nœuds différents, ou un seul à choisir ?
-3. **Les modes en trop de `http_request`** — retirer `foreach` et `verify`, ou
-   assumer trois nœuds qui vérifient et deux qui itèrent ?
-4. **Présélection ou nœud ?** `create_col` est une ligne de code mais un nœud à
-   part entière dans la palette. 85 opérations Iconik : 85 nœuds, ou un nœud
-   avec une liste ?
-5. **`Delay` vs `Wait`** — éviter l'ambiguïté avec le mode `until` de `Verify`.
-   À figer avec le reste du vocabulaire anglais.
+| | Tranchée |
+|---|---|
+| Les six coquilles vides | n'entrent au catalogue que lorsqu'un besoin se présente |
+| Les modes `foreach` et `verify` de `HTTP Request` | retirés — ils cachent le sens |
+| Présélection ou nœud pour les 85 opérations | un nœud `Action`, sélecteur à deux niveaux (objet puis opération), raccourcis de palette pour les courantes |
+| `Delay` vs `Wait` | `Delay` pour la temporisation, `Wait` pour l'attente conditionnelle — deux nœuds, deux histoires |
+| `Transcode` | reporté dans la **famille média** à concevoir : transcodage, subclip, consolidation, purge |
 
----
+**Reste ouvert**
+
+- **Le manifeste : une ressource ou plusieurs ?** Un seul manifeste couvre les
+  quatre niveaux grâce aux critères d'applicabilité. À éprouver en le
+  construisant — c'est le premier test du Builder.
+- **Les mark in/out des segments** — à confirmer par un GET.
 
 ## Bugs et dettes relevés
 
@@ -583,17 +1006,10 @@ débloquer à la fois le schéma du docx et le générateur de diagramme du View
 1. Vérifier le run nocturne de STATUSES
 2. Consigner les décisions de cette session dans `methode-travail-aps.md`
 
-**Chantier Builder — ordre retenu**
+**Chantier Builder**
 
-Le modèle de données conditionne la propagation d'erreur, qui conditionne le
-catalogue. Le packager conditionne la boucle et le Vérificateur.
-
-1. Format pivot — portée des boucles ✅, identifiants propres ✅, intention
-   métier ⚠ (27/76 descriptions remplies)
-2. Sélecteur de variables — lecteur des instantanés existants
-3. Packager — manifeste sur la mécanique des blocs
-4. Panneau déclaratif
-5. Catalogue figé, en anglais
+Voir « Ordre de construction retenu » plus haut — sept étapes, du format pivot
+au canevas.
 
 **Hors Builder**
 
