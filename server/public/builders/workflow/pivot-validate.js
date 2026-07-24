@@ -191,11 +191,14 @@ const PivotValidate = (() => {
         }
       });
 
-      // `set` sur arête : porte l'issue jusqu'à une étape de convergence.
-      // En attente d'arbitrage — la piste sans invention est de faire passer
-      // tous les cas par la Décision, dont le `label` est déjà une variable.
+      // `set` sur arête est banni. Le cas qui semblait le réclamer — plusieurs
+      // issues écrivant le même champ — ne le réclame pas : le workflow STATUSES
+      // réel n'a pas de convergence, chaque issue a sa propre étape terminale qui
+      // écrit sa valeur en dur. Le format n'a donc rien à ajouter, et une arête
+      // ne porte jamais d'affectation, qui aurait fini par accueillir des
+      // expressions.
       if (arete.set !== undefined) {
-        r.avert(c + '.set', 'affectation sur arête — notation en attente d\'arbitrage, susceptible de disparaître');
+        r.err(c + '.set', 'affectation sur arête interdite — chaque issue a sa propre étape terminale');
       }
     });
   }
