@@ -61,10 +61,16 @@ occupaient la palette et promettaient ce que les générateurs ne tenaient pas.
 Registre d'identifiants externes · compteur d'ordre. Les seuls mécanismes qui
 exigent un état partagé et atomique ; aucun moteur ne sait les porter.
 
-### Ressources — 2
+### Ressources — 3
 
-Manifeste de livraison · modèle d'arborescence. Nommées, réutilisables,
-éditées dans leur propre écran.
+Manifeste de livraison · modèle d'arborescence · table de correspondance.
+Nommées, réutilisables, éditées dans leur propre écran.
+
+La table était jusqu'ici enfermée dans la configuration du nœud `Lookup`
+(`lkRows`), donc recopiée à chaque usage. Elle remplit pourtant les trois
+critères, et l'argument décisif est qu'elle sert **deux étapes** : `Lookup` la
+lit pour traduire, `HTTP Sequence` s'appuie sur ce qu'elle produit pour publier
+les personnes.
 
 ---
 
@@ -104,7 +110,6 @@ dédiée.
 | Workflow | identité, intention, plateforme, environnement, **version** |
 | Étapes | identifiant propre, `core`, `facade`, `preset`, paramètres, intention |
 | Structure | enchaînement, et **le corps de boucle imbriqué** |
-| Services requis | déclarés au niveau du workflow |
 | Gestion d'erreur | réglage du workflow |
 | Présentation | positions, sauts de page — **section séparée** |
 
@@ -114,6 +119,11 @@ dédiée.
 en déduit. La stocker garantirait qu'elle dérive.
 
 **Le caractère destructif** — déclaré par la façade.
+
+**Les services requis** — déduits des étapes qui les invoquent (`facade:
+aps.registry`) et des façades qui les appellent en interne, comme `Create Tree`.
+Les lister au niveau du workflow garantirait qu'ils divergent le jour où une
+façade cesse d'appeler le compteur.
 
 **Les ports** — déduits de la déclaration du `core` et de la configuration.
 `Decision` a autant de sorties que de conditions plus une ; `Verify` en a trois
@@ -159,6 +169,12 @@ Un **run** enregistre la version exécutée. Un **export** enregistre la version
 décrite — le docx porte « version 7 », et c'est un fait, plus une promesse.
 Retour arrière : republier la version précédente. Toutes les versions publiées
 sont conservées (~200 Ko pour 76 nœuds).
+
+**La présentation n'est pas versionnée.** Déplacer un nœud n'est pas modifier un
+workflow, et republier la version 5 ne doit pas faire perdre le rangement du
+canevas. Conséquence assumée : un diagramme régénéré depuis une version ancienne
+montre la disposition **d'aujourd'hui**, pas celle de l'époque. C'est acceptable
+précisément parce que la disposition est de la présentation.
 
 **Collision de vocabulaire à régler avant que le champ n'entre dans le pivot** :
 `draft` existe déjà au niveau du nœud et ne veut pas dire « version non
@@ -335,8 +351,14 @@ bord** qui révèlent le bon panneau — pas de bandeau surchargé de boutons.
 
 ## Architecture du chantier
 
-**Pas de branche longue.** Un dossier `builder/` à côté de `workflow/`,
-`viewer/`, `settings/`, dans `main`.
+**Pas de branche longue.** Le chantier est dans `server/public/builders/workflow/`,
+dans `main`. L'amorce existe déjà : `workflow.html` (140 lignes), `workflow.js` et
+`workflow.css` vides.
+
+`builders/` est à la racine de `public/`, **à côté de `platforms/`** — et non
+dedans. Les dossiers `workflow/`, `viewer/`, `settings/` de WFD sont sous
+`server/public/platforms/iconik/` ; y placer le Builder l'enfermerait dans Iconik
+et contredirait le principe même des paquets de plateforme.
 
 **Le Builder n'écrit jamais dans `workflow/`.** Sur ce qui est partagé —
 moteur, Prisma, connexions — il **ajoute**, ne modifie pas.
