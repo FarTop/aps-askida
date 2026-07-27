@@ -206,12 +206,19 @@
       retracerAretes();
     }
 
+    // Retrace des arêtes, COALESCÉ : un seul rAF en vol à la fois. Sans ça, un
+    // glissé empile des dizaines de rAF qui mesurent la géométrie pendant que
+    // les transforms sont en vol → arêtes fantômes et saturation. On mesure une
+    // seule fois par frame, positions stabilisées.
+    let retraceEnVol = false;
     function retracerAretes() {
-      if (ER && svgEdges && surface) {
-        requestAnimationFrame(function () {
-          ER.tracer(svgEdges, nodesHost, surface, model.aretes());
-        });
-      }
+      if (!(ER && svgEdges && surface)) return;
+      if (retraceEnVol) return;
+      retraceEnVol = true;
+      requestAnimationFrame(function () {
+        retraceEnVol = false;
+        ER.tracer(svgEdges, nodesHost, surface, model.aretes());
+      });
     }
 
     // Marque visuellement la sélection (relu après chaque reconstruction).

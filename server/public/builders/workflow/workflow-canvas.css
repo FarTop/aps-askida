@@ -161,6 +161,7 @@
   position: absolute;
   left: 0; top: 0;
   transform: translate(var(--nx, 0px), var(--ny, 0px));
+  will-change: transform;
   width: 230px;
   background: var(--bd-canvas-surface);
   border: 1px solid var(--bd-panel-border);
