@@ -234,6 +234,20 @@
     0 0 / var(--bd-grid-step) var(--bd-grid-step);
   background-color: var(--bd-canvas-surface);
 }
+/* Rectangle de lasso (sélection par encadrement). Positionné par variables. */
+.cnv-lasso {
+  position: absolute;
+  left: 0; top: 0;
+  transform: translate(var(--lx, 0px), var(--ly, 0px));
+  width: var(--lw, 0px);
+  height: var(--lh, 0px);
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  pointer-events: none;
+  display: none;
+}
+.cnv-frame.cnv-lassoing .cnv-lasso { display: block; }
+
 .cnv-frame:focus { outline: none; }
 .cnv-surface {
   position: absolute;
