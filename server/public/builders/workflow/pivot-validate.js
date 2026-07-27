@@ -17,6 +17,15 @@ const PivotValidate = (() => {
     ? require('./pivot-schema.js')
     : window.PivotSchema;
 
+  // Catalogue de plateforme, optionnel. Posé le temps d'une validation par
+  // `valider(doc, catalogue)`. Absent, la validation reste purement structurelle :
+  // les deux niveaux ne se mélangent pas.
+  let _cat = null;
+
+  // Table des étapes vues dans la portée courante et leurs ports résolus, pour
+  // que le contrôle d'arête vérifie qu'un port de départ existe vraiment.
+  let _portsParEtape = null;
+
   function _creerRapport() {
     const erreurs = [], avertissements = [];
     return {
@@ -95,6 +104,14 @@ const PivotValidate = (() => {
       r.err(chemin + '.facade', '`' + etape.facade + '` — attendu `paquet.nom`, par exemple `iconik.action`');
     }
 
+    // Contrôle de contenu : quand un catalogue est fourni, la façade doit y être
+    // déclarée. Sans catalogue, on ne juge que la forme.
+    if (_cat && etape.facade !== undefined && S.RE_FACADE.test(etape.facade)) {
+      if (!_cat.facadeConnue(etape.facade)) {
+        r.err(chemin + '.facade', '`' + etape.facade + '` inconnue du paquet — façade non déclarée');
+      }
+    }
+
     if (etape.preset !== undefined) {
       if (etape.facade === undefined) {
         r.err(chemin + '.preset', 'un preset est une pré-sélection de champs d\'une façade : `facade` est requis');
@@ -155,12 +172,15 @@ const PivotValidate = (() => {
     }
 
     const vus = Object.create(null);
+    const portsVus = Object.create(null);
     etapes.forEach(function (etape, i) {
       const c = chemin + '.steps[' + i + ']';
       _controlerEtape(etape, c, r);
       if (etape && etape.id) {
         if (vus[etape.id]) r.err(c + '.id', '`' + etape.id + '` déjà utilisé dans cette portée');
         vus[etape.id] = true;
+        // Ports réels de l'étape, si le catalogue est là pour les dire.
+        if (_cat) portsVus[etape.id] = _cat.portsDe(etape);
       }
     });
 
@@ -190,6 +210,16 @@ const PivotValidate = (() => {
           r.err(c + '.' + bout + '.step', '`' + id + '` hors de cette portée — une arête ne traverse pas une frontière de corps');
         }
       });
+
+      // Contrôle de contenu : le port de départ doit être un port réel de
+      // l'étape source, tel que le catalogue le déclare. Sans catalogue, on
+      // s'est contenté d'exiger un port nommé.
+      if (_cat && arete.from && arete.from.step && arete.from.port) {
+        const dispo = portsVus[arete.from.step];
+        if (dispo && dispo.indexOf(arete.from.port) === -1) {
+          r.err(c + '.from.port', '`' + arete.from.port + '` n\'est pas un port de `' + arete.from.step + '` — attendu ' + dispo.join(', '));
+        }
+      }
 
       // `set` sur arête est banni. Le cas qui semblait le réclamer — plusieurs
       // issues écrivant le même champ — ne le réclame pas : le workflow STATUSES
@@ -248,11 +278,13 @@ const PivotValidate = (() => {
 
   // ── Entrée publique ───────────────────────────────────────────────────────
 
-  function valider(doc) {
+  function valider(doc, catalogue) {
     const r = _creerRapport();
+    _cat = catalogue || null;
 
     if (!doc || typeof doc !== 'object') {
       r.err('', 'document absent ou non objet');
+      _cat = null;
       return r.resultat();
     }
 
@@ -281,6 +313,7 @@ const PivotValidate = (() => {
     _controlerPortee({ steps: doc.steps, edges: doc.edges }, '', r);
     _controlerPresentation(doc, r);
 
+    _cat = null;
     return r.resultat();
   }
 
