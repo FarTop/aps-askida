@@ -225,6 +225,10 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
+  /* Un éditeur graphique ne veut jamais que le glissé sélectionne le texte des
+     nœuds (surlignage bleu facon Ctrl+A). On neutralise la sélection native. */
+  user-select: none;
+  -webkit-user-select: none;
   background:
     radial-gradient(var(--bd-grid-line) 1px, transparent 1px)
     0 0 / var(--bd-grid-step) var(--bd-grid-step);
