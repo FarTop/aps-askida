@@ -334,11 +334,12 @@
       }
     });
 
-    // Raccourcis clavier (undo/redo, suppression) — module séparé, branché sur
-    // le contexte d'édition. Les touches ne font que déclencher des commandes
-    // déjà écrites, donc tout reste annulable.
+    // Raccourcis clavier (undo/redo, suppression, copier/coller/dupliquer) —
+    // module séparé, branché sur le contexte d'édition. Les touches ne font que
+    // déclencher des commandes déjà écrites, donc tout reste annulable.
+    const clipboard = window.WfClipboard ? window.WfClipboard.creer() : null;
     if (window.WfShortcuts) {
-      window.WfShortcuts.brancher({ model: model, history: history, selection: selection, root: root });
+      window.WfShortcuts.brancher({ model: model, history: history, selection: selection, clipboard: clipboard, root: root });
     }
 
     rendreDepuisModele();
