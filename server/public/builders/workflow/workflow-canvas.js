@@ -154,9 +154,33 @@
     if (frame.hasPointerCapture(e.pointerId)) frame.releasePointerCapture(e.pointerId);
   });
 
-  appliquer();
+  // ── Démo de rendu : quelques nœuds posés sur la surface ───────────────────
+  // Temporaire, pour voir le rendu réel dans le Builder. Sera remplacé par le
+  // chargement d'un vrai workflow (converti en pivot) quand cette brique
+  // existera. Le renderer vit dans node-renderer.js — ce fichier ne fait que
+  // l'appeler et placer le résultat.
+  const NR = window.NodeRenderer;
+  const nodesHost = root.querySelector('.cnv-nodes');
+  if (NR && nodesHost) {
+    const demo = [
+      { etape: { id: 'boucler', core: 'loop', label: 'Boucler sur les collections',
+                 params: { resultVar: 'loop.item' } }, pos: { x: 80, y: 80 } },
+      { etape: { id: 'fetch', core: 'http_request', facade: 'iconik.fetch',
+                 label: 'Fetch Collection MD', params: { resultVar: 'collectionMeta' } },
+        pos: { x: 380, y: 80 } },
+      { etape: { id: 'decider', core: 'decision', label: 'Route by content type',
+                 params: { conditions: [ { label: 'Série' }, { label: 'Saison' } ] } },
+        pos: { x: 380, y: 300 }, opts: { sourceDistante: '{{verify.summary}}' } },
+      { etape: { id: 'action', core: 'http_request', facade: 'iconik.action',
+                 label: 'Export Location (collection to partner S3)',
+                 params: { resultVar: 'exportResult' } }, pos: { x: 700, y: 80 } }
+    ];
+    demo.forEach(function (d) {
+      nodesHost.appendChild(NR.rendre(d.etape, d.pos, d.opts));
+    });
+  }
 
-  // ── Palette : remplissage depuis le catalogue + sous-onglets ──────────────
+  appliquer();
   // Nodes (Core) et Iconik (façades) sont remplis depuis le vrai catalogue.
   // Custom reste vide : son contenu dépend des permissions et du stockage par
   // user/environnement/plateforme, câblés plus tard.
