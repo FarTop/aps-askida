@@ -37,28 +37,80 @@ const EdgeRenderer = (() => {
     return { x: rd.left + rd.width / 2 - rs.left, y: rd.top + rd.height / 2 - rs.top };
   }
 
-  // Chemin orthogonal à coins arrondis. Sort à droite (a), rentre à gauche (b).
-  function _chemin(a, b) {
-    const ax = a.x + STUB;
-    const bx = b.x - STUB;
-    let midX = (ax + bx) / 2;
-    if (bx <= ax + 2) midX = ax + 40;   // cible proche/à gauche : on déborde à droite
+  // Rect d'un nœud en coordonnées de surface (même convention que _centrePort).
+  function _boite(surface, nodeEl) {
+    const rs = surface.getBoundingClientRect();
+    const rn = nodeEl.getBoundingClientRect();
+    return {
+      left: rn.left - rs.left, right: rn.right - rs.left,
+      top: rn.top - rs.top, bottom: rn.bottom - rs.top
+    };
+  }
 
-    const dy = b.y - a.y;
-    if (Math.abs(dy) < 2) return 'M ' + a.x + ' ' + a.y + ' L ' + b.x + ' ' + b.y;
+  // Construit un chemin orthogonal à coins arrondis à partir d'une liste de
+  // points (waypoints). Chaque coin est adouci par un quart de cercle de rayon
+  // borné par les segments adjacents. Générique : gère autant de coudes qu'il
+  // faut, donc le cas simple comme le contournement en U.
+  function _cheminArrondi(pts) {
+    if (pts.length < 2) return '';
+    let d = 'M ' + pts[0].x + ' ' + pts[0].y;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
+      const l1 = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+      const l2 = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      const r = Math.min(RAYON, l1 / 2, l2 / 2);
+      // Point d'entrée du virage (sur le segment p0->p1) et de sortie (p1->p2).
+      const e1 = { x: p1.x - (p1.x - p0.x) / (l1 || 1) * r, y: p1.y - (p1.y - p0.y) / (l1 || 1) * r };
+      const s1 = { x: p1.x + (p2.x - p1.x) / (l2 || 1) * r, y: p1.y + (p2.y - p1.y) / (l2 || 1) * r };
+      d += ' L ' + e1.x + ' ' + e1.y + ' Q ' + p1.x + ' ' + p1.y + ' ' + s1.x + ' ' + s1.y;
+    }
+    const last = pts[pts.length - 1];
+    d += ' L ' + last.x + ' ' + last.y;
+    return d;
+  }
 
-    const r = Math.min(RAYON, Math.abs(dy) / 2,
-                       Math.max(2, Math.abs(midX - ax)), Math.max(2, Math.abs(bx - midX)));
-    const dir = dy > 0 ? 1 : -1;
+  // Chemin orthogonal. Sort à droite de a, rentre par la gauche de b. Si la
+  // cible est DEVANT (b à droite), aiguillage simple à mi-chemin. Si elle est
+  // EN ARRIERE (b à gauche/derrière), contournement en U : on déborde à droite
+  // de la source, on passe au-dessus/dessous des nœuds, on revient à gauche de
+  // la cible — jamais de trait qui traverse un nœud.
+  function _chemin(a, b, boiteSrc, boiteDst) {
+    const ax = a.x + STUB;         // après le stub de sortie
+    const bx = b.x - STUB;         // avant le stub d'entrée
 
-    return 'M ' + a.x + ' ' + a.y +
-           ' L ' + ax + ' ' + a.y +
-           ' L ' + (midX - r) + ' ' + a.y +
-           ' Q ' + midX + ' ' + a.y + ' ' + midX + ' ' + (a.y + r * dir) +
-           ' L ' + midX + ' ' + (b.y - r * dir) +
-           ' Q ' + midX + ' ' + b.y + ' ' + (midX + r) + ' ' + b.y +
-           ' L ' + bx + ' ' + b.y +
-           ' L ' + b.x + ' ' + b.y;
+    // Cas simple : cible devant, avec de la place pour l'aiguillage.
+    if (bx > ax + 4) {
+      if (Math.abs(b.y - a.y) < 2) return 'M ' + a.x + ' ' + a.y + ' L ' + b.x + ' ' + b.y;
+      const midX = (ax + bx) / 2;
+      return _cheminArrondi([
+        { x: a.x, y: a.y }, { x: midX, y: a.y }, { x: midX, y: b.y }, { x: b.x, y: b.y }
+      ]);
+    }
+
+    // Cas contournement : la cible est en arrière. On déborde à droite de la
+    // source, on file à une hauteur de contournement (au-dessus des deux nœuds
+    // si la cible est plus bas, sinon en-dessous), on revient à gauche de la
+    // cible, puis on rentre.
+    const MARGE = 28;
+    const droite = Math.max(boiteSrc ? boiteSrc.right : ax, a.x) + MARGE;
+    const gauche = Math.min(boiteDst ? boiteDst.left : bx, b.x) - MARGE;
+    // Hauteur de contournement : au-dessus des deux nœuds.
+    const hautSrc = boiteSrc ? boiteSrc.top : a.y;
+    const hautDst = boiteDst ? boiteDst.top : b.y;
+    const basSrc = boiteSrc ? boiteSrc.bottom : a.y;
+    const basDst = boiteDst ? boiteDst.bottom : b.y;
+    // On contourne du côté le plus court : par le haut si la cible entre par le
+    // haut, sinon par le bas. Choix simple : par le bas des deux nœuds.
+    const y = Math.max(basSrc, basDst) + MARGE;
+
+    return _cheminArrondi([
+      { x: a.x, y: a.y },
+      { x: droite, y: a.y },
+      { x: droite, y: y },
+      { x: gauche, y: y },
+      { x: gauche, y: b.y },
+      { x: b.x, y: b.y }
+    ]);
   }
 
   // Couleur d'un port de sortie, lue sur sa pastille (posée par node-renderer).
@@ -89,7 +141,7 @@ const EdgeRenderer = (() => {
       const b = _centrePort(surface, dst, 'in');
       if (!a || !b) return;
 
-      const d = _chemin(a, b);
+      const d = _chemin(a, b, _boite(surface, src), _boite(surface, dst));
       const couleur = _couleurPort(src, arete.from.port);
       const estSel = arete.id && sel.indexOf(arete.id) >= 0;
 
