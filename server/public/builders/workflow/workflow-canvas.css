@@ -234,6 +234,7 @@
     0 0 / var(--bd-grid-step) var(--bd-grid-step);
   background-color: var(--bd-canvas-surface);
 }
+.cnv-frame:focus { outline: none; }
 .cnv-surface {
   position: absolute;
   top: 0;

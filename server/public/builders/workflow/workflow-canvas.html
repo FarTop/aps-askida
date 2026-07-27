@@ -72,7 +72,7 @@
       <!-- Canevas : cadre fixe (.cnv-frame) + surface transformable
            (.cnv-surface). La transformation vit dans la surface, jamais dans le
            cadre : redimensionner ou ouvrir un volet ne bouge aucun noeud. -->
-      <main class="cnv-frame" aria-label="Canvas">
+      <main class="cnv-frame" aria-label="Canvas" tabindex="0">
         <div class="cnv-surface">
           <svg class="cnv-edges" aria-hidden="true"></svg>
           <div class="cnv-nodes"></div>
@@ -160,6 +160,7 @@
   <script src="wf-model.js"></script>
   <script src="wf-history.js"></script>
   <script src="wf-selection.js"></script>
+  <script src="wf-shortcuts.js"></script>
   <script src="workflow-canvas.js"></script>
 </body>
 </html>

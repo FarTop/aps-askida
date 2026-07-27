@@ -324,13 +324,22 @@
     });
 
     // Clic gauche sur le vide (le cadre) : vide la sélection. Le lasso s'y
-    // branchera à l'étape suivante.
+    // branchera à l'étape suivante. On donne aussi le focus au cadre pour que
+    // les raccourcis clavier (Suppr, Ctrl+Z…) s'appliquent au canevas.
     frame.addEventListener('pointerdown', function (e) {
+      frame.focus({ preventScroll: true });
       if (e.button !== 0) return;
       if (e.target === frame || e.target === surface) {
         if (selection) selection.vider();
       }
     });
+
+    // Raccourcis clavier (undo/redo, suppression) — module séparé, branché sur
+    // le contexte d'édition. Les touches ne font que déclencher des commandes
+    // déjà écrites, donc tout reste annulable.
+    if (window.WfShortcuts) {
+      window.WfShortcuts.brancher({ model: model, history: history, selection: selection, root: root });
+    }
 
     rendreDepuisModele();
   }
