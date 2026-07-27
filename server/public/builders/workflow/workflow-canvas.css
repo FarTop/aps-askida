@@ -167,6 +167,12 @@
   border-radius: 12px;
   overflow: hidden;
   font-size: 13px;
+  cursor: grab;
+}
+/* Nœud sélectionné : contour accent (seul marquage, sobre). */
+.bd-node-canvas[data-selected="1"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .nc-head { display: flex; gap: 10px; padding: 12px 14px 10px; }

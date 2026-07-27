@@ -135,8 +135,12 @@
   let panning = false;
   let panStart = { x: 0, y: 0, vx: 0, vy: 0 };
 
+  // Le pan est au CLIC DROIT (bouton 2), pour laisser le clic gauche a la
+  // selection et au lasso. On neutralise le menu contextuel sur le canevas.
+  frame.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
   frame.addEventListener('pointerdown', function (e) {
-    if (e.target !== frame && e.target !== surface) return;
+    if (e.button !== 2) return;                 // pan uniquement au clic droit
     panning = true;
     panStart = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
     frame.classList.add('bd-panning');
@@ -198,6 +202,11 @@
       model.noeuds().forEach(function (n) {
         nodesHost.appendChild(NR.rendre(n.etape, { x: n.x, y: n.y }));
       });
+      _marquerSelection();
+      retracerAretes();
+    }
+
+    function retracerAretes() {
       if (ER && svgEdges && surface) {
         requestAnimationFrame(function () {
           ER.tracer(svgEdges, nodesHost, surface, model.aretes());
@@ -205,9 +214,117 @@
       }
     }
 
-    // Redessine à chaque changement du modèle. (Simple et robuste pour la
-    // fondation ; on affinera en rendu incrémental si le besoin de perf vient.)
-    model.onChange(function () { rendreDepuisModele(); });
+    // Marque visuellement la sélection (relu après chaque reconstruction).
+    function _marquerSelection() {
+      if (!selection) return;
+      const ids = selection.ids();
+      nodesHost.querySelectorAll('.bd-node-canvas').forEach(function (el) {
+        const sel = ids.indexOf(el.getAttribute('data-step-id')) >= 0;
+        el.setAttribute('data-selected', sel ? '1' : '0');
+      });
+    }
+
+    // Déplacement d'un nœud : mise à jour LÉGÈRE (variables de position) plutôt
+    // qu'une reconstruction totale — sinon le glissé rebâtirait tout le DOM à
+    // chaque pixel, cassant la capture du pointeur. Les ajouts/retraits, eux,
+    // reconstruisent (structure changée).
+    model.onChange(function (type, detail) {
+      if (type === 'node:move') {
+        const el = nodesHost.querySelector('[data-step-id="' + detail.id + '"]');
+        if (el) {
+          el.style.setProperty('--nx', detail.x + 'px');
+          el.style.setProperty('--ny', detail.y + 'px');
+        }
+        retracerAretes();
+      } else {
+        rendreDepuisModele();
+      }
+    });
+
+    // ── Sélection + déplacement ───────────────────────────────────────────────
+    const selection = window.WfSelection ? window.WfSelection.creer() : null;
+    root._wfSelection = selection;
+
+    if (selection) {
+      selection.onChange(function () { _marquerSelection(); });
+    }
+
+    // Geste de déplacement au clic gauche sur un nœud. Pendant le glissé, on
+    // bouge en direct (fluide) via le modèle ; au relâchement, on émet UNE seule
+    // commande annulable portant le delta net (pas un undo par pixel).
+    let drag = null;
+
+    function _facteurZoom() {
+      // Les positions modèle sont en coordonnées de surface ; le pointeur est en
+      // pixels écran. On divise le déplacement écran par le zoom courant.
+      return (view && view.zoom) ? view.zoom : 1;
+    }
+
+    nodesHost.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0) return;                 // clic gauche seulement
+      const nodeEl = e.target.closest('.bd-node-canvas');
+      if (!nodeEl) return;
+      // Un clic sur une pastille de port est réservé (future création de lien).
+      if (e.target.closest('.nc-dot')) return;
+
+      const id = nodeEl.getAttribute('data-step-id');
+      if (!selection) return;
+
+      if (e.ctrlKey || e.metaKey) {
+        selection.basculer(id);
+      } else if (!selection.contient(id)) {
+        selection.selectionner(id);             // sinon on garde la sélection multiple
+      }
+      e.stopPropagation();
+
+      // Prépare le déplacement de toute la sélection.
+      const ids = selection.ids();
+      if (ids.length === 0) return;
+      const depart = {};
+      ids.forEach(function (nid) {
+        const n = model.noeud(nid);
+        if (n) depart[nid] = { x: n.x, y: n.y };
+      });
+      drag = { ids: ids, depart: depart, sx: e.clientX, sy: e.clientY, dx: 0, dy: 0, moved: false };
+      nodesHost.setPointerCapture(e.pointerId);
+    });
+
+    nodesHost.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      const z = _facteurZoom();
+      drag.dx = (e.clientX - drag.sx) / z;
+      drag.dy = (e.clientY - drag.sy) / z;
+      if (Math.abs(drag.dx) > 2 || Math.abs(drag.dy) > 2) drag.moved = true;
+      // Déplacement direct (sans commande) pour la fluidité.
+      drag.ids.forEach(function (nid) {
+        const d = drag.depart[nid];
+        if (d) model.deplacerNoeud(nid, d.x + drag.dx, d.y + drag.dy);
+      });
+    });
+
+    nodesHost.addEventListener('pointerup', function (e) {
+      if (!drag) return;
+      if (nodesHost.hasPointerCapture(e.pointerId)) nodesHost.releasePointerCapture(e.pointerId);
+      const d = drag; drag = null;
+      if (!d.moved || !history) return;
+      // Remet d'abord les nœuds à leur départ, puis rejoue le delta comme UNE
+      // commande annulable (les mouvements directs n'étaient pas dans l'historique).
+      d.ids.forEach(function (nid) {
+        const p = d.depart[nid];
+        if (p) model.deplacerNoeud(nid, p.x, p.y);
+      });
+      history.executer(history.cmdDeplacer(d.ids, d.dx, d.dy));
+    });
+
+    // Clic gauche sur le vide (le cadre) : vide la sélection. Le lasso s'y
+    // branchera à l'étape suivante.
+    frame.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0) return;
+      if (e.target === frame || e.target === surface) {
+        if (selection) selection.vider();
+      }
+    });
+
     rendreDepuisModele();
   }
 
