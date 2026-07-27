@@ -10,55 +10,83 @@
 </head>
 
 <body>
-  <!-- Charpente à trois zones. Une seule autorité de mise en page : la grille
-       de .bd-shell. Les zones ne se dimensionnent jamais l'une l'autre ; la
-       grille arbitre, le canevas prend 1fr et absorbe toute variation des
-       panneaux. Chaque zone est un territoire CSS étanche, préfixé (insp- /
-       cnv- / job-) : une refonte d'un panneau ne peut pas atteindre le canevas. -->
-  <div class="bd-shell">
+  <!-- Canevas plein cadre. Le bandeau haut informe (connexion, environnement,
+       statut) mais ne commande pas : les panneaux sont des volets de bord, pas
+       des boutons de bandeau. Trois bords portent des volets — gauche pour
+       observer (jobs, logs), droite pour paramétrer (config, run), bas pour
+       l'API ops (lecture gauche->droite). Chaque volet et ses onglets forment
+       une piece solidaire qui coulisse EN SUPERPOSITION par-dessus le canevas
+       fixe : le canevas ne bouge jamais quand un volet s'ouvre. -->
+  <div class="bd-canvas-root">
 
-    <!-- Barre d'outils (structure seule, actions câblées plus tard) -->
-    <header class="bd-toolbar" aria-label="Outils">
-      <span class="bd-toolbar-title">Workflow Builder</span>
+    <!-- Bandeau d'état minimal — informe, ne commande pas.
+         Contenu provisoire : le reel (connexion, environnement) viendra du
+         contexte au branchement. Plus de selecteur de flux ni + Flux. -->
+    <header class="bd-statusbar" aria-label="État">
+      <span class="bd-status-name">Workflow Builder</span>
+      <span class="bd-status-sep" aria-hidden="true"></span>
+      <span class="bd-status-env" data-state="idle">— environnement —</span>
+      <span class="bd-status-conn" data-state="idle">— connexion —</span>
     </header>
 
-    <!-- Panneau gauche : inspecteur / palette -->
-    <aside class="bd-panel insp-panel" aria-label="Inspecteur">
-      <div class="insp-body"></div>
-    </aside>
+    <!-- Scène : canevas + volets superposés -->
+    <div class="bd-stage">
 
-    <!-- Poignée gauche : redimensionne le panneau gauche entre min et max -->
-    <div class="bd-gutter" data-resize="left"
-         role="separator" aria-orientation="vertical"
-         aria-label="Redimensionner le panneau gauche" tabindex="0"></div>
+      <!-- Canevas : cadre fixe (.cnv-frame) + surface transformable
+           (.cnv-surface). La transformation vit dans la surface, jamais dans le
+           cadre : redimensionner ou ouvrir un volet ne bouge aucun noeud. -->
+      <main class="cnv-frame" aria-label="Canevas">
+        <div class="cnv-surface">
+          <svg class="cnv-edges" aria-hidden="true"></svg>
+          <div class="cnv-nodes"></div>
+        </div>
+      </main>
 
-    <!-- Canevas central : cadre fixe + couche transformable.
-         Le cadre (.cnv-frame) est la fenêtre, sa taille suit le layout.
-         La surface (.cnv-surface) porte le système de coordonnées des nœuds
-         et se transforme (zoom / déplacement) SANS que le layout l'affecte —
-         c'est ce qui découple les coordonnées des nœuds de la taille de la
-         fenêtre, et supprime les décalages panneau/canevas de WFD. -->
-    <main class="cnv-frame" aria-label="Canevas">
-      <div class="cnv-surface">
-        <!-- Liaisons (SVG) sous les nœuds -->
-        <svg class="cnv-edges" aria-hidden="true"></svg>
-        <!-- Nœuds (DOM) au-dessus -->
-        <div class="cnv-nodes"></div>
+      <!-- Dock gauche : observation. Volet + onglets solidaires + poignée. -->
+      <div class="bd-dock bd-dock-left" data-side="left">
+        <aside class="bd-panel">
+          <div class="bd-panel-hd" data-role="title">Jobs</div>
+          <div class="bd-panel-bd"></div>
+        </aside>
+        <div class="bd-grip" data-side="left"
+             role="separator" aria-orientation="vertical" tabindex="0"
+             aria-label="Redimensionner le volet gauche"></div>
+        <div class="bd-tabs">
+          <button class="bd-tab" data-panel="jobs" data-side="left">Jobs</button>
+          <button class="bd-tab" data-panel="logs" data-side="left">Logs</button>
+        </div>
       </div>
-    </main>
 
-    <!-- Poignée droite -->
-    <div class="bd-gutter" data-resize="right"
-         role="separator" aria-orientation="vertical"
-         aria-label="Redimensionner le panneau droit" tabindex="0"></div>
+      <!-- Dock droite : paramétrage -->
+      <div class="bd-dock bd-dock-right" data-side="right">
+        <aside class="bd-panel">
+          <div class="bd-panel-hd" data-role="title">Config</div>
+          <div class="bd-panel-bd"></div>
+        </aside>
+        <div class="bd-grip" data-side="right"
+             role="separator" aria-orientation="vertical" tabindex="0"
+             aria-label="Redimensionner le volet droit"></div>
+        <div class="bd-tabs">
+          <button class="bd-tab" data-panel="config" data-side="right">Config</button>
+          <button class="bd-tab" data-panel="run" data-side="right">Run</button>
+        </div>
+      </div>
 
-    <!-- Panneau droit : jobs. Le jeton sur un nœud (canevas) et la ligne de job
-         ici liront la MÊME source d'événements — un flux, deux rendus — pour ne
-         pas diverger comme WFD. -->
-    <aside class="bd-panel job-panel" aria-label="Jobs">
-      <div class="job-body"></div>
-    </aside>
+      <!-- Dock bas : API ops (lecture gauche->droite) -->
+      <div class="bd-dock bd-dock-bottom" data-side="bottom">
+        <aside class="bd-panel">
+          <div class="bd-panel-hd" data-role="title">API ops</div>
+          <div class="bd-panel-bd"></div>
+        </aside>
+        <div class="bd-grip" data-side="bottom"
+             role="separator" aria-orientation="horizontal" tabindex="0"
+             aria-label="Redimensionner le volet bas"></div>
+        <div class="bd-tabs">
+          <button class="bd-tab" data-panel="api" data-side="bottom">API ops</button>
+        </div>
+      </div>
 
+    </div>
   </div>
 
   <script src="pivot-schema.js"></script>

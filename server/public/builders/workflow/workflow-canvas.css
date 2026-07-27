@@ -1,133 +1,191 @@
-/* workflow-canvas.css — Mise en page de la charpente à trois zones
+/* workflow-canvas.css — Système de volets du canevas
  *
- * Ce fichier ne pose QUE la structure : où sont les zones, comment elles se
- * partagent l'espace, comment le canevas découple ses coordonnées du layout.
- * Aucune décision cosmétique (forme de nœud, couleur d'état, jeton) : ces choix
- * appartiennent à une phase ultérieure et à d'autres classes.
+ * Structure et mecanique, direction visuelle verrouillee sur maquette :
+ * superposition (canevas fixe), onglet solidaire du volet, forme « filet
+ * d'accent » (sobre, gris, accent reserve a l'actif). La FORME des onglets est
+ * isolee dans sa propre section, pour qu'on puisse y revenir sans toucher au
+ * reste — c'est ce qui rend la base « solide » : les retouches cosmetiques sont
+ * confinees.
  *
- * Toutes les valeurs viennent de builder-tokens.css. Zéro couleur, zéro poids,
- * zéro dimension en dur ici. Zéro style inline, zéro toggle style.display :
- * l'affichage passe par des classes (aucune n'est nécessaire à ce stade).
+ * Toutes les valeurs viennent de builder-tokens.css. Zero couleur/dimension en
+ * dur, zero style inline, zero style.display en JS (l'ouverture passe par un
+ * attribut data-open sur la racine, lu en CSS).
  */
 
-/* ── Autorité unique de mise en page : la grille ─────────────────────────── */
-/* Cinq pistes : panneau | poignée | canevas(1fr) | poignée | panneau.
-   Les panneaux ont une largeur nommée (élastique entre min/max via la poignée) ;
-   le canevas prend 1fr et absorbe toute variation. Aucune zone ne lit la taille
-   d'une autre. */
-.bd-shell {
+/* ── Cadre general : bandeau d'etat + scene ──────────────────────────────── */
+.bd-canvas-root {
   display: grid;
-  grid-template-columns:
-    var(--bd-left-width)
-    var(--bd-gutter)
-    minmax(0, 1fr)
-    var(--bd-gutter)
-    var(--bd-right-width);
-  grid-template-rows: var(--bd-toolbar-height) minmax(0, 1fr);
-  grid-template-areas:
-    "toolbar toolbar toolbar toolbar toolbar"
-    "left    lgutter canvas  rgutter right";
+  grid-template-rows: var(--bd-statusbar-height) minmax(0, 1fr);
   height: 100vh;
   width: 100%;
   background: var(--bd-canvas-bg);
-  overflow: hidden;                 /* rien ne déborde de la charpente */
+  overflow: hidden;
 }
 
-.bd-toolbar {
-  grid-area: toolbar;
+/* Bandeau d'etat : informe, ne commande pas. */
+.bd-statusbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding: 0 16px;
   border-bottom: 1px solid var(--bd-panel-border);
   background: var(--bd-panel-bg);
-}
-
-.bd-toolbar-title {
   color: var(--bd-text);
   font-weight: var(--bd-font-weight);
   font-size: var(--bd-font-size);
 }
-
-/* ── Panneaux : territoires étanches ─────────────────────────────────────── */
-/* Fond et bord communs ; le contenu de chacun vit sous son propre préfixe
-   (insp- / job-) et ne peut pas déborder sur le canevas. */
-.bd-panel {
-  background: var(--bd-panel-bg);
-  overflow: auto;                   /* le panneau scrolle, il ne pousse pas */
-  min-width: 0;                     /* autorise le rétrécissement en grille */
+.bd-status-name { font-weight: 600; }
+.bd-status-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--bd-panel-border);
 }
+.bd-status-env,
+.bd-status-conn { color: var(--bd-text-dim); }
 
-.insp-panel { grid-area: left;  border-right: 1px solid var(--bd-panel-border); }
-.job-panel  { grid-area: right; border-left:  1px solid var(--bd-panel-border); }
-
-.insp-body,
-.job-body { padding: 12px; }
-
-/* ── Poignées de redimensionnement ───────────────────────────────────────── */
-/* Structure seule : la zone d'empoigne et son curseur. La logique (tirer pour
-   changer --bd-left-width / --bd-right-width entre min et max) est en JS. */
-.bd-gutter {
-  cursor: col-resize;
-  background: transparent;
-}
-.bd-gutter[data-resize="left"]  { grid-area: lgutter; }
-.bd-gutter[data-resize="right"] { grid-area: rgutter; }
-
-.bd-gutter:hover,
-.bd-gutter:focus-visible {
-  background: var(--bd-gutter-hover);
-  outline: none;
-}
-
-/* ── Canevas : cadre fixe + couche transformable ─────────────────────────── */
-/* .cnv-frame est la fenêtre : sa taille suit la grille. .cnv-surface porte les
-   coordonnées des nœuds et se transformera (translate + scale) via une variable
-   posée en JS — la transformation vit DANS la surface, jamais dans le cadre,
-   donc redimensionner un panneau ne bouge aucun nœud. */
-.cnv-frame {
-  grid-area: canvas;
+/* ── Scene : le canevas remplit tout, les volets se superposent ──────────── */
+.bd-stage {
   position: relative;
+  overflow: hidden;
+}
+
+/* ── Canevas : cadre fixe + surface transformable ────────────────────────── */
+.cnv-frame {
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   background:
     radial-gradient(var(--bd-grid-line) 1px, transparent 1px)
     0 0 / var(--bd-grid-step) var(--bd-grid-step);
   background-color: var(--bd-canvas-surface);
 }
-
 .cnv-surface {
   position: absolute;
   top: 0;
   left: 0;
   transform-origin: 0 0;
-  /* --bd-pan-x / --bd-pan-y / --bd-zoom posés en JS ; 0/0/1 par défaut ici */
   transform:
     translate(var(--bd-pan-x, 0px), var(--bd-pan-y, 0px))
     scale(var(--bd-zoom, 1));
 }
-
-/* Liaisons dessous, nœuds dessus — même repère, celui de la surface. */
 .cnv-edges {
   position: absolute;
   top: 0;
   left: 0;
   overflow: visible;
-  pointer-events: none;             /* les clics vont aux nœuds */
+  pointer-events: none;
 }
-
 .cnv-nodes {
   position: absolute;
   top: 0;
   left: 0;
 }
 
-/* ── États d'interaction (posés par le JS pendant l'action) ──────────────── */
-/* Structure, pas cosmétique : retour de curseur pendant redimensionnement et
-   déplacement. Posés/retirés par classe, jamais par style.* en dur. */
-.bd-shell.bd-resizing { cursor: col-resize; user-select: none; }
+/* ── Docks : volet + onglets SOLIDAIRES, superposes au canevas ───────────── */
+/* Un dock est la piece entiere (volet + onglets + poignee). On translate le
+   dock : ferme, seuls les onglets depassent dans le canevas ; ouvert, le volet
+   entre et les onglets restent accroches a son bord exterieur. Le canevas ne
+   bouge pas — superposition, jamais poussee. */
+.bd-dock {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  transition: transform .28s cubic-bezier(.4, 0, .2, 1);
+}
+
+.bd-dock-left {
+  top: 64px; left: 0;
+  flex-direction: row;
+  transform: translateX(calc(-1 * var(--bd-left-width)));
+}
+.bd-dock-right {
+  top: 64px; right: 0;
+  flex-direction: row-reverse;
+  transform: translateX(var(--bd-right-width));
+}
+.bd-dock-bottom {
+  left: 64px; bottom: 0;
+  flex-direction: column-reverse;
+  transform: translateY(var(--bd-bottom-height));
+}
+
+/* Ouverture : pilotee par data-open sur la racine, lu en CSS (pas de style.* JS) */
+.bd-canvas-root[data-open~="left"]   .bd-dock-left   { transform: translateX(0); }
+.bd-canvas-root[data-open~="right"]  .bd-dock-right  { transform: translateX(0); }
+.bd-canvas-root[data-open~="bottom"] .bd-dock-bottom { transform: translateY(0); }
+
+/* Le volet lui-meme */
+.bd-panel {
+  background: var(--bd-panel-bg);
+  border: 1px solid var(--bd-panel-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.bd-dock-left   .bd-panel { width: var(--bd-left-width);   height: calc(100vh - var(--bd-statusbar-height) - 128px); border-left: none; }
+.bd-dock-right  .bd-panel { width: var(--bd-right-width);  height: calc(100vh - var(--bd-statusbar-height) - 128px); border-right: none; }
+.bd-dock-bottom .bd-panel { height: var(--bd-bottom-height); width: calc(100vw - 128px); border-bottom: none; }
+
+.bd-panel-hd {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--bd-panel-border);
+  color: var(--bd-text);
+  font-weight: 600;
+}
+.bd-panel-bd {
+  padding: 12px 14px;
+  color: var(--bd-text-dim);
+  overflow: auto;
+}
+
+/* Poignee d'elargissement (superposition n'empeche pas l'elargissement) */
+.bd-grip { background: transparent; }
+.bd-dock-left   .bd-grip,
+.bd-dock-right  .bd-grip { width: var(--bd-gutter); cursor: col-resize; align-self: stretch; }
+.bd-dock-bottom .bd-grip { height: var(--bd-gutter); cursor: row-resize; align-self: stretch; }
+.bd-grip:hover,
+.bd-grip:focus-visible { background: var(--bd-gutter-hover); outline: none; opacity: .5; }
+
+/* ── Onglets ─────────────────────────────────────────────────────────────── */
+/* Barre d'onglets accolee au volet. */
+.bd-tabs { display: flex; }
+.bd-dock-left   .bd-tabs,
+.bd-dock-right  .bd-tabs { flex-direction: column; gap: 8px; padding-top: 6px; }
+.bd-dock-bottom .bd-tabs { flex-direction: row; gap: 8px; padding-left: 6px; }
+
+.bd-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bd-panel-bg);
+  color: var(--bd-text-dim);
+  border: 1px solid var(--bd-panel-border);
+  cursor: pointer;
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-family: inherit;
+  transition: color .15s, box-shadow .15s;
+}
+.bd-tab:hover { color: var(--bd-text); }
+
+/* Texte vertical coherent des deux cotes (bas -> haut). */
+.bd-dock-left  .bd-tab,
+.bd-dock-right .bd-tab { writing-mode: vertical-rl; transform: rotate(180deg); padding: 14px 8px; }
+.bd-dock-bottom .bd-tab { padding: 8px 14px; }
+
+/* ── FORME « filet d'accent » (verrouillee, isolee pour retouche facile) ──── */
+/* Rectangle sobre ; l'onglet actif recoit un mince filet d'accent sur son bord.
+   Pour changer de forme un jour, on ne touche QUE ce bloc. */
+.bd-tab.bd-tab-active { color: var(--bd-text); }
+.bd-dock-left   .bd-tab.bd-tab-active { box-shadow: inset  3px 0 0 var(--accent); }
+.bd-dock-right  .bd-tab.bd-tab-active { box-shadow: inset -3px 0 0 var(--accent); }
+.bd-dock-bottom .bd-tab.bd-tab-active { box-shadow: inset 0 -3px 0 var(--accent); }
+
+/* ── États d'interaction ─────────────────────────────────────────────────── */
+.bd-canvas-root.bd-resizing { cursor: col-resize; user-select: none; }
 .cnv-frame.bd-panning { cursor: grabbing; }
 
-/* ── Plancher de qualité ─────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .cnv-surface { transition: none; }
+  .bd-dock { transition: none; }
 }

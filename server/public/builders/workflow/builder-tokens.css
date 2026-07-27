@@ -29,14 +29,15 @@
   --bd-gutter:         6px;                 /* largeur de la zone d'empoigne   */
   --bd-gutter-hover:   var(--accent);       /* retour visuel au survol         */
 
-  /* ── Panneaux : bornes de largeur (élastiques) ───────────────────────── */
+  /* ── Panneaux : bornes de largeur/hauteur (élastiques) ───────────────── */
   --bd-panel-min:      220px;
-  --bd-panel-max:      480px;
-  --bd-left-width:     280px;               /* largeur de départ, ajustable    */
-  --bd-right-width:    320px;
+  --bd-panel-max:      560px;
+  --bd-left-width:     300px;               /* largeur de départ, ajustable    */
+  --bd-right-width:    340px;
+  --bd-bottom-height:  240px;               /* hauteur du volet bas (API ops)  */
 
-  /* ── Barre d'outils ───────────────────────────────────────────────────── */
-  --bd-toolbar-height: 48px;
+  /* ── Bandeau d'état (informe, ne commande pas) ───────────────────────── */
+  --bd-statusbar-height: 44px;
 
   /* ── Texte (PROVISOIRE — la lisibilité se règle en phase cosmétique) ──── */
   --bd-text:           var(--text);
