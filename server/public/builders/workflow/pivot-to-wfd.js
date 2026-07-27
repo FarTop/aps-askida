@@ -127,6 +127,29 @@ const PivotToWfd = (() => {
     (portee.edges || []).forEach(function (arete) {
       _connexions(arete, etapesParId).forEach(function (c) { connexions.push(c); });
     });
+
+    // Port `default` d'une décision : le pivot l'exprime par `otherwise: "Label"`
+    // (le défaut se comporte comme la branche portant ce libellé). Le moteur veut
+    // une arête explicite depuis le dernier port (index = nb de conditions). On la
+    // génère vers la même cible que l'arête portant le libellé de `otherwise`.
+    (portee.steps || []).forEach(function (etape) {
+      if (etape.core !== 'decision') return;
+      const otherwise = (etape.params || {}).otherwise;
+      if (!otherwise) return;
+      // Cible : l'arête de cette décision dont le port (libellé) vaut otherwise.
+      const modele = (portee.edges || []).find(function (e) {
+        return e.from && e.from.step === etape.id && e.from.port === otherwise;
+      });
+      if (!modele) return;
+      const conds = (etape.params.conditions) || [];
+      connexions.push({
+        id: 'conn-' + (++_seq),
+        fromNode: _idWfd(etape.id),
+        fromPort: conds.length,           // le port default suit les conditions
+        toNode: _idWfd(modele.to.step),
+        toPort: 0
+      });
+    });
   }
 
   // ── Entrée publique ───────────────────────────────────────────────────────
