@@ -217,7 +217,8 @@
       retraceEnVol = true;
       requestAnimationFrame(function () {
         retraceEnVol = false;
-        ER.tracer(svgEdges, nodesHost, surface, model.aretes());
+        const selAretes = selection ? selection.idsAretes() : [];
+        ER.tracer(svgEdges, nodesHost, surface, model.aretes(), selAretes);
       });
     }
 
@@ -253,7 +254,19 @@
     root._wfSelection = selection;
 
     if (selection) {
-      selection.onChange(function () { _marquerSelection(); });
+      selection.onChange(function () { _marquerSelection(); retracerAretes(); });
+    }
+
+    // Clic sur une arête : la sélectionner (zone de clic élargie côté SVG).
+    if (svgEdges && selection) {
+      svgEdges.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) return;
+        const g = e.target.closest('.cnv-edge');
+        if (!g) return;
+        e.stopPropagation();
+        const id = g.getAttribute('data-edge-id');
+        if (id) selection.selectionnerArete(id);
+      });
     }
 
     // Geste de déplacement au clic gauche sur un nœud. Pendant le glissé, on
@@ -350,6 +363,15 @@
       window.WfPaletteDrag.brancher({
         paletteRoot: paletteRoot, frame: frame, surface: surface,
         model: model, history: history, selection: selection, view: view
+      });
+    }
+
+    // Créer une liaison en tirant d'un port de sortie vers une entrée (module
+    // séparé). Arête créée via commande annulable.
+    if (window.WfConnect) {
+      window.WfConnect.brancher({
+        nodesHost: nodesHost, svgEdges: svgEdges, surface: surface, frame: frame,
+        model: model, history: history
       });
     }
 

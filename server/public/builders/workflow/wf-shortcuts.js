@@ -85,13 +85,15 @@ const WfShortcuts = (() => {
         return;
       }
 
-      // Supprimer la sélection. Backspace neutralisé sur le canevas (sinon le
-      // navigateur peut revenir en arrière).
+      // Supprimer la sélection (nœuds ET arêtes). Backspace neutralisé sur le
+      // canevas (sinon le navigateur peut revenir en arrière).
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const ids = selection.ids();
-        if (ids.length === 0) return;
+        const idsAr = selection.idsAretes ? selection.idsAretes() : [];
+        if (ids.length === 0 && idsAr.length === 0) return;
         e.preventDefault();
-        history.executer(history.cmdSupprimerNoeuds(ids));
+        if (ids.length > 0) history.executer(history.cmdSupprimerNoeuds(ids));
+        idsAr.forEach(function (aid) { history.executer(history.cmdSupprimerArete(aid)); });
         selection.vider();
         return;
       }

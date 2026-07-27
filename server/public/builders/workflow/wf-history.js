@@ -119,6 +119,18 @@ const WfHistory = (() => {
       };
     }
 
+    // Ajouter une arête. Défaire = la retirer. L'id est fixé à l'avance pour
+    // que faire/défaire visent la même arête même après plusieurs cycles.
+    function cmdAjouterArete(arete) {
+      const id = arete.id || ('edge-cmd-' + Date.now().toString(36) + '-' + Math.floor(Math.random() * 1e6));
+      const a = { id: id, from: arete.from, to: arete.to };
+      return {
+        label: 'add-edge',
+        faire: function () { model.ajouterArete(a); },
+        defaire: function () { model.retirerArete(id); }
+      };
+    }
+
     // Supprimer une arête. Défaire = la réajouter.
     function cmdSupprimerArete(id) {
       const e = model.aretes().filter(function (x) { return x.id === id; })[0];
@@ -131,7 +143,7 @@ const WfHistory = (() => {
 
     return {
       onChange, executer, annuler, refaire,
-      cmdDeplacer, cmdSupprimerNoeuds, cmdAjouterNoeuds, cmdSupprimerArete
+      cmdDeplacer, cmdSupprimerNoeuds, cmdAjouterNoeuds, cmdAjouterArete, cmdSupprimerArete
     };
   }
 

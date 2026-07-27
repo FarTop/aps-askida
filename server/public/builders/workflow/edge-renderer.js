@@ -76,8 +76,9 @@ const EdgeRenderer = (() => {
    * @param {HTMLElement} surface    le repère (.cnv-surface)
    * @param {Array} edges  arêtes pivot [{ from:{step,port}, to:{step} }]
    */
-  function tracer(svg, nodesHost, surface, edges) {
+  function tracer(svg, nodesHost, surface, edges, selectionnees) {
     while (svg.firstChild) svg.removeChild(svg.firstChild);
+    const sel = selectionnees || [];
 
     (edges || []).forEach(function (arete) {
       const src = nodesHost.querySelector('[data-step-id="' + arete.from.step + '"]');
@@ -88,13 +89,34 @@ const EdgeRenderer = (() => {
       const b = _centrePort(surface, dst, 'in');
       if (!a || !b) return;
 
+      const d = _chemin(a, b);
+      const couleur = _couleurPort(src, arete.from.port);
+      const estSel = arete.id && sel.indexOf(arete.id) >= 0;
+
+      const g = document.createElementNS(SVGNS, 'g');
+      g.setAttribute('data-edge-id', arete.id || '');
+      g.setAttribute('class', 'cnv-edge' + (estSel ? ' cnv-edge-selected' : ''));
+
+      // Zone de clic ELARGIE : trait transparent épais, facile à attraper
+      // (une arête fine est difficile à cliquer). Porte les événements.
+      const hit = document.createElementNS(SVGNS, 'path');
+      hit.setAttribute('d', d);
+      hit.setAttribute('fill', 'none');
+      hit.setAttribute('stroke', 'transparent');
+      hit.setAttribute('stroke-width', '14');
+      hit.setAttribute('class', 'cnv-edge-hit');
+      g.appendChild(hit);
+
+      // Trait visible, coloré par le port de départ.
       const path = document.createElementNS(SVGNS, 'path');
-      path.setAttribute('d', _chemin(a, b));
+      path.setAttribute('d', d);
       path.setAttribute('fill', 'none');
-      path.setAttribute('stroke-width', '2');
-      path.setAttribute('stroke', _couleurPort(src, arete.from.port));
-      path.setAttribute('data-edge', arete.from.step + ':' + arete.from.port + '->' + arete.to.step);
-      svg.appendChild(path);
+      path.setAttribute('stroke-width', estSel ? '3' : '2');
+      path.setAttribute('stroke', couleur);
+      path.setAttribute('class', 'cnv-edge-line');
+      g.appendChild(path);
+
+      svg.appendChild(g);
     });
   }
 

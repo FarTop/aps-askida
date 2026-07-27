@@ -15,11 +15,13 @@ const WfSelection = (() => {
 
   function creer() {
     const set = new Set();
+    const setAretes = new Set();
     const abonnes = [];
 
     function _notifier() {
       const ids = Array.from(set);
-      abonnes.forEach(function (fn) { fn(ids); });
+      const idsAr = Array.from(setAretes);
+      abonnes.forEach(function (fn) { fn(ids, idsAr); });
     }
     function onChange(fn) { abonnes.push(fn); return function () {
       const i = abonnes.indexOf(fn); if (i >= 0) abonnes.splice(i, 1);
@@ -29,9 +31,11 @@ const WfSelection = (() => {
     function contient(id) { return set.has(id); }
     function taille() { return set.size; }
 
-    // Sélection exclusive : ce nœud seul.
+    // Sélection exclusive : ce nœud seul. Vide aussi les arêtes (une sélection
+    // exclusive de nœud ne cohabite pas avec une arête sélectionnée).
     function selectionner(id) {
       set.clear();
+      setAretes.clear();
       if (id != null) set.add(id);
       _notifier();
     }
@@ -44,13 +48,26 @@ const WfSelection = (() => {
 
     function ajouter(id) { if (!set.has(id)) { set.add(id); _notifier(); } }
 
-    function vider() {
-      if (set.size === 0) return;
+    // ── Sélection d'arêtes (ensemble parallèle) ───────────────────────────────
+    function idsAretes() { return Array.from(setAretes); }
+    function contientArete(id) { return setAretes.has(id); }
+    // Sélection exclusive d'une arête : vide les nœuds aussi.
+    function selectionnerArete(id) {
       set.clear();
+      setAretes.clear();
+      if (id != null) setAretes.add(id);
       _notifier();
     }
 
-    return { onChange, ids, contient, taille, selectionner, basculer, ajouter, vider };
+    function vider() {
+      if (set.size === 0 && setAretes.size === 0) return;
+      set.clear();
+      setAretes.clear();
+      _notifier();
+    }
+
+    return { onChange, ids, contient, taille, selectionner, basculer, ajouter, vider,
+             idsAretes, contientArete, selectionnerArete };
   }
 
   return { creer };

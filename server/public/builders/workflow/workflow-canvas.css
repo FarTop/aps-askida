@@ -234,6 +234,23 @@
     0 0 / var(--bd-grid-step) var(--bd-grid-step);
   background-color: var(--bd-canvas-surface);
 }
+/* Arêtes : la zone de clic élargie porte le curseur ; le trait visible réagit
+   à la sélection. La ligne provisoire (tirage) est en pointillés accent. */
+.cnv-edge-hit { cursor: pointer; }
+.cnv-edge-selected .cnv-edge-line { filter: drop-shadow(0 0 3px var(--accent)); }
+.cnv-edge-draft {
+  stroke: var(--accent);
+  stroke-dasharray: 5 4;
+  pointer-events: none;
+}
+/* Pastille d'entrée illuminée quand elle est une cible valide de connexion. */
+.nc-pin.nc-pin-cible .nc-dot {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+/* Pastille de sortie : curseur indiquant qu'on peut y démarrer une liaison. */
+.nc-pout .nc-dot { cursor: crosshair; }
+
 /* Fantôme suivant le curseur pendant le glisser depuis la palette. */
 .bd-drag-ghost {
   position: fixed;
@@ -283,6 +300,10 @@
   overflow: visible;
   pointer-events: none;
 }
+/* Les arêtes elles-mêmes redeviennent cliquables (la couche reste inerte
+   partout ailleurs, pour ne pas voler les clics au canevas). */
+.cnv-edges .cnv-edge { pointer-events: auto; }
+.cnv-edges .cnv-edge-draft { pointer-events: none; }
 .cnv-nodes {
   position: absolute;
   top: 0;
