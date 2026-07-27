@@ -173,11 +173,28 @@
         pos: { x: 380, y: 300 }, opts: { sourceDistante: '{{verify.summary}}' } },
       { etape: { id: 'action', core: 'http_request', facade: 'iconik.action',
                  label: 'Export Location (collection to partner S3)',
-                 params: { resultVar: 'exportResult' } }, pos: { x: 700, y: 80 } }
+                 params: { resultVar: 'exportResult' } }, pos: { x: 700, y: 340 } }
     ];
     demo.forEach(function (d) {
       nodesHost.appendChild(NR.rendre(d.etape, d.pos, d.opts));
     });
+
+    // Arêtes de démo, tracées après les nœuds (les positions des ports sont
+    // alors mesurables). L'edge-renderer vit dans son module séparé.
+    const ER = window.EdgeRenderer;
+    const svgEdges = root.querySelector('.cnv-edges');
+    const surface = root.querySelector('.cnv-surface');
+    if (ER && svgEdges && surface) {
+      const demoEdges = [
+        { from: { step: 'boucler', port: 'out' },   to: { step: 'fetch' } },
+        { from: { step: 'fetch',   port: 'out' },    to: { step: 'decider' } },
+        { from: { step: 'fetch',   port: 'error' },  to: { step: 'action' } }
+      ];
+      // Un rAF pour laisser le layout se poser avant de mesurer les pastilles.
+      requestAnimationFrame(function () {
+        ER.tracer(svgEdges, nodesHost, surface, demoEdges);
+      });
+    }
   }
 
   appliquer();

@@ -148,6 +148,7 @@ const NodeRenderer = (() => {
     const wrap = _el('div', 'nc-ports');
     const inRow = _el('div', 'nc-prow');
     const pin = _el('span', 'nc-pin');
+    pin.setAttribute('data-port', 'in');
     pin.appendChild(_el('span', 'nc-dot'));
     pin.appendChild(_el('span', 'nc-plbl', 'Entrée'));
     inRow.appendChild(pin);
@@ -157,6 +158,7 @@ const NodeRenderer = (() => {
     outs.forEach(function (port) {
       const row = _el('div', 'nc-prow');
       const pout = _el('span', 'nc-pout');
+      pout.setAttribute('data-port', port.id);
       const dot = _el('span', 'nc-dot');
       dot.style.setProperty('--port-color', port.color || '#95a5a6');
       pout.appendChild(dot);
