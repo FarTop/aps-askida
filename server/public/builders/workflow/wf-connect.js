@@ -6,10 +6,20 @@
  * provisoire suit le curseur ; la cible valide s'illumine. Au relâchement sur
  * une entrée valide, l'arête est créée via commande annulable (cmdAjouterArete).
  *
- * Sens : sortie -> entrée uniquement (sens du flux). Garde-fous minimaux :
- * pas de nœud vers lui-même, pas d'entrée->entrée. La convergence et les règles
- * fines de validité pivot sont TOLERÉES au tracé, validées au niveau workflow
- * plus tard (on ne bloque pas l'exploration).
+ * IMPLEMENTATION alignée sur le designer WFD, qui a résolu ce problème avant
+ * nous (script-workflow-designer.js, setupPortDrag) :
+ *   — souris classique (mousedown/mousemove/mouseup), PAS de pointer capture.
+ *     La capture de pointeur fige elementFromPoint sur l'élément capteur au
+ *     relâchement — c'est ce qui empêchait l'ancrage. Sans capture, le
+ *     problème disparaît.
+ *   — document.elementsFromPoint (PLURIEL) + recherche : on prend toute la pile
+ *     sous le curseur et on cherche le port d'entrée, ce qui traverse la ligne
+ *     provisoire ou tout élément au-dessus.
+ *   — highlight par survol (mouseover/mouseout) sur le port.
+ *
+ * Sens : sortie -> entrée uniquement. Garde-fous minimaux : pas de nœud vers
+ * lui-même, pas de doublon strict. Convergence et règles fines de validité
+ * pivot TOLERÉES au tracé, validées au niveau workflow plus tard.
  */
 
 const WfConnect = (() => {
@@ -17,81 +27,42 @@ const WfConnect = (() => {
   const SVGNS = 'http://www.w3.org/2000/svg';
 
   function brancher(ctx) {
-    const { nodesHost, svgEdges, surface, frame, model, history } = ctx;
+    const nodesHost = ctx.nodesHost, svgEdges = ctx.svgEdges, surface = ctx.surface;
+    const model = ctx.model, history = ctx.history, view = ctx.view;
     if (!nodesHost || !svgEdges || !surface || !model || !history) return function () {};
 
-    let lien = null;   // { fromStep, fromPort, a:{x,y}, ligne }
+    let drag = null;   // { fromStep, fromPort, x1, y1, ghost }
 
-    function _centrePastille(pastille) {
+    function _echelle() { return (view && view.zoom) ? view.zoom : 1; }
+
+    function _centrePastilleSurface(dot) {
       const rs = surface.getBoundingClientRect();
-      const r = pastille.getBoundingClientRect();
-      return { x: r.left + r.width / 2 - rs.left, y: r.top + r.height / 2 - rs.top };
-    }
-
-    function _ligneProvisoire() {
-      const p = document.createElementNS(SVGNS, 'path');
-      p.setAttribute('class', 'cnv-edge-draft');
-      p.setAttribute('fill', 'none');
-      p.setAttribute('stroke-width', '2');
-      svgEdges.appendChild(p);
-      return p;
-    }
-
-    function onDown(e) {
-      if (e.button !== 0) return;
-      // On ne démarre une connexion que depuis une pastille de SORTIE.
-      const pout = e.target.closest('.nc-pout');
-      if (!pout) return;
-      const nodeEl = pout.closest('.bd-node-canvas');
-      if (!nodeEl) return;
-      e.stopPropagation();   // ne pas déclencher le déplacement du nœud
-      const dot = pout.querySelector('.nc-dot');
-      lien = {
-        fromStep: nodeEl.getAttribute('data-step-id'),
-        fromPort: pout.getAttribute('data-port'),
-        a: _centrePastille(dot),
-        ligne: _ligneProvisoire()
-      };
-      nodesHost.setPointerCapture(e.pointerId);
-      document.addEventListener('pointermove', onMove);
-      document.addEventListener('pointerup', onUp);
+      const s = _echelle();
+      const r = dot.getBoundingClientRect();
+      return { x: (r.left + r.width / 2 - rs.left) / s,
+               y: (r.top + r.height / 2 - rs.top) / s };
     }
 
     function _pointSurface(cx, cy) {
       const rs = surface.getBoundingClientRect();
-      // La surface est mise à l'échelle : on divise par le ratio réel.
-      const scale = surface.getBoundingClientRect().width / surface.offsetWidth || 1;
-      return { x: (cx - rs.left) / scale, y: (cy - rs.top) / scale };
+      const s = _echelle();
+      return { x: (cx - rs.left) / s, y: (cy - rs.top) / s };
     }
 
-    function onMove(e) {
-      if (!lien) return;
-      const b = _pointSurface(e.clientX, e.clientY);
-      // Courbe simple provisoire (droite douce) de la sortie vers le curseur.
-      lien.ligne.setAttribute('d', 'M ' + lien.a.x + ' ' + lien.a.y + ' L ' + b.x + ' ' + b.y);
-
-      // Illumine une entrée valide sous le curseur. On passe par
-      // elementFromPoint : sous capture de pointeur, e.target reste figé sur
-      // l'élément capteur et ne désigne PAS ce qui est réellement survolé.
-      _clearHighlight();
-      const sous = document.elementFromPoint(e.clientX, e.clientY);
-      const cible = _entreeSous(sous);
-      if (cible && _valide(cible.step)) cible.pin.classList.add('nc-pin-cible');
-    }
-
-    function _entreeSous(target) {
-      const pin = target && target.closest ? target.closest('.nc-pin') : null;
-      if (!pin) return null;
+    // Highlight des entrées valides pendant le drag (survol).
+    nodesHost.addEventListener('mouseover', function (e) {
+      if (!drag) return;
+      const pin = e.target.closest ? e.target.closest('.nc-pin') : null;
+      if (!pin) return;
       const nodeEl = pin.closest('.bd-node-canvas');
-      if (!nodeEl) return null;
-      return { pin: pin, step: nodeEl.getAttribute('data-step-id') };
-    }
-
-    function _valide(stepCible) {
-      if (!lien) return false;
-      if (stepCible === lien.fromStep) return false;   // pas vers soi-même
-      return true;
-    }
+      if (nodeEl && nodeEl.getAttribute('data-step-id') !== drag.fromStep) {
+        pin.classList.add('nc-pin-cible');
+      }
+    });
+    nodesHost.addEventListener('mouseout', function (e) {
+      const pin = e.target.closest ? e.target.closest('.nc-pin') : null;
+      if (pin) pin.classList.remove('nc-pin-cible');
+    });
 
     function _clearHighlight() {
       nodesHost.querySelectorAll('.nc-pin-cible').forEach(function (el) {
@@ -99,26 +70,75 @@ const WfConnect = (() => {
       });
     }
 
-    function onUp(e) {
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onUp);
-      const l = lien; lien = null;
-      _clearHighlight();
-      if (l && l.ligne && l.ligne.parentNode) l.ligne.parentNode.removeChild(l.ligne);
-      if (!l) return;
+    function onDown(e) {
+      if (e.button !== 0) return;
+      const pout = e.target.closest ? e.target.closest('.nc-pout') : null;
+      if (!pout) return;
+      const nodeEl = pout.closest('.bd-node-canvas');
+      if (!nodeEl) return;
+      e.stopPropagation();   // ne pas déclencher le déplacement du nœud ni le pan
 
-      const sous = document.elementFromPoint(e.clientX, e.clientY);
-      const cible = _entreeSous(sous);
-      if (!cible || !_valide(cible.step)) return;   // lâché ailleurs : rien
+      const dot = pout.querySelector('.nc-dot');
+      const p = _centrePastilleSurface(dot);
+      const ghost = document.createElementNS(SVGNS, 'path');
+      ghost.setAttribute('class', 'cnv-edge-draft');
+      ghost.setAttribute('fill', 'none');
+      ghost.setAttribute('stroke-width', '2');
+      svgEdges.appendChild(ghost);
+
+      drag = {
+        fromStep: nodeEl.getAttribute('data-step-id'),
+        fromPort: pout.getAttribute('data-port'),
+        x1: p.x, y1: p.y, ghost: ghost
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    }
+
+    function onMove(e) {
+      if (!drag) return;
+      const m = _pointSurface(e.clientX, e.clientY);
+      const dx = Math.abs(m.x - drag.x1) * 0.5;
+      drag.ghost.setAttribute('d',
+        'M' + drag.x1 + ',' + drag.y1 +
+        ' C' + (drag.x1 + dx) + ',' + drag.y1 + ' ' + (m.x - dx) + ',' + m.y + ' ' + m.x + ',' + m.y);
+    }
+
+    function onUp(e) {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      const d = drag; drag = null;
+      _clearHighlight();
+      if (d && d.ghost && d.ghost.parentNode) d.ghost.parentNode.removeChild(d.ghost);
+      if (!d) return;
+
+      // Pile d'éléments sous le curseur (traverse la ligne ghost).
+      const pile = document.elementsFromPoint(e.clientX, e.clientY);
+      let pin = null;
+      for (let i = 0; i < pile.length; i++) {
+        const c = pile[i].closest ? pile[i].closest('.nc-pin') : null;
+        if (c) { pin = c; break; }
+      }
+      if (!pin) return;
+      const nodeEl = pin.closest('.bd-node-canvas');
+      if (!nodeEl) return;
+      const toStep = nodeEl.getAttribute('data-step-id');
+      if (toStep === d.fromStep) return;   // pas vers soi-même
+
+      const existe = model.aretes().some(function (a) {
+        return a.from.step === d.fromStep && a.from.port === d.fromPort && a.to.step === toStep;
+      });
+      if (existe) return;
 
       history.executer(history.cmdAjouterArete({
-        from: { step: l.fromStep, port: l.fromPort },
-        to: { step: cible.step }
+        from: { step: d.fromStep, port: d.fromPort },
+        to: { step: toStep }
       }));
     }
 
-    nodesHost.addEventListener('pointerdown', onDown);
-    return function debrancher() { nodesHost.removeEventListener('pointerdown', onDown); };
+    nodesHost.addEventListener('mousedown', onDown);
+    return function debrancher() { nodesHost.removeEventListener('mousedown', onDown); };
   }
 
   return { brancher };

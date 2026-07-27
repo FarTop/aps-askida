@@ -284,7 +284,10 @@
       if (e.button !== 0) return;                 // clic gauche seulement
       const nodeEl = e.target.closest('.bd-node-canvas');
       if (!nodeEl) return;
-      // Un clic sur une pastille de port est réservé (future création de lien).
+      // Un clic sur un port de sortie est réservé à la création de liaison
+      // (wf-connect). On ignore tout le .nc-pout, pas seulement la pastille,
+      // pour que le label du port ne déclenche pas un déplacement par erreur.
+      if (e.target.closest('.nc-pout')) return;
       if (e.target.closest('.nc-dot')) return;
 
       const id = nodeEl.getAttribute('data-step-id');
