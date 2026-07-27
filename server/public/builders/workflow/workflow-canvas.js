@@ -156,6 +156,65 @@
 
   appliquer();
 
+  // ── Palette : remplissage depuis le catalogue + sous-onglets ──────────────
+  // Nodes (Core) et Iconik (façades) sont remplis depuis le vrai catalogue.
+  // Custom reste vide : son contenu dépend des permissions et du stockage par
+  // user/environnement/plateforme, câblés plus tard.
+  const CAT = window.PivotCatalogIconik;
+  if (CAT) {
+    const GLYPHES_CORE = {
+      trigger: '⏱', decision: '◇', loop: '↻', verify: '✓', wait: '⏸',
+      set_variable: '=', transform: '⇄', lookup: '⌕', http_request: '↗',
+      http_sequence: '≫', history: '▤', deliver: '⇥'
+    };
+    const NOM_CORE = {
+      trigger: 'Trigger', decision: 'Decision', loop: 'Loop', verify: 'Verify',
+      wait: 'Wait', set_variable: 'Set Variable', transform: 'Transform',
+      lookup: 'Lookup', http_request: 'HTTP Request', http_sequence: 'HTTP Sequence',
+      history: 'History', deliver: 'Deliver'
+    };
+
+    function _node(glyphe, nom, sub) {
+      const el = document.createElement('div');
+      el.className = 'bd-node';
+      el.setAttribute('draggable', 'true');
+      const g = document.createElement('span'); g.className = 'bd-glyph'; g.textContent = glyphe;
+      const n = document.createElement('span'); n.className = 'bd-nm'; n.textContent = nom;
+      el.appendChild(g); el.appendChild(n);
+      if (sub) { const s = document.createElement('span'); s.className = 'bd-sub'; s.textContent = sub; el.appendChild(s); }
+      return el;
+    }
+
+    const coreHost = root.querySelector('[data-role="palette-core"]');
+    if (coreHost) {
+      Object.keys(CAT.CORES).forEach(function (c) {
+        coreHost.appendChild(_node(GLYPHES_CORE[c] || '·', NOM_CORE[c] || c));
+      });
+    }
+
+    const platHost = root.querySelector('[data-role="palette-platform"]');
+    if (platHost) {
+      Object.keys(CAT.FACADES).forEach(function (f) {
+        if (f.indexOf('iconik.') !== 0) return;
+        const fa = CAT.FACADES[f];
+        const nom = f.split('.')[1].replace(/_/g, ' ').replace(/\b\w/g, function (m) { return m.toUpperCase(); });
+        platHost.appendChild(_node('◆', nom, fa.core === 'http_request' ? 'http' : fa.core));
+      });
+    }
+  }
+
+  root.querySelectorAll('.bd-subtab').forEach(function (st) {
+    st.addEventListener('click', function () {
+      const pane = st.getAttribute('data-pane');
+      root.querySelectorAll('.bd-subtab').forEach(function (x) {
+        x.classList.toggle('bd-subtab-active', x === st);
+      });
+      root.querySelectorAll('.bd-pane').forEach(function (p) {
+        p.classList.toggle('bd-pane-active', p.getAttribute('data-pane') === pane);
+      });
+    });
+  });
+
   // ── Bandeau d'état : mécanique (le câblage des données viendra ensuite) ────
   // Le verrou « flux actif » se lève par le bouton désactiver : il retire
   // data-active de la racine, ce qui referme le segment cadenas et la teinte de

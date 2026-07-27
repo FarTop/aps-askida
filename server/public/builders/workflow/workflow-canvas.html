@@ -24,43 +24,43 @@
          Noël s'évite par la retenue : tout gris/dim, la couleur ne sert qu'aux
          pastilles d'état. Valeurs de DÉMONSTRATION à ce stade (data-demo) ; le
          câblage sur les vraies routes viendra au patch suivant. -->
-    <header class="bd-statusbar" aria-label="État" data-demo="1">
+    <header class="bd-statusbar" aria-label="Status" data-demo="1">
 
       <!-- Identité : nom + version/statut + indicateur non-enregistré -->
       <div class="bd-seg">
-        <span class="bd-wf-name" data-role="wf-name">— aucun workflow —</span>
+        <span class="bd-wf-name" data-role="wf-name">— no workflow —</span>
         <span class="bd-badge" data-role="statut" data-state="idle">—</span>
         <span class="bd-dirty" data-role="dirty">
-          <span class="bd-dot bd-dot-warn"></span>non enregistré
+          <span class="bd-dot bd-dot-warn"></span>unsaved
         </span>
       </div>
 
       <!-- Contexte : environnement + actualisation, puis cible Engine -->
       <div class="bd-seg bd-env">
         <span class="bd-dot" data-role="env-dot"></span>
-        <span class="bd-env-name" data-role="env-name">— environnement —</span>
+        <span class="bd-env-name" data-role="env-name">— environment —</span>
         <span class="bd-env-org" data-role="env-org"></span>
         <button class="bd-icon-btn" data-role="env-refresh"
-                title="Actualiser depuis l'environnement" type="button">↻</button>
+                title="Refresh from environment" type="button">↻</button>
       </div>
 
       <div class="bd-seg">
         <span class="bd-dot" data-role="engine-dot"></span>
-        <span class="bd-engine-name" data-role="engine-name">— moteur —</span>
+        <span class="bd-engine-name" data-role="engine-name">— engine —</span>
       </div>
 
       <!-- État actif : segment intégré, apparaît sans rien recouvrir -->
       <div class="bd-lock" data-role="lock">
         <span class="bd-lk" aria-hidden="true">🔒</span>
-        <span>Flux actif</span>
-        <span class="bd-lock-modif">— <button class="bd-linklike" data-role="deactivate" type="button">désactiver</button> pour modifier</span>
+        <span>Active flow</span>
+        <span class="bd-lock-modif">— <button class="bd-linklike" data-role="deactivate" type="button">deactivate</button> to edit</span>
       </div>
 
       <div class="bd-spacer"></div>
 
       <!-- Technique : compteurs + snapshot, discrets, à droite -->
       <div class="bd-seg bd-tech">
-        <span><b data-role="node-count">0</b> nœuds · <b data-role="conn-count">0</b> connexions</span>
+        <span><b data-role="node-count">0</b> nodes · <b data-role="conn-count">0</b> connections</span>
         <span>snapshot <b data-role="snapshot">—</b></span>
       </div>
 
@@ -72,7 +72,7 @@
       <!-- Canevas : cadre fixe (.cnv-frame) + surface transformable
            (.cnv-surface). La transformation vit dans la surface, jamais dans le
            cadre : redimensionner ou ouvrir un volet ne bouge aucun noeud. -->
-      <main class="cnv-frame" aria-label="Canevas">
+      <main class="cnv-frame" aria-label="Canvas">
         <div class="cnv-surface">
           <svg class="cnv-edges" aria-hidden="true"></svg>
           <div class="cnv-nodes"></div>
@@ -87,23 +87,48 @@
         </aside>
         <div class="bd-grip" data-side="left"
              role="separator" aria-orientation="vertical" tabindex="0"
-             aria-label="Redimensionner le volet gauche"></div>
+             aria-label="Resize left panel"></div>
         <div class="bd-tabs">
           <button class="bd-tab" data-panel="jobs" data-side="left">Jobs</button>
           <button class="bd-tab" data-panel="logs" data-side="left">Logs</button>
         </div>
       </div>
 
-      <!-- Dock droite : paramétrage -->
+      <!-- Dock droite : paramétrage. Le volet accueille Palette / Config / Run.
+           La Palette porte des sous-onglets Nodes / Iconik / Custom. -->
       <div class="bd-dock bd-dock-right" data-side="right">
         <aside class="bd-panel">
-          <div class="bd-panel-hd" data-role="title">Config</div>
-          <div class="bd-panel-bd"></div>
+          <div class="bd-panel-hd">
+            <span data-role="title">Palette</span>
+            <input class="bd-filter" data-role="palette-filter" placeholder="Filter…" aria-label="Filter nodes" />
+          </div>
+
+          <!-- Sous-onglets de la palette (remplis en JS depuis le catalogue) -->
+          <div class="bd-subtabs" data-role="palette-subtabs">
+            <button class="bd-subtab bd-subtab-active" data-pane="core">Nodes</button>
+            <button class="bd-subtab" data-pane="platform">Iconik</button>
+            <button class="bd-subtab" data-pane="custom">Custom</button>
+          </div>
+
+          <div class="bd-panel-bd">
+            <div class="bd-pane bd-pane-active" data-pane="core">
+              <div class="bd-node-list" data-role="palette-core"></div>
+            </div>
+            <div class="bd-pane" data-pane="platform">
+              <div class="bd-node-list" data-role="palette-platform"></div>
+            </div>
+            <div class="bd-pane" data-pane="custom">
+              <div class="bd-node-list" data-role="palette-custom"></div>
+              <p class="bd-empty">Saved nodes are scoped to you · this environment ·
+                this platform. Promote one to share it platform-wide.</p>
+            </div>
+          </div>
         </aside>
         <div class="bd-grip" data-side="right"
              role="separator" aria-orientation="vertical" tabindex="0"
-             aria-label="Redimensionner le volet droit"></div>
+             aria-label="Resize right panel"></div>
         <div class="bd-tabs">
+          <button class="bd-tab" data-panel="palette" data-side="right">Palette</button>
           <button class="bd-tab" data-panel="config" data-side="right">Config</button>
           <button class="bd-tab" data-panel="run" data-side="right">Run</button>
         </div>
@@ -117,7 +142,7 @@
         </aside>
         <div class="bd-grip" data-side="bottom"
              role="separator" aria-orientation="horizontal" tabindex="0"
-             aria-label="Redimensionner le volet bas"></div>
+             aria-label="Resize bottom panel"></div>
         <div class="bd-tabs">
           <button class="bd-tab" data-panel="api" data-side="bottom">API ops</button>
         </div>
