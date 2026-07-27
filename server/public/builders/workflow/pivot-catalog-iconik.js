@@ -191,6 +191,12 @@ const PivotCatalogIconik = (() => {
 
   function familleWfd(etape) {
     if (etape.facade && FACADES[etape.facade]) return FACADES[etape.facade].family;
+    // Une minuterie est une famille WFD distincte (`timer`), pas un `trigger` :
+    // c'est un trigger Core pur (sans façade) reconnu à son cron / preset schedule.
+    if (etape.core === 'trigger') {
+      const p = etape.params || {};
+      if (etape.preset === 'schedule' || p.cron) return 'timer';
+    }
     return FAMILLE_MOTEUR[etape.core] || etape.core;
   }
 

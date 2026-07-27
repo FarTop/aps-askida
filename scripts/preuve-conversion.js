@@ -69,14 +69,20 @@ function _indexNoeuds(nodes) {
 }
 
 // Résume un graphe en un multiset de connexions structurelles, indépendant des ids.
+// Les ports sont comparés par POSITION, pas par nom : l'original WFD n'a souvent
+// pas de ports déclarés (le port n° 0 sort implicitement), alors que le régénéré
+// les nomme (`out`, `ok`…). Comparer par nom produirait de faux écarts entre
+// `loop:out` et `loop:#0` qui désignent le même port. On ramène donc chaque port
+// à son index positionnel dans les sorties de la famille.
 function _signatureGraphe(nodes, connections) {
   const parId = _indexNoeuds(nodes);
-  const nomPort = (node, portIndexOuId) => {
+
+  // Index positionnel d'un port, qu'il soit donné par nom ou par numéro.
+  const indexPort = (node, portRef) => {
     const outs = (node.ports && node.ports.outputs) || [];
-    if (typeof portIndexOuId === 'number') {
-      return outs[portIndexOuId] ? outs[portIndexOuId].id : ('#' + portIndexOuId);
-    }
-    return portIndexOuId; // déjà un id nommé
+    if (typeof portRef === 'number') return portRef;
+    const i = outs.findIndex(o => o.id === portRef);
+    return i === -1 ? 0 : i;
   };
 
   const familles = {};
@@ -88,8 +94,7 @@ function _signatureGraphe(nodes, connections) {
     const src = parId[c.fromNode];
     const dst = parId[c.toNode];
     if (!src || !dst) return '?';
-    const port = nomPort(src, c.fromPort);
-    return src.family + ':' + port + ' -> ' + dst.family;
+    return src.family + ':#' + indexPort(src, c.fromPort) + ' -> ' + dst.family;
   }).sort();
 
   return { familles, aretes, nbNoeuds: (nodes || []).length, nbAretes: (connections || []).length };
