@@ -343,6 +343,16 @@
       window.WfShortcuts.brancher({ model: model, history: history, selection: selection, clipboard: clipboard, root: root });
     }
 
+    // Glisser un nœud depuis la palette vers le canevas (module séparé). Le
+    // dépôt crée une étape via commande annulable — Ctrl+Z l'annule.
+    if (window.WfPaletteDrag) {
+      const paletteRoot = root.querySelector('.bd-dock-right');
+      window.WfPaletteDrag.brancher({
+        paletteRoot: paletteRoot, frame: frame, surface: surface,
+        model: model, history: history, selection: selection, view: view
+      });
+    }
+
     rendreDepuisModele();
   }
 
@@ -364,10 +374,19 @@
       history: 'History', deliver: 'Deliver'
     };
 
-    function _node(glyphe, nom, sub) {
+    function _node(glyphe, nom, sub, type) {
       const el = document.createElement('div');
       el.className = 'bd-node';
-      el.setAttribute('draggable', 'true');
+      // Le glisser-vers-canevas est géré par pointer events (wf-palette-drag),
+      // pas par le drag HTML5 natif — on ne met donc pas draggable. On garde un
+      // marqueur pour que le module reconnaisse une entrée saisissable.
+      el.setAttribute('data-palette-node', '1');
+      // Type transporté pour le glisser-vers-canevas : core ou facade + label.
+      if (type) {
+        if (type.core) el.setAttribute('data-core', type.core);
+        if (type.facade) el.setAttribute('data-facade', type.facade);
+        el.setAttribute('data-label', nom);
+      }
       const g = document.createElement('span'); g.className = 'bd-glyph'; g.textContent = glyphe;
       const n = document.createElement('span'); n.className = 'bd-nm'; n.textContent = nom;
       el.appendChild(g); el.appendChild(n);
@@ -378,7 +397,7 @@
     const coreHost = root.querySelector('[data-role="palette-core"]');
     if (coreHost) {
       Object.keys(CAT.CORES).forEach(function (c) {
-        coreHost.appendChild(_node(GLYPHES_CORE[c] || '·', NOM_CORE[c] || c));
+        coreHost.appendChild(_node(GLYPHES_CORE[c] || '·', NOM_CORE[c] || c, null, { core: c }));
       });
     }
 
@@ -388,7 +407,7 @@
         if (f.indexOf('iconik.') !== 0) return;
         const fa = CAT.FACADES[f];
         const nom = f.split('.')[1].replace(/_/g, ' ').replace(/\b\w/g, function (m) { return m.toUpperCase(); });
-        platHost.appendChild(_node('◆', nom, fa.core === 'http_request' ? 'http' : fa.core));
+        platHost.appendChild(_node('◆', nom, fa.core === 'http_request' ? 'http' : fa.core, { core: fa.core, facade: f }));
       });
     }
   }
