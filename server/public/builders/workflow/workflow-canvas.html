@@ -17,16 +17,53 @@
        l'API ops (lecture gauche->droite). Chaque volet et ses onglets forment
        une piece solidaire qui coulisse EN SUPERPOSITION par-dessus le canevas
        fixe : le canevas ne bouge jamais quand un volet s'ouvre. -->
-  <div class="bd-canvas-root">
+  <div class="bd-canvas-root" data-open="" data-active="0" data-dirty="0">
 
-    <!-- Bandeau d'état minimal — informe, ne commande pas.
-         Contenu provisoire : le reel (connexion, environnement) viendra du
-         contexte au branchement. Plus de selecteur de flux ni + Flux. -->
-    <header class="bd-statusbar" aria-label="État">
-      <span class="bd-status-name">Workflow Builder</span>
-      <span class="bd-status-sep" aria-hidden="true"></span>
-      <span class="bd-status-env" data-state="idle">— environnement —</span>
-      <span class="bd-status-conn" data-state="idle">— connexion —</span>
+    <!-- Bandeau d'état — informe, ne commande pas. Trois zones hiérarchisées :
+         identité (gauche) · contexte (centre) · technique (droite). Le sapin de
+         Noël s'évite par la retenue : tout gris/dim, la couleur ne sert qu'aux
+         pastilles d'état. Valeurs de DÉMONSTRATION à ce stade (data-demo) ; le
+         câblage sur les vraies routes viendra au patch suivant. -->
+    <header class="bd-statusbar" aria-label="État" data-demo="1">
+
+      <!-- Identité : nom + version/statut + indicateur non-enregistré -->
+      <div class="bd-seg">
+        <span class="bd-wf-name" data-role="wf-name">— aucun workflow —</span>
+        <span class="bd-badge" data-role="statut" data-state="idle">—</span>
+        <span class="bd-dirty" data-role="dirty">
+          <span class="bd-dot bd-dot-warn"></span>non enregistré
+        </span>
+      </div>
+
+      <!-- Contexte : environnement + actualisation, puis cible Engine -->
+      <div class="bd-seg bd-env">
+        <span class="bd-dot" data-role="env-dot"></span>
+        <span class="bd-env-name" data-role="env-name">— environnement —</span>
+        <span class="bd-env-org" data-role="env-org"></span>
+        <button class="bd-icon-btn" data-role="env-refresh"
+                title="Actualiser depuis l'environnement" type="button">↻</button>
+      </div>
+
+      <div class="bd-seg">
+        <span class="bd-dot" data-role="engine-dot"></span>
+        <span class="bd-engine-name" data-role="engine-name">— moteur —</span>
+      </div>
+
+      <!-- État actif : segment intégré, apparaît sans rien recouvrir -->
+      <div class="bd-lock" data-role="lock">
+        <span class="bd-lk" aria-hidden="true">🔒</span>
+        <span>Flux actif</span>
+        <span class="bd-lock-modif">— <button class="bd-linklike" data-role="deactivate" type="button">désactiver</button> pour modifier</span>
+      </div>
+
+      <div class="bd-spacer"></div>
+
+      <!-- Technique : compteurs + snapshot, discrets, à droite -->
+      <div class="bd-seg bd-tech">
+        <span><b data-role="node-count">0</b> nœuds · <b data-role="conn-count">0</b> connexions</span>
+        <span>snapshot <b data-role="snapshot">—</b></span>
+      </div>
+
     </header>
 
     <!-- Scène : canevas + volets superposés -->

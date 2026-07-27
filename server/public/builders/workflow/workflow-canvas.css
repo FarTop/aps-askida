@@ -23,25 +23,80 @@
 }
 
 /* Bandeau d'etat : informe, ne commande pas. */
+/* ── Bandeau d'état : trois zones, retenue de couleur ─────────────────────── */
 .bd-statusbar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 0 16px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--bd-panel-border);
   background: var(--bd-panel-bg);
   color: var(--bd-text);
   font-weight: var(--bd-font-weight);
-  font-size: var(--bd-font-size);
+  font-size: 12.5px;
 }
-.bd-status-name { font-weight: 600; }
-.bd-status-sep {
-  width: 1px;
-  height: 18px;
-  background: var(--bd-panel-border);
+
+/* Segments séparés par un filet ; la couleur ne sert qu'aux pastilles. */
+.bd-seg { display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 100%; }
+.bd-seg + .bd-seg { border-left: 1px solid var(--bd-panel-border); }
+.bd-spacer { flex: 1; }
+
+.bd-wf-name { font-weight: 600; color: var(--bd-text); }
+
+.bd-badge {
+  font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px;
+  border: 1px solid var(--bd-panel-border);
+  color: var(--bd-text-dim); background: var(--bd-canvas-surface);
 }
-.bd-status-env,
-.bd-status-conn { color: var(--bd-text-dim); }
+.bd-badge[data-state="draft"]     { color: var(--warn); }
+.bd-badge[data-state="published"] { color: var(--ok); }
+
+/* Pastille d'état : gris par défaut, coloré selon data-state. */
+.bd-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bd-text-dim); flex: none; }
+.bd-dot[data-state="ok"]   { background: var(--ok); }
+.bd-dot[data-state="warn"] { background: var(--warn); }
+.bd-dot[data-state="err"]  { background: var(--err); }
+.bd-dot-warn { background: var(--warn); }
+
+/* Indicateur non-enregistré : masqué sauf si la racine le signale. */
+.bd-dirty { display: none; align-items: center; gap: 5px; color: var(--warn); font-size: 11.5px; }
+.bd-canvas-root[data-dirty="1"] .bd-dirty { display: flex; }
+
+.bd-env-name { color: var(--bd-text); }
+.bd-env-org  { color: var(--bd-text-dim); font-size: 11.5px; }
+.bd-engine-name { color: var(--bd-text); }
+
+.bd-icon-btn {
+  background: none; border: 1px solid var(--bd-panel-border); color: var(--bd-text-dim);
+  width: 24px; height: 24px; border-radius: 5px; cursor: pointer; font-size: 13px;
+  display: flex; align-items: center; justify-content: center; font-family: inherit;
+}
+.bd-icon-btn:hover { color: var(--bd-text); border-color: var(--bd-text-dim); }
+
+.bd-tech { color: var(--bd-text-dim); font-size: 11.5px; gap: 12px; }
+.bd-tech b { color: var(--bd-text); font-weight: 600; }
+
+/* ── État actif : segment intégré, jamais un bandeau flottant qui recouvre ── */
+.bd-lock {
+  display: none; align-items: center; gap: 7px; height: 100%; padding: 0 12px;
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+}
+.bd-lock-modif { color: var(--bd-text-dim); }
+.bd-linklike {
+  background: none; border: none; color: var(--accent); cursor: pointer;
+  font: inherit; padding: 0;
+}
+.bd-canvas-root[data-active="1"] .bd-lock { display: flex; }
+.bd-canvas-root[data-active="1"] .bd-statusbar {
+  border-bottom-color: color-mix(in srgb, var(--ok) 30%, var(--bd-panel-border));
+}
+/* Lecture seule : très légère teinte du canevas, SANS voile masquant. */
+.bd-canvas-root[data-active="1"] .cnv-frame::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: color-mix(in srgb, var(--ok) 4%, transparent);
+}
+
 
 /* ── Scene : le canevas remplit tout, les volets se superposent ──────────── */
 .bd-stage {

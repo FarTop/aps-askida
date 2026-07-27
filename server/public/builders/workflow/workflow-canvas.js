@@ -156,4 +156,15 @@
 
   appliquer();
 
+  // ── Bandeau d'état : mécanique (le câblage des données viendra ensuite) ────
+  // Le verrou « flux actif » se lève par le bouton désactiver : il retire
+  // data-active de la racine, ce qui referme le segment cadenas et la teinte de
+  // lecture seule. L'état lui-même sera piloté par les données au patch suivant.
+  const btnOff = root.querySelector('[data-role="deactivate"]');
+  if (btnOff) {
+    btnOff.addEventListener('click', function () {
+      root.setAttribute('data-active', '0');
+    });
+  }
+
 })();

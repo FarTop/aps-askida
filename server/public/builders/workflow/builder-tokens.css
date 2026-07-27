@@ -39,6 +39,13 @@
   /* ── Bandeau d'état (informe, ne commande pas) ───────────────────────── */
   --bd-statusbar-height: 44px;
 
+  /* Couleurs d'état, réservées aux pastilles — jamais aux surfaces (anti
+     sapin de Noël). PROVISOIRES, ajustables en phase cosmétique. */
+  --ok:   #27ae60;
+  --warn: #e67e22;
+  --err:  #e74c3c;
+  --info: #3498db;
+
   /* ── Texte (PROVISOIRE — la lisibilité se règle en phase cosmétique) ──── */
   --bd-text:           var(--text);
   --bd-text-dim:       var(--text-dim);
