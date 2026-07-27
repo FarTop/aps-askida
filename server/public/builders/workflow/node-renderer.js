@@ -84,7 +84,7 @@ const NodeRenderer = (() => {
    *
    * @param {Object} etape  étape pivot
    * @param {{x:number,y:number}} pos
-   * @param {Object} [opts] { sourceDistante: '{{var}}' } — raffinement futur
+   * @param {Object} [opts] { sourceDistante: '{var}' } — raffinement futur
    */
   function rendre(etape, pos, opts) {
     const o = opts || {};
@@ -141,7 +141,7 @@ const NodeRenderer = (() => {
     const p = etape.params || {};
     const v = p.resultVar || p.storeAs || p.resultBlock || p.var;
     if (!v) return null;
-    return '{{' + String(v).replace(/^\{+|\}+$/g, '') + '}}';
+    return '{' + String(v).replace(/^\{+|\}+$/g, '') + '}';
   }
 
   function _ports(etape) {

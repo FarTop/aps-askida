@@ -154,47 +154,61 @@
     if (frame.hasPointerCapture(e.pointerId)) frame.releasePointerCapture(e.pointerId);
   });
 
-  // ── Démo de rendu : quelques nœuds posés sur la surface ───────────────────
-  // Temporaire, pour voir le rendu réel dans le Builder. Sera remplacé par le
-  // chargement d'un vrai workflow (converti en pivot) quand cette brique
-  // existera. Le renderer vit dans node-renderer.js — ce fichier ne fait que
-  // l'appeler et placer le résultat.
+  // ── Démo, désormais PILOTÉE PAR LE MODÈLE ─────────────────────────────────
+  // Le DOM devient le reflet du modèle : on ne pose plus des nœuds à la main, on
+  // remplit le modèle et une fonction de rendu réagit à ses changements. C'est
+  // l'indirection qui rend l'undo/redo possible. La démo sera remplacée par le
+  // chargement d'un vrai workflow ; la mécanique de rendu-réactif, elle, reste.
   const NR = window.NodeRenderer;
+  const ER = window.EdgeRenderer;
+  const WfModel = window.WfModel;
+  const WfHistory = window.WfHistory;
   const nodesHost = root.querySelector('.cnv-nodes');
-  if (NR && nodesHost) {
-    const demo = [
-      { etape: { id: 'boucler', core: 'loop', label: 'Boucler sur les collections',
-                 params: { resultVar: 'loop.item' } }, pos: { x: 80, y: 80 } },
-      { etape: { id: 'fetch', core: 'http_request', facade: 'iconik.fetch',
-                 label: 'Fetch Collection MD', params: { resultVar: 'collectionMeta' } },
-        pos: { x: 380, y: 80 } },
-      { etape: { id: 'decider', core: 'decision', label: 'Route by content type',
-                 params: { conditions: [ { label: 'Série' }, { label: 'Saison' } ] } },
-        pos: { x: 380, y: 300 }, opts: { sourceDistante: '{{verify.summary}}' } },
-      { etape: { id: 'action', core: 'http_request', facade: 'iconik.action',
-                 label: 'Export Location (collection to partner S3)',
-                 params: { resultVar: 'exportResult' } }, pos: { x: 700, y: 340 } }
-    ];
-    demo.forEach(function (d) {
-      nodesHost.appendChild(NR.rendre(d.etape, d.pos, d.opts));
-    });
+  const svgEdges = root.querySelector('.cnv-edges');
+  // `surface` est déjà déclaré plus haut (pan/zoom) — on le réutilise.
 
-    // Arêtes de démo, tracées après les nœuds (les positions des ports sont
-    // alors mesurables). L'edge-renderer vit dans son module séparé.
-    const ER = window.EdgeRenderer;
-    const svgEdges = root.querySelector('.cnv-edges');
-    const surface = root.querySelector('.cnv-surface');
-    if (ER && svgEdges && surface) {
-      const demoEdges = [
+  if (NR && WfModel && nodesHost) {
+    const model = WfModel.creer({
+      nodes: [
+        { id: 'boucler', x: 80,  y: 80,  etape: { id: 'boucler', core: 'loop',
+          label: 'Boucler sur les collections', params: { resultVar: 'loop.item' } } },
+        { id: 'fetch',   x: 380, y: 80,  etape: { id: 'fetch', core: 'http_request', facade: 'iconik.fetch',
+          label: 'Fetch Collection MD', params: { resultVar: 'collectionMeta' } } },
+        { id: 'decider', x: 380, y: 300, etape: { id: 'decider', core: 'decision',
+          label: 'Route by content type', params: { conditions: [ { label: 'Série' }, { label: 'Saison' } ] } } },
+        { id: 'action',  x: 700, y: 340, etape: { id: 'action', core: 'http_request', facade: 'iconik.action',
+          label: 'Export Location (collection to partner S3)', params: { resultVar: 'exportResult' } } }
+      ],
+      edges: [
         { from: { step: 'boucler', port: 'out' },   to: { step: 'fetch' } },
         { from: { step: 'fetch',   port: 'out' },    to: { step: 'decider' } },
         { from: { step: 'fetch',   port: 'error' },  to: { step: 'action' } }
-      ];
-      // Un rAF pour laisser le layout se poser avant de mesurer les pastilles.
-      requestAnimationFrame(function () {
-        ER.tracer(svgEdges, nodesHost, surface, demoEdges);
+      ]
+    });
+
+    // Le gestionnaire de commandes existe dès maintenant (undo/redo prêts pour
+    // les gestes à venir : déplacer, supprimer, coller). Exposé pour la suite.
+    const history = WfHistory ? WfHistory.creer(model) : null;
+    root._wfModel = model;
+    root._wfHistory = history;
+
+    // Rendu réactif : redessine nœuds puis arêtes depuis le modèle.
+    function rendreDepuisModele() {
+      while (nodesHost.firstChild) nodesHost.removeChild(nodesHost.firstChild);
+      model.noeuds().forEach(function (n) {
+        nodesHost.appendChild(NR.rendre(n.etape, { x: n.x, y: n.y }));
       });
+      if (ER && svgEdges && surface) {
+        requestAnimationFrame(function () {
+          ER.tracer(svgEdges, nodesHost, surface, model.aretes());
+        });
+      }
     }
+
+    // Redessine à chaque changement du modèle. (Simple et robuste pour la
+    // fondation ; on affinera en rendu incrémental si le besoin de perf vient.)
+    model.onChange(function () { rendreDepuisModele(); });
+    rendreDepuisModele();
   }
 
   appliquer();
