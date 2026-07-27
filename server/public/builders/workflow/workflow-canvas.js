@@ -141,6 +141,9 @@
 
   frame.addEventListener('pointerdown', function (e) {
     if (e.button !== 2) return;                 // pan uniquement au clic droit
+    // Pan seulement sur le vide : un clic droit sur un nœud est réservé au
+    // menu contextuel (comme WFD).
+    if (e.target.closest && e.target.closest('.bd-node-canvas')) return;
     panning = true;
     panStart = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
     frame.classList.add('bd-panning');
@@ -375,6 +378,15 @@
       window.WfConnect.brancher({
         nodesHost: nodesHost, svgEdges: svgEdges, surface: surface, frame: frame,
         model: model, history: history
+      });
+    }
+
+    // Menu contextuel au clic droit sur un nœud (module séparé). Le pan reste
+    // sur le vide. Actions sur la sélection courante, via commandes annulables.
+    if (window.WfContextMenu) {
+      window.WfContextMenu.brancher({
+        root: root, nodesHost: nodesHost, model: model, history: history,
+        selection: selection, clipboard: clipboard
       });
     }
 

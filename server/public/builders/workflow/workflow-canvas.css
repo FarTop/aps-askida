@@ -251,6 +251,36 @@
 /* Pastille de sortie : curseur indiquant qu'on peut y démarrer une liaison. */
 .nc-pout .nc-dot { cursor: crosshair; }
 
+/* Menu contextuel (clic droit sur un nœud). Position fixe au curseur. */
+.bd-ctx-menu {
+  position: fixed;
+  left: 0; top: 0;
+  transform: translate(var(--cx, 0px), var(--cy, 0px));
+  z-index: 2000;
+  min-width: 160px;
+  padding: 5px;
+  background: var(--bd-panel-bg);
+  border: 1px solid var(--bd-panel-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bd-ctx-item {
+  text-align: left;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: var(--bd-text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.bd-ctx-item:hover { background: var(--bd-canvas-surface); }
+.bd-ctx-danger { color: var(--err); }
+
 /* Fantôme suivant le curseur pendant le glisser depuis la palette. */
 .bd-drag-ghost {
   position: fixed;
