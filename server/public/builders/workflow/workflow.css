@@ -1,0 +1,19 @@
+/* workflow.css — Page d'accueil du Workflow Builder
+ *
+ * L'accueil réutilise l'ossature d'APS (index.css : page / hero / grid / card).
+ * Ce fichier ne fait que loger les quelques classes qui remplaçaient des styles
+ * inline, sans décision cosmétique. Valeurs via tokens partagés.
+ */
+
+.bd-feature-list {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+
+.bd-footer {
+  padding: 24px;
+  text-align: center;
+  color: var(--bd-text-dim);
+  font-size: 12px;
+}

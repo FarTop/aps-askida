@@ -1,0 +1,46 @@
+/* builder-tokens.css — Source unique des jetons visuels du Workflow Builder
+ *
+ * DISCIPLINE : toute couleur, tout poids, toute dimension visuelle du Builder
+ * se déclare ICI et nulle part ailleurs. Le canevas et les panneaux s'y
+ * réfèrent, ils n'écrivent jamais une valeur en dur. Conséquence voulue : le
+ * jour où « ce gris est trop proche du fond » ou « cette police est trop fine »,
+ * on change une ligne, pas cinquante. Et comme la palette est volontairement
+ * courte, on ne PEUT pas refaire l'effet « sapin de Noël » de WFD — il n'y a
+ * pas assez de couleurs disponibles pour crier.
+ *
+ * VALEURS PROVISOIRES : les teintes et poids ci-dessous sont des placeholders
+ * de travail, neutres, choisis pour que la structure soit visible et testable —
+ * PAS un parti pris esthétique. La phase cosmétique les remplacera. Ils héritent
+ * des tokens APS (index.css) là où c'est possible, pour rester dans la famille.
+ */
+
+:root {
+  /* ── Surfaces du Builder (héritent d'APS) ─────────────────────────────── */
+  --bd-canvas-bg:      var(--bg);           /* fond de la fenêtre du canevas   */
+  --bd-canvas-surface: var(--bg2);          /* la surface transformable        */
+  --bd-panel-bg:       var(--bg2);          /* fond des panneaux latéraux      */
+  --bd-panel-border:   var(--border);       /* séparation panneau / canevas    */
+
+  /* ── Grille de fond du canevas (repère provisoire) ────────────────────── */
+  --bd-grid-line:      #1e2224;             /* PROVISOIRE — points/lignes      */
+  --bd-grid-step:      24px;                /* pas de la grille                */
+
+  /* ── Poignées de redimensionnement ───────────────────────────────────── */
+  --bd-gutter:         6px;                 /* largeur de la zone d'empoigne   */
+  --bd-gutter-hover:   var(--accent);       /* retour visuel au survol         */
+
+  /* ── Panneaux : bornes de largeur (élastiques) ───────────────────────── */
+  --bd-panel-min:      220px;
+  --bd-panel-max:      480px;
+  --bd-left-width:     280px;               /* largeur de départ, ajustable    */
+  --bd-right-width:    320px;
+
+  /* ── Barre d'outils ───────────────────────────────────────────────────── */
+  --bd-toolbar-height: 48px;
+
+  /* ── Texte (PROVISOIRE — la lisibilité se règle en phase cosmétique) ──── */
+  --bd-text:           var(--text);
+  --bd-text-dim:       var(--text-dim);
+  --bd-font-weight:    450;                 /* PROVISOIRE — WFD était trop fin */
+  --bd-font-size:      13px;
+}

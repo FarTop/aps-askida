@@ -1,0 +1,133 @@
+/* workflow-canvas.css — Mise en page de la charpente à trois zones
+ *
+ * Ce fichier ne pose QUE la structure : où sont les zones, comment elles se
+ * partagent l'espace, comment le canevas découple ses coordonnées du layout.
+ * Aucune décision cosmétique (forme de nœud, couleur d'état, jeton) : ces choix
+ * appartiennent à une phase ultérieure et à d'autres classes.
+ *
+ * Toutes les valeurs viennent de builder-tokens.css. Zéro couleur, zéro poids,
+ * zéro dimension en dur ici. Zéro style inline, zéro toggle style.display :
+ * l'affichage passe par des classes (aucune n'est nécessaire à ce stade).
+ */
+
+/* ── Autorité unique de mise en page : la grille ─────────────────────────── */
+/* Cinq pistes : panneau | poignée | canevas(1fr) | poignée | panneau.
+   Les panneaux ont une largeur nommée (élastique entre min/max via la poignée) ;
+   le canevas prend 1fr et absorbe toute variation. Aucune zone ne lit la taille
+   d'une autre. */
+.bd-shell {
+  display: grid;
+  grid-template-columns:
+    var(--bd-left-width)
+    var(--bd-gutter)
+    minmax(0, 1fr)
+    var(--bd-gutter)
+    var(--bd-right-width);
+  grid-template-rows: var(--bd-toolbar-height) minmax(0, 1fr);
+  grid-template-areas:
+    "toolbar toolbar toolbar toolbar toolbar"
+    "left    lgutter canvas  rgutter right";
+  height: 100vh;
+  width: 100%;
+  background: var(--bd-canvas-bg);
+  overflow: hidden;                 /* rien ne déborde de la charpente */
+}
+
+.bd-toolbar {
+  grid-area: toolbar;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--bd-panel-border);
+  background: var(--bd-panel-bg);
+}
+
+.bd-toolbar-title {
+  color: var(--bd-text);
+  font-weight: var(--bd-font-weight);
+  font-size: var(--bd-font-size);
+}
+
+/* ── Panneaux : territoires étanches ─────────────────────────────────────── */
+/* Fond et bord communs ; le contenu de chacun vit sous son propre préfixe
+   (insp- / job-) et ne peut pas déborder sur le canevas. */
+.bd-panel {
+  background: var(--bd-panel-bg);
+  overflow: auto;                   /* le panneau scrolle, il ne pousse pas */
+  min-width: 0;                     /* autorise le rétrécissement en grille */
+}
+
+.insp-panel { grid-area: left;  border-right: 1px solid var(--bd-panel-border); }
+.job-panel  { grid-area: right; border-left:  1px solid var(--bd-panel-border); }
+
+.insp-body,
+.job-body { padding: 12px; }
+
+/* ── Poignées de redimensionnement ───────────────────────────────────────── */
+/* Structure seule : la zone d'empoigne et son curseur. La logique (tirer pour
+   changer --bd-left-width / --bd-right-width entre min et max) est en JS. */
+.bd-gutter {
+  cursor: col-resize;
+  background: transparent;
+}
+.bd-gutter[data-resize="left"]  { grid-area: lgutter; }
+.bd-gutter[data-resize="right"] { grid-area: rgutter; }
+
+.bd-gutter:hover,
+.bd-gutter:focus-visible {
+  background: var(--bd-gutter-hover);
+  outline: none;
+}
+
+/* ── Canevas : cadre fixe + couche transformable ─────────────────────────── */
+/* .cnv-frame est la fenêtre : sa taille suit la grille. .cnv-surface porte les
+   coordonnées des nœuds et se transformera (translate + scale) via une variable
+   posée en JS — la transformation vit DANS la surface, jamais dans le cadre,
+   donc redimensionner un panneau ne bouge aucun nœud. */
+.cnv-frame {
+  grid-area: canvas;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(var(--bd-grid-line) 1px, transparent 1px)
+    0 0 / var(--bd-grid-step) var(--bd-grid-step);
+  background-color: var(--bd-canvas-surface);
+}
+
+.cnv-surface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  /* --bd-pan-x / --bd-pan-y / --bd-zoom posés en JS ; 0/0/1 par défaut ici */
+  transform:
+    translate(var(--bd-pan-x, 0px), var(--bd-pan-y, 0px))
+    scale(var(--bd-zoom, 1));
+}
+
+/* Liaisons dessous, nœuds dessus — même repère, celui de la surface. */
+.cnv-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;             /* les clics vont aux nœuds */
+}
+
+.cnv-nodes {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* ── États d'interaction (posés par le JS pendant l'action) ──────────────── */
+/* Structure, pas cosmétique : retour de curseur pendant redimensionnement et
+   déplacement. Posés/retirés par classe, jamais par style.* en dur. */
+.bd-shell.bd-resizing { cursor: col-resize; user-select: none; }
+.cnv-frame.bd-panning { cursor: grabbing; }
+
+/* ── Plancher de qualité ─────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .cnv-surface { transition: none; }
+}

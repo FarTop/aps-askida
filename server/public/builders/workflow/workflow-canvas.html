@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>APS — Workflow Builder · Canevas</title>
+  <link rel="stylesheet" href="../../index.css" />
+  <link rel="stylesheet" href="builder-tokens.css" />
+  <link rel="stylesheet" href="workflow-canvas.css" />
+</head>
+
+<body>
+  <!-- Charpente à trois zones. Une seule autorité de mise en page : la grille
+       de .bd-shell. Les zones ne se dimensionnent jamais l'une l'autre ; la
+       grille arbitre, le canevas prend 1fr et absorbe toute variation des
+       panneaux. Chaque zone est un territoire CSS étanche, préfixé (insp- /
+       cnv- / job-) : une refonte d'un panneau ne peut pas atteindre le canevas. -->
+  <div class="bd-shell">
+
+    <!-- Barre d'outils (structure seule, actions câblées plus tard) -->
+    <header class="bd-toolbar" aria-label="Outils">
+      <span class="bd-toolbar-title">Workflow Builder</span>
+    </header>
+
+    <!-- Panneau gauche : inspecteur / palette -->
+    <aside class="bd-panel insp-panel" aria-label="Inspecteur">
+      <div class="insp-body"></div>
+    </aside>
+
+    <!-- Poignée gauche : redimensionne le panneau gauche entre min et max -->
+    <div class="bd-gutter" data-resize="left"
+         role="separator" aria-orientation="vertical"
+         aria-label="Redimensionner le panneau gauche" tabindex="0"></div>
+
+    <!-- Canevas central : cadre fixe + couche transformable.
+         Le cadre (.cnv-frame) est la fenêtre, sa taille suit le layout.
+         La surface (.cnv-surface) porte le système de coordonnées des nœuds
+         et se transforme (zoom / déplacement) SANS que le layout l'affecte —
+         c'est ce qui découple les coordonnées des nœuds de la taille de la
+         fenêtre, et supprime les décalages panneau/canevas de WFD. -->
+    <main class="cnv-frame" aria-label="Canevas">
+      <div class="cnv-surface">
+        <!-- Liaisons (SVG) sous les nœuds -->
+        <svg class="cnv-edges" aria-hidden="true"></svg>
+        <!-- Nœuds (DOM) au-dessus -->
+        <div class="cnv-nodes"></div>
+      </div>
+    </main>
+
+    <!-- Poignée droite -->
+    <div class="bd-gutter" data-resize="right"
+         role="separator" aria-orientation="vertical"
+         aria-label="Redimensionner le panneau droit" tabindex="0"></div>
+
+    <!-- Panneau droit : jobs. Le jeton sur un nœud (canevas) et la ligne de job
+         ici liront la MÊME source d'événements — un flux, deux rendus — pour ne
+         pas diverger comme WFD. -->
+    <aside class="bd-panel job-panel" aria-label="Jobs">
+      <div class="job-body"></div>
+    </aside>
+
+  </div>
+
+  <script src="pivot-schema.js"></script>
+  <script src="pivot-validate.js"></script>
+  <script src="pivot-catalog-iconik.js"></script>
+  <script src="pivot-io.js"></script>
+  <script src="workflow-canvas.js"></script>
+</body>
+</html>
