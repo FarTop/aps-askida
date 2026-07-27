@@ -70,9 +70,12 @@ const WfConnect = (() => {
       // Courbe simple provisoire (droite douce) de la sortie vers le curseur.
       lien.ligne.setAttribute('d', 'M ' + lien.a.x + ' ' + lien.a.y + ' L ' + b.x + ' ' + b.y);
 
-      // Illumine une entrée valide sous le curseur.
+      // Illumine une entrée valide sous le curseur. On passe par
+      // elementFromPoint : sous capture de pointeur, e.target reste figé sur
+      // l'élément capteur et ne désigne PAS ce qui est réellement survolé.
       _clearHighlight();
-      const cible = _entreeSous(e.target);
+      const sous = document.elementFromPoint(e.clientX, e.clientY);
+      const cible = _entreeSous(sous);
       if (cible && _valide(cible.step)) cible.pin.classList.add('nc-pin-cible');
     }
 
@@ -104,7 +107,8 @@ const WfConnect = (() => {
       if (l && l.ligne && l.ligne.parentNode) l.ligne.parentNode.removeChild(l.ligne);
       if (!l) return;
 
-      const cible = _entreeSous(e.target);
+      const sous = document.elementFromPoint(e.clientX, e.clientY);
+      const cible = _entreeSous(sous);
       if (!cible || !_valide(cible.step)) return;   // lâché ailleurs : rien
 
       history.executer(history.cmdAjouterArete({
