@@ -38,6 +38,7 @@
 
   /* ── Bandeau d'état (informe, ne commande pas) ───────────────────────── */
   --bd-statusbar-height: 44px;
+  --bd-header-height: 66px;   /* header partagé (logo + Home) : ~42px logo + 2×12 padding */
 
   /* Couleurs d'état, réservées aux pastilles — jamais aux surfaces (anti
      sapin de Noël). PROVISOIRES, ajustables en phase cosmétique. */

@@ -36,10 +36,16 @@
 }
 
 /* ── Cadre general : bandeau d'etat + scene ──────────────────────────────── */
+/* Body en colonne : header en haut (hauteur naturelle), canvas dessous (reste).
+   Ainsi le header partagé ne décale pas le canvas — il prend juste sa place. */
+body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.aps-header { flex: none; }
+
 .bd-canvas-root {
   display: grid;
   grid-template-rows: var(--bd-statusbar-height) minmax(0, 1fr);
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   width: 100%;
   background: var(--bd-canvas-bg);
   overflow: hidden;
@@ -480,8 +486,8 @@
   flex-direction: column;
   overflow: hidden;
 }
-.bd-dock-left   .bd-panel { width: var(--bd-left-width);   height: calc(100vh - var(--bd-statusbar-height) - 128px); border-left: none; }
-.bd-dock-right  .bd-panel { width: var(--bd-right-width);  height: calc(100vh - var(--bd-statusbar-height) - 128px); border-right: none; }
+.bd-dock-left   .bd-panel { width: var(--bd-left-width);   height: calc(100vh - var(--bd-header-height) - var(--bd-statusbar-height) - 128px); border-left: none; }
+.bd-dock-right  .bd-panel { width: var(--bd-right-width);  height: calc(100vh - var(--bd-header-height) - var(--bd-statusbar-height) - 128px); border-right: none; }
 .bd-dock-bottom .bd-panel { height: var(--bd-bottom-height); width: calc(100vw - 128px); border-bottom: none; }
 
 .bd-panel-hd {
