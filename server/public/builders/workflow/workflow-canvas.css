@@ -269,6 +269,7 @@
 }
 .cfg-input:focus { outline: none; border-color: var(--bd-text-dim); }
 .cfg-variable { font-family: ui-monospace, Menlo, monospace; color: var(--accent); }
+.cfg-select { appearance: none; cursor: pointer; }
 .bd-empty[data-hidden="1"] { display: none; }
 
 /* Menu contextuel (clic droit sur un nœud). Position fixe au curseur. */

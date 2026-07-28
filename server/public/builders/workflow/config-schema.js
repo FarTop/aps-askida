@@ -20,18 +20,38 @@ const ConfigSchema = (() => {
     ];
   }
 
-  // Schéma pour une étape. Pour l'instant : les communs + la variable de
-  // stockage quand la famille en produit une (prouve la nature 'variable' et
-  // la règle des accolades affichage-seulement).
+  // Schéma pour une étape. Communs + champs propres à la famille.
   function pour(etape) {
     const s = _communs();
     const core = etape && etape.core;
+
     // Familles qui produisent un résultat stockable.
     const produit = ['http_request', 'lookup', 'transform', 'set_variable', 'loop', 'http_sequence'];
     if (core && produit.indexOf(core) >= 0) {
       s.push({ nature: 'variable', chemin: 'resultVar', label: 'Store result as',
                placeholder: '{result}' });
     }
+
+    // Décision : démontre l'interdépendance rationalisée. Un opérateur pilote
+    // ses champs de valeur, déclarés par visibleSi. Le bug WFD Date->Between
+    // est structurellement impossible ici.
+    if (core === 'decision') {
+      s.push({ nature: 'variable', chemin: 'on', label: 'Evaluate', placeholder: '{value}' });
+      s.push({ nature: 'operateur', chemin: 'op', label: 'Operator', options: [
+        { valeur: 'equals', libelle: 'equals' },
+        { valeur: 'contains', libelle: 'contains' },
+        { valeur: 'between', libelle: 'between' },
+        { valeur: 'is_empty', libelle: 'is empty' }
+      ] });
+      // Champs dépendants : leur visibilité EST une projection du modèle.
+      s.push({ nature: 'texte', chemin: 'value', label: 'Value',
+               visibleSi: function (m) { return ['equals', 'contains'].indexOf(m.lire('op')) >= 0; } });
+      s.push({ nature: 'texte', chemin: 'from', label: 'From',
+               visibleSi: function (m) { return m.lire('op') === 'between'; } });
+      s.push({ nature: 'texte', chemin: 'to', label: 'To',
+               visibleSi: function (m) { return m.lire('op') === 'between'; } });
+    }
+
     return s;
   }
 

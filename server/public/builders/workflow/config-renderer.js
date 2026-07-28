@@ -66,16 +66,52 @@ const ConfigRenderer = (() => {
       input.type = 'text';
       input.placeholder = descr.placeholder || '{variable}';
       input.value = _decore(model.lire(descr.chemin));
-      // On stocke le brut à chaque frappe ; l'affichage garde les accolades.
       input.addEventListener('input', function () {
         model.ecrire(descr.chemin, _brut(input.value));
       });
-      // À la sortie du champ, on ré-affiche proprement décoré.
       input.addEventListener('blur', function () {
         input.value = _decore(model.lire(descr.chemin));
       });
       wrap.appendChild(input);
       return wrap;
+    },
+
+    // Choix : une valeur parmi N (menu déroulant). Peut PILOTER d'autres champs
+    // (descripteur marqué `reagit: true` -> son changement re-rend le panneau,
+    // faisant apparaître/disparaître les champs dépendants via leur visibleSi).
+    choix: function (descr, model) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+      const sel = _el('select', 'cfg-input cfg-select');
+      const courant = model.lire(descr.chemin);
+      (descr.options || []).forEach(function (opt) {
+        // Une option est soit une chaîne, soit { valeur, libelle }.
+        const valeur = (opt && opt.valeur != null) ? opt.valeur : opt;
+        const libelle = (opt && opt.libelle != null) ? opt.libelle : String(valeur);
+        const o = document.createElement('option');
+        o.value = valeur;
+        o.textContent = libelle;
+        if (valeur === courant) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () {
+        model.ecrire(descr.chemin, sel.value);
+      });
+      wrap.appendChild(sel);
+      return wrap;
+    },
+
+    // Opérateur : un choix spécialisé (equals, between, contains, is_empty…).
+    // Identique à `choix` dans son rendu, mais sémantiquement distinct : c'est
+    // TOUJOURS un pilote (ses champs de valeur dépendent de l'opérateur choisi,
+    // déclarés par visibleSi dans le schéma). Le bug WFD Date->Between disparaît
+    // structurellement : la visibilité des champs from/to EST une projection du
+    // modèle, pas un effet de bord à déclencher.
+    operateur: function (descr, model) {
+      // Réutilise le rendu de `choix` : même contrôle, marqueur de nature à part.
+      const champ = NATURES.choix(descr, model);
+      champ.classList.add('cfg-operateur');
+      return champ;
     }
   };
 
@@ -93,9 +129,12 @@ const ConfigRenderer = (() => {
    * champs simples écrivent dans le modèle sans re-peindre.
    */
   function rendre(hote, schema, model) {
-    // Ensemble des chemins dont le changement doit re-peindre le panneau.
+    // Ensemble des chemins dont le changement doit re-peindre le panneau : les
+    // champs marqués `reagit`, ET tout opérateur (pilote par nature).
     const cheminsStructurants = {};
-    (schema || []).forEach(function (d) { if (d.reagit) cheminsStructurants[d.chemin] = true; });
+    (schema || []).forEach(function (d) {
+      if (d.reagit || d.nature === 'operateur') cheminsStructurants[d.chemin] = true;
+    });
 
     function _peindre() {
       while (hote.firstChild) hote.removeChild(hote.firstChild);
