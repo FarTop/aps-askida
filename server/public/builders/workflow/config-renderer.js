@@ -270,8 +270,13 @@ const ConfigRenderer = (() => {
           .then(function (r) { return r.ok ? r.json() : { ok: false, state: 'error' }; })
           .then(function (res) {
             // Map état serveur -> couleur de bille.
+            //   vert   = ok (200, token valide, API joignable)
+            //   orange = auth (API joignable mais token invalide/refusé)
+            //   rouge  = injoignable / erreur serveur
+            //   gris   = inactive / non testable (S3)
             let etat = 'rouge';
-            if (res.ok === true) etat = 'vert';
+            if (res.state === 'ok') etat = 'vert';
+            else if (res.state === 'auth') etat = 'orange';
             else if (res.ok === null || res.state === 'inactive' || res.state === 'untestable') etat = 'gris';
             bille.setAttribute('data-etat', etat);
             if (res.message) bille.title = res.message;   // info-bulle, pas du texte à lire

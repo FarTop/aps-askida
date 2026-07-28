@@ -318,6 +318,7 @@
 .cfg-bille[data-etat="vide"]     { background: var(--bd-panel-border); }
 .cfg-bille[data-etat="connecte"] { background: var(--info, #4c8dff); }
 .cfg-bille[data-etat="vert"]     { background: var(--ok, #35c46a); }
+.cfg-bille[data-etat="orange"]   { background: var(--warn, #e08a2b); }
 .cfg-bille[data-etat="rouge"]    { background: var(--err, #e5484d); }
 .cfg-bille[data-etat="gris"]     { background: var(--bd-text-dim); }
 .cfg-bille[data-etat="test"]     { background: var(--info, #4c8dff); animation: cfg-pulse 1s ease-in-out infinite; }

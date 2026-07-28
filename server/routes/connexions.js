@@ -132,53 +132,70 @@ router.delete('/:id', async (req, res) => {
 });
 
 // POST /api/connexions/:id/test — teste la connexion (handshake d'auth).
-// Principe (décidé avec Farid) : ce test valide la CONNEXION, pas un endpoint
-// précis. Les creds vivent dans la connexion ; on tape la baseUrl avec l'auth
-// et on juge :
-//   - 401/403        -> creds rejetés           => ok:false (rouge)
-//   - injoignable/5xx -> serveur absent          => ok:false (rouge)
-//   - tout le reste (200/404/400…) -> serveur répond, auth acceptée => ok:true (vert)
-// Les tests d'endpoints précis viendront dans des nœuds spécifiques / futur API
-// Builder. aws_s3 n'est pas testable par un simple GET HTTP -> statut neutre.
+// Repris du bouton de test WFD qui fonctionne (testerConnexion,
+// script-workflow-designer.js) : on ne tape pas la racine seule, on essaie des
+// endpoints connus avec repli sur '/', et surtout on considere « API joignable »
+// des que le serveur repond (status < 500) — un 401/403 prouve que l'API est LA
+// (token juste invalide/refuse), donc joignable, PAS rouge. Rouge seulement si
+// le serveur est injoignable (exception reseau) ou en erreur 5xx.
+// Ce test valide la CONNEXION, pas un endpoint precis (tests d'endpoints -> nœuds
+// / futur API Builder). aws_s3 non testable par handshake HTTP -> neutre.
 router.post('/:id/test', async (req, res) => {
   try {
     const c = await prisma.connexion.findUnique({ where: { id: req.params.id } });
     if (!c) return res.status(404).json({ ok: false, message: 'Non trouvé' });
     if (c.isActive === false) return res.json({ ok: false, state: 'inactive', message: 'Connexion inactive' });
     if (!c.baseUrl) return res.json({ ok: false, state: 'error', message: 'Aucune URL de base à tester' });
-
-    // aws_s3 : pas de handshake HTTP naïf possible -> on ne prétend pas tester.
     if (c.authType === 'aws_s3') {
       return res.json({ ok: null, state: 'untestable', message: 'Type S3 : test non couvert par le handshake HTTP' });
     }
 
-    // En-têtes selon le type d'auth.
-    const headers = {};
+    // En-têtes : comme WFD (Content-Type + auth selon type).
+    const headers = { 'Content-Type': 'application/json' };
     const secret = c.authValueEnc ? decrypt(c.authValueEnc) : null;
     if (secret) {
       if (c.authType === 'bearer' || c.authType === 'token') headers['Authorization'] = 'Bearer ' + secret;
+      else if (c.authType === 'apikey_header' || c.authType === 'apikey') headers['X-API-Key'] = secret;
       else if (c.authType === 'basic') headers['Authorization'] = 'Basic ' + secret;
-      else if (c.authType === 'apikey') headers['X-API-Key'] = secret;
-      else headers['Authorization'] = secret;   // repli : tel quel
+      else headers['Authorization'] = secret;
+    }
+    // Headers fixes stockés sur la connexion (comme WFD lit ceux du formulaire).
+    const extra = (c.extraConfig && c.extraConfig.headers) || [];
+    if (Array.isArray(extra)) {
+      extra.forEach(function (h) { if (h && h.key) headers[h.key] = h.value || ''; });
     }
 
-    let r;
-    try {
-      const ctrl = new AbortController();
-      const to = setTimeout(function () { ctrl.abort(); }, 8000);
-      r = await fetch(c.baseUrl, { headers: headers, signal: ctrl.signal });
-      clearTimeout(to);
-    } catch (netErr) {
-      return res.json({ ok: false, state: 'error', message: 'Serveur injoignable' });
+    const base = String(c.baseUrl).replace(/\/+$/, '');
+    // Endpoints de test connus, repli sur '/'. Le premier qui repond (< 500)
+    // suffit a prouver la joignabilite.
+    const endpoints = (c.extraConfig && c.extraConfig.testPath)
+      ? [c.extraConfig.testPath, '/']
+      : ['/api/languages', '/api/genres', '/api/countries', '/'];
+
+    let statusCode = null, joignable = false, netErr = null;
+    for (let i = 0; i < endpoints.length; i++) {
+      try {
+        const ctrl = new AbortController();
+        const to = setTimeout(function () { ctrl.abort(); }, 8000);
+        const r = await fetch(base + endpoints[i], { method: 'GET', headers: headers, signal: ctrl.signal });
+        clearTimeout(to);
+        statusCode = r.status;
+        if (r.status < 500) { joignable = true; break; }   // 401/403 inclus : API là
+      } catch (e) { netErr = e.message; }
     }
 
-    if (r.status === 401 || r.status === 403) {
-      return res.json({ ok: false, state: 'auth', message: 'Authentification rejetée (HTTP ' + r.status + ')', status: r.status });
+    if (!joignable) {
+      return res.json({ ok: false, state: 'error',
+        message: netErr ? ('Serveur injoignable — ' + netErr) : ('Erreur serveur (HTTP ' + statusCode + ')'),
+        status: statusCode });
     }
-    if (r.status >= 500) {
-      return res.json({ ok: false, state: 'error', message: 'Erreur serveur (HTTP ' + r.status + ')', status: r.status });
+    // Joignable. 200 = token valide ; 401/403 = joignable mais token/accès à revoir.
+    if (statusCode === 401 || statusCode === 403) {
+      return res.json({ ok: true, state: 'auth',
+        message: 'API joignable, mais token invalide ou accès refusé (HTTP ' + statusCode + ')',
+        status: statusCode });
     }
-    return res.json({ ok: true, state: 'ok', message: 'Connexion valide', status: r.status });
+    return res.json({ ok: true, state: 'ok', message: 'Connexion réussie — API joignable', status: statusCode });
   } catch (e) {
     res.status(500).json({ ok: false, state: 'error', message: e.message });
   }
