@@ -72,6 +72,24 @@ function _orgExplicite(req) {
   const h = req.headers && (req.headers['x-org-id'] || req.headers['X-Org-Id']);
   if (h) return String(h);
   if (req.query && req.query.orgId) return String(req.query.orgId);
+  // Cookie aps-org-id (pose par le selecteur du header). Lu a la main pour ne
+  // pas dependre de cookie-parser ni toucher au montage Express.
+  const c = _cookie(req, 'aps-org-id');
+  if (c) return String(c);
+  return null;
+}
+
+// Lit un cookie par son nom depuis l'en-tete Cookie (sans dependance).
+function _cookie(req, nom) {
+  const brut = req.headers && (req.headers.cookie || req.headers.Cookie);
+  if (!brut) return null;
+  const parts = String(brut).split(';');
+  for (let i = 0; i < parts.length; i++) {
+    const eq = parts[i].indexOf('=');
+    if (eq < 0) continue;
+    const k = parts[i].slice(0, eq).trim();
+    if (k === nom) return decodeURIComponent(parts[i].slice(eq + 1).trim());
+  }
   return null;
 }
 

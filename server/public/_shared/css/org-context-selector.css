@@ -1,0 +1,28 @@
+/* org-context-selector.css — Sélecteur de contexte d'organisation (partagé).
+   Neutre, s'appuie sur des variables de thème avec repli, pour s'intégrer aussi
+   bien au header sombre du Builder qu'aux autres pages. */
+
+.octx {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.octx-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--bd-text-dim, #8a9299);
+}
+.octx-select {
+  appearance: none;
+  cursor: pointer;
+  background: var(--bd-canvas-surface, rgba(255,255,255,0.06));
+  color: var(--bd-text, #eef0f1);
+  border: 1px solid var(--bd-panel-border, rgba(255,255,255,0.18));
+  border-radius: 6px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12.5px;
+}
+.octx-select:hover { border-color: var(--bd-text-dim, rgba(255,255,255,0.32)); }
+.octx-select:focus { outline: none; border-color: var(--accent, #d6d233); }
