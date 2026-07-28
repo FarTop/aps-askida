@@ -553,3 +553,18 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 @media (prefers-reduced-motion: reduce) {
   .bd-dock { transition: none; }
 }
+
+/* ── Header : breadcrumb calé sur la charte sombre du Builder ─────────────────
+   navbar.css ne style pas .breadcrumb (pensé pour un thème clair) ; ici on le
+   met aux couleurs du Builder pour qu'il ne jure pas avec la page. */
+.aps-header .breadcrumb {
+  color: var(--bd-text-dim);
+  font-size: 12.5px;
+}
+.aps-header .breadcrumb a {
+  color: var(--bd-text-dim);
+  text-decoration: none;
+}
+.aps-header .breadcrumb a:hover {
+  color: var(--bd-text);
+}
