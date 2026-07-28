@@ -242,17 +242,42 @@ const ConfigRenderer = (() => {
     },
 
     // Connexion : sélection d'une connexion RÉELLE d'Administration (async, via
-    // ConfigSources, avec cache). On stocke l'id choisi. Le rendu est synchrone :
-    // on affiche « Loading… » puis on remplit le select quand les données
-    // arrivent, sans bloquer ni casser la réactivité. Jamais de secret exposé.
+    // ConfigSources, avec cache). On stocke l'id choisi. Une BILLE indique l'état
+    // de connectivité, testé automatiquement au choix (aucun texte à lire) :
+    //   vert  = testé, répond (ok pour bosser)
+    //   bleu  = connectée (choisie) mais pas encore testée
+    //   rouge = testé, échoue (auth rejetée ou serveur absent)
+    //   gris  = inactive ou non testable (ex. S3)
     connexion: function (descr, model) {
       const wrap = _el('div', 'cfg-field');
       wrap.appendChild(_champLabel(descr));
+
+      const ligne = _el('div', 'cfg-connexion');
+      const bille = _el('span', 'cfg-bille');
+      bille.setAttribute('data-etat', 'vide');
       const sel = _el('select', 'cfg-input cfg-select');
       const attente = document.createElement('option');
       attente.textContent = 'Loading…'; attente.disabled = true; attente.selected = true;
       sel.appendChild(attente);
-      wrap.appendChild(sel);
+      ligne.appendChild(bille);
+      ligne.appendChild(sel);
+      wrap.appendChild(ligne);
+
+      function _tester(id) {
+        if (!id) { bille.setAttribute('data-etat', 'vide'); return; }
+        bille.setAttribute('data-etat', 'test');   // en cours
+        fetch('/api/connexions/' + encodeURIComponent(id) + '/test', { method: 'POST' })
+          .then(function (r) { return r.ok ? r.json() : { ok: false, state: 'error' }; })
+          .then(function (res) {
+            // Map état serveur -> couleur de bille.
+            let etat = 'rouge';
+            if (res.ok === true) etat = 'vert';
+            else if (res.ok === null || res.state === 'inactive' || res.state === 'untestable') etat = 'gris';
+            bille.setAttribute('data-etat', etat);
+            if (res.message) bille.title = res.message;   // info-bulle, pas du texte à lire
+          })
+          .catch(function () { bille.setAttribute('data-etat', 'rouge'); });
+      }
 
       const courant = model.lire(descr.chemin);
       const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
@@ -262,7 +287,6 @@ const ConfigRenderer = (() => {
           const vide = document.createElement('option');
           vide.value = ''; vide.textContent = descr.placeholder || '— select a connection —';
           sel.appendChild(vide);
-          // Filtre optionnel par type/direction (déclaré dans le descripteur).
           list.filter(function (c) {
             if (descr.filtreType && c.type !== descr.filtreType) return false;
             if (descr.filtreDirection && c.direction !== descr.filtreDirection) return false;
@@ -274,7 +298,12 @@ const ConfigRenderer = (() => {
             if (c.id === courant) o.selected = true;
             sel.appendChild(o);
           });
-          sel.addEventListener('change', function () { model.ecrire(descr.chemin, sel.value); });
+          sel.addEventListener('change', function () {
+            model.ecrire(descr.chemin, sel.value);
+            _tester(sel.value);   // test AUTOMATIQUE au choix
+          });
+          // Une connexion déjà choisie : bille bleue (pas encore testée), puis test.
+          if (courant) { bille.setAttribute('data-etat', 'connecte'); _tester(courant); }
         });
       }
       return wrap;

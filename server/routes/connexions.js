@@ -131,4 +131,57 @@ router.delete('/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// POST /api/connexions/:id/test — teste la connexion (handshake d'auth).
+// Principe (décidé avec Farid) : ce test valide la CONNEXION, pas un endpoint
+// précis. Les creds vivent dans la connexion ; on tape la baseUrl avec l'auth
+// et on juge :
+//   - 401/403        -> creds rejetés           => ok:false (rouge)
+//   - injoignable/5xx -> serveur absent          => ok:false (rouge)
+//   - tout le reste (200/404/400…) -> serveur répond, auth acceptée => ok:true (vert)
+// Les tests d'endpoints précis viendront dans des nœuds spécifiques / futur API
+// Builder. aws_s3 n'est pas testable par un simple GET HTTP -> statut neutre.
+router.post('/:id/test', async (req, res) => {
+  try {
+    const c = await prisma.connexion.findUnique({ where: { id: req.params.id } });
+    if (!c) return res.status(404).json({ ok: false, message: 'Non trouvé' });
+    if (c.isActive === false) return res.json({ ok: false, state: 'inactive', message: 'Connexion inactive' });
+    if (!c.baseUrl) return res.json({ ok: false, state: 'error', message: 'Aucune URL de base à tester' });
+
+    // aws_s3 : pas de handshake HTTP naïf possible -> on ne prétend pas tester.
+    if (c.authType === 'aws_s3') {
+      return res.json({ ok: null, state: 'untestable', message: 'Type S3 : test non couvert par le handshake HTTP' });
+    }
+
+    // En-têtes selon le type d'auth.
+    const headers = {};
+    const secret = c.authValueEnc ? decrypt(c.authValueEnc) : null;
+    if (secret) {
+      if (c.authType === 'bearer' || c.authType === 'token') headers['Authorization'] = 'Bearer ' + secret;
+      else if (c.authType === 'basic') headers['Authorization'] = 'Basic ' + secret;
+      else if (c.authType === 'apikey') headers['X-API-Key'] = secret;
+      else headers['Authorization'] = secret;   // repli : tel quel
+    }
+
+    let r;
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(function () { ctrl.abort(); }, 8000);
+      r = await fetch(c.baseUrl, { headers: headers, signal: ctrl.signal });
+      clearTimeout(to);
+    } catch (netErr) {
+      return res.json({ ok: false, state: 'error', message: 'Serveur injoignable' });
+    }
+
+    if (r.status === 401 || r.status === 403) {
+      return res.json({ ok: false, state: 'auth', message: 'Authentification rejetée (HTTP ' + r.status + ')', status: r.status });
+    }
+    if (r.status >= 500) {
+      return res.json({ ok: false, state: 'error', message: 'Erreur serveur (HTTP ' + r.status + ')', status: r.status });
+    }
+    return res.json({ ok: true, state: 'ok', message: 'Connexion valide', status: r.status });
+  } catch (e) {
+    res.status(500).json({ ok: false, state: 'error', message: e.message });
+  }
+});
+
 module.exports = router;

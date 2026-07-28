@@ -308,6 +308,21 @@
 .cfg-method { flex: none; width: 92px; }
 .cfg-url { flex: 1; min-width: 0; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 
+/* Connexion : bille d'état + sélecteur. Code couleur, zéro texte à lire.
+   vert = testé & répond · bleu = connectée non testée · rouge = échec ·
+   gris = inactive / non testable · pulsation pendant le test. */
+.cfg-connexion { display: flex; align-items: center; gap: 8px; }
+.cfg-connexion .cfg-select { flex: 1; min-width: 0; }
+.cfg-bille { flex: none; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--bd-panel-border); }
+.cfg-bille[data-etat="vide"]     { background: var(--bd-panel-border); }
+.cfg-bille[data-etat="connecte"] { background: var(--info, #4c8dff); }
+.cfg-bille[data-etat="vert"]     { background: var(--ok, #35c46a); }
+.cfg-bille[data-etat="rouge"]    { background: var(--err, #e5484d); }
+.cfg-bille[data-etat="gris"]     { background: var(--bd-text-dim); }
+.cfg-bille[data-etat="test"]     { background: var(--info, #4c8dff); animation: cfg-pulse 1s ease-in-out infinite; }
+@keyframes cfg-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
 /* Nature liste : lignes avec sous-champs + boutons add/remove. */
 .cfg-liste-ligne { display: flex; gap: 8px; align-items: flex-start;
   padding: 8px; margin: 4px 0; background: var(--bd-canvas-surface);
