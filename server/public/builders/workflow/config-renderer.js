@@ -168,6 +168,46 @@ const ConfigRenderer = (() => {
       });
       wrap.appendChild(ajouter);
       return wrap;
+    },
+
+    // Nombre : input numérique. Piège connu `||` vs `??` : zéro est une valeur
+    // valide, on ne la remplace pas par du vide. Stocke un Number (ou '' si vide).
+    nombre: function (descr, model) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+      const input = _el('input', 'cfg-input cfg-number');
+      input.type = 'number';
+      if (descr.min != null) input.min = descr.min;
+      if (descr.max != null) input.max = descr.max;
+      if (descr.pas != null) input.step = descr.pas;
+      if (descr.placeholder) input.placeholder = descr.placeholder;
+      const v = model.lire(descr.chemin);
+      input.value = (v == null || v === '') ? '' : v;   // '' ≠ 0 : on distingue
+      input.addEventListener('input', function () {
+        // Champ vide -> '' (absence) ; sinon Number (0 reste 0).
+        model.ecrire(descr.chemin, input.value === '' ? '' : Number(input.value));
+      });
+      wrap.appendChild(input);
+      return wrap;
+    },
+
+    // Booléen : case à cocher. Peut PILOTER d'autres champs (marqué reagit dans
+    // le schéma) — comme un choix, sa valeur commande la visibilité d'autres.
+    booleen: function (descr, model) {
+      const wrap = _el('div', 'cfg-field cfg-field-inline');
+      const lab = _el('label', 'cfg-check');
+      const box = _el('input', 'cfg-checkbox');
+      box.type = 'checkbox';
+      box.checked = !!model.lire(descr.chemin);
+      box.addEventListener('change', function () {
+        model.ecrire(descr.chemin, box.checked);
+      });
+      const txt = document.createElement('span');
+      txt.textContent = descr.label || descr.chemin;
+      lab.appendChild(box);
+      lab.appendChild(txt);
+      wrap.appendChild(lab);
+      return wrap;
     }
   };
 

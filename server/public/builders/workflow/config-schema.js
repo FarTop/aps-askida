@@ -58,6 +58,21 @@ const ConfigSchema = (() => {
       });
     }
 
+    // Attente : durée numérique (démontre la nature nombre ; 0 reste 0).
+    if (core === 'wait') {
+      s.push({ nature: 'nombre', chemin: 'seconds', label: 'Duration (seconds)',
+               min: 0, placeholder: '0' });
+    }
+
+    // Boucle : option d'exécution parallèle (démontre la nature booléen, qui
+    // peut piloter un champ dépendant — ici la concurrence max).
+    if (core === 'loop') {
+      s.push({ nature: 'variable', chemin: 'over', label: 'Iterate over', placeholder: '{list}' });
+      s.push({ nature: 'booleen', chemin: 'parallel', label: 'Run in parallel', reagit: true });
+      s.push({ nature: 'nombre', chemin: 'maxConcurrency', label: 'Max concurrency', min: 1,
+               visibleSi: function (m) { return !!m.lire('parallel'); } });
+    }
+
     return s;
   }
 

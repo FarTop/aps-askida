@@ -298,6 +298,11 @@
 .cfg-variable { font-family: ui-monospace, Menlo, monospace; color: var(--accent); }
 .cfg-select { appearance: none; cursor: pointer; }
 
+/* Booléen : case à cocher alignée avec son libellé. */
+.cfg-check { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--bd-text); font-size: 13px; }
+.cfg-checkbox { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+.cfg-field-inline { padding-top: 10px; padding-bottom: 10px; }
+
 /* Nature liste : lignes avec sous-champs + boutons add/remove. */
 .cfg-liste-ligne { display: flex; gap: 8px; align-items: flex-start;
   padding: 8px; margin: 4px 0; background: var(--bd-canvas-surface);
