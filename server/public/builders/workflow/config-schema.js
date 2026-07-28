@@ -58,12 +58,6 @@ const ConfigSchema = (() => {
       });
     }
 
-    // Attente : durée numérique (démontre la nature nombre ; 0 reste 0).
-    if (core === 'wait') {
-      s.push({ nature: 'nombre', chemin: 'seconds', label: 'Duration (seconds)',
-               min: 0, placeholder: '0' });
-    }
-
     // Boucle : option d'exécution parallèle (démontre la nature booléen, qui
     // peut piloter un champ dépendant — ici la concurrence max).
     if (core === 'loop') {
@@ -71,6 +65,108 @@ const ConfigSchema = (() => {
       s.push({ nature: 'booleen', chemin: 'parallel', label: 'Run in parallel', reagit: true });
       s.push({ nature: 'nombre', chemin: 'maxConcurrency', label: 'Max concurrency', min: 1,
                visibleSi: function (m) { return !!m.lire('parallel'); } });
+    }
+
+    // Trigger : ce qui démarre le flux. Le type de déclencheur pilote un champ
+    // (planification pour 'schedule'). varName produit est déductible du type.
+    if (core === 'trigger') {
+      s.push({ nature: 'choix', chemin: 'kind', label: 'Trigger on', reagit: true, options: [
+        { valeur: 'asset', libelle: 'An asset' },
+        { valeur: 'collection', libelle: 'A collection' },
+        { valeur: 'segment', libelle: 'A segment' },
+        { valeur: 'schedule', libelle: 'A schedule' }
+      ] });
+      s.push({ nature: 'texte', chemin: 'cron', label: 'Schedule (cron)', placeholder: '0 6 * * *',
+               visibleSi: function (m) { return m.lire('kind') === 'schedule'; } });
+    }
+
+    // Set variable : une LISTE d'affectations (key = value). Repris des
+    // assignments réels de WFD. Chaque ligne : nom de variable + valeur.
+    if (core === 'set_variable') {
+      s.push({
+        nature: 'liste', chemin: 'assignments', label: 'Assignments', ajoutLabel: 'Add assignment',
+        itemDefaut: { key: '', value: '' },
+        itemSchema: [
+          { nature: 'texte', chemin: 'key', label: 'Variable', placeholder: 'myVar' },
+          { nature: 'texte', chemin: 'value', label: 'Value', placeholder: '{source} or literal' }
+        ]
+      });
+    }
+
+    // Lookup : recherche une correspondance et stocke le résultat. Champs réels
+    // WFD : la source, la clé recherchée, la variable de sortie (lkOutputVar).
+    if (core === 'lookup') {
+      s.push({ nature: 'variable', chemin: 'source', label: 'Lookup in', placeholder: '{table}' });
+      s.push({ nature: 'variable', chemin: 'key', label: 'Match key', placeholder: '{value}' });
+      s.push({ nature: 'variable', chemin: 'lkOutputVar', label: 'Store match as', placeholder: '{match}' });
+    }
+
+    // Transform : applique une transformation à une entrée. Mode pilote le reste
+    // (expression libre vs mapping de champs).
+    if (core === 'transform') {
+      s.push({ nature: 'variable', chemin: 'input', label: 'Input', placeholder: '{value}' });
+      s.push({ nature: 'choix', chemin: 'mode', label: 'Mode', reagit: true, options: [
+        { valeur: 'expression', libelle: 'Expression' },
+        { valeur: 'fields', libelle: 'Field mapping' }
+      ] });
+      s.push({ nature: 'texte', chemin: 'expression', label: 'Expression', placeholder: 'e.g. upper({value})',
+               visibleSi: function (m) { return (m.lire('mode') || 'expression') === 'expression'; } });
+      s.push({
+        nature: 'liste', chemin: 'fields', label: 'Fields', ajoutLabel: 'Add field',
+        itemDefaut: { from: '', to: '' },
+        itemSchema: [
+          { nature: 'variable', chemin: 'from', label: 'From', placeholder: '{source}' },
+          { nature: 'texte', chemin: 'to', label: 'To', placeholder: 'targetField' }
+        ],
+        visibleSi: function (m) { return m.lire('mode') === 'fields'; }
+      });
+    }
+
+    // Verify : vérifie une condition/présence avant de continuer. Réutilise
+    // l'opérateur (comme Decision) mais sur une seule condition.
+    if (core === 'verify') {
+      s.push({ nature: 'variable', chemin: 'on', label: 'Verify', placeholder: '{value}' });
+      s.push({ nature: 'operateur', chemin: 'op', label: 'Condition', options: [
+        { valeur: 'present', libelle: 'is present' },
+        { valeur: 'equals', libelle: 'equals' },
+        { valeur: 'matches', libelle: 'matches' }
+      ] });
+      s.push({ nature: 'texte', chemin: 'value', label: 'Expected',
+               visibleSi: function (m) { return ['equals', 'matches'].indexOf(m.lire('op')) >= 0; } });
+    }
+
+    // Wait : durée numérique OU attente d'une condition. Mode pilote.
+    if (core === 'wait') {
+      s.push({ nature: 'nombre', chemin: 'seconds', label: 'Duration (seconds)', min: 0, placeholder: '0' });
+    }
+
+    // HTTP Sequence : une SUITE de requêtes. Liste d'étapes (méthode + URL).
+    if (core === 'http_sequence') {
+      s.push({ nature: 'connexion', chemin: 'connexionId', label: 'Connection' });
+      s.push({
+        nature: 'liste', chemin: 'steps', label: 'Requests', ajoutLabel: 'Add request',
+        itemDefaut: { request: { method: 'GET', url: '' } },
+        itemSchema: [
+          { nature: 'endpoint', chemin: 'request', label: 'Request' },
+          { nature: 'variable', chemin: 'storeAs', label: 'Store as', placeholder: '{step1}' }
+        ]
+      });
+    }
+
+    // History : consigne un évènement dans l'historique du flux.
+    if (core === 'history') {
+      s.push({ nature: 'texte', chemin: 'message', label: 'Message', placeholder: 'e.g. Delivered to {target}' });
+      s.push({ nature: 'choix', chemin: 'level', label: 'Level', options: [
+        { valeur: 'info', libelle: 'Info' },
+        { valeur: 'warn', libelle: 'Warning' },
+        { valeur: 'error', libelle: 'Error' }
+      ] });
+    }
+
+    // Deliver : livre un contenu vers une cible (connexion sortante).
+    if (core === 'deliver') {
+      s.push({ nature: 'connexion', chemin: 'connexionId', label: 'Deliver to', filtreDirection: 'outbound' });
+      s.push({ nature: 'variable', chemin: 'payload', label: 'Payload', placeholder: '{manifest}' });
     }
 
     // HTTP Request : consomme Administration (connexion réelle) + endpoint.
