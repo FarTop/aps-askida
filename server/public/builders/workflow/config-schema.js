@@ -24,6 +24,15 @@ const ConfigSchema = (() => {
   function pour(etape) {
     const s = _communs();
     const core = etape && etape.core;
+    const facade = etape && etape.facade;
+
+    // Une FAÇADE prime sur le schéma core générique : elle sait mieux quoi
+    // montrer (une Search présente des blocs de recherche, pas une URL brute).
+    // Si une façade connue est présente, on rend SON schéma et on s'arrête.
+    if (facade) {
+      const sf = _facade(facade, etape);
+      if (sf) return s.concat(sf);
+    }
 
     // Familles qui produisent un résultat stockable.
     const produit = ['http_request', 'lookup', 'transform', 'set_variable', 'loop', 'http_sequence'];
@@ -176,6 +185,87 @@ const ConfigSchema = (() => {
     }
 
     return s;
+  }
+
+  // Schéma spécifique d'une façade plateforme. Reprend les champs réels du
+  // catalogue (ports/modes/services) rationalisés en natures. Retourne null si
+  // la façade n'a pas de schéma dédié (on retombe alors sur le core).
+  function _facade(facade, etape) {
+    switch (facade) {
+
+      // Search (aps_search) : recherche APS. Connexion + expression + variable
+      // de résultat. modes retrieve/presence -> un choix qui pilotera plus tard
+      // le détail. (La nature 'arbo' viendra enrichir le ciblage de collections.)
+      case 'iconik.search':
+        return [
+          { nature: 'connexion', chemin: 'connexionId', label: 'Connection' },
+          { nature: 'choix', chemin: 'mode', label: 'Mode', options: [
+            { valeur: 'retrieve', libelle: 'Retrieve results' },
+            { valeur: 'presence', libelle: 'Check presence' }
+          ] },
+          { nature: 'texte', chemin: 'expression', label: 'Search expression', placeholder: 'metadata query' },
+          { nature: 'nombre', chemin: 'limit', label: 'Limit', min: 1, placeholder: '50' },
+          { nature: 'variable', chemin: 'resultVar', label: 'Store results as', placeholder: '{results}' }
+        ];
+
+      // Fetch : récupère un objet. Connexion + cible + variable.
+      case 'iconik.fetch':
+        return [
+          { nature: 'connexion', chemin: 'connexionId', label: 'Connection' },
+          { nature: 'variable', chemin: 'target', label: 'Fetch', placeholder: '{collection.id}' },
+          { nature: 'variable', chemin: 'fetchVar', label: 'Store as', placeholder: '{fetched}' }
+        ];
+
+      // Set Metadata : écrit des métadonnées. Mode fields/view pilote.
+      case 'iconik.set_metadata':
+        return [
+          { nature: 'connexion', chemin: 'connexionId', label: 'Connection' },
+          { nature: 'variable', chemin: 'target', label: 'On object', placeholder: '{asset.id}' },
+          { nature: 'choix', chemin: 'mode', label: 'Mode', reagit: true, options: [
+            { valeur: 'fields', libelle: 'Individual fields' },
+            { valeur: 'view', libelle: 'Metadata view' }
+          ] },
+          { nature: 'texte', chemin: 'viewId', label: 'View ID',
+            visibleSi: function (m) { return m.lire('mode') === 'view'; } },
+          { nature: 'liste', chemin: 'fields', label: 'Fields', ajoutLabel: 'Add field',
+            itemDefaut: { name: '', value: '' },
+            itemSchema: [
+              { nature: 'texte', chemin: 'name', label: 'Field', placeholder: 'field_name' },
+              { nature: 'variable', chemin: 'value', label: 'Value', placeholder: '{value}' }
+            ],
+            visibleSi: function (m) { return (m.lire('mode') || 'fields') === 'fields'; } }
+        ];
+
+      // Action : déclenche une action (ex. export location). Connexion + action.
+      case 'iconik.action':
+        return [
+          { nature: 'connexion', chemin: 'connexionId', label: 'Connection' },
+          { nature: 'variable', chemin: 'target', label: 'On object', placeholder: '{asset.id}' },
+          { nature: 'texte', chemin: 'actionId', label: 'Action', placeholder: 'export_location' }
+        ];
+
+      // Create Tree : crée une arborescence de collections. Connexion + racine +
+      // gabarit d'arborescence (ressource — branchée plus tard). Services
+      // registry/counter déductibles, non exposés.
+      case 'iconik.create_tree':
+        return [
+          { nature: 'connexion', chemin: 'connexionId', label: 'Connection' },
+          { nature: 'variable', chemin: 'root', label: 'Under collection', placeholder: '{collection.id}' },
+          { nature: 'variable', chemin: 'template', label: 'Tree template', placeholder: '{arbo}' }
+        ];
+
+      // S3 : livraison vers un bucket. Connexion S3 (non testable en HTTP) +
+      // chemin de destination + payload.
+      case 'aws_s3.deliver':
+        return [
+          { nature: 'connexion', chemin: 'connexionId', label: 'S3 connection', filtreType: 'aws_s3' },
+          { nature: 'texte', chemin: 'bucketPath', label: 'Destination path', placeholder: 'folder/{name}' },
+          { nature: 'variable', chemin: 'payload', label: 'Payload', placeholder: '{manifest}' }
+        ];
+
+      default:
+        return null;   // pas de schéma façade dédié -> on retombe sur le core
+    }
   }
 
   return { pour };
