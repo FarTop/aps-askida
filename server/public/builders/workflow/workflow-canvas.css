@@ -12,6 +12,29 @@
  * attribut data-open sur la racine, lu en CSS).
  */
 
+/* ── Scrollbars : CENTRALISEES sur la charte sombre ───────────────────────────
+   Une seule regle pour toutes les zones scrollables du Builder (panneaux,
+   palette, docks, config…). Eviter le piege WFD : styler chaque scrollbar une
+   par une. Ici, une source unique — modifier la charte se fait a un endroit.
+   Deux moteurs couverts : standard (Firefox) et WebKit (Chrome/Electron). */
+.bd-canvas-root,
+.bd-canvas-root * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bd-panel-border) transparent;
+}
+.bd-canvas-root ::-webkit-scrollbar { width: 10px; height: 10px; }
+.bd-canvas-root ::-webkit-scrollbar-track { background: transparent; }
+.bd-canvas-root ::-webkit-scrollbar-thumb {
+  background: var(--bd-panel-border);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.bd-canvas-root ::-webkit-scrollbar-thumb:hover {
+  background: var(--bd-text-dim);
+  background-clip: padding-box;
+}
+
 /* ── Cadre general : bandeau d'etat + scene ──────────────────────────────── */
 .bd-canvas-root {
   display: grid;
