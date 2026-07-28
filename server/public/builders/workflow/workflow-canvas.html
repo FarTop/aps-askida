@@ -96,31 +96,40 @@
 
       <!-- Dock droite : paramétrage. Le volet accueille Palette / Config / Run.
            La Palette porte des sous-onglets Nodes / Iconik / Custom. -->
-      <div class="bd-dock bd-dock-right" data-side="right">
+      <div class="bd-dock bd-dock-right" data-side="right" data-panel="palette">
         <aside class="bd-panel">
           <div class="bd-panel-hd">
             <span data-role="title">Palette</span>
             <input class="bd-filter" data-role="palette-filter" placeholder="Filter…" aria-label="Filter nodes" />
           </div>
 
-          <!-- Sous-onglets de la palette (remplis en JS depuis le catalogue) -->
-          <div class="bd-subtabs" data-role="palette-subtabs">
-            <button class="bd-subtab bd-subtab-active" data-pane="core">Nodes</button>
-            <button class="bd-subtab" data-pane="platform">Iconik</button>
-            <button class="bd-subtab" data-pane="custom">Custom</button>
+          <!-- Vue Palette -->
+          <div class="bd-view bd-view-palette">
+            <div class="bd-subtabs" data-role="palette-subtabs">
+              <button class="bd-subtab bd-subtab-active" data-pane="core">Nodes</button>
+              <button class="bd-subtab" data-pane="platform">Iconik</button>
+              <button class="bd-subtab" data-pane="custom">Custom</button>
+            </div>
+            <div class="bd-panel-bd">
+              <div class="bd-pane bd-pane-active" data-pane="core">
+                <div class="bd-node-list" data-role="palette-core"></div>
+              </div>
+              <div class="bd-pane" data-pane="platform">
+                <div class="bd-node-list" data-role="palette-platform"></div>
+              </div>
+              <div class="bd-pane" data-pane="custom">
+                <div class="bd-node-list" data-role="palette-custom"></div>
+                <p class="bd-empty">Saved nodes are scoped to you · this environment ·
+                  this platform. Promote one to share it platform-wide.</p>
+              </div>
+            </div>
           </div>
 
-          <div class="bd-panel-bd">
-            <div class="bd-pane bd-pane-active" data-pane="core">
-              <div class="bd-node-list" data-role="palette-core"></div>
-            </div>
-            <div class="bd-pane" data-pane="platform">
-              <div class="bd-node-list" data-role="palette-platform"></div>
-            </div>
-            <div class="bd-pane" data-pane="custom">
-              <div class="bd-node-list" data-role="palette-custom"></div>
-              <p class="bd-empty">Saved nodes are scoped to you · this environment ·
-                this platform. Promote one to share it platform-wide.</p>
+          <!-- Vue Config (remplie par le moteur déclaratif selon la sélection) -->
+          <div class="bd-view bd-view-config">
+            <div class="bd-panel-bd">
+              <div data-role="config-host"></div>
+              <p class="bd-empty" data-role="config-empty">Select a single node to configure it.</p>
             </div>
           </div>
         </aside>
@@ -165,6 +174,9 @@
   <script src="wf-palette-drag.js"></script>
   <script src="wf-connect.js"></script>
   <script src="wf-context-menu.js"></script>
+  <script src="config-model.js"></script>
+  <script src="config-renderer.js"></script>
+  <script src="config-schema.js"></script>
   <script src="wf-shortcuts.js"></script>
   <script src="workflow-canvas.js"></script>
 </body>

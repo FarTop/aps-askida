@@ -53,6 +53,7 @@
         ouverts.add(side);
         tab.classList.add('bd-tab-active');
         const dock = root.querySelector('.bd-dock-' + side);
+        if (dock && panel) dock.setAttribute('data-panel', panel);
         const titre = dock && dock.querySelector('[data-role="title"]');
         if (titre && TITRE[panel]) titre.textContent = TITRE[panel];
       }
@@ -389,6 +390,59 @@
         selection: selection, clipboard: clipboard
       });
     }
+
+    // ── Panneau Config : reflet du nœud sélectionné ───────────────────────────
+    // Un seul nœud sélectionné -> on configure. Le panneau lit/écrit un modèle
+    // de config (source de vérité unique) ; écrire EST sauver : chaque frappe
+    // met à jour l'étape du nœud, qui se re-rend. Pas de bouton « sauver ».
+    const configHost = root.querySelector('[data-role="config-host"]');
+    const configEmpty = root.querySelector('[data-role="config-empty"]');
+    let offConfig = null;   // désabonnement du rendu précédent
+
+    // Re-rend le contenu d'un seul nœud (léger) sans reconstruire tout le canevas.
+    function _rerendreNoeud(id) {
+      const n = model.noeud(id);
+      const ancien = nodesHost.querySelector('[data-step-id="' + id + '"]');
+      if (!n || !ancien || !NR) return;
+      const neuf = NR.rendre(n.etape, { x: n.x, y: n.y });
+      ancien.parentNode.replaceChild(neuf, ancien);
+      _marquerSelection();
+      retracerAretes();
+    }
+
+    function _majPanneauConfig() {
+      if (!configHost || !window.ConfigModel || !window.ConfigRenderer || !window.ConfigSchema) return;
+      if (offConfig) { offConfig(); offConfig = null; }
+      while (configHost.firstChild) configHost.removeChild(configHost.firstChild);
+
+      const ids = selection.ids();
+      if (ids.length !== 1) {
+        if (configEmpty) configEmpty.setAttribute('data-hidden', '0');
+        return;
+      }
+      if (configEmpty) configEmpty.setAttribute('data-hidden', '1');
+
+      const noeud = model.noeud(ids[0]);
+      if (!noeud) return;
+
+      // Le modèle de config porte les params + le label (édité comme un champ).
+      const initial = Object.assign({ label: noeud.etape.label || '' }, noeud.etape.params || {});
+      const cfg = window.ConfigModel.creer(initial);
+
+      cfg.onChange(function () {
+        const p = cfg.params();
+        // label vit sur l'étape, hors params ; le reste va dans params.
+        if (p.label != null) { noeud.etape.label = p.label; }
+        const params = Object.assign({}, p); delete params.label;
+        noeud.etape.params = params;
+        _rerendreNoeud(noeud.id);   // reflet immédiat sur le nœud
+      });
+
+      const schema = window.ConfigSchema.pour(noeud.etape);
+      offConfig = window.ConfigRenderer.rendre(configHost, schema, cfg);
+    }
+
+    selection.onChange(function () { _majPanneauConfig(); });
 
     rendreDepuisModele();
   }

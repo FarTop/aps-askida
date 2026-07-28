@@ -251,6 +251,26 @@
 /* Pastille de sortie : curseur indiquant qu'on peut y démarrer une liaison. */
 .nc-pout .nc-dot { cursor: crosshair; }
 
+/* Vues du dock droit : Palette vs Config, basculées par data-panel du dock. */
+.bd-view { display: none; }
+.bd-dock-right[data-panel="palette"] .bd-view-palette { display: block; }
+.bd-dock-right[data-panel="config"]  .bd-view-config  { display: block; }
+.bd-dock-right[data-panel="run"]     .bd-view-config  { display: none; }
+
+/* Champs de configuration (rendus par le moteur déclaratif). */
+.cfg-field { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; }
+.cfg-label {
+  font-size: 11px; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--bd-text-dim);
+}
+.cfg-input {
+  background: var(--bd-canvas-surface); border: 1px solid var(--bd-panel-border);
+  color: var(--bd-text); border-radius: 6px; padding: 7px 9px; font: inherit; font-size: 13px;
+}
+.cfg-input:focus { outline: none; border-color: var(--bd-text-dim); }
+.cfg-variable { font-family: ui-monospace, Menlo, monospace; color: var(--accent); }
+.bd-empty[data-hidden="1"] { display: none; }
+
 /* Menu contextuel (clic droit sur un nœud). Position fixe au curseur. */
 .bd-ctx-menu {
   position: fixed;
