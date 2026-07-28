@@ -161,6 +161,16 @@
 }
 .bd-node .bd-nm { color: var(--bd-text); }
 .bd-node .bd-sub { color: var(--bd-text-dim); font-size: 11px; margin-left: auto; }
+/* Badge de plateforme dans la liste : petit tag coloré pour repérer d'un coup
+   d'œil à quelle plateforme un nœud est lié, sans le glisser sur le canevas. */
+.bd-node[data-platform] .bd-sub {
+  padding: 1px 7px; border-radius: 10px; font-size: 10px; text-transform: uppercase;
+  letter-spacing: .04em; border: 1px solid var(--bd-panel-border);
+}
+.bd-node[data-platform="iconik"]     .bd-sub { color: #6ea8ff; border-color: color-mix(in srgb, #6ea8ff 40%, transparent); }
+.bd-node[data-platform="aws_s3"]     .bd-sub { color: #e0a04c; border-color: color-mix(in srgb, #e0a04c 40%, transparent); }
+.bd-node[data-platform="vodfactory"] .bd-sub { color: #c07ce0; border-color: color-mix(in srgb, #c07ce0 40%, transparent); }
+.bd-node[data-platform="aps"]        .bd-sub { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 
 /* Portée d'un nœud Custom : badge + promotion (mécanique câblée plus tard). */
 .bd-scope {

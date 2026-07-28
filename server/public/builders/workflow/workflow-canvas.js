@@ -494,11 +494,22 @@
 
     const platHost = root.querySelector('[data-role="palette-platform"]');
     if (platHost) {
+      // Étiquette de plateforme déduite du préfixe de la façade. Le Builder est
+      // multi-plateformes : on montre TOUTES les façades, chacune taguée par sa
+      // plateforme (badge visible dans la liste, sans avoir à glisser le nœud).
+      const PLATEFORME = { iconik: 'Iconik', aws_s3: 'AWS', vodfactory: 'VodFactory', aps: 'APS' };
       Object.keys(CAT.FACADES).forEach(function (f) {
-        if (f.indexOf('iconik.') !== 0) return;
         const fa = CAT.FACADES[f];
+        // Les services (isService) ne sont pas des nœuds à poser : on les saute.
+        if (fa.isService) return;
+        const prefixe = f.split('.')[0];
+        const plateforme = PLATEFORME[prefixe] || prefixe;
         const nom = f.split('.')[1].replace(/_/g, ' ').replace(/\b\w/g, function (m) { return m.toUpperCase(); });
-        platHost.appendChild(_node('◆', nom, fa.core === 'http_request' ? 'http' : fa.core, { core: fa.core, facade: f }));
+        const el = _node('◆', nom, plateforme, { core: fa.core, facade: f });
+        // Tag de plateforme porté sur le nœud : sert au badge (couleur) et,
+        // à terme, au filtre par contexte d'orchestration (org + plateforme).
+        el.setAttribute('data-platform', prefixe);
+        platHost.appendChild(el);
       });
     }
   }
