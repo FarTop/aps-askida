@@ -303,6 +303,11 @@
 .cfg-checkbox { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
 .cfg-field-inline { padding-top: 10px; padding-bottom: 10px; }
 
+/* Endpoint : méthode (étroite) + URL (extensible) sur une ligne. */
+.cfg-endpoint { display: flex; gap: 8px; }
+.cfg-method { flex: none; width: 92px; }
+.cfg-url { flex: 1; min-width: 0; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+
 /* Nature liste : lignes avec sous-champs + boutons add/remove. */
 .cfg-liste-ligne { display: flex; gap: 8px; align-items: flex-start;
   padding: 8px; margin: 4px 0; background: var(--bd-canvas-surface);

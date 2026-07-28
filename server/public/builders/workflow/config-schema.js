@@ -73,6 +73,12 @@ const ConfigSchema = (() => {
                visibleSi: function (m) { return !!m.lire('parallel'); } });
     }
 
+    // HTTP Request : consomme Administration (connexion réelle) + endpoint.
+    if (core === 'http_request') {
+      s.push({ nature: 'connexion', chemin: 'connexionId', label: 'Connection' });
+      s.push({ nature: 'endpoint', chemin: 'request', label: 'Request' });
+    }
+
     return s;
   }
 

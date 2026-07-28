@@ -208,6 +208,76 @@ const ConfigRenderer = (() => {
       lab.appendChild(txt);
       wrap.appendChild(lab);
       return wrap;
+    },
+
+    // Endpoint : méthode HTTP (choix) + URL (texte), côte à côte. Deux valeurs
+    // distinctes dans le modèle : `chemin.method` et `chemin.url`.
+    endpoint: function (descr, model) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+      const ligne = _el('div', 'cfg-endpoint');
+
+      const sel = _el('select', 'cfg-input cfg-select cfg-method');
+      const methodes = descr.methodes || ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+      const mCourant = model.lire(descr.chemin + '.method') || methodes[0];
+      methodes.forEach(function (mth) {
+        const o = document.createElement('option');
+        o.value = mth; o.textContent = mth;
+        if (mth === mCourant) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () { model.ecrire(descr.chemin + '.method', sel.value); });
+
+      const url = _el('input', 'cfg-input cfg-url');
+      url.type = 'text';
+      url.placeholder = descr.placeholder || 'https://… or {baseUrl}/path';
+      const uCourant = model.lire(descr.chemin + '.url');
+      url.value = uCourant == null ? '' : uCourant;
+      url.addEventListener('input', function () { model.ecrire(descr.chemin + '.url', url.value); });
+
+      ligne.appendChild(sel);
+      ligne.appendChild(url);
+      wrap.appendChild(ligne);
+      return wrap;
+    },
+
+    // Connexion : sélection d'une connexion RÉELLE d'Administration (async, via
+    // ConfigSources, avec cache). On stocke l'id choisi. Le rendu est synchrone :
+    // on affiche « Loading… » puis on remplit le select quand les données
+    // arrivent, sans bloquer ni casser la réactivité. Jamais de secret exposé.
+    connexion: function (descr, model) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+      const sel = _el('select', 'cfg-input cfg-select');
+      const attente = document.createElement('option');
+      attente.textContent = 'Loading…'; attente.disabled = true; attente.selected = true;
+      sel.appendChild(attente);
+      wrap.appendChild(sel);
+
+      const courant = model.lire(descr.chemin);
+      const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
+      if (src) {
+        src.connexions().then(function (list) {
+          while (sel.firstChild) sel.removeChild(sel.firstChild);
+          const vide = document.createElement('option');
+          vide.value = ''; vide.textContent = descr.placeholder || '— select a connection —';
+          sel.appendChild(vide);
+          // Filtre optionnel par type/direction (déclaré dans le descripteur).
+          list.filter(function (c) {
+            if (descr.filtreType && c.type !== descr.filtreType) return false;
+            if (descr.filtreDirection && c.direction !== descr.filtreDirection) return false;
+            return true;
+          }).forEach(function (c) {
+            const o = document.createElement('option');
+            o.value = c.id;
+            o.textContent = c.name + (c.type ? ' · ' + c.type : '');
+            if (c.id === courant) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.addEventListener('change', function () { model.ecrire(descr.chemin, sel.value); });
+        });
+      }
+      return wrap;
     }
   };
 
