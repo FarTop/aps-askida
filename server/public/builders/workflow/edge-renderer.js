@@ -26,6 +26,19 @@ const EdgeRenderer = (() => {
 
   // Centre d'une pastille de port, en repère de la surface du canevas.
   // `role` = 'in' pour l'entrée, sinon l'id du port de sortie.
+  // Facteur d'échelle de la surface (transform: scale). Le diagnostic a montré
+  // que la surface est position:absolute sans largeur -> offsetWidth = 0, donc
+  // impossible de déduire l'échelle par la largeur. Le zoom est en revanche
+  // fiable dans la variable CSS --bd-zoom (posée par le pan/zoom) : c'est elle
+  // qu'on lit. Sans correction, les coordonnées écran (getBoundingClientRect,
+  // déjà scalées) sont placées dans un SVG lui aussi scalé -> double application
+  // du zoom, tracé en vrille.
+  function _echelle() {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--bd-zoom');
+    const z = parseFloat(v);
+    return (z && z > 0) ? z : 1;
+  }
+
   function _centrePort(surface, nodeEl, role) {
     const sel = role === 'in' ? '[data-port="in"]' : '[data-port="' + role + '"]';
     const port = nodeEl.querySelector('.nc-ports ' + sel);
@@ -34,16 +47,18 @@ const EdgeRenderer = (() => {
     if (!dot) return null;
     const rs = surface.getBoundingClientRect();
     const rd = dot.getBoundingClientRect();
-    return { x: rd.left + rd.width / 2 - rs.left, y: rd.top + rd.height / 2 - rs.top };
+    const s = _echelle();
+    return { x: (rd.left + rd.width / 2 - rs.left) / s, y: (rd.top + rd.height / 2 - rs.top) / s };
   }
 
   // Rect d'un nœud en coordonnées de surface (même convention que _centrePort).
   function _boite(surface, nodeEl) {
     const rs = surface.getBoundingClientRect();
     const rn = nodeEl.getBoundingClientRect();
+    const s = _echelle();
     return {
-      left: rn.left - rs.left, right: rn.right - rs.left,
-      top: rn.top - rs.top, bottom: rn.bottom - rs.top
+      left: (rn.left - rs.left) / s, right: (rn.right - rs.left) / s,
+      top: (rn.top - rs.top) / s, bottom: (rn.bottom - rs.top) / s
     };
   }
 
