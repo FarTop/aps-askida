@@ -112,6 +112,62 @@ const ConfigRenderer = (() => {
       const champ = NATURES.choix(descr, model);
       champ.classList.add('cfg-operateur');
       return champ;
+    },
+
+    // Liste : un sous-schéma RÉPÉTÉ. Chaque item est rendu par `descr.itemSchema`
+    // avec ses chemins préfixés (conditions.0.op, conditions.1.op…). Boutons
+    // « + » (ajouter) et « ✕ » par ligne. add/remove écrivent dans le modèle
+    // (structurant -> re-rendu). Compose les autres natures à l'intérieur.
+    liste: function (descr, model) {
+      const wrap = _el('div', 'cfg-field cfg-liste');
+      wrap.appendChild(_champLabel(descr));
+
+      const items = model.lire(descr.chemin);
+      const n = Array.isArray(items) ? items.length : 0;
+
+      for (let i = 0; i < n; i++) {
+        const ligne = _el('div', 'cfg-liste-ligne');
+        const corps = _el('div', 'cfg-liste-corps');
+        (descr.itemSchema || []).forEach(function (sousDescr) {
+          const projete = Object.assign({}, sousDescr, {
+            chemin: descr.chemin + '.' + i + '.' + sousDescr.chemin
+          });
+          // visibleSi de l'item raisonne en chemins RELATIFS à l'item.
+          if (typeof sousDescr.visibleSi === 'function') {
+            projete.visibleSi = function (m) {
+              return sousDescr.visibleSi({
+                lire: function (c) { return m.lire(descr.chemin + '.' + i + '.' + c); }
+              });
+            };
+          }
+          if (!_visible(projete, model)) return;
+          const fab = NATURES[projete.nature];
+          if (fab) corps.appendChild(fab(projete, model));
+        });
+        ligne.appendChild(corps);
+
+        const retirer = _el('button', 'cfg-liste-suppr');
+        retirer.type = 'button';
+        retirer.textContent = '✕';
+        retirer.title = 'Remove';
+        (function (idx) {
+          retirer.addEventListener('click', function () { model.retirer(descr.chemin + '.' + idx); });
+        })(i);
+        ligne.appendChild(retirer);
+        wrap.appendChild(ligne);
+      }
+
+      const ajouter = _el('button', 'cfg-liste-ajout');
+      ajouter.type = 'button';
+      ajouter.textContent = '+ ' + (descr.ajoutLabel || 'Add');
+      ajouter.addEventListener('click', function () {
+        const arr = model.lire(descr.chemin);
+        const idx = Array.isArray(arr) ? arr.length : 0;
+        model.ecrire(descr.chemin + '.' + idx,
+          descr.itemDefaut ? JSON.parse(JSON.stringify(descr.itemDefaut)) : {});
+      });
+      wrap.appendChild(ajouter);
+      return wrap;
     }
   };
 
@@ -129,12 +185,42 @@ const ConfigRenderer = (() => {
    * champs simples écrivent dans le modèle sans re-peindre.
    */
   function rendre(hote, schema, model) {
-    // Ensemble des chemins dont le changement doit re-peindre le panneau : les
-    // champs marqués `reagit`, ET tout opérateur (pilote par nature).
+    // Chemins structurants (re-peignent le panneau) : champs marqués `reagit`,
+    // opérateurs, et listes. Pour une liste : ajout/retrait de ligne, ET les
+    // champs PILOTES d'un item (opérateur/reagit) qui commandent d'autres champs
+    // de l'item. Mais PAS un champ texte d'item — sinon on re-peindrait a chaque
+    // frappe et on perdrait le focus. On mémorise, par liste, les noms de champs
+    // pilotes de son itemSchema.
     const cheminsStructurants = {};
+    const listes = [];   // { prefixe, pilotes:Set }
     (schema || []).forEach(function (d) {
       if (d.reagit || d.nature === 'operateur') cheminsStructurants[d.chemin] = true;
+      if (d.nature === 'liste') {
+        const pilotes = {};
+        (d.itemSchema || []).forEach(function (sd) {
+          if (sd.reagit || sd.nature === 'operateur') pilotes[sd.chemin] = true;
+        });
+        listes.push({ prefixe: d.chemin, pilotes: pilotes });
+      }
     });
+
+    function _estStructurant(chemin) {
+      if (chemin == null) return true;
+      if (cheminsStructurants[chemin]) return true;
+      for (let i = 0; i < listes.length; i++) {
+        const L = listes[i];
+        // Ajout/retrait de ligne : le chemin est exactement le tableau, ou une
+        // ligne entiere (prefixe.N sans champ ensuite).
+        if (chemin === L.prefixe) return true;
+        const m = chemin.indexOf(L.prefixe + '.') === 0
+          ? chemin.slice(L.prefixe.length + 1) : null;
+        if (m == null) continue;
+        const seg = m.split('.');            // ex ['0'] (ligne) ou ['0','op'] (champ)
+        if (seg.length === 1) return true;   // ajout/retrait de la ligne entiere
+        if (seg.length >= 2 && L.pilotes[seg[1]]) return true;   // champ pilote de l'item
+      }
+      return false;
+    }
 
     function _peindre() {
       while (hote.firstChild) hote.removeChild(hote.firstChild);
@@ -151,7 +237,7 @@ const ConfigRenderer = (() => {
     // rafraîchit les champs dépendants (Date -> Between) sans casser la saisie
     // d'un champ texte ordinaire.
     const off = model.onChange(function (chemin) {
-      if (chemin == null || cheminsStructurants[chemin]) _peindre();
+      if (_estStructurant(chemin)) _peindre();
     });
     return off;
   }

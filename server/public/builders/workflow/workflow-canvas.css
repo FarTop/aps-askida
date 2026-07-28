@@ -270,6 +270,21 @@
 .cfg-input:focus { outline: none; border-color: var(--bd-text-dim); }
 .cfg-variable { font-family: ui-monospace, Menlo, monospace; color: var(--accent); }
 .cfg-select { appearance: none; cursor: pointer; }
+
+/* Nature liste : lignes avec sous-champs + boutons add/remove. */
+.cfg-liste-ligne { display: flex; gap: 8px; align-items: flex-start;
+  padding: 8px; margin: 4px 0; background: var(--bd-canvas-surface);
+  border: 1px solid var(--bd-panel-border); border-radius: 8px; }
+.cfg-liste-corps { flex: 1; min-width: 0; }
+.cfg-liste-corps .cfg-field { padding: 4px 0; }
+.cfg-liste-suppr { flex: none; background: none; border: none; color: var(--bd-text-dim);
+  cursor: pointer; font-size: 13px; padding: 2px 6px; border-radius: 4px; }
+.cfg-liste-suppr:hover { color: var(--err); }
+.cfg-liste-ajout { margin: 6px 12px; background: none; border: 1px dashed var(--bd-panel-border);
+  color: var(--bd-text-dim); border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  font: inherit; font-size: 12px; }
+.cfg-liste-ajout:hover { color: var(--bd-text); border-color: var(--bd-text-dim); }
+
 .bd-empty[data-hidden="1"] { display: none; }
 
 /* Menu contextuel (clic droit sur un nœud). Position fixe au curseur. */
