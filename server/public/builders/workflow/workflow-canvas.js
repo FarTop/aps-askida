@@ -512,6 +512,45 @@
         platHost.appendChild(el);
       });
     }
+
+    // Filtrage par contexte d'organisation (étape 4). La palette est remplie
+    // ENTIÈREMENT ci-dessus (aucune régression si le contexte échoue), puis on
+    // masque après coup les façades hors périmètre de l'org. Masquage par classe
+    // CSS (jamais style.display), réversible, fidèle à la discipline.
+    _filtrerPaletteParContexte(root);
+  }
+
+  // Masque les façades dont la plateforme n'appartient pas à l'org du contexte.
+  // Respecte le rôle : si filtre=false (superadmin/admin), on ne masque rien.
+  // Fail-safe : au moindre doute (contexte absent, erreur réseau), on ne masque
+  // rien — mieux vaut une façade de trop qu'une façade utile cachée.
+  function _filtrerPaletteParContexte(root) {
+    fetch('/api/context').then(function (r) {
+      return r.ok ? r.json() : null;
+    }).then(function (ctx) {
+      if (!ctx) return;                       // pas de contexte -> rien masquer
+      if (ctx.filtre === false) return;       // superadmin/admin -> tout visible
+      if (!ctx.org || !Array.isArray(ctx.org.platforms)) return;
+
+      // Ensemble des préfixes de plateforme autorisés (depuis les slugs de l'org).
+      const autorises = {};
+      ctx.org.platforms.forEach(function (p) {
+        if (p && p.slug) autorises[_slugVersPrefixe(p.slug)] = true;
+      });
+
+      const noeuds = root.querySelectorAll('[data-role="palette-platform"] [data-platform]');
+      noeuds.forEach(function (el) {
+        const prefixe = el.getAttribute('data-platform');
+        el.classList.toggle('bd-hors-contexte', !autorises[prefixe]);
+      });
+    }).catch(function () { /* silencieux : fail-safe, on ne masque rien */ });
+  }
+
+  // Mappe un slug de plateforme (base) vers le préfixe de façade (catalogue).
+  // Direct pour Iconik ; alias pour les cas où slug != préfixe.
+  function _slugVersPrefixe(slug) {
+    const ALIAS = { 's3': 'aws_s3', 'aws': 'aws_s3', 'amazon-s3': 'aws_s3' };
+    return ALIAS[slug] || slug;
   }
 
   root.querySelectorAll('.bd-subtab').forEach(function (st) {
