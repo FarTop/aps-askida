@@ -1,19 +1,21 @@
 /**
  * package-executor.js — Exécuteur de package (moteur natif du Builder)
  *
- * Fait le pont entre le PACKAGER (déclaratif, produit un plan + un verdict de
- * cardinalité) et le SERVICE S3 (I/O réelles). C'est la première brique
- * d'orchestration du moteur natif : elle EXÉCUTE ce que le Packager a planifié.
+ * PILOTAGE API PUR. APS ne manipule aucun octet : il ne télécharge, n'uploade,
+ * ne transcode jamais. Ces opérations, quand une plateforme cible les requiert,
+ * sont déclarées et exécutées PAR la plateforme (export location Iconik, ISG,
+ * VM FFMPEG…), configurées en amont. APS se borne à des appels.
  *
- * Chaîne : manifeste + fichiers réels  →  Packager (assemble + vérifie)  →
- *          si cardinalité OK, dépôt S3 de chaque essence  →  sorties (URLs).
+ * Pour Iconik/VodFactory, le flux est 100% API :
+ *   1. l'export location Iconik (orchestrée en amont par le workflow) fait
+ *      qu'Iconik pousse lui-même les essences vers le storage S3 ;
+ *   2. l'exécuteur VÉRIFIE par LISTING S3 ce qui est réellement arrivé ;
+ *   3. il applique la cardinalité du manifeste sur ce résultat réel, et range
+ *      les URLs de sortie.
  *
- * Garde-fou : si le Packager signale une violation de cardinalité, on N'EXÉCUTE
- * PAS le dépôt (on ne livre pas un package incomplet). Le verdict est renvoyé
- * tel quel, lisible.
- *
- * Indépendant du moteur WFD. Le Packager (module client) est réutilisé tel quel
- * côté serveur (JS pur, requirable). Le service S3 fait le dépôt réel.
+ * Le garde-fou de cardinalité porte donc sur l'état réel constaté (ce qui est
+ * présent), pas sur une intention. Le Packager (déclaratif) reste réutilisé
+ * pour la logique de reconnaissance + cardinalité.
  */
 
 'use strict';
@@ -22,51 +24,39 @@ const PivotPackager = require('../public/builders/workflow/pivot-packager');
 const s3 = require('./s3-service');
 
 /**
- * Exécute un package : assemble selon le manifeste, vérifie la cardinalité, et
- * dépose chaque essence sur S3 si tout est conforme.
+ * Vérifie un package par listing S3 (pilotage API — aucune manipulation média).
+ * Les essences sont supposées déjà poussées sur S3 par la plateforme (export
+ * location Iconik) ; l'exécuteur constate et valide.
  *
- * @param {object} manifeste  { name, essences: [...] }
- * @param {Array}  fichiers   [{ nom, corps|url, contentType? }] essences réelles
- * @param {object} connexionS3  connexion S3 (Prisma) où déposer
- * @param {string} [prefixe]  préfixe de destination dans le bucket (dossier)
- * @returns {Promise<{ ok, sorties, violations, deposes }>}
+ * @param {object} manifeste    { name, essences: [...] }
+ * @param {object} connexionS3  connexion S3 (Prisma) à interroger
+ * @param {string} [prefixe]    préfixe (dossier) où lister
+ * @returns {Promise<{ ok, sorties, violations, constate }>}
  */
-async function executer(manifeste, fichiers, connexionS3, prefixe) {
-  // 1. Assemblage + vérification de cardinalité (le Packager, déclaratif).
-  const plan = PivotPackager.assembler(manifeste, fichiers);
+async function verifierParListing(manifeste, connexionS3, prefixe) {
+  // 1. Lister ce qui est réellement présent sur S3 sous le préfixe.
+  const listing = await s3.lister(connexionS3, prefixe || '');
+  const objets = (listing.objets || []).map(function (o) {
+    // Le Packager reconnaît les rôles via le nom : on expose la clé S3 comme nom
+    // et l'URL publique reconstituée comme sortie.
+    return { nom: o.cle, url: _urlDe(connexionS3, o.cle) };
+  });
 
-  // 2. Garde-fou : package incomplet -> on ne dépose rien.
-  if (!plan.ok) {
-    return { ok: false, sorties: {}, violations: plan.violations, deposes: [] };
-  }
+  // 2. Assembler + vérifier la cardinalité sur le réel constaté (Packager).
+  const plan = PivotPackager.assembler(manifeste, objets);
 
-  // 3. Dépôt réel de chaque essence trouvée, essence par essence.
-  const deposes = [];
-  const sorties = {};
-  const base = (prefixe || '').replace(/^\/+|\/+$/g, '');
-
-  for (const essence of (manifeste.essences || [])) {
-    const trouves = plan.package[essence.role] || [];
-    const urls = [];
-    for (const f of trouves) {
-      // Le corps peut être fourni directement (Buffer/string) ; sinon, si seule
-      // une url source est donnée, on considère le fichier déjà déposé ailleurs
-      // (cas de transfert géré en amont). Ici on dépose ce qui a un corps.
-      if (f.corps != null) {
-        const cle = base ? base + '/' + f.nom : f.nom;
-        const r = await s3.deposer(connexionS3, cle, f.corps, f.contentType);
-        deposes.push({ role: essence.role, nom: f.nom, url: r.url });
-        urls.push(r.url);
-      } else if (f.url) {
-        urls.push(f.url);   // déjà disponible, on range l'URL telle quelle
-      }
-    }
-    if (essence.sortie) {
-      sorties[essence.sortie] = urls.length <= 1 ? (urls[0] || null) : urls;
-    }
-  }
-
-  return { ok: true, sorties: sorties, violations: [], deposes: deposes };
+  return {
+    ok: plan.ok,
+    sorties: plan.sorties,
+    violations: plan.violations,
+    constate: objets.length
+  };
 }
 
-module.exports = { executer };
+// Reconstitue une URL lisible pour une clé S3 (pilotage : on référence, on ne
+// télécharge pas). Best-effort ; l'URL réelle exacte dépend de la config bucket.
+function _urlDe(conn, cle) {
+  return 's3://' + cle;
+}
+
+module.exports = { verifierParListing };
