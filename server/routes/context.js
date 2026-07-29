@@ -24,7 +24,8 @@ router.get('/organisations', async (req, res) => {
     const orgs = await prisma.organisation.findMany({
       orderBy: { name: 'asc' },
       include: {
-        platforms: { include: { platform: true } }
+        platforms: { include: { platform: true } },
+        environments: true
       }
     });
     // On projette une forme légère et stable pour le client (jamais de secret).
@@ -38,7 +39,10 @@ router.get('/organisations', async (req, res) => {
             ? { id: op.platform.id, name: op.platform.name, slug: op.platform.slug,
                 type: op.platform.type, isActive: op.platform.isActive }
             : null;
-        }).filter(Boolean)
+        }).filter(Boolean),
+        environments: (o.environments || []).map(function (e) {
+          return { id: e.id, name: e.name, slug: e.slug, type: e.type, platformId: e.platformId };
+        })
       };
     });
     res.json(out);
