@@ -8,6 +8,15 @@ const crypto = require('crypto');
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma  = new PrismaClient({ adapter });
 
+const { getOrgContext } = require('../lib/org-context');
+
+// Org de la requête (contexte : cookie/header X-Org-Id, sinon repli première
+// org). Additif : WFD sans contexte -> repli -> comportement équivalent.
+async function orgIdDeContexte(req) {
+  const ctx = await getOrgContext(req, prisma);
+  return ctx.orgId;
+}
+
 function encrypt(text) {
   if (!text) return null;
   const key    = crypto.scryptSync(process.env.APS_SECRET, 'aps-salt', 32);
@@ -42,11 +51,13 @@ function fmt(c) {
   };
 }
 
-// GET /api/connexions
+// GET /api/connexions — filtrées par l'organisation du contexte (décision A).
+// Repli sur la première org pour WFD (sans contexte) : équivalent à avant, car
+// l'env par défaut de WFD appartient à cette org.
 router.get('/', async (req, res) => {
   try {
-    const envId = await getDefaultEnvId();
-    const conns = await prisma.connexion.findMany({ where: { envId } });
+    const orgId = await orgIdDeContexte(req);
+    const conns = await prisma.connexion.findMany({ where: { orgId } });
     res.json(conns.map(fmt));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -64,6 +75,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const envId = await getDefaultEnvId();
+    const orgId = await orgIdDeContexte(req);   // Temps 1 : on renseigne les deux
 
     if (req.body.items) {
       const items = req.body.items;
@@ -83,7 +95,7 @@ router.post('/', async (req, res) => {
             // isActive : ne pas toucher au champ existant si non fourni explicitement (même
             // raisonnement que pour les flux, cf. server/routes/flows.js, bug du 07/07/2026).
             update: { ...base, ...(typeof c.isActive === 'boolean' ? { isActive: c.isActive } : {}) },
-            create: { id: c.id, envId, ...base, isActive: typeof c.isActive === 'boolean' ? c.isActive : true },
+            create: { id: c.id, envId, orgId, ...base, isActive: typeof c.isActive === 'boolean' ? c.isActive : true },
           });
         })
       );
@@ -96,7 +108,7 @@ router.post('/', async (req, res) => {
     const conn = await prisma.connexion.upsert({
       where:  { id: id || '' },
       update: { name, type: type || 'listener', direction: direction || 'inbound', baseUrl: endpoint, authType, authValueEnc: authValue ? encrypt(authValue) : null, extraConfig: { mappings: mappings || [], description: description || '' } },
-      create: { id, envId, name, type: type || 'listener', direction: direction || 'inbound', baseUrl: endpoint, authType, authValueEnc: authValue ? encrypt(authValue) : null, extraConfig: { mappings: mappings || [], description: description || '' } },
+      create: { id, envId, orgId, name, type: type || 'listener', direction: direction || 'inbound', baseUrl: endpoint, authType, authValueEnc: authValue ? encrypt(authValue) : null, extraConfig: { mappings: mappings || [], description: description || '' } },
     });
     res.status(201).json(fmt(conn));
   } catch(e) { res.status(500).json({ error: e.message }); }

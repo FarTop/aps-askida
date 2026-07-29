@@ -37,6 +37,7 @@ model Organisation {
   managedApps  ManagedApp[]
   docAssets    DocAsset[]
   contactLists   ContactList[]
+  connexions     Connexion[]
   apiCheckConfig ApiCheckConfig?
   docKitContexts DocKitContext[]
   syncJobs       SyncJob[]
@@ -182,6 +183,13 @@ model Connexion {
   id            String      @id @default(cuid())
   envId         String
   environment   Environment @relation(fields: [envId], references: [id])
+  // Rattachement à l'organisation (décision A : la connexion est un patrimoine
+  // de l'org, indépendant de la plateforme source). Nullable durant la
+  // transition (Temps 1) : orgId et envId coexistent, aucune rupture. envId sera
+  // retiré dans une migration ultérieure (Temps 3) une fois les lectures/écritures
+  // basculées et validées.
+  orgId         String?
+  organisation  Organisation? @relation(fields: [orgId], references: [id])
   name          String
   type          String      // 'iconik' | 'aws_s3' | 'http' | 'listener'
   direction     String      @default("outbound")
