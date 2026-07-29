@@ -1,0 +1,80 @@
+/* APS — admin/ressources/ressources.css — 2026-07-29
+   Facture des écrans Administration (classes adm-*), plus onglets et cartes
+   propres aux ressources. Thème sombre APS. */
+
+:root {
+  --adm-bg:      #16191b;
+  --adm-surface: #1c2023;
+  --adm-border:  #2a3033;
+  --adm-text:    #eef0f1;
+  --adm-dim:     #8a9299;
+  --adm-accent:  #d6d233;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--adm-bg);
+  color: var(--adm-text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.adm-main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+
+.adm-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px;
+}
+.adm-title { font-size: 20px; font-weight: 600; margin: 0; }
+
+.btn {
+  cursor: pointer;
+  background: var(--adm-accent);
+  color: #1a1a1a;
+  border: none; border-radius: 7px;
+  padding: 9px 16px; font: inherit; font-weight: 600; font-size: 13px;
+}
+.btn:hover { filter: brightness(1.06); }
+
+/* Onglets par type de ressource */
+.res-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--adm-border); margin-bottom: 16px; }
+.res-tab {
+  cursor: pointer;
+  background: transparent;
+  color: var(--adm-dim);
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 9px 16px; font: inherit; font-size: 13.5px;
+  margin-bottom: -1px;
+}
+.res-tab:hover { color: var(--adm-text); }
+.res-tab-active { color: var(--adm-text); border-bottom-color: var(--adm-accent); }
+
+/* Filtres */
+.adm-filters { margin-bottom: 16px; }
+.adm-search {
+  width: 100%;
+  background: var(--adm-surface);
+  color: var(--adm-text);
+  border: 1px solid var(--adm-border);
+  border-radius: 7px;
+  padding: 9px 12px; font: inherit; font-size: 13px;
+}
+.adm-search:focus { outline: none; border-color: var(--adm-accent); }
+
+/* Liste + cartes */
+.res-list { display: flex; flex-direction: column; gap: 8px; }
+.res-card {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.res-card:hover { border-color: var(--adm-dim); }
+.res-name { font-weight: 500; font-size: 14px; }
+.res-count { font-size: 12px; color: var(--adm-dim); }
+
+/* États */
+.adm-loading, .adm-empty, .adm-error { padding: 24px; text-align: center; color: var(--adm-dim); font-size: 13.5px; }
+.adm-error { color: #e08a8a; }

@@ -9,7 +9,17 @@ const { PrismaPg }     = require('@prisma/adapter-pg');
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma  = new PrismaClient({ adapter });
 
-async function getDefaultOrgId() {
+const { getOrgContext } = require('../lib/org-context');
+
+// Résout l'org d'une requête. Si `req` est fourni, on passe par le contexte
+// (cookie/header X-Org-Id sinon repli première org) : additif, transparent pour
+// WFD qui n'envoie aucun contexte -> repli -> comportement inchangé. Sans `req`
+// (anciens appels), comportement d'origine préservé.
+async function getDefaultOrgId(req) {
+  if (req) {
+    const ctx = await getOrgContext(req, prisma);
+    return ctx.orgId;
+  }
   const org = await prisma.organisation.findFirst();
   return org?.id;
 }
@@ -40,7 +50,7 @@ async function upsertBulk(model, items, buildData) {
 // ── MAPPINGS ──────────────────────────────────────────────────
 router.get('/mappings', async (req, res) => {
   try {
-    const orgId = await getDefaultOrgId();
+    const orgId = await getDefaultOrgId(req);
     const items = await prisma.mapping.findMany({ where: { orgId } });
     res.json(items.map(m => ({ id: m.id, name: m.name, rows: m.rules })));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -56,7 +66,7 @@ router.get('/mappings/:id', async (req, res) => {
 
 router.post('/mappings', async (req, res) => {
   try {
-    const orgId = await getDefaultOrgId();
+    const orgId = await getDefaultOrgId(req);
     if (req.body.items) {
       const r = await upsertBulk('mapping', req.body.items, i => ({ id: i.id, orgId, name: i.name, rules: i.rows || [] }));
       return res.json(r);
@@ -138,7 +148,7 @@ router.delete('/palnodes/:id', async (req, res) => {
 // ── NOMMAGES ──────────────────────────────────────────────────
 router.get('/nommages', async (req, res) => {
   try {
-    const orgId = await getDefaultOrgId();
+    const orgId = await getDefaultOrgId(req);
     const items = await prisma.nommage.findMany({ where: { orgId } });
     res.json(items.map(n => ({ id: n.id, name: n.name, description: '', steps: n.rules })));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -154,7 +164,7 @@ router.get('/nommages/:id', async (req, res) => {
 
 router.post('/nommages', async (req, res) => {
   try {
-    const orgId = await getDefaultOrgId();
+    const orgId = await getDefaultOrgId(req);
     if (req.body.items) {
       const r = await upsertBulk('nommage', req.body.items, i => ({ id: i.id, orgId, name: i.name, rules: i.steps || [] }));
       return res.json(r);
@@ -236,7 +246,7 @@ router.delete('/scripts/:id', async (req, res) => {
 // ── CONTACTS ──────────────────────────────────────────────────
 router.get('/contacts', async (req, res) => {
   try {
-    const orgId = await getDefaultOrgId();
+    const orgId = await getDefaultOrgId(req);
     const items = await prisma.contactList.findMany({ where: { orgId } });
     res.json(items.map(c => ({ id: c.id, name: c.name, contacts: c.contacts })));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -252,7 +262,7 @@ router.get('/contacts/:id', async (req, res) => {
 
 router.post('/contacts', async (req, res) => {
   try {
-    const orgId = await getDefaultOrgId();
+    const orgId = await getDefaultOrgId(req);
     if (req.body.items) {
       const r = await upsertBulk('contactList', req.body.items, i => ({ id: i.id, orgId, name: i.name, contacts: i.contacts || [] }));
       return res.json(r);
