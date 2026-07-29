@@ -25,7 +25,11 @@ router.get('/organisations', async (req, res) => {
       orderBy: { name: 'asc' },
       include: {
         platforms: { include: { platform: true } },
-        environments: true
+        environments: true,
+        connexions: true,
+        mappings: true,
+        nommages: true,
+        contactLists: true
       }
     });
     // On projette une forme légère et stable pour le client (jamais de secret).
@@ -42,7 +46,23 @@ router.get('/organisations', async (req, res) => {
         }).filter(Boolean),
         environments: (o.environments || []).map(function (e) {
           return { id: e.id, name: e.name, slug: e.slug, type: e.type, platformId: e.platformId };
-        })
+        }),
+        // Connexions : jamais de secret, juste l'identité et le type/direction.
+        connexions: (o.connexions || []).map(function (c) {
+          return { id: c.id, name: c.name, type: c.type, direction: c.direction, isActive: c.isActive };
+        }),
+        // Ressources d'orchestration : nom + nombre d'entrées, par famille.
+        ressources: {
+          mappings: (o.mappings || []).map(function (m) {
+            return { id: m.id, name: m.name, count: Array.isArray(m.rules) ? m.rules.length : 0 };
+          }),
+          nommages: (o.nommages || []).map(function (n) {
+            return { id: n.id, name: n.name, count: Array.isArray(n.rules) ? n.rules.length : 0 };
+          }),
+          contacts: (o.contactLists || []).map(function (c) {
+            return { id: c.id, name: c.name, count: Array.isArray(c.contacts) ? c.contacts.length : 0 };
+          })
+        }
       };
     });
     res.json(out);

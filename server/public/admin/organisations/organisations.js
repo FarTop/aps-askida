@@ -60,8 +60,13 @@
     meta.className = 'org-card-meta';
     const nbP = (org.platforms || []).length;
     const nbE = (org.environments || []).length;
+    const nbC = (org.connexions || []).length;
+    const r = org.ressources || {};
+    const nbR = (r.mappings || []).length + (r.nommages || []).length + (r.contacts || []).length;
     meta.textContent = nbP + ' plateforme' + (nbP > 1 ? 's' : '') + ' · ' +
-                       nbE + ' environnement' + (nbE > 1 ? 's' : '');
+                       nbE + ' env. · ' +
+                       nbC + ' connexion' + (nbC > 1 ? 's' : '') + ' · ' +
+                       nbR + ' ressource' + (nbR > 1 ? 's' : '');
     gauche.appendChild(nom);
     gauche.appendChild(meta);
 
@@ -72,20 +77,33 @@
     tete.appendChild(gauche);
     tete.appendChild(chevron);
 
-    // Corps : plateformes de l'org, chacune avec ses environnements.
+    // Corps : plateformes, connexions et ressources de l'org — le patrimoine
+    // complet, lisible d'un coup d'œil.
     const corps = document.createElement('div');
     corps.className = 'org-card-body';
 
+    // — Plateformes (avec environnements)
+    corps.appendChild(_sectionTitre('Plateformes'));
     if (!(org.platforms || []).length) {
-      const vide = document.createElement('div');
-      vide.className = 'org-empty';
-      vide.textContent = 'Aucune plateforme liée à cette organisation.';
-      corps.appendChild(vide);
+      corps.appendChild(_sectionVide('Aucune plateforme liée.'));
     } else {
       org.platforms.forEach(function (p) {
         corps.appendChild(_lignePlateforme(p, org.environments || []));
       });
     }
+
+    // — Connexions
+    corps.appendChild(_sectionTitre('Connexions'));
+    const conns = org.connexions || [];
+    if (!conns.length) {
+      corps.appendChild(_sectionVide('Aucune connexion.'));
+    } else {
+      conns.forEach(function (c) { corps.appendChild(_ligneConnexion(c)); });
+    }
+
+    // — Ressources d'orchestration
+    corps.appendChild(_sectionTitre('Ressources'));
+    corps.appendChild(_blocRessources(org.ressources || {}));
 
     tete.addEventListener('click', function () {
       carte.classList.toggle('org-open');
@@ -136,6 +154,68 @@
     ligne.appendChild(tete);
     ligne.appendChild(chips);
     return ligne;
+  }
+
+  function _sectionTitre(txt) {
+    const t = document.createElement('div');
+    t.className = 'org-section-titre';
+    t.textContent = txt;
+    return t;
+  }
+
+  function _sectionVide(txt) {
+    const v = document.createElement('div');
+    v.className = 'org-empty';
+    v.textContent = txt;
+    return v;
+  }
+
+  function _ligneConnexion(c) {
+    const ligne = document.createElement('div');
+    ligne.className = 'conn-row';
+    const nom = document.createElement('span');
+    nom.className = 'conn-name';
+    nom.textContent = c.name;
+    const type = document.createElement('span');
+    type.className = 'conn-type';
+    type.textContent = c.type + (c.direction ? ' · ' + c.direction : '');
+    const etat = document.createElement('span');
+    etat.className = c.isActive ? 'conn-badge-active' : 'conn-badge-inactive';
+    etat.textContent = c.isActive ? 'Active' : 'Inactive';
+    ligne.appendChild(nom);
+    ligne.appendChild(type);
+    ligne.appendChild(etat);
+    return ligne;
+  }
+
+  function _blocRessources(res) {
+    const bloc = document.createElement('div');
+    bloc.className = 'res-bloc';
+    const familles = [
+      { cle: 'mappings', label: 'Correspondances' },
+      { cle: 'nommages', label: 'Nommages' },
+      { cle: 'contacts', label: 'Contacts' }
+    ];
+    let total = 0;
+    familles.forEach(function (f) {
+      const items = res[f.cle] || [];
+      total += items.length;
+      const ligne = document.createElement('div');
+      ligne.className = 'res-famille';
+      const lab = document.createElement('span');
+      lab.className = 'res-famille-label';
+      lab.textContent = f.label;
+      const cnt = document.createElement('span');
+      cnt.className = 'res-famille-count';
+      cnt.textContent = items.length;
+      ligne.appendChild(lab);
+      ligne.appendChild(cnt);
+      bloc.appendChild(ligne);
+    });
+    if (!total) {
+      return _sectionVide('Aucune ressource.');
+    }
+    return bloc;
   }
 
   if (document.readyState === 'loading') {

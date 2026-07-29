@@ -84,3 +84,34 @@ body {
 /* États */
 .adm-loading, .adm-empty, .adm-error { padding: 24px; text-align: center; color: var(--adm-dim); font-size: 13.5px; }
 .adm-error { color: #e08a8a; }
+
+/* Titres de section dans le corps déplié (Plateformes / Connexions / Ressources) */
+.org-section-titre {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--adm-dim); margin: 16px 0 6px; padding-top: 12px;
+  border-top: 1px solid var(--adm-border);
+}
+.org-card-body > .org-section-titre:first-child { border-top: none; padding-top: 4px; }
+
+/* Lignes connexion */
+.conn-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.conn-name { font-weight: 500; font-size: 13.5px; }
+.conn-type { font-size: 11px; color: var(--adm-dim); }
+.conn-badge-active, .conn-badge-inactive {
+  font-size: 11px; border-radius: 10px; padding: 1px 8px; margin-left: auto;
+}
+.conn-badge-active   { color: #79d093; border: 1px solid rgba(121,208,147,.35); }
+.conn-badge-inactive { color: var(--adm-dim); border: 1px solid var(--adm-border); }
+
+/* Bloc ressources : familles avec compteur */
+.res-bloc { display: flex; gap: 10px; flex-wrap: wrap; padding: 4px 0; }
+.res-famille {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--adm-surface2); border: 1px solid var(--adm-border);
+  border-radius: 8px; padding: 8px 12px;
+}
+.res-famille-label { font-size: 13px; }
+.res-famille-count {
+  font-size: 12px; font-weight: 600; color: var(--adm-accent);
+  background: rgba(214,210,51,.12); border-radius: 10px; padding: 1px 8px;
+}
