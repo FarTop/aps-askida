@@ -89,12 +89,20 @@ header.aps-header{
   align-items: center;
   gap: 14px;
   padding: 18px 24px;
+  background: var(--header-bg, #0e1113);
+  border-bottom: 1px solid var(--border, #262a2e);
 }
 
 .aps-header-left{
   display:flex;
   align-items:center;
   gap:12px;
+}
+
+.aps-header-center{
+  flex: 1;
+  display: flex;
+  justify-content: center;
 }
 
 .aps-header-right{

@@ -569,14 +569,7 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   color: var(--bd-text);
 }
 
-/* ── Header : sélecteur de contexte centré ───────────────────────────────────
-   Le groupe central prend l'espace disponible et centre le sélecteur ; le
-   groupe droit (Home) garde sa place. Évite que le sélecteur soit collé à Home. */
-.aps-header-center {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-}
+/* ── Header : centrage du sélecteur désormais dans navbar.css partagé ───────── */
 
 /* Nœud de palette hors périmètre de l'organisation courante (filtre par
    contexte). Masqué par classe, jamais par style inline — réversible si le
