@@ -78,3 +78,8 @@ body {
 /* États */
 .adm-loading, .adm-empty, .adm-error { padding: 24px; text-align: center; color: var(--adm-dim); font-size: 13.5px; }
 .adm-error { color: #e08a8a; }
+
+/* Breadcrumb : sobriété APS (le défaut des liens était bleu flashy). */
+.aps-header .breadcrumb { color: var(--adm-dim); font-size: 12.5px; }
+.aps-header .breadcrumb a { color: var(--adm-dim); text-decoration: none; }
+.aps-header .breadcrumb a:hover { color: var(--adm-text); }
