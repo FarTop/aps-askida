@@ -11,18 +11,28 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: var(--bd-text-dim, #8a9299);
+  color: var(--bd-text-dim, #a6b0b8);
 }
 .octx-select {
   appearance: none;
   cursor: pointer;
-  background: var(--bd-canvas-surface, rgba(255,255,255,0.06));
-  color: var(--bd-text, #eef0f1);
-  border: 1px solid var(--bd-panel-border, rgba(255,255,255,0.18));
+  /* Fond sombre SOLIDE et autonome : ne dépend pas des tokens --bd-* (absents
+     hors du canvas). Un rgba translucide donnait un fond clair illisible sur
+     les pages admin, et des options de menu délavées. Valeurs opaques -> rendu
+     identique partout. */
+  background: #151718;
+  color: #eef0f1;
+  border: 1px solid #2a3033;
   border-radius: 6px;
   padding: 5px 10px;
   font: inherit;
   font-size: 12.5px;
 }
-.octx-select:hover { border-color: var(--bd-text-dim, rgba(255,255,255,0.32)); }
+/* Options du menu déroulant : fond sombre explicite (sinon certaines plateformes
+   les rendent sur fond clair, texte peu lisible). */
+.octx-select option {
+  background: #151718;
+  color: #eef0f1;
+}
+.octx-select:hover { border-color: #3a4147; }
 .octx-select:focus { outline: none; border-color: var(--accent, #d6d233); }
