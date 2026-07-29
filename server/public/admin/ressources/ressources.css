@@ -3,11 +3,13 @@
    propres aux ressources. Thème sombre APS. */
 
 :root {
-  --adm-bg:      #16191b;
-  --adm-surface: #1c2023;
-  --adm-border:  #2a3033;
+  /* Alignées sur la palette des autres écrans Administration (connexions,
+     plateformes) — même fond profond, fin des divergences de teinte. */
+  --adm-bg:      #0f1011;
+  --adm-surface: #151718;
+  --adm-border:  #262a2e;
   --adm-text:    #eef0f1;
-  --adm-dim:     #8a9299;
+  --adm-dim:     #a6b0b8;
   --adm-accent:  #d6d233;
 }
 
