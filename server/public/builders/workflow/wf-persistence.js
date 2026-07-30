@@ -20,7 +20,7 @@ const WfPersistence = (() => {
     const PivotIO = (typeof window !== 'undefined') ? window.PivotIO : null;
     const doc = PivotIO ? PivotIO.creer(entete) : {
       pivot: 1, form: 'canonical',
-      workflow: { id: entete.id || '', name: entete.name || '', intent: '', platform: '', environment: '', version: 1, status: 'draft' },
+      workflow: { id: entete.id || '', name: entete.name || '', intent: '', platform: '', environment: entete.environment || '', version: 1, status: 'draft' },
       steps: [], edges: [], presentation: { versioned: false, layout: {} }
     };
 
@@ -64,7 +64,7 @@ const WfPersistence = (() => {
 
   // Sauvegarde (création si pas d'id, mise à jour sinon). Renvoie { id, name }.
   function sauvegarder(opts) {
-    const doc = documentDepuisModele(opts.model, { id: opts.id, name: opts.name });
+    const doc = documentDepuisModele(opts.model, { id: opts.id, name: opts.name, environment: opts.environment });
     // N'inclut PAS la clé id quand elle est absente : un id null explicite dans
     // le JSON forcerait Prisma à rejeter le create (champ id non-nullable, le
     // défaut @default(cuid()) ne s'applique que si la clé est absente, pas si

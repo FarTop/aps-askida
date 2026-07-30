@@ -410,7 +410,11 @@ router.put('/builder-flows/:id', async (req, res) => {
   try {
     const { name, document } = req.body;
     if (!name) return res.status(400).json({ error: 'name requis' });
-    const item = await prisma.builderFlow.update({ where: { id: req.params.id }, data: { name, document: document || {} } });
+    // N'écrase document QUE s'il est fourni : un renommage seul (name only, pas
+    // de document) ne doit jamais effacer le contenu du workflow avec {}.
+    const data = { name };
+    if (document !== undefined) data.document = document;
+    const item = await prisma.builderFlow.update({ where: { id: req.params.id }, data });
     res.json({ id: item.id, name: item.name });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

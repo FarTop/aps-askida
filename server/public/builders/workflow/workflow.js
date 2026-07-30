@@ -26,6 +26,7 @@
       _rendre(hote, Array.isArray(list) ? list : [], {
         lien: 'workflow-canvas.html?id=',
         lienParItem: true,
+        outils: true,
         msgVide: 'Aucun workflow pour cette organisation. Créez-en un pour commencer.'
       });
       const c = document.getElementById('wf-compte');
@@ -58,23 +59,108 @@
     hote.textContent = '';
     if (!list.length) { _vide(hote, opts.msgVide); return; }
     list.forEach(function (item) {
-      const ligne = document.createElement('a');
+      const ligne = document.createElement('div');
       ligne.className = 'wb-item';
-      ligne.href = opts.lienParItem ? opts.lien + encodeURIComponent(item.id) : opts.lien;
+
+      const lien = document.createElement('a');
+      lien.className = 'wb-item-link';
+      lien.href = opts.lienParItem ? opts.lien + encodeURIComponent(item.id) : opts.lien;
 
       const nom = document.createElement('span');
       nom.className = 'wb-item-nom';
       nom.textContent = item.name;
-      ligne.appendChild(nom);
+      lien.appendChild(nom);
 
       if (item.niveau && item.niveau !== '*') {
         const meta = document.createElement('span');
         meta.className = 'wb-item-meta';
         meta.textContent = item.niveau;
-        ligne.appendChild(meta);
+        lien.appendChild(meta);
       }
+      ligne.appendChild(lien);
+
+      if (opts.outils) {
+        ligne.appendChild(_outilsWorkflow(item));
+      }
+
       hote.appendChild(ligne);
     });
+  }
+
+  // Boutons renommer / dupliquer / supprimer pour une ligne workflow. Ne
+  // touchent que /api/builder-flows (les manifestes n'ont pas ces outils
+  // aujourd'hui — hors périmètre de cette passe).
+  function _outilsWorkflow(item) {
+    const outils = document.createElement('div');
+    outils.className = 'wb-item-outils';
+
+    const renommer = document.createElement('button');
+    renommer.type = 'button';
+    renommer.className = 'wb-outil';
+    renommer.title = 'Renommer';
+    renommer.textContent = '✎';
+    renommer.addEventListener('click', function () { _renommer(item); });
+
+    const dupliquer = document.createElement('button');
+    dupliquer.type = 'button';
+    dupliquer.className = 'wb-outil';
+    dupliquer.title = 'Dupliquer';
+    dupliquer.textContent = '⧉';
+    dupliquer.addEventListener('click', function () { _dupliquer(item); });
+
+    const supprimer = document.createElement('button');
+    supprimer.type = 'button';
+    supprimer.className = 'wb-outil wb-outil-suppr';
+    supprimer.title = 'Supprimer';
+    supprimer.textContent = '🗑';
+    supprimer.addEventListener('click', function () { _supprimer(item); });
+
+    outils.appendChild(renommer);
+    outils.appendChild(dupliquer);
+    outils.appendChild(supprimer);
+    return outils;
+  }
+
+  async function _renommer(item) {
+    const nouveauNom = window.prompt('Nouveau nom :', item.name);
+    if (!nouveauNom || nouveauNom === item.name) return;
+    try {
+      const r = await fetch('/api/builder-flows/' + encodeURIComponent(item.id), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nouveauNom })   // pas de document -> conservé tel quel
+      });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || ('HTTP ' + r.status)); }
+      chargerWorkflows();
+    } catch (e) {
+      window.alert('Renommage impossible : ' + e.message);
+    }
+  }
+
+  async function _dupliquer(item) {
+    try {
+      const r1 = await fetch('/api/builder-flows/' + encodeURIComponent(item.id));
+      if (!r1.ok) throw new Error('HTTP ' + r1.status);
+      const complet = await r1.json();
+      const r2 = await fetch('/api/builder-flows', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: complet.name + ' (copie)', document: complet.document })
+      });
+      if (!r2.ok) { const d = await r2.json(); throw new Error(d.error || ('HTTP ' + r2.status)); }
+      chargerWorkflows();
+    } catch (e) {
+      window.alert('Duplication impossible : ' + e.message);
+    }
+  }
+
+  async function _supprimer(item) {
+    if (!window.confirm('Supprimer le workflow « ' + item.name + ' » ? Cette action est irréversible.')) return;
+    try {
+      const r = await fetch('/api/builder-flows/' + encodeURIComponent(item.id), { method: 'DELETE' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      chargerWorkflows();
+    } catch (e) {
+      window.alert('Suppression impossible : ' + e.message);
+    }
   }
 
   function _vide(hote, msg) {

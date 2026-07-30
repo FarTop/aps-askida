@@ -91,7 +91,13 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 .bd-dirty { display: none; align-items: center; gap: 5px; color: var(--warn); font-size: 11.5px; }
 .bd-canvas-root[data-dirty="1"] .bd-dirty { display: flex; }
 
-.bd-env-name { color: var(--bd-text); }
+.bd-env-select {
+  appearance: none; cursor: pointer;
+  background: #151718; color: var(--bd-text, #eef0f1);
+  border: 1px solid var(--bd-panel-border, #2a3033);
+  border-radius: 6px; padding: 3px 8px; font: inherit; font-size: 12px;
+}
+.bd-env-select:hover { border-color: #3a4147; }
 .bd-env-org  { color: var(--bd-text-dim); font-size: 11.5px; }
 .bd-engine-name { color: var(--bd-text); }
 

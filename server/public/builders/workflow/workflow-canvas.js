@@ -467,6 +467,65 @@
         if (nomEl) nomEl.textContent = flowName || '— no workflow —';
       }
 
+      // ── Sélecteur d'environnement (contexte org, réellement peuplé) ────────
+      const envSelect = root.querySelector('[data-role="env-select"]');
+      const envDot = root.querySelector('[data-role="env-dot"]');
+      const envOrg = root.querySelector('[data-role="env-org"]');
+      const envRefresh = root.querySelector('[data-role="env-refresh"]');
+      let environnements = [];
+
+      function _majBilleEnv() {
+        if (!envDot) return;
+        if (envSelect && envSelect.value) envDot.setAttribute('data-state', 'ok');
+        else envDot.removeAttribute('data-state');
+      }
+
+      function _peuplerEnvironnements(valeurAPreselectionner) {
+        if (!envSelect) return Promise.resolve();
+        return fetch('/api/context').then(function (r) { return r.ok ? r.json() : {}; })
+          .then(function (ctx) {
+            const orgId = ctx && ctx.org && ctx.org.id;
+            return fetch('/api/environments').then(function (r) { return r.ok ? r.json() : []; })
+              .then(function (list) {
+                environnements = (Array.isArray(list) ? list : []).filter(function (e) {
+                  return !orgId || e.orgId === orgId;
+                });
+                envSelect.textContent = '';
+                const vide = document.createElement('option');
+                vide.value = ''; vide.textContent = '— environment —';
+                envSelect.appendChild(vide);
+                environnements.forEach(function (e) {
+                  const o = document.createElement('option');
+                  o.value = e.id;
+                  o.textContent = e.name;
+                  envSelect.appendChild(o);
+                });
+                if (valeurAPreselectionner) envSelect.value = valeurAPreselectionner;
+                _majTypeOrg();
+                _majBilleEnv();
+              });
+          }).catch(function () { /* liste vide, non bloquant */ });
+      }
+
+      function _majTypeOrg() {
+        if (!envOrg) return;
+        const courant = environnements.find(function (e) { return e.id === envSelect.value; });
+        envOrg.textContent = courant ? (courant.type || '').toUpperCase() : '';
+      }
+
+      if (envSelect) {
+        envSelect.addEventListener('change', function () {
+          _majTypeOrg();
+          _majBilleEnv();
+          if (!chargementEnCours) root.setAttribute('data-dirty', '1');
+        });
+      }
+      if (envRefresh) {
+        envRefresh.addEventListener('click', function () {
+          _peuplerEnvironnements(envSelect ? envSelect.value : null);
+        });
+      }
+
       // Marque « unsaved » à tout changement structurel réel (pas pendant le
       // chargement programmatique initial, qui ne doit pas se déclarer sale).
       model.onChange(function () {
@@ -482,10 +541,16 @@
           initial.nodes.forEach(function (n) { model.ajouterNoeud(n); });
           initial.edges.forEach(function (e) { model.ajouterArete(e); });
           _majEntete();
-          root.setAttribute('data-dirty', '0');
+          const envDejaChoisi = res.document && res.document.workflow && res.document.workflow.environment;
+          return _peuplerEnvironnements(envDejaChoisi);
         }).catch(function (e) {
           console.error('Chargement du workflow impossible :', e.message);
-        }).then(function () { chargementEnCours = false; });
+        }).then(function () {
+          root.setAttribute('data-dirty', '0');
+          chargementEnCours = false;
+        });
+      } else {
+        _peuplerEnvironnements(null);
       }
 
       if (saveBtn) {
@@ -496,7 +561,8 @@
             if (!name) return;
             flowName = name;
           }
-          WfPersistence.sauvegarder({ id: flowId, name: name, model: model }).then(function (res) {
+          const environment = envSelect ? envSelect.value : '';
+          WfPersistence.sauvegarder({ id: flowId, name: name, model: model, environment: environment }).then(function (res) {
             flowId = res.id;
             flowName = res.name;
             window.history.replaceState(null, '', '?id=' + encodeURIComponent(flowId));

@@ -65,12 +65,16 @@ body {
 
 .wb-item {
   display: flex; align-items: center; gap: 12px;
-  padding: 11px 14px; border-radius: 8px; text-decoration: none;
+  padding: 11px 14px; border-radius: 8px;
   color: var(--wb-text);
   background: var(--wb-surface); border: 1px solid var(--wb-border);
 }
 .wb-item:hover { background: var(--wb-surface2); border-color: #3a4147; }
-.wb-item-nom { font-size: 14px; font-weight: 500; flex: 1; }
+.wb-item-link {
+  display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
+  text-decoration: none; color: inherit;
+}
+.wb-item-nom { font-size: 14px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wb-item-meta { font-size: 11px; color: var(--wb-dim); text-transform: uppercase; letter-spacing: .03em; }
 
 .wb-item-org {
