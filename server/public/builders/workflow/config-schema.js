@@ -196,19 +196,55 @@ const ConfigSchema = (() => {
   function _facade(facade, etape) {
     switch (facade) {
 
-      // Search (aps_search) : recherche APS. Connexion + expression + variable
-      // de résultat. modes retrieve/presence -> un choix qui pilotera plus tard
-      // le détail. (La nature 'arbo' viendra enrichir le ciblage de collections.)
+      // Search (aps_search) : recherche APS multi-blocs. Transcrit fidèlement la
+      // structure réelle observée sur les 17 occurrences de PUBLISH V2 : des
+      // BLOCS (collection ou asset), chacun avec ses propres CRITÈRES (liste
+      // imbriquée — le mécanisme 'liste' est déjà récursif, aucune nouvelle
+      // infrastructure nécessaire). Un bloc peut chercher DANS les résultats
+      // d'un bloc parent (parentBlock). returnBlock désigne quel bloc renvoyer.
+      // Vocabulaire d'opérateurs et de jointures = exactement ceux observés
+      // dans le réel (equals/contains/is_not_empty/in_collection ; ''/AND),
+      // pas inventés. Pas de connexion : la recherche APS n'en référence aucune
+      // dans les données réelles (endpoint interne, pas une connexion choisie).
       case 'iconik.search':
         return [
-          { nature: 'connexion', chemin: 'connexionId', label: 'Connection' },
-          { nature: 'choix', chemin: 'mode', label: 'Mode', options: [
-            { valeur: 'retrieve', libelle: 'Retrieve results' },
-            { valeur: 'presence', libelle: 'Check presence' }
-          ] },
-          { nature: 'texte', chemin: 'expression', label: 'Search expression', placeholder: 'metadata query' },
-          { nature: 'nombre', chemin: 'limit', label: 'Limit', min: 1, placeholder: '50' },
-          { nature: 'variable', chemin: 'resultVar', label: 'Store results as', placeholder: '{results}' }
+          { nature: 'liste', chemin: 'blocks', label: 'Blocks', ajoutLabel: 'Add block',
+            itemDefaut: { objectType: 'asset', parentBlock: null, criteria: [] },
+            itemSchema: [
+              { nature: 'choix', chemin: 'objectType', label: 'Type', options: [
+                { valeur: 'collection', libelle: 'Collection' },
+                { valeur: 'asset', libelle: 'Asset' }
+              ] },
+              { nature: 'nombre', chemin: 'parentBlock', label: 'Within block (optional)', placeholder: 'block id' },
+              { nature: 'liste', chemin: 'criteria', label: 'Criteria', ajoutLabel: 'Add criterion',
+                itemDefaut: { op: 'equals', field: '', value: '', join: '' },
+                itemSchema: [
+                  { nature: 'choix', chemin: 'join', label: 'Join', options: [
+                    { valeur: '', libelle: '(first)' },
+                    { valeur: 'AND', libelle: 'AND' },
+                    { valeur: 'OR', libelle: 'OR' }
+                  ] },
+                  { nature: 'texte', chemin: 'field', label: 'Field', placeholder: 'BayardID, __collection__…' },
+                  { nature: 'choix', chemin: 'op', label: 'Operator', options: [
+                    { valeur: 'equals', libelle: 'equals' },
+                    { valeur: 'contains', libelle: 'contains' },
+                    { valeur: 'is_not_empty', libelle: 'is not empty' },
+                    { valeur: 'in_collection', libelle: 'in collection' }
+                  ] },
+                  { nature: 'texte', chemin: 'value', label: 'Value',
+                    visibleSi: function (m) { return m.lire('op') !== 'is_not_empty'; } }
+                ]
+              }
+            ]
+          },
+          { nature: 'nombre', chemin: 'returnBlock', label: 'Return block (id)', placeholder: '1' },
+          { nature: 'texte', chemin: 'expression', label: 'Raw expression (advanced)', placeholder: 'optional override' },
+          { nature: 'nombre', chemin: 'limit', label: 'Limit', min: 1, placeholder: '500' },
+          { nature: 'variable', chemin: 'resultVar', label: 'Store results as', placeholder: '{search_results}' },
+          { nature: 'choix', chemin: 'onError', label: 'On error', options: [
+            { valeur: 'stop', libelle: 'Stop' },
+            { valeur: 'continue_log', libelle: 'Continue (log)' }
+          ] }
         ];
 
       // Fetch : récupère un objet. Connexion + cible + variable.
