@@ -176,23 +176,7 @@
   // `surface` est déjà déclaré plus haut (pan/zoom) — on le réutilise.
 
   if (NR && WfModel && nodesHost) {
-    const model = WfModel.creer({
-      nodes: [
-        { id: 'boucler', x: 80,  y: 80,  etape: { id: 'boucler', core: 'loop',
-          label: 'Boucler sur les collections', params: { resultVar: 'loop.item' } } },
-        { id: 'fetch',   x: 380, y: 80,  etape: { id: 'fetch', core: 'http_request', facade: 'iconik.fetch',
-          label: 'Fetch Collection MD', params: { resultVar: 'collectionMeta' } } },
-        { id: 'decider', x: 380, y: 300, etape: { id: 'decider', core: 'decision',
-          label: 'Route by content type', params: { conditions: [ { label: 'Série' }, { label: 'Saison' } ] } } },
-        { id: 'action',  x: 700, y: 340, etape: { id: 'action', core: 'http_request', facade: 'iconik.action',
-          label: 'Export Location (collection to partner S3)', params: { resultVar: 'exportResult' } } }
-      ],
-      edges: [
-        { from: { step: 'boucler', port: 'out' },   to: { step: 'fetch' } },
-        { from: { step: 'fetch',   port: 'out' },    to: { step: 'decider' } },
-        { from: { step: 'fetch',   port: 'error' },  to: { step: 'action' } }
-      ]
-    });
+    const model = WfModel.creer({ nodes: [], edges: [] });
 
     // Le gestionnaire de commandes existe dès maintenant (undo/redo prêts pour
     // les gestes à venir : déplacer, supprimer, coller). Exposé pour la suite.
@@ -451,6 +435,67 @@
   // Nodes (Core) et Iconik (façades) sont remplis depuis le vrai catalogue.
   // Custom reste vide : son contenu dépend des permissions et du stockage par
   // user/environnement/plateforme, câblés plus tard.
+
+  // ── Persistance : charger un workflow existant (?id=) ou démarrer vierge,
+  //    et sauvegarder via le bouton Save. Câblage réel remplaçant les valeurs
+  //    de démonstration de l'identité (nom, indicateur unsaved). ────────────
+  (function () {
+    const WfPersistence = window.WfPersistence;
+    if (!WfPersistence) return;
+
+    let flowId = new URLSearchParams(window.location.search).get('id') || null;
+    let flowName = null;
+    let chargementEnCours = false;
+
+    const nomEl = root.querySelector('[data-role="wf-name"]');
+    const saveBtn = root.querySelector('[data-role="save-flow"]');
+
+    function _majEntete() {
+      if (nomEl) nomEl.textContent = flowName || '— no workflow —';
+    }
+
+    // Marque « unsaved » à tout changement structurel réel (pas pendant le
+    // chargement programmatique initial, qui ne doit pas se déclarer sale).
+    model.onChange(function () {
+      if (chargementEnCours) return;
+      root.setAttribute('data-dirty', '1');
+    });
+
+    if (flowId) {
+      chargementEnCours = true;
+      WfPersistence.charger(flowId).then(function (res) {
+        flowName = res.name;
+        const initial = WfPersistence.initialDepuisDocument(res.document);
+        initial.nodes.forEach(function (n) { model.ajouterNoeud(n); });
+        initial.edges.forEach(function (e) { model.ajouterArete(e); });
+        _majEntete();
+        root.setAttribute('data-dirty', '0');
+      }).catch(function (e) {
+        console.error('Chargement du workflow impossible :', e.message);
+      }).then(function () { chargementEnCours = false; });
+    }
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', function () {
+        let name = flowName;
+        if (!name) {
+          name = window.prompt('Nom du workflow :', '');
+          if (!name) return;
+          flowName = name;
+        }
+        WfPersistence.sauvegarder({ id: flowId, name: name, model: model }).then(function (res) {
+          flowId = res.id;
+          flowName = res.name;
+          window.history.replaceState(null, '', '?id=' + encodeURIComponent(flowId));
+          _majEntete();
+          root.setAttribute('data-dirty', '0');
+        }).catch(function (e) {
+          window.alert('Erreur d\'enregistrement : ' + e.message);
+        });
+      });
+    }
+  })();
+
   const CAT = window.PivotCatalogIconik;
   if (CAT) {
     const GLYPHES_CORE = {
