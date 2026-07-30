@@ -312,6 +312,44 @@ const ConfigRenderer = (() => {
         });
       }
       return wrap;
+    },
+
+    // Manifeste : sélection d'un manifeste de livraison RÉEL (ressource d'org,
+    // via ConfigSources). On stocke l'id choisi. Pas de test (ce n'est pas une
+    // connexion) — juste le choix, avec le niveau et le nombre d'essences en
+    // repère.
+    manifeste: function (descr, model) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+
+      const sel = _el('select', 'cfg-input cfg-select');
+      const attente = document.createElement('option');
+      attente.textContent = 'Loading…'; attente.disabled = true; attente.selected = true;
+      sel.appendChild(attente);
+      wrap.appendChild(sel);
+
+      const courant = model.lire(descr.chemin);
+      const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
+      if (src) {
+        src.manifests().then(function (list) {
+          while (sel.firstChild) sel.removeChild(sel.firstChild);
+          const vide = document.createElement('option');
+          vide.value = ''; vide.textContent = descr.placeholder || '— select a manifest —';
+          sel.appendChild(vide);
+          list.forEach(function (m) {
+            const o = document.createElement('option');
+            o.value = m.id;
+            const niveau = m.niveau && m.niveau !== '*' ? ' · ' + m.niveau : '';
+            o.textContent = m.name + niveau + ' (' + m.nbEssences + ')';
+            if (m.id === courant) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.addEventListener('change', function () {
+            model.ecrire(descr.chemin, sel.value);
+          });
+        });
+      }
+      return wrap;
     }
   };
 

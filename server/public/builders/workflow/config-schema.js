@@ -172,10 +172,13 @@ const ConfigSchema = (() => {
       ] });
     }
 
-    // Deliver : livre un contenu vers une cible (connexion sortante).
+    // Deliver : livre selon un MANIFESTE (ce qui est livré) vers une cible
+    // (connexion sortante). Le manifeste est une ressource d'org réelle ; le
+    // Deliver déclenche la livraison et vérifie la cardinalité (garde-fou).
     if (core === 'deliver') {
       s.push({ nature: 'connexion', chemin: 'connexionId', label: 'Deliver to', filtreDirection: 'outbound' });
-      s.push({ nature: 'variable', chemin: 'payload', label: 'Payload', placeholder: '{manifest}' });
+      s.push({ nature: 'manifeste', chemin: 'manifestId', label: 'Manifest' });
+      s.push({ nature: 'texte', chemin: 'prefixe', label: 'Prefix (S3 folder)', placeholder: 'e.g. amazon/episode-42' });
     }
 
     // HTTP Request : consomme Administration (connexion réelle) + endpoint.

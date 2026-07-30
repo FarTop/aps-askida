@@ -13,6 +13,7 @@
 const ConfigSources = (() => {
 
   let cacheConnexions = null;   // promesse mémorisée (une seule requête)
+  let cacheManifests  = null;
 
   function connexions() {
     if (cacheConnexions) return cacheConnexions;
@@ -29,10 +30,26 @@ const ConfigSources = (() => {
     return cacheConnexions;
   }
 
-  // Invalide le cache (après création/édition d'une connexion en Administration).
-  function rafraichir() { cacheConnexions = null; }
+  // Manifestes de livraison (ressource d'org) : pour la nature 'manifeste' du
+  // nœud Deliver. On expose l'identité + le niveau + le nombre d'essences.
+  function manifests() {
+    if (cacheManifests) return cacheManifests;
+    cacheManifests = fetch('/api/manifests')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        return (Array.isArray(list) ? list : []).map(function (m) {
+          return { id: m.id, name: m.name, niveau: m.niveau,
+                   nbEssences: Array.isArray(m.essences) ? m.essences.length : 0 };
+        });
+      })
+      .catch(function () { return []; });
+    return cacheManifests;
+  }
 
-  return { connexions, rafraichir };
+  // Invalide le cache (après création/édition en Administration).
+  function rafraichir() { cacheConnexions = null; cacheManifests = null; }
+
+  return { connexions, manifests, rafraichir };
 
 })();
 
