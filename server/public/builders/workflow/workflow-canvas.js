@@ -474,7 +474,12 @@
       // à la première sauvegarde). orgIdWorkflow scope ensuite le sélecteur
       // d'environnement, explicitement (en-tête X-Org-Id), pour ne JAMAIS
       // dépendre du cookie de contexte ambiant qui pourrait diverger.
-      const orgInfoEl = root.querySelector('[data-role="org-info"]');
+      // NOTE : org-info vit dans le header du HAUT (<header class="aps-header">),
+      // qui est un FRERE de .bd-canvas-root (root), pas un descendant — d'où
+      // document.querySelector ici, contrairement aux autres éléments de cette
+      // section (wf-name, env-*...) qui vivent dans la statusbar, elle bien
+      // À L'INTÉRIEUR de root.
+      const orgInfoEl = document.querySelector('[data-role="org-info"]');
       let orgIdWorkflow = null;
 
       function _afficherOrg(nom) {
