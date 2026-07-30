@@ -575,3 +575,19 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
    contexte). Masqué par classe, jamais par style inline — réversible si le
    contexte change. */
 .bd-node.bd-hors-contexte { display: none; }
+
+/* Erreur de sauvegarde : texte SÉLECTIONNABLE et COPIABLE (contrairement à un
+   alert() natif, illisible/non copiable). Reste affiché jusqu'au prochain essai
+   ou une fermeture manuelle, pour laisser le temps de copier. */
+.bd-save-error {
+  display: inline-flex; align-items: center; gap: 8px;
+  max-width: 420px; padding: 4px 10px;
+  background: rgba(231,76,60,.12); border: 1px solid rgba(231,76,60,.35);
+  border-radius: 6px; color: #e88; font-size: 11.5px;
+  user-select: text; cursor: text;
+}
+.bd-save-error[hidden] { display: none; }
+.bd-save-error-fermer {
+  background: transparent; border: none; color: inherit; cursor: pointer;
+  font-size: 13px; line-height: 1; padding: 0;
+}

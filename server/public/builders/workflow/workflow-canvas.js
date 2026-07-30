@@ -443,6 +443,25 @@
 
       const nomEl = root.querySelector('[data-role="wf-name"]');
       const saveBtn = root.querySelector('[data-role="save-flow"]');
+      const errEl = root.querySelector('[data-role="save-error"]');
+
+      // Message SÉLECTIONNABLE/COPIABLE (contrairement à un alert() natif),
+      // pour pouvoir en coller le texte complet lors d'un signalement.
+      function _afficherErreur(msg) {
+        if (!errEl) { console.error(msg); return; }
+        errEl.textContent = '';
+        const texte = document.createElement('span');
+        texte.textContent = msg;
+        const fermer = document.createElement('button');
+        fermer.type = 'button';
+        fermer.className = 'bd-save-error-fermer';
+        fermer.textContent = '×';
+        fermer.setAttribute('aria-label', 'Fermer');
+        fermer.addEventListener('click', function () { errEl.hidden = true; });
+        errEl.appendChild(texte);
+        errEl.appendChild(fermer);
+        errEl.hidden = false;
+      }
 
       function _majEntete() {
         if (nomEl) nomEl.textContent = flowName || '— no workflow —';
@@ -483,8 +502,9 @@
             window.history.replaceState(null, '', '?id=' + encodeURIComponent(flowId));
             _majEntete();
             root.setAttribute('data-dirty', '0');
+            if (errEl) errEl.hidden = true;
           }).catch(function (e) {
-            window.alert('Erreur d\'enregistrement : ' + e.message);
+            _afficherErreur('Erreur d\'enregistrement : ' + e.message);
           });
         });
       }

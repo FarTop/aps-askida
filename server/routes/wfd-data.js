@@ -393,10 +393,14 @@ router.post('/builder-flows', async (req, res) => {
     const orgId = await getDefaultOrgId(req);
     const { id, name, document } = req.body;
     if (!name) return res.status(400).json({ error: 'name requis' });
+    // Ne jamais transmettre un id falsy à Prisma : un id null/vide explicite
+    // ferait rejeter le create (champ non-nullable, le défaut @default(cuid())
+    // ne s'applique que si la clé est absente).
+    const donneesCreation = Object.assign({ orgId, name, document: document || {} }, id ? { id } : {});
     const item = await prisma.builderFlow.upsert({
       where:  { id: id || '' },
       update: { name, document: document || {} },
-      create: { id, orgId, name, document: document || {} },
+      create: donneesCreation,
     });
     res.status(201).json({ id: item.id, name: item.name });
   } catch(e) { res.status(500).json({ error: e.message }); }

@@ -65,7 +65,13 @@ const WfPersistence = (() => {
   // Sauvegarde (création si pas d'id, mise à jour sinon). Renvoie { id, name }.
   function sauvegarder(opts) {
     const doc = documentDepuisModele(opts.model, { id: opts.id, name: opts.name });
-    const corps = JSON.stringify({ id: opts.id, name: opts.name, document: doc });
+    // N'inclut PAS la clé id quand elle est absente : un id null explicite dans
+    // le JSON forcerait Prisma à rejeter le create (champ id non-nullable, le
+    // défaut @default(cuid()) ne s'applique que si la clé est absente, pas si
+    // elle vaut null). Bug vécu : "Invalid prisma.builderFlow.upsert()".
+    const payload = { name: opts.name, document: doc };
+    if (opts.id) payload.id = opts.id;
+    const corps = JSON.stringify(payload);
     const url = opts.id ? (API + '/' + encodeURIComponent(opts.id)) : API;
     const method = opts.id ? 'PUT' : 'POST';
     return fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: corps })
