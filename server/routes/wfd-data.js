@@ -368,4 +368,51 @@ router.get('/organisation', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Workflows du Builder (ressource d'org, document pivot JSON) ─────────────
+router.get('/flows', async (req, res) => {
+  try {
+    const orgId = await getDefaultOrgId(req);
+    const items = await prisma.builderFlow.findMany({ where: { orgId }, orderBy: { updatedAt: 'desc' } });
+    res.json(items.map(f => ({ id: f.id, name: f.name, updatedAt: f.updatedAt })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/flows/:id', async (req, res) => {
+  try {
+    const item = await prisma.builderFlow.findUnique({ where: { id: req.params.id } });
+    if (!item) return res.status(404).json({ error: 'Non trouvé' });
+    res.json({ id: item.id, name: item.name, document: item.document });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/flows', async (req, res) => {
+  try {
+    const orgId = await getDefaultOrgId(req);
+    const { id, name, document } = req.body;
+    if (!name) return res.status(400).json({ error: 'name requis' });
+    const item = await prisma.builderFlow.upsert({
+      where:  { id: id || '' },
+      update: { name, document: document || {} },
+      create: { id, orgId, name, document: document || {} },
+    });
+    res.status(201).json({ id: item.id, name: item.name });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/flows/:id', async (req, res) => {
+  try {
+    const { name, document } = req.body;
+    if (!name) return res.status(400).json({ error: 'name requis' });
+    const item = await prisma.builderFlow.update({ where: { id: req.params.id }, data: { name, document: document || {} } });
+    res.json({ id: item.id, name: item.name });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/flows/:id', async (req, res) => {
+  try {
+    await prisma.builderFlow.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

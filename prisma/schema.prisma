@@ -33,6 +33,7 @@ model Organisation {
   palNodes     PalNode[]
   mappings     Mapping[]
   manifests    Manifest[]
+  builderFlows BuilderFlow[]
   nommages     Nommage[]
   scripts      Script[]
   managedApps  ManagedApp[]
@@ -277,6 +278,23 @@ model Manifest {
   name          String
   niveau        String?      // serie | saison | episode | unitaire | * (applicabilité)
   essences      Json         @default("[]")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([orgId, name])
+}
+
+// Workflow du nouveau Builder (ressource d'org, comme Manifest). Stocke le
+// DOCUMENT PIVOT complet (canonical) tel que produit par pivot-io.js côté
+// client : { pivot, form, workflow, steps, edges, presentation }. Distinct du
+// model Flow existant (WFD, rattaché à un environnement, format WFD brut) —
+// ne pas mélanger les deux mondes.
+model BuilderFlow {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  name          String
+  document      Json         @default("{}")
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
