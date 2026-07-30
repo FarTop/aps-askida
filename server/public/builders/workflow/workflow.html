@@ -4,73 +4,69 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>APS — Workflow Builder</title>
-  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
-  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
   <link rel="stylesheet" href="../../index.css" />
   <link rel="stylesheet" href="builder-tokens.css" />
   <link rel="stylesheet" href="workflow.css" />
 </head>
 
 <body>
-
-  <!-- Header partagé, régularisé : même ossature que le canvas et les écrans
-       Administration (fin du <header> maison + badge « scénario » périmé). -->
-  <header class="aps-header">
-    <div class="aps-header-left">
-      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
-      <span class="breadcrumb"><a href="../../index.html">APS</a> › Workflow Builder</span>
-    </div>
-    <div class="aps-header-center">
-      <div data-role="org-context"></div>
-    </div>
-    <div class="aps-header-right">
-      <nav class="aps-navbar">
-        <a class="aps-nav-link" href="../../index.html">Home</a>
-      </nav>
-    </div>
-  </header>
-
   <div class="page">
+
+    <header>
+      <div class="dbc-logo">
+        <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo">
+        <span class="dbc-org-badge">
+          Scénario actif · Centralisation Production
+        </span>
+      </div>
+    </header>
+    <div class="aps-divider"></div>
 
     <div class="hero">
       <h1>Workflow Builder</h1>
-      <p>Concevez des workflows abstraits, indépendants du moteur qui les exécute.</p>
+      <p>
+        Concevez des workflows abstraits, indépendants
+        du moteur qui les exécute.
+      </p>
     </div>
 
     <main class="grid" aria-label="Workflow Builder">
 
-      <!-- Workflows de l'organisation courante (contexte). -->
       <section class="card">
         <div class="corner-tr"></div>
         <div class="corner-bl"></div>
+
         <div class="card-hd">
-          <div class="card-tt">Workflows de l'organisation</div>
+          <div class="card-tt">Workflows du scénario</div>
         </div>
+
         <div class="card-bd">
-          <div id="wf-liste" class="bd-liste" aria-live="polite">
-            <p class="muted">Chargement…</p>
-          </div>
+          <p class="muted">
+            Aucun workflow n'est encore défini pour ce scénario.
+          </p>
         </div>
+
         <div class="cta-row">
           <a class="btn" href="workflow-canvas.html">Nouveau workflow</a>
+          <button class="btn ghost" disabled>Importer</button>
         </div>
       </section>
 
-      <!-- Manifestes de livraison : ressource du domaine Workflow (rattachée ici
-           — un manifeste ne sert qu'aux workflows). -->
       <section class="card">
         <div class="corner-tr"></div>
         <div class="corner-bl"></div>
+
         <div class="card-hd">
-          <div class="card-tt">Manifestes de livraison</div>
+          <div class="card-tt">Ce que fait le Builder</div>
         </div>
+
         <div class="card-bd">
-          <div id="mf-liste" class="bd-liste" aria-live="polite">
-            <p class="muted">Chargement…</p>
-          </div>
-        </div>
-        <div class="cta-row">
-          <a class="btn ghost" href="../../admin/manifests/manifests.html">Gérer les manifestes</a>
+          <ul class="muted bd-feature-list">
+            <li>Décrire la logique métier et l'enchaînement des étapes</li>
+            <li>Déclencheurs : événement, manuel, planifié</li>
+            <li>Suivre la vie d'un job en cours d'exécution</li>
+            <li>Projeter vers le moteur d'exécution</li>
+          </ul>
         </div>
       </section>
 
@@ -81,8 +77,5 @@
     </footer>
 
   </div>
-
-  <script src="../../_shared/js/org-context-selector.js"></script>
-  <script src="workflow.js"></script>
 </body>
 </html>
