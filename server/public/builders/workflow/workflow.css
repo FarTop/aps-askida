@@ -17,3 +17,18 @@
   color: var(--bd-text-dim);
   font-size: 12px;
 }
+
+/* Listes (workflows / manifestes) sur la page d'accueil du Builder */
+.bd-liste { display: flex; flex-direction: column; gap: 4px; }
+.bd-liste-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; border-radius: 6px; text-decoration: none;
+  color: var(--bd-text, #eef0f1);
+  border: 1px solid var(--bd-panel-border, #262a2e);
+}
+.bd-liste-item:hover { background: var(--bd-canvas-surface, rgba(255,255,255,0.04)); }
+.bd-liste-nom { font-size: 13.5px; }
+.bd-liste-meta {
+  font-size: 11px; color: var(--bd-text-dim, #a6b0b8);
+  text-transform: uppercase; letter-spacing: .03em;
+}
