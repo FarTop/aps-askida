@@ -18,10 +18,23 @@
     });
   }
 
-  function chargerWorkflows() {
+  async function chargerWorkflows() {
     const hote = document.getElementById('wf-liste');
-    _vide(hote, 'Aucun workflow pour cette organisation. Créez-en un pour commencer.');
-    document.getElementById('wf-compte').textContent = '';
+    try {
+      const r = await fetch('/api/builder-flows');
+      const list = await r.json();
+      _rendre(hote, Array.isArray(list) ? list : [], {
+        lien: 'workflow-canvas.html?id=',
+        lienParItem: true,
+        msgVide: 'Aucun workflow pour cette organisation. Créez-en un pour commencer.'
+      });
+      const c = document.getElementById('wf-compte');
+      const n = Array.isArray(list) ? list.length : 0;
+      c.textContent = n + ' workflow' + (n > 1 ? 's' : '');
+    } catch (e) {
+      _vide(hote, 'Aucun workflow pour cette organisation. Créez-en un pour commencer.');
+      document.getElementById('wf-compte').textContent = '';
+    }
   }
 
   async function chargerManifestes() {
@@ -47,7 +60,7 @@
     list.forEach(function (item) {
       const ligne = document.createElement('a');
       ligne.className = 'wb-item';
-      ligne.href = opts.lien;
+      ligne.href = opts.lienParItem ? opts.lien + encodeURIComponent(item.id) : opts.lien;
 
       const nom = document.createElement('span');
       nom.className = 'wb-item-nom';

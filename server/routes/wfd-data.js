@@ -369,7 +369,10 @@ router.get('/organisation', async (req, res) => {
 });
 
 // ── Workflows du Builder (ressource d'org, document pivot JSON) ─────────────
-router.get('/flows', async (req, res) => {
+// NOTE : /builder-flows (pas /flows) — /api/flows est deja pris par le model
+// Flow WFD existant (server/routes/flows.js), monte AVANT ce routeur. Meme
+// chemin = collision silencieuse (l'ancien router gagne toujours).
+router.get('/builder-flows', async (req, res) => {
   try {
     const orgId = await getDefaultOrgId(req);
     const items = await prisma.builderFlow.findMany({ where: { orgId }, orderBy: { updatedAt: 'desc' } });
@@ -377,7 +380,7 @@ router.get('/flows', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/flows/:id', async (req, res) => {
+router.get('/builder-flows/:id', async (req, res) => {
   try {
     const item = await prisma.builderFlow.findUnique({ where: { id: req.params.id } });
     if (!item) return res.status(404).json({ error: 'Non trouvé' });
@@ -385,7 +388,7 @@ router.get('/flows/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/flows', async (req, res) => {
+router.post('/builder-flows', async (req, res) => {
   try {
     const orgId = await getDefaultOrgId(req);
     const { id, name, document } = req.body;
@@ -399,7 +402,7 @@ router.post('/flows', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.put('/flows/:id', async (req, res) => {
+router.put('/builder-flows/:id', async (req, res) => {
   try {
     const { name, document } = req.body;
     if (!name) return res.status(400).json({ error: 'name requis' });
@@ -408,7 +411,7 @@ router.put('/flows/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.delete('/flows/:id', async (req, res) => {
+router.delete('/builder-flows/:id', async (req, res) => {
   try {
     await prisma.builderFlow.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
