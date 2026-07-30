@@ -367,41 +367,40 @@ const ConfigRenderer = (() => {
    * champs simples écrivent dans le modèle sans re-peindre.
    */
   function rendre(hote, schema, model) {
-    // Chemins structurants (re-peignent le panneau) : champs marqués `reagit`,
-    // opérateurs, et listes. Pour une liste : ajout/retrait de ligne, ET les
-    // champs PILOTES d'un item (opérateur/reagit) qui commandent d'autres champs
-    // de l'item. Mais PAS un champ texte d'item — sinon on re-peindrait a chaque
-    // frappe et on perdrait le focus. On mémorise, par liste, les noms de champs
-    // pilotes de son itemSchema.
-    const cheminsStructurants = {};
-    const listes = [];   // { prefixe, pilotes:Set }
-    (schema || []).forEach(function (d) {
-      if (d.reagit || d.nature === 'operateur') cheminsStructurants[d.chemin] = true;
-      if (d.nature === 'liste') {
-        const pilotes = {};
-        (d.itemSchema || []).forEach(function (sd) {
-          if (sd.reagit || sd.nature === 'operateur') pilotes[sd.chemin] = true;
-        });
-        listes.push({ prefixe: d.chemin, pilotes: pilotes });
+    // Détecte si un chemin modifié doit re-peindre le panneau. RÉCURSIF : une
+    // liste peut contenir une autre liste (ex. blocks[].criteria[] de
+    // aps_search) — le mécanisme doit descendre dans itemSchema à N niveaux,
+    // pas seulement au premier. Sans ça, ajouter/retirer une ligne dans une
+    // liste imbriquée écrit bien la donnée (le modèle est à jour) mais ne
+    // redessine jamais : "Add criterion" semblait ne rien faire.
+    //
+    // Un champ texte ordinaire d'un item NE re-peint PAS (sinon on perdrait le
+    // focus à chaque frappe) ; l'ajout/retrait d'une ligne, ou un champ pilote
+    // (reagit / operateur), re-peint TOUJOURS, à n'importe quelle profondeur.
+    function _reagitAuChemin(schemaNiveau, segments) {
+      if (!segments.length) return true;   // changement du conteneur lui-même
+      const tete = segments[0];
+      for (let i = 0; i < (schemaNiveau || []).length; i++) {
+        const d = schemaNiveau[i];
+        if (d.chemin !== tete) continue;
+        const reste = segments.slice(1);
+        if (!reste.length) {
+          // Le champ lui-même a changé (rare : écriture directe sur un conteneur).
+          return !!(d.reagit || d.nature === 'operateur' || d.nature === 'liste');
+        }
+        if (d.nature === 'liste') {
+          const apresIndex = reste.slice(1);   // reste[0] = l'indice numérique de la ligne
+          if (!apresIndex.length) return true;   // ajout/retrait de la ligne entière
+          return _reagitAuChemin(d.itemSchema, apresIndex);   // descend dans l'item
+        }
+        return !!(d.reagit || d.nature === 'operateur');
       }
-    });
+      return false;
+    }
 
     function _estStructurant(chemin) {
       if (chemin == null) return true;
-      if (cheminsStructurants[chemin]) return true;
-      for (let i = 0; i < listes.length; i++) {
-        const L = listes[i];
-        // Ajout/retrait de ligne : le chemin est exactement le tableau, ou une
-        // ligne entiere (prefixe.N sans champ ensuite).
-        if (chemin === L.prefixe) return true;
-        const m = chemin.indexOf(L.prefixe + '.') === 0
-          ? chemin.slice(L.prefixe.length + 1) : null;
-        if (m == null) continue;
-        const seg = m.split('.');            // ex ['0'] (ligne) ou ['0','op'] (champ)
-        if (seg.length === 1) return true;   // ajout/retrait de la ligne entiere
-        if (seg.length >= 2 && L.pilotes[seg[1]]) return true;   // champ pilote de l'item
-      }
-      return false;
+      return _reagitAuChemin(schema, String(chemin).split('.'));
     }
 
     function _peindre() {
