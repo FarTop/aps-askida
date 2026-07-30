@@ -32,6 +32,7 @@ model Organisation {
   platforms    OrganisationPlatform[]
   palNodes     PalNode[]
   mappings     Mapping[]
+  manifests    Manifest[]
   nommages     Nommage[]
   scripts      Script[]
   managedApps  ManagedApp[]
@@ -260,6 +261,22 @@ model Mapping {
   organisation  Organisation @relation(fields: [orgId], references: [id])
   name          String
   rules         Json         @default("[]")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([orgId, name])
+}
+
+// Manifeste de livraison (nouveau paradigme VodFactory) : ressource d'org, comme
+// Mapping. Décrit CE QUI EST LIVRÉ (essences + cardinalité + sortie), réutilisable
+// par les workflows via uses:{manifest:"nom"}. essences = même rôle que rules.
+model Manifest {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  name          String
+  niveau        String?      // serie | saison | episode | unitaire | * (applicabilité)
+  essences      Json         @default("[]")
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 

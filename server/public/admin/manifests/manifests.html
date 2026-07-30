@@ -1,0 +1,90 @@
+<!-- APS — admin/manifests/manifests.html — 2026-07-30 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manifestes — APS Administration</title>
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
+  <link rel="stylesheet" href="manifests.css" />
+</head>
+<body>
+
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="#">Administration</a> › Manifestes</span>
+    </div>
+    <div class="aps-header-center">
+      <div data-role="org-context"></div>
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar">
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="mf-main">
+
+    <div class="mf-toolbar">
+      <h1 class="mf-title">Manifestes de livraison</h1>
+      <button id="mf-nouveau" class="mf-btn mf-btn-accent" type="button">Nouveau manifeste</button>
+    </div>
+
+    <p class="mf-intro">
+      Un manifeste décrit <strong>ce qui est livré</strong> : les essences attendues
+      (vidéo, image, sous-titre, audio…), leur cardinalité et où ranger l'URL de
+      sortie. Objet réutilisable par les workflows.
+    </p>
+
+    <div class="mf-layout">
+      <!-- Liste des manifestes -->
+      <aside class="mf-liste" aria-label="Liste des manifestes">
+        <div id="mf-liste-items"></div>
+      </aside>
+
+      <!-- Éditeur du manifeste sélectionné -->
+      <section class="mf-editeur" id="mf-editeur" hidden>
+        <div class="mf-champ-ligne">
+          <label class="mf-label" for="mf-nom">Nom</label>
+          <input class="mf-input" id="mf-nom" type="text" placeholder="Livraison Amazon Prime — Épisode" />
+        </div>
+        <div class="mf-champ-ligne">
+          <label class="mf-label" for="mf-niveau">Niveau d'applicabilité</label>
+          <select class="mf-input" id="mf-niveau">
+            <option value="*">Tous niveaux</option>
+            <option value="serie">Série</option>
+            <option value="saison">Saison</option>
+            <option value="episode">Épisode</option>
+            <option value="unitaire">Unitaire</option>
+          </select>
+        </div>
+
+        <div class="mf-essences-tete">
+          <h2 class="mf-sous-titre">Essences attendues</h2>
+          <button id="mf-add-essence" class="mf-btn" type="button">+ Essence</button>
+        </div>
+        <div id="mf-essences"></div>
+
+        <div class="mf-resume" id="mf-resume"></div>
+
+        <div class="mf-actions">
+          <button id="mf-enregistrer" class="mf-btn mf-btn-accent" type="button">Enregistrer</button>
+          <button id="mf-supprimer" class="mf-btn mf-btn-danger" type="button">Supprimer</button>
+          <span id="mf-feedback" class="mf-feedback" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section class="mf-vide" id="mf-vide">
+        <p>Sélectionnez un manifeste ou créez-en un nouveau.</p>
+      </section>
+    </div>
+
+  </main>
+
+  <script src="../../_shared/js/org-context-selector.js"></script>
+  <script src="manifests.js"></script>
+</body>
+</html>

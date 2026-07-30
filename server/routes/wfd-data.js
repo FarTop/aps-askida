@@ -96,6 +96,58 @@ router.delete('/mappings/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Manifestes de livraison (ressource d'org, nouveau paradigme) ─────────────
+const PivotManifest = require('../public/builders/workflow/pivot-manifest');
+
+router.get('/manifests', async (req, res) => {
+  try {
+    const orgId = await getDefaultOrgId(req);
+    const items = await prisma.manifest.findMany({ where: { orgId } });
+    res.json(items.map(m => ({ id: m.id, name: m.name, niveau: m.niveau, essences: m.essences })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/manifests/:id', async (req, res) => {
+  try {
+    const item = await prisma.manifest.findUnique({ where: { id: req.params.id } });
+    if (!item) return res.status(404).json({ error: 'Non trouvé' });
+    res.json({ id: item.id, name: item.name, niveau: item.niveau, essences: item.essences });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/manifests', async (req, res) => {
+  try {
+    const orgId = await getDefaultOrgId(req);
+    const { id, name, niveau, essences } = req.body;
+    // Validation structurelle (un manifeste stocké doit être cohérent).
+    const val = PivotManifest.valider({ name, niveau, essences: essences || [] });
+    if (!val.ok) return res.status(400).json({ error: 'manifeste invalide', details: val.erreurs });
+    const item = await prisma.manifest.upsert({
+      where:  { id: id || '' },
+      update: { name, niveau: niveau || null, essences: essences || [] },
+      create: { id, orgId, name, niveau: niveau || null, essences: essences || [] },
+    });
+    res.status(201).json(item);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/manifests/:id', async (req, res) => {
+  try {
+    const { name, niveau, essences } = req.body;
+    const val = PivotManifest.valider({ name, niveau, essences: essences || [] });
+    if (!val.ok) return res.status(400).json({ error: 'manifeste invalide', details: val.erreurs });
+    const item = await prisma.manifest.update({ where: { id: req.params.id }, data: { name, niveau: niveau || null, essences: essences || [] } });
+    res.json(item);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/manifests/:id', async (req, res) => {
+  try {
+    await prisma.manifest.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── PALNODES ──────────────────────────────────────────────────
 router.get('/palnodes', async (req, res) => {
   try {
