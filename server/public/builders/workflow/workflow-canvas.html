@@ -6,7 +6,6 @@
   <title>APS — Workflow Builder · Canevas</title>
   <link rel="stylesheet" href="../../index.css" />
   <link rel="stylesheet" href="../../_shared/css/navbar.css" />
-  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
   <link rel="stylesheet" href="builder-tokens.css" />
   <link rel="stylesheet" href="workflow-canvas.css" />
 </head>
@@ -20,7 +19,13 @@
       <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="workflow.html">Workflow Builder</a> › Canvas</span>
     </div>
     <div class="aps-header-center">
-      <div data-role="org-context"></div>
+      <!-- Information, PAS un sélecteur : ce canvas édite UN workflow qui
+           appartient déjà à une organisation fixe. Changer d'org ici n'aurait
+           pas de sens (ça ne réassigne rien, ça ne fait que désynchroniser les
+           listes filtrées par contexte — environnement, futur manifeste/
+           connexion du nœud Deliver). Le sélecteur INTERACTIF reste sur
+           l'accueil du Builder, où naviguer entre organisations est légitime. -->
+      <span class="bd-org-info" data-role="org-info"></span>
     </div>
     <div class="aps-header-right">
       <nav class="aps-navbar">
@@ -28,7 +33,6 @@
       </nav>
     </div>
   </header>
-  <script src="../../_shared/js/org-context-selector.js"></script>
 
   <!-- Canevas plein cadre. Le bandeau haut informe (connexion, environnement,
        statut) mais ne commande pas : les panneaux sont des volets de bord, pas

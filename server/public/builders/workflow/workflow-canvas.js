@@ -467,7 +467,21 @@
         if (nomEl) nomEl.textContent = flowName || '— no workflow —';
       }
 
-      // ── Sélecteur d'environnement (contexte org, réellement peuplé) ────────
+      // ── Organisation : INFORMATION en lecture seule (pas un sélecteur) ─────
+      // Un workflow appartient à une org FIXE (décidée à sa création). On
+      // affiche celle du workflow chargé, ou celle du contexte global pour un
+      // workflow tout neuf (pas encore créé — c'est cette org qui l'accueillera
+      // à la première sauvegarde). orgIdWorkflow scope ensuite le sélecteur
+      // d'environnement, explicitement (en-tête X-Org-Id), pour ne JAMAIS
+      // dépendre du cookie de contexte ambiant qui pourrait diverger.
+      const orgInfoEl = root.querySelector('[data-role="org-info"]');
+      let orgIdWorkflow = null;
+
+      function _afficherOrg(nom) {
+        if (orgInfoEl) orgInfoEl.textContent = nom || '';
+      }
+
+      // ── Sélecteur d'environnement (scopé sur l'org du workflow) ────────────
       const envSelect = root.querySelector('[data-role="env-select"]');
       const envDot = root.querySelector('[data-role="env-dot"]');
       const envOrg = root.querySelector('[data-role="env-org"]');
@@ -482,28 +496,26 @@
 
       function _peuplerEnvironnements(valeurAPreselectionner) {
         if (!envSelect) return Promise.resolve();
-        return fetch('/api/context').then(function (r) { return r.ok ? r.json() : {}; })
-          .then(function (ctx) {
-            const orgId = ctx && ctx.org && ctx.org.id;
-            return fetch('/api/environments').then(function (r) { return r.ok ? r.json() : []; })
-              .then(function (list) {
-                environnements = (Array.isArray(list) ? list : []).filter(function (e) {
-                  return !orgId || e.orgId === orgId;
-                });
-                envSelect.textContent = '';
-                const vide = document.createElement('option');
-                vide.value = ''; vide.textContent = '— environment —';
-                envSelect.appendChild(vide);
-                environnements.forEach(function (e) {
-                  const o = document.createElement('option');
-                  o.value = e.id;
-                  o.textContent = e.name;
-                  envSelect.appendChild(o);
-                });
-                if (valeurAPreselectionner) envSelect.value = valeurAPreselectionner;
-                _majTypeOrg();
-                _majBilleEnv();
-              });
+        const entetes = orgIdWorkflow ? { 'X-Org-Id': orgIdWorkflow } : {};
+        return fetch('/api/environments', { headers: entetes })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (list) {
+            environnements = (Array.isArray(list) ? list : []).filter(function (e) {
+              return !orgIdWorkflow || e.orgId === orgIdWorkflow;
+            });
+            envSelect.textContent = '';
+            const vide = document.createElement('option');
+            vide.value = ''; vide.textContent = '— environment —';
+            envSelect.appendChild(vide);
+            environnements.forEach(function (e) {
+              const o = document.createElement('option');
+              o.value = e.id;
+              o.textContent = e.name;
+              envSelect.appendChild(o);
+            });
+            if (valeurAPreselectionner) envSelect.value = valeurAPreselectionner;
+            _majTypeOrg();
+            _majBilleEnv();
           }).catch(function () { /* liste vide, non bloquant */ });
       }
 
@@ -537,6 +549,8 @@
         chargementEnCours = true;
         WfPersistence.charger(flowId).then(function (res) {
           flowName = res.name;
+          orgIdWorkflow = res.orgId || null;
+          _afficherOrg(res.orgName);
           const initial = WfPersistence.initialDepuisDocument(res.document);
           initial.nodes.forEach(function (n) { model.ajouterNoeud(n); });
           initial.edges.forEach(function (e) { model.ajouterArete(e); });
@@ -550,7 +564,15 @@
           chargementEnCours = false;
         });
       } else {
-        _peuplerEnvironnements(null);
+        // Nouveau workflow (pas encore créé) : org du contexte global — c'est
+        // elle qui l'accueillera à la première sauvegarde. Affichée en lecture
+        // seule ici aussi (le canvas ne permet jamais de la changer).
+        fetch('/api/context').then(function (r) { return r.ok ? r.json() : {}; })
+          .then(function (ctx) {
+            orgIdWorkflow = (ctx && ctx.org && ctx.org.id) || null;
+            _afficherOrg(ctx && ctx.org && ctx.org.name);
+            return _peuplerEnvironnements(null);
+          }).catch(function () { _peuplerEnvironnements(null); });
       }
 
       if (saveBtn) {

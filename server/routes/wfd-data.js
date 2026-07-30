@@ -382,9 +382,19 @@ router.get('/builder-flows', async (req, res) => {
 
 router.get('/builder-flows/:id', async (req, res) => {
   try {
-    const item = await prisma.builderFlow.findUnique({ where: { id: req.params.id } });
+    // orgId + nom de l'org exposés : ce workflow appartient à une org FIXE
+    // (décidée à la création), le canvas doit pouvoir l'afficher en lecture
+    // seule et scoper ses sélecteurs (environnement...) dessus, pas sur le
+    // contexte global ambiant qui pourrait diverger.
+    const item = await prisma.builderFlow.findUnique({
+      where: { id: req.params.id },
+      include: { organisation: { select: { id: true, name: true } } }
+    });
     if (!item) return res.status(404).json({ error: 'Non trouvé' });
-    res.json({ id: item.id, name: item.name, document: item.document });
+    res.json({
+      id: item.id, name: item.name, document: item.document,
+      orgId: item.orgId, orgName: item.organisation ? item.organisation.name : null
+    });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -597,3 +597,12 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   background: transparent; border: none; color: inherit; cursor: pointer;
   font-size: 13px; line-height: 1; padding: 0;
 }
+
+/* Organisation : INFORMATION en lecture seule dans le canvas (pas un
+   sélecteur — voir commentaire HTML). Sobre, non interactive. */
+.bd-org-info {
+  font-size: 11.5px; color: var(--bd-text-dim, #a6b0b8);
+  padding: 3px 8px; border: 1px solid var(--bd-panel-border, #262a2e);
+  border-radius: 10px;
+}
+.bd-org-info:empty { display: none; }
