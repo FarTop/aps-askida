@@ -4,78 +4,63 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>APS — Workflow Builder</title>
-  <link rel="stylesheet" href="../../index.css" />
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
   <link rel="stylesheet" href="builder-tokens.css" />
   <link rel="stylesheet" href="workflow.css" />
 </head>
 
 <body>
-  <div class="page">
 
-    <header>
-      <div class="dbc-logo">
-        <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo">
-        <span class="dbc-org-badge">
-          Scénario actif · Centralisation Production
-        </span>
-      </div>
-    </header>
-    <div class="aps-divider"></div>
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › Workflow Builder</span>
+    </div>
+    <div class="aps-header-center">
+      <div data-role="org-context"></div>
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar">
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
 
-    <div class="hero">
-      <h1>Workflow Builder</h1>
-      <p>
-        Concevez des workflows abstraits, indépendants
-        du moteur qui les exécute.
-      </p>
+  <main class="wb-main">
+
+    <div class="wb-titre-row">
+      <h1 class="wb-titre">Workflow Builder</h1>
     </div>
 
-    <main class="grid" aria-label="Workflow Builder">
+    <div class="wb-tabs" role="tablist">
+      <button class="wb-tab wb-tab-actif" data-tab="workflows" role="tab" type="button">Workflows</button>
+      <button class="wb-tab" data-tab="manifests" role="tab" type="button">Manifestes</button>
+    </div>
 
-      <section class="card">
-        <div class="corner-tr"></div>
-        <div class="corner-bl"></div>
+    <section class="wb-panel" data-panel="workflows">
+      <div class="wb-panel-tete">
+        <span class="wb-panel-info" id="wf-compte"></span>
+        <a class="wb-btn wb-btn-accent" href="workflow-canvas.html">Nouveau workflow</a>
+      </div>
+      <div id="wf-liste" class="wb-liste" aria-live="polite">
+        <p class="wb-muted">Chargement…</p>
+      </div>
+    </section>
 
-        <div class="card-hd">
-          <div class="card-tt">Workflows du scénario</div>
-        </div>
+    <section class="wb-panel" data-panel="manifests" hidden>
+      <div class="wb-panel-tete">
+        <span class="wb-panel-info" id="mf-compte"></span>
+        <a class="wb-btn" href="../../admin/manifests/manifests.html">Gérer les manifestes</a>
+      </div>
+      <div id="mf-liste" class="wb-liste" aria-live="polite">
+        <p class="wb-muted">Chargement…</p>
+      </div>
+    </section>
 
-        <div class="card-bd">
-          <p class="muted">
-            Aucun workflow n'est encore défini pour ce scénario.
-          </p>
-        </div>
+  </main>
 
-        <div class="cta-row">
-          <a class="btn" href="workflow-canvas.html">Nouveau workflow</a>
-          <button class="btn ghost" disabled>Importer</button>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="corner-tr"></div>
-        <div class="corner-bl"></div>
-
-        <div class="card-hd">
-          <div class="card-tt">Ce que fait le Builder</div>
-        </div>
-
-        <div class="card-bd">
-          <ul class="muted bd-feature-list">
-            <li>Décrire la logique métier et l'enchaînement des étapes</li>
-            <li>Déclencheurs : événement, manuel, planifié</li>
-            <li>Suivre la vie d'un job en cours d'exécution</li>
-            <li>Projeter vers le moteur d'exécution</li>
-          </ul>
-        </div>
-      </section>
-
-    </main>
-
-    <footer class="bd-footer">
-      Askida Platform Studio · Workflow Builder
-    </footer>
-
-  </div>
+  <script src="../../_shared/js/org-context-selector.js"></script>
+  <script src="workflow.js"></script>
 </body>
 </html>
