@@ -419,6 +419,7 @@
         if (p.label != null) { noeud.etape.label = p.label; }
         const params = Object.assign({}, p); delete params.label;
         noeud.etape.params = params;
+        model.notifierMiseAJour(noeud.id);   // marque "unsaved" + déclenche l'auto-save
         _rerendreNoeud(noeud.id);   // reflet immédiat sur le nœud
       });
 
@@ -534,7 +535,7 @@
         envSelect.addEventListener('change', function () {
           _majTypeOrg();
           _majBilleEnv();
-          if (!chargementEnCours) root.setAttribute('data-dirty', '1');
+          if (!chargementEnCours) { root.setAttribute('data-dirty', '1'); _declencherAutoSave(); }
         });
       }
       if (envRefresh) {
@@ -543,11 +544,40 @@
         });
       }
 
+      // ── Auto-save : filet de sécurité contre la perte de config/édits ─────
+      // Se déclenche après un court silence (debounce), UNIQUEMENT si le
+      // workflow a déjà un nom (créé via un premier Save manuel, ou chargé).
+      // Sans nom, impossible de sauvegarder silencieusement (name requis) —
+      // le tout premier enregistrement reste manuel (demande le nom une fois).
+      let autoSaveTimer = null;
+      const AUTO_SAVE_DELAI = 1500;
+
+      function _declencherAutoSave() {
+        if (!flowId || !flowName) return;
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(function () {
+          const environment = envSelect ? envSelect.value : '';
+          WfPersistence.sauvegarder({ id: flowId, name: flowName, model: model, environment: environment })
+            .then(function (res) {
+              flowId = res.id; flowName = res.name;
+              root.setAttribute('data-dirty', '0');
+              if (errEl) errEl.hidden = true;
+            })
+            .catch(function (e) {
+              // Silencieux : pas d'alerte à chaque tentative auto, mais
+              // l'indicateur "unsaved" reste allumé et l'erreur est logguée.
+              console.error('Auto-save impossible :', e.message);
+            });
+        }, AUTO_SAVE_DELAI);
+      }
+
       // Marque « unsaved » à tout changement structurel réel (pas pendant le
-      // chargement programmatique initial, qui ne doit pas se déclarer sale).
+      // chargement programmatique initial, qui ne doit pas se déclarer sale),
+      // et déclenche l'auto-save (filet de sécurité).
       model.onChange(function () {
         if (chargementEnCours) return;
         root.setAttribute('data-dirty', '1');
+        _declencherAutoSave();
       });
 
       if (flowId) {

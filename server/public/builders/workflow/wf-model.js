@@ -86,11 +86,21 @@ const WfModel = (() => {
       (initial.edges || []).forEach(ajouterArete);
     }
 
+    // Signale qu'un nœud a été modifié SANS changer sa structure (ex. édition
+    // de sa config dans le panneau, qui mute noeud.etape.params directement).
+    // Sans cet appel explicite, un changement de config ne notifie personne :
+    // l'indicateur "unsaved" ne s'allume jamais et l'auto-save ne se déclenche
+    // pas, alors que le contenu a bien changé.
+    function notifierMiseAJour(id) {
+      _notifier('node:update', { id: id });
+    }
+
     return {
       onChange,
       noeud, noeuds, aretes,
       ajouterNoeud, retirerNoeud, deplacerNoeud,
-      ajouterArete, retirerArete
+      ajouterArete, retirerArete,
+      notifierMiseAJour
     };
   }
 
