@@ -36,6 +36,29 @@ const ConfigRenderer = (() => {
     return l;
   }
 
+  // Chemin du champ FRÈRE d'un descripteur (même parent, autre nom) — ex.
+  // 'blocks.0.criteria.2.value' -> 'blocks.0.criteria.2.field'. Sert aux
+  // natures qui doivent lire un champ voisin dans le même item de liste
+  // (l'opérateur et la valeur dépendent tous deux du champ choisi).
+  function _cheminFrere(chemin, autreNom) {
+    return String(chemin).replace(/[^.]+$/, autreNom);
+  }
+
+  // Résout la métadonnée Iconik d'un nom de champ (depuis le cache synchrone
+  // de ConfigSources). Retourne null si non résolue — champ non chargé,
+  // pseudo-champ (ex. __collection__) ou environnement non choisi : dans tous
+  // ces cas, les natures appelantes retombent sur un comportement générique.
+  function _resoudreMetadonnee(nomChamp, envSlug) {
+    if (!nomChamp) return null;
+    const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
+    if (!src) return null;
+    const liste = src.metadonneesChargees(envSlug);
+    for (let i = 0; i < liste.length; i++) {
+      if (liste[i].name === nomChamp) return liste[i];
+    }
+    return null;
+  }
+
   // ── Natures ────────────────────────────────────────────────────────────────
   // Chaque nature sait produire son contrôle, lié au modèle par chemin.
 
@@ -79,12 +102,16 @@ const ConfigRenderer = (() => {
     // Choix : une valeur parmi N (menu déroulant). Peut PILOTER d'autres champs
     // (descripteur marqué `reagit: true` -> son changement re-rend le panneau,
     // faisant apparaître/disparaître les champs dépendants via leur visibleSi).
-    choix: function (descr, model) {
+    // `options` est soit un tableau statique, soit une fonction (model, contexte)
+    // -> tableau — pour les choix dont l'éventail dépend d'un autre champ (ex.
+    // les opérateurs valides dépendent du type de la métadonnée choisie).
+    choix: function (descr, model, contexte) {
       const wrap = _el('div', 'cfg-field');
       wrap.appendChild(_champLabel(descr));
       const sel = _el('select', 'cfg-input cfg-select');
       const courant = model.lire(descr.chemin);
-      (descr.options || []).forEach(function (opt) {
+      const options = typeof descr.options === 'function' ? (descr.options(model, contexte, descr) || []) : (descr.options || []);
+      options.forEach(function (opt) {
         // Une option est soit une chaîne, soit { valeur, libelle }.
         const valeur = (opt && opt.valeur != null) ? opt.valeur : opt;
         const libelle = (opt && opt.libelle != null) ? opt.libelle : String(valeur);
@@ -107,9 +134,9 @@ const ConfigRenderer = (() => {
     // déclarés par visibleSi dans le schéma). Le bug WFD Date->Between disparaît
     // structurellement : la visibilité des champs from/to EST une projection du
     // modèle, pas un effet de bord à déclencher.
-    operateur: function (descr, model) {
+    operateur: function (descr, model, contexte) {
       // Réutilise le rendu de `choix` : même contrôle, marqueur de nature à part.
-      const champ = NATURES.choix(descr, model);
+      const champ = NATURES.choix(descr, model, contexte);
       champ.classList.add('cfg-operateur');
       return champ;
     },
@@ -118,7 +145,7 @@ const ConfigRenderer = (() => {
     // avec ses chemins préfixés (conditions.0.op, conditions.1.op…). Boutons
     // « + » (ajouter) et « ✕ » par ligne. add/remove écrivent dans le modèle
     // (structurant -> re-rendu). Compose les autres natures à l'intérieur.
-    liste: function (descr, model) {
+    liste: function (descr, model, contexte) {
       const wrap = _el('div', 'cfg-field cfg-liste');
       wrap.appendChild(_champLabel(descr));
 
@@ -142,7 +169,7 @@ const ConfigRenderer = (() => {
           }
           if (!_visible(projete, model)) return;
           const fab = NATURES[projete.nature];
-          if (fab) corps.appendChild(fab(projete, model));
+          if (fab) corps.appendChild(fab(projete, model, contexte));
         });
         ligne.appendChild(corps);
 
@@ -350,6 +377,280 @@ const ConfigRenderer = (() => {
         });
       }
       return wrap;
+    },
+
+    // Métadonnée : nom d'un champ Iconik. Reste un champ TEXTE — un champ
+    // fermé casserait les pseudo-champs réels observés en production
+    // (__collection__, media_type…) qui ne sont pas des IkonField. Un
+    // <datalist> propose des suggestions en complément, jamais en contrainte.
+    // Par défaut, toutes les métadonnées de l'environnement. Si `descr.vuePour`
+    // est fourni et résout une vue choisie ailleurs dans le modèle (ex.
+    // update_meta : `key` suggéré par la vue de `mdViewId`), les suggestions se
+    // restreignent aux champs RÉELS de cette vue (view_fields, vérifié en
+    // direct — une vue ne renvoie que ses propres champs, jamais l'exhaustif).
+    // Le choix du champ ne repeint PAS à chaque frappe (perte de focus,
+    // cf. 9c434f2) : seul le `blur` — la frappe terminée — redessine le
+    // panneau, pour que l'opérateur et la valeur reflètent le type résolu.
+    metadonnee: function (descr, model, contexte) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+
+      const dlId = 'cfg-dl-' + Math.random().toString(36).slice(2);
+      const dl = _el('datalist');
+      dl.id = dlId;
+
+      const input = _el('input', 'cfg-input cfg-metadonnee');
+      input.type = 'text';
+      input.setAttribute('list', dlId);
+      if (descr.placeholder) input.placeholder = descr.placeholder;
+      const v = model.lire(descr.chemin);
+      input.value = v == null ? '' : v;
+      input.addEventListener('input', function () {
+        model.ecrire(descr.chemin, input.value);
+      });
+      input.addEventListener('blur', function () {
+        if (contexte && typeof contexte._repeindre === 'function') contexte._repeindre();
+      });
+
+      const envSlug = contexte && contexte.envSlug;
+      const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
+      function _peuplerDatalist(liste) {
+        while (dl.firstChild) dl.removeChild(dl.firstChild);
+        (liste || []).forEach(function (m) {
+          const o = document.createElement('option');
+          o.value = m.name;
+          o.label = m.label && m.label !== m.name ? m.label : '';
+          dl.appendChild(o);
+        });
+      }
+      const vueId = typeof descr.vuePour === 'function' ? descr.vuePour(model) : null;
+      if (src && envSlug && vueId) {
+        // Restreint aux champs de la vue choisie — lecture synchrone du cache,
+        // puis complétée une fois vuesMetadonnees() abouti si pas déjà chargé.
+        function _champsVue() {
+          return src.champsDeVue(envSlug, vueId).map(function (n) { return { name: n, label: null }; });
+        }
+        _peuplerDatalist(_champsVue());
+        src.vuesMetadonnees(envSlug).then(function () { _peuplerDatalist(_champsVue()); });
+      } else if (src && envSlug) {
+        _peuplerDatalist(src.metadonneesChargees(envSlug));   // ce qui est déjà en cache
+        src.metadonnees(envSlug).then(_peuplerDatalist);       // complète une fois chargé
+      }
+
+      wrap.appendChild(input);
+      wrap.appendChild(dl);
+      return wrap;
+    },
+
+    // Valeur typée : le contrôle de saisie s'adapte au type RÉEL de la
+    // métadonnée choisie dans le champ FRÈRE (même item de liste — nommé
+    // `field` par défaut, ex. aps_search ; `descr.champFrere` permet de
+    // pointer un autre nom, ex. `key` pour update_meta, dont le moteur WFD
+    // lit littéralement `f.key`). Vérifié sur l'environnement QA (159
+    // champs) : 'Dropdown' est le nom réel des listes à choix (PAS 'Select'),
+    // 'Yes/No' pour un booléen. Sinon texte (type inconnu, pseudo-champ, ou
+    // environnement non résolu — fail-safe : jamais bloquant).
+    valeurTypee: function (descr, model, contexte) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+
+      const envSlug = contexte && contexte.envSlug;
+      const cheminChamp = _cheminFrere(descr.chemin, descr.champFrere || 'field');
+      const nomChamp = model.lire(cheminChamp);
+      const md = _resoudreMetadonnee(nomChamp, envSlug);
+      const uiType = md ? md.uiType : '';
+      const estDropdown = uiType === 'Dropdown' || uiType === 'drop_down';
+
+      let controle;
+      if (uiType === 'Yes/No') {
+        controle = _el('select', 'cfg-input cfg-select');
+        const courant = model.lire(descr.chemin);
+        [{ valeur: '', libelle: '—' }, { valeur: 'true', libelle: 'True' }, { valeur: 'false', libelle: 'False' }]
+          .forEach(function (opt) {
+            const o = document.createElement('option');
+            o.value = opt.valeur; o.textContent = opt.libelle;
+            if (opt.valeur === courant) o.selected = true;
+            controle.appendChild(o);
+          });
+        controle.addEventListener('change', function () { model.ecrire(descr.chemin, controle.value); });
+      } else if (estDropdown && md.valeurs.length) {
+        controle = _el('select', 'cfg-input cfg-select');
+        const courant = model.lire(descr.chemin);
+        const vide = document.createElement('option');
+        vide.value = ''; vide.textContent = '—';
+        controle.appendChild(vide);
+        md.valeurs.forEach(function (v) {
+          const o = document.createElement('option');
+          o.value = v; o.textContent = v;
+          if (v === courant) o.selected = true;
+          controle.appendChild(o);
+        });
+        controle.addEventListener('change', function () { model.ecrire(descr.chemin, controle.value); });
+      } else if (uiType === 'Date') {
+        controle = _el('input', 'cfg-input cfg-date');
+        controle.type = 'date';
+        const courant = model.lire(descr.chemin);
+        controle.value = courant == null ? '' : courant;
+        controle.addEventListener('input', function () { model.ecrire(descr.chemin, controle.value); });
+      } else {
+        controle = _el('input', 'cfg-input');
+        controle.type = 'text';
+        if (descr.placeholder) controle.placeholder = descr.placeholder;
+        const courant = model.lire(descr.chemin);
+        controle.value = courant == null ? '' : courant;
+        controle.addEventListener('input', function () { model.ecrire(descr.chemin, controle.value); });
+      }
+
+      wrap.appendChild(controle);
+      return wrap;
+    },
+
+    // Vue de métadonnées : sélection RÉELLE (ConfigSources.vuesMetadonnees),
+    // TOUTES les vues de l'environnement, sans filtre par type d'objet — une
+    // vue peut exister et être valide sans appartenir à aucune catégorie
+    // (vérifié en direct sur un cas réel), donc filtrer par catégorie/type
+    // cacherait des vues bien réelles. Sans environnement : liste vide,
+    // jamais bloquant.
+    vueMetadonnee: function (descr, model, contexte) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+
+      const sel = _el('select', 'cfg-input cfg-select');
+      const attente = document.createElement('option');
+      attente.textContent = 'Loading…'; attente.disabled = true; attente.selected = true;
+      sel.appendChild(attente);
+      wrap.appendChild(sel);
+
+      const envSlug = contexte && contexte.envSlug;
+      const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
+      if (src && envSlug) {
+        src.vuesMetadonnees(envSlug).then(function (liste) {
+          while (sel.firstChild) sel.removeChild(sel.firstChild);
+          const vide = document.createElement('option');
+          vide.value = ''; vide.textContent = descr.placeholder || '— no view —';
+          sel.appendChild(vide);
+          const courant = model.lire(descr.chemin);
+          (liste || []).forEach(function (v) {
+            const o = document.createElement('option');
+            o.value = v.id; o.textContent = v.nom;
+            if (v.id === courant) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.addEventListener('change', function () { model.ecrire(descr.chemin, sel.value); });
+        });
+      }
+      return wrap;
+    },
+
+    // Export Location : sélection RÉELLE (ConfigSources.exportLocations) —
+    // la cible d'un nœud `action` en mode export_location_trigger. Même
+    // schéma de rendu que vueMetadonnee (async, cache, pas de test).
+    exportLocation: function (descr, model, contexte) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+
+      const sel = _el('select', 'cfg-input cfg-select');
+      const attente = document.createElement('option');
+      attente.textContent = 'Loading…'; attente.disabled = true; attente.selected = true;
+      sel.appendChild(attente);
+      wrap.appendChild(sel);
+
+      const envSlug = contexte && contexte.envSlug;
+      const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
+      if (src && envSlug) {
+        src.exportLocations(envSlug).then(function (liste) {
+          while (sel.firstChild) sel.removeChild(sel.firstChild);
+          const vide = document.createElement('option');
+          vide.value = ''; vide.textContent = descr.placeholder || '— select an export location —';
+          sel.appendChild(vide);
+          const courant = model.lire(descr.chemin);
+          (liste || []).forEach(function (v) {
+            const o = document.createElement('option');
+            o.value = v.id; o.textContent = v.nom;
+            if (v.id === courant) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.addEventListener('change', function () { model.ecrire(descr.chemin, sel.value); });
+        });
+      }
+      return wrap;
+    },
+
+    // Custom Action : sélection RÉELLE (ConfigSources.customActions). Si
+    // `descr.contextVersChemin` est fourni, le `context` de l'action choisie
+    // (ASSET/COLLECTION/SEGMENT, porté par l'action elle-même côté Iconik)
+    // est automatiquement écrit dans ce chemin — reproduit l'auto-remplissage
+    // déjà présent dans l'ancien designer WFD (wfd-config-panel.js), pas une
+    // invention : c'est Iconik qui associe une action à un type d'objet fixe.
+    customAction: function (descr, model, contexte) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+
+      const sel = _el('select', 'cfg-input cfg-select');
+      const attente = document.createElement('option');
+      attente.textContent = 'Loading…'; attente.disabled = true; attente.selected = true;
+      sel.appendChild(attente);
+      wrap.appendChild(sel);
+
+      const envSlug = contexte && contexte.envSlug;
+      const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
+      if (src && envSlug) {
+        src.customActions(envSlug).then(function (liste) {
+          while (sel.firstChild) sel.removeChild(sel.firstChild);
+          const vide = document.createElement('option');
+          vide.value = ''; vide.textContent = descr.placeholder || '— select a custom action —';
+          sel.appendChild(vide);
+          const courant = model.lire(descr.chemin);
+          (liste || []).forEach(function (v) {
+            const o = document.createElement('option');
+            o.value = v.id;
+            o.textContent = v.nom + (v.disabled ? ' (disabled)' : '');
+            if (v.id === courant) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.addEventListener('change', function () {
+            model.ecrire(descr.chemin, sel.value);
+            if (descr.contextVersChemin) {
+              const item = (liste || []).find(function (x) { return x.id === sel.value; });
+              if (item && item.context) model.ecrire(descr.contextVersChemin, item.context);
+            }
+            if (contexte && typeof contexte._repeindre === 'function') contexte._repeindre();
+          });
+        });
+      }
+      return wrap;
+    },
+
+    // Texte avec repaint au BLUR (pas à la frappe, même raison que
+    // `metadonnee` : pas de perte de focus) — pour les champs dont dépend un
+    // `apercu` ailleurs dans le panneau (ex. le slug d'un trigger -> l'URL de
+    // routage affichée juste en dessous).
+    texteRepeint: function (descr, model, contexte) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+      const input = _el('input', 'cfg-input');
+      input.type = 'text';
+      if (descr.placeholder) input.placeholder = descr.placeholder;
+      const v = model.lire(descr.chemin);
+      input.value = v == null ? '' : v;
+      input.addEventListener('input', function () { model.ecrire(descr.chemin, input.value); });
+      input.addEventListener('blur', function () {
+        if (contexte && typeof contexte._repeindre === 'function') contexte._repeindre();
+      });
+      wrap.appendChild(input);
+      return wrap;
+    },
+
+    // Aperçu : texte calculé en LECTURE SEULE, projection d'autres champs du
+    // modèle (`descr.calcule(model)`) — n'écrit jamais. Ex. l'URL de routage
+    // complète d'un trigger, reconstruite depuis son slug.
+    apercu: function (descr, model) {
+      const wrap = _el('div', 'cfg-field cfg-field-inline');
+      wrap.appendChild(_champLabel(descr));
+      const val = _el('span', 'cfg-apercu');
+      val.textContent = (typeof descr.calcule === 'function' && descr.calcule(model)) || '—';
+      wrap.appendChild(val);
+      return wrap;
     }
   };
 
@@ -366,7 +667,8 @@ const ConfigRenderer = (() => {
    * détruirait le champ en cours de saisie et ferait perdre le focus. Les
    * champs simples écrivent dans le modèle sans re-peindre.
    */
-  function rendre(hote, schema, model) {
+  function rendre(hote, schema, model, contexte) {
+    contexte = contexte || {};
     // Détecte si un chemin modifié doit re-peindre le panneau. RÉCURSIF : une
     // liste peut contenir une autre liste (ex. blocks[].criteria[] de
     // aps_search) — le mécanisme doit descendre dans itemSchema à N niveaux,
@@ -409,9 +711,14 @@ const ConfigRenderer = (() => {
         if (!_visible(descr, model)) return;
         const fab = NATURES[descr.nature];
         if (!fab) return;   // nature inconnue : ignorée (extensible)
-        hote.appendChild(fab(descr, model));
+        hote.appendChild(fab(descr, model, contexte));
       });
     }
+    // Exposé aux natures qui ont besoin de redessiner sur un évènement qui
+    // n'est PAS une écriture modèle structurante (ex. `metadonnee` : le champ
+    // reste en texte libre à la frappe, mais son `blur` doit rafraîchir
+    // l'opérateur/la valeur dépendants sans attendre un autre changement).
+    contexte._repeindre = _peindre;
     _peindre();
 
     // Re-peindre seulement sur changement d'un chemin structurant. C'est ce qui

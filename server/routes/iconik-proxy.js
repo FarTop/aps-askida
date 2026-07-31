@@ -559,6 +559,16 @@ async function proxyRequest(req, res) {
       return proxyToIconik(req, res, creds, iconikPath);
     }
 
+    // ── Contournement explicite du snapshot (en-tête, jamais transmis à
+    // Iconik) ───────────────────────────────────────────────────────────
+    // Un appelant qui a besoin de la donnée RÉELLE de l'instant (pas la
+    // dernière capture DB, potentiellement vieille de plusieurs semaines)
+    // le demande explicitement — ex. le Builder, qui ne dépend plus du
+    // pipeline de sync historiquement construit pour WFD/Settings.
+    if (req.get('X-Force-Live')) {
+      return proxyToIconik(req, res, creds, iconikPath);
+    }
+
     // ── Chercher un handler DB ────────────────────────────────────────────
     const handler = findHandler(req.method, cleanPath);
     if (handler) {

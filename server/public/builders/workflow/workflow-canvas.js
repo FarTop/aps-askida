@@ -184,6 +184,14 @@
     root._wfModel = model;
     root._wfHistory = history;
 
+    // Compteurs de la statusbar (jusqu'ici jamais câblés — comme "snapshot").
+    const nodeCountEl = root.querySelector('[data-role="node-count"]');
+    const connCountEl = root.querySelector('[data-role="conn-count"]');
+    function _majCompteurs() {
+      if (nodeCountEl) nodeCountEl.textContent = String(model.noeuds().length);
+      if (connCountEl) connCountEl.textContent = String(model.aretes().length);
+    }
+
     // Rendu réactif : redessine nœuds puis arêtes depuis le modèle.
     function rendreDepuisModele() {
       while (nodesHost.firstChild) nodesHost.removeChild(nodesHost.firstChild);
@@ -192,6 +200,7 @@
       });
       _marquerSelection();
       retracerAretes();
+      _majCompteurs();
     }
 
     // Retrace des arêtes, COALESCÉ : un seul rAF en vol à la fois. Sans ça, un
@@ -362,7 +371,7 @@
     if (window.WfConnect) {
       window.WfConnect.brancher({
         nodesHost: nodesHost, svgEdges: svgEdges, surface: surface, frame: frame,
-        model: model, history: history
+        model: model, history: history, view: view
       });
     }
 
@@ -424,7 +433,7 @@
       });
 
       const schema = window.ConfigSchema.pour(noeud.etape);
-      offConfig = window.ConfigRenderer.rendre(configHost, schema, cfg);
+      offConfig = window.ConfigRenderer.rendre(configHost, schema, cfg, { envSlug: root._envSlug });
     }
 
     selection.onChange(function () { _majPanneauConfig(); });
@@ -526,8 +535,13 @@
       }
 
       function _majTypeOrg() {
-        if (!envOrg) return;
         const courant = environnements.find(function (e) { return e.id === envSelect.value; });
+        // Slug exposé sur root : le panneau Config (config-sources.js) en a
+        // besoin pour savoir quel environnement interroger en direct auprès
+        // d'Iconik (métadonnées, vues). Pas de dépendance inverse : le canvas
+        // ne connaît pas config-*.js.
+        root._envSlug = courant ? courant.slug : null;
+        if (!envOrg) return;
         envOrg.textContent = courant ? (courant.type || '').toUpperCase() : '';
       }
 
@@ -538,9 +552,51 @@
           if (!chargementEnCours) { root.setAttribute('data-dirty', '1'); _declencherAutoSave(); }
         });
       }
+      // ── Fraîcheur des données Iconik (métadonnées, vues) ────────────────────
+      // Affiche l'horodatage du dernier appel réel réussi via ConfigSources
+      // (config-sources.js, lecture directe d'Iconik — plus de dépendance au
+      // pipeline de sync Settings/WFD). Champ "snapshot" de la statusbar,
+      // jusqu'ici jamais câblé.
+      const snapshotEl = root.querySelector('[data-role="snapshot"]');
+      // Date + heure — l'heure seule est ambiguë si le canvas reste ouvert
+      // d'une session à l'autre (rien ne dit que "19:46" est d'aujourd'hui).
+      function _formaterHeure(date) {
+        return date ? date.toLocaleDateString() + ' ' + date.toLocaleTimeString() : '—';
+      }
+      function _majSnapshot() {
+        if (!snapshotEl || !window.ConfigSources) return;
+        snapshotEl.textContent = _formaterHeure(window.ConfigSources.dernierRafraichissement());
+      }
+      if (window.ConfigSources) window.ConfigSources.onRafraichi(_majSnapshot);
+      _majSnapshot();
+
       if (envRefresh) {
         envRefresh.addEventListener('click', function () {
-          _peuplerEnvironnements(envSelect ? envSelect.value : null);
+          // Retour visuel IMMÉDIAT, indépendant de tout panneau ouvert — sur
+          // un canvas vide (0 nœud), rien d'autre ne montrerait que le clic a
+          // été pris en compte.
+          envRefresh.classList.add('bd-spinning');
+
+          const attente = [_peuplerEnvironnements(envSelect ? envSelect.value : null)];
+          if (window.ConfigSources) {
+            window.ConfigSources.rafraichir();
+            // Déclenche les appels Iconik NOUS-MÊMES plutôt que de dépendre
+            // d'un panneau de config déjà ouvert (aps_search/update_meta) —
+            // sinon Refresh sur un canvas vide ne fait littéralement rien,
+            // et "snapshot" ne se peuple jamais.
+            if (root._envSlug) {
+              attente.push(window.ConfigSources.metadonnees(root._envSlug));
+              attente.push(window.ConfigSources.vuesMetadonnees(root._envSlug));
+              attente.push(window.ConfigSources.exportLocations(root._envSlug));
+            }
+          }
+          // Redessine le panneau Config s'il y en a un ouvert (reflète tout
+          // de suite les nouvelles suggestions).
+          _majPanneauConfig();
+
+          Promise.allSettled(attente).then(function () {
+            envRefresh.classList.remove('bd-spinning');
+          });
         });
       }
 

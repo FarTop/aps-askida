@@ -133,6 +133,16 @@ const PivotCatalogIconik = (() => {
       ports: ['out', 'miss', 'error']
     },
 
+    'iconik.history': {
+      core: 'history', family: 'workflow_history',
+      // Le journal texte écrit dans un champ de métadonnée (mdField, via une
+      // vue optionnelle mdViewId) est un mécanisme Iconik, pas une notion
+      // agnostique — le Core `history` reste minimal ("enregistrer un
+      // évènement"), cette façade porte le vrai vocabulaire (vérifié sur les
+      // 11 occurrences réelles + le handler workflow_history du moteur).
+      ports: ['out', 'error']
+    },
+
     'vodfactory.partner': {
       core: 'http_sequence', family: 'http_sequence',
       ports: ['out', 'err']
@@ -210,7 +220,11 @@ const PivotCatalogIconik = (() => {
         return { id: 'out-' + i, label: (cond && cond.label) || ('Branche ' + i),
                  color: COULEUR_DECISION[i % COULEUR_DECISION.length] };
       });
-      outs.push({ id: 'default', label: 'Par défaut', color: '#95a5a6' });
+      // Libellé réel, configurable (defaultLabel) — vérifié sur les 7 nœuds
+      // decision réels : "Deny", "Echec", "ID Présent"... jamais juste
+      // "Par défaut" en pratique. Repli si non renseigné.
+      const defaultLabel = (etape.params && etape.params.defaultLabel) || 'Par défaut';
+      outs.push({ id: 'default', label: defaultLabel, color: '#95a5a6' });
       return outs;
     }
 

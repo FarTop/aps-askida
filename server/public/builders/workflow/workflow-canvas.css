@@ -108,6 +108,11 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 }
 .bd-icon-btn:hover { color: var(--bd-text); border-color: var(--bd-text-dim); }
 
+/* Retour visuel pendant un rafraîchissement (env + données Iconik) — la
+   classe est posée/retirée par JS, jamais un style inline. */
+.bd-icon-btn.bd-spinning { animation: bd-spin 0.7s linear infinite; color: var(--bd-text); }
+@keyframes bd-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
 .bd-tech { color: var(--bd-text-dim); font-size: 11.5px; gap: 12px; }
 .bd-tech b { color: var(--bd-text); font-weight: 600; }
 
