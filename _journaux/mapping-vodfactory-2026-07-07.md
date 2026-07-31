@@ -4,6 +4,12 @@ _Consolidation au 07/07/2026 soir des 30 champs existants + 2 nouveaux
 (ParentID, NumeroEpisode). Source : export JSON du workflow
 `BAYARD|PUBLISH|VODFACTORY`._
 
+⚠️ **Voir `mapping-vodfactory-2026-07-31.md` pour la suite** : les 2
+incohérences ci-dessous sont tranchées (spoiler : `serie` sans s est
+correct, `season_box_art` est correct), plus des champs requis Amazon
+manquants (`video_quality`, `duration`) et une contrainte genres (max 3)
+découverts depuis.
+
 ⚠️ **2 incohérences repérées entre différentes copies du mapping dans
 l'export JSON — à vérifier/corriger dans le nœud réel avant mise en
 production** (détail en bas de document).

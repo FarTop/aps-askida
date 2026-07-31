@@ -7,7 +7,7 @@
 > écarté. Lire ce document suffit pour travailler ; lire le journal sert quand
 > on veut comprendre une décision ou la remettre en cause.
 >
-> Dernière mise à jour : 23 juillet 2026.
+> Dernière mise à jour : 31 juillet 2026 (audit des façades, cf. section dédiée).
 
 ---
 
@@ -52,9 +52,13 @@ Ils n'entrent que lorsqu'un besoin se présente. **Règle : un nœud entre au
 catalogue quand il sert.** WFD avait six nœuds déclarés et vides — ils
 occupaient la palette et promettaient ce que les générateurs ne tenaient pas.
 
-### Façades — 6
+### Façades — 8 (mis à jour 31 juillet, cf. audit ci-dessous)
 
-`Search` · `Fetch` · `Set Metadata` · `Action` · `Create Tree` · `S3`
+`Search` · `Fetch` · `Set Metadata` · `Action` · `Create Tree` · `S3` · `Trigger` · `History`
+
+`Trigger` et `History` manquaient de ce décompte alors que le catalogue les
+portait déjà (`Trigger`) ou venait de les recevoir (`History`, scindée d'un
+Core qui portait à tort du vocabulaire Iconik — voir audit).
 
 ### Services — 2
 
@@ -393,6 +397,57 @@ conditionne le panneau.
 **Test d'ensemble** : reconstruire PUBLISH dans le Builder. Il doit tenir en
 dix étapes qui se lisent comme une phrase — *je récupère, je vérifie, je livre,
 j'enregistre, je traduis, je publie, je constate, je note.*
+
+---
+
+## Audit des façades contre les données réelles — 31 juillet
+
+Méthode, répétée pour chaque famille : sortir les occurrences réelles de
+`_journaux/WORKFLOWS_WFD_VODFACTORY.json` (export du 29/07, les 6 flows
+VOD Factory), lire le handler correspondant dans `wfd-engine-handlers.js`,
+comparer au schéma du Builder, corriger ce qui ne colle pas. Récit complet
+dans le journal du jour ; ici, l'état.
+
+**Vérifiées et corrigées** (dans l'ordre de fréquence sur PUBLISH V2, 76
+nœuds) : `aps_search` (17) · `update_meta` (9) · `workflow_history` (8,
+scindée en façade `iconik.history`) · `decision` (7, bug réel : `on` au lieu
+de `field`, aurait cassé toute décision construite dans le Builder) ·
+`trigger` (façade enrichie aux 12 types réels du designer WFD, un seul
+prouvé câblé — Custom Action) · `loop` (7, un seul mode fonctionnel sur 6,
+les 5 autres catalogués mais marqués « fails at runtime ») · `action` (6,
+41 actionType réels recensés, un seul détaillé — `export_location_trigger`)
+· `wait_for` / `aws_s3.deliver` (6 chacun, réconciliés avec le manifeste
+plutôt que de recopier le mapping S3 dupliqué à l'identique sur les 6
+occurrences réelles).
+
+**Restent à auditer** : `checker` (5) · `fetch` (5) · `create_tree` (4) ·
+`id_generator` (1) · `lookup` (1) · `http_sequence` (1) · `timer` (1).
+Même méthode à appliquer.
+
+**Règle confirmée pour trancher Core vs façade**, appliquée à chaque
+famille de cette liste : est-ce que le nœud touche l'API d'une plateforme
+précise, d'une façon précise à cette plateforme ? Si oui, façade — sinon,
+Core pur. A fait basculer `History` et confirmé que `Decision`/`Loop`
+restent des Core purs malgré leur richesse.
+
+**Sourcing de données réelles (nouveau, réutilisable)** : `config-sources.js`
+interroge Iconik **en direct** via `iconik-proxy` (en-tête `X-Force-Live`,
+ajouté cette session — contourne le snapshot DB sans le supprimer pour les
+autres appelants) plutôt que les tables de sync `Ikon*`/snapshot. Ces
+tables sont peuplées par le bouton "Domaine → Site" de Settings — plomberie
+de l'ancien Designer WFD, pas une dépendance que le Builder doit prendre.
+Fonctions déjà là : `metadonnees`/`vuesMetadonnees`/`champsDeVue`/
+`exportLocations`/`customActions`, toutes avec cache court en mémoire et
+horodatage de fraîcheur (`dernierRafraichissement`/`onRafraichi`, affiché
+dans le canvas). Tout nouveau besoin de données réelles doit passer par ce
+même chemin, pas par une resynchro Ikon*.
+
+**Bug canvas corrigé** : `WfConnect.brancher(...)` ne recevait pas `view`
+— tracé de liaison faux à tout zoom ≠ 100 %. Un seul oubli de propriété,
+pas un problème de fond.
+
+**Rien n'est commité.** Tout ce qui précède est à l'état de modifications
+non indexées dans l'arbre de travail (`git status`) — pas de branche créée.
 
 ---
 
