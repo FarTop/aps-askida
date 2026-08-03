@@ -47,55 +47,6 @@ async function upsertBulk(model, items, buildData) {
   return { ok: true, count: results.length, errors: errors.length ? errors : undefined };
 }
 
-// ── MAPPINGS ──────────────────────────────────────────────────
-router.get('/mappings', async (req, res) => {
-  try {
-    const orgId = await getDefaultOrgId(req);
-    const items = await prisma.mapping.findMany({ where: { orgId } });
-    res.json(items.map(m => ({ id: m.id, name: m.name, rows: m.rules })));
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-router.get('/mappings/:id', async (req, res) => {
-  try {
-    const item = await prisma.mapping.findUnique({ where: { id: req.params.id } });
-    if (!item) return res.status(404).json({ error: 'Non trouvé' });
-    res.json({ id: item.id, name: item.name, rows: item.rules });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post('/mappings', async (req, res) => {
-  try {
-    const orgId = await getDefaultOrgId(req);
-    if (req.body.items) {
-      const r = await upsertBulk('mapping', req.body.items, i => ({ id: i.id, orgId, name: i.name, rules: i.rows || [] }));
-      return res.json(r);
-    }
-    const { id, name, rows } = req.body;
-    const item = await prisma.mapping.upsert({
-      where:  { id: id || '' },
-      update: { name, rules: rows || [] },
-      create: { id, orgId, name, rules: rows || [] },
-    });
-    res.status(201).json(item);
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-router.put('/mappings/:id', async (req, res) => {
-  try {
-    const { name, rows } = req.body;
-    const item = await prisma.mapping.update({ where: { id: req.params.id }, data: { name, rules: rows || [] } });
-    res.json(item);
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-router.delete('/mappings/:id', async (req, res) => {
-  try {
-    await prisma.mapping.delete({ where: { id: req.params.id } });
-    res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
 // ── Manifestes de livraison (ressource d'org, nouveau paradigme) ─────────────
 const PivotManifest = require('../public/builders/workflow/pivot-manifest');
 

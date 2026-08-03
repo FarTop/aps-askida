@@ -1,12 +1,13 @@
-// APS — admin/ressources/ressources.js — 2026-07-29
+// APS — admin/ressources/ressources.js — 2026-07-29 (mis à jour 3 août)
 //
-// Écran unifié des ressources d'orchestration d'une organisation :
-// correspondances (mappings), nommages, contacts. Ces ressources sont le
-// patrimoine métier de l'org (pas de l'infrastructure). Les routes consommées
-// respectent désormais le contexte d'org (cookie aps-org-id) via getOrgContext.
+// Écran unifié des ressources d'orchestration d'une organisation restant à
+// migrer vers leur propre écran dédié : nommages, contacts. Les
+// correspondances (mappings) ont quitté cet écran le 3 août pour
+// admin/mappings/ — même parcours que les manifestes (admin/manifests/),
+// partis avant cette date. Les routes consommées respectent le contexte
+// d'org (cookie aps-org-id) via getOrgContext.
 //
 // Un type = une route REST déjà existante :
-//   correspondances -> /api/mappings   { id, name, rows }
 //   nommages        -> /api/nommages   { id, name, rows }
 //   contacts        -> /api/contacts   { id, name, contacts }
 
@@ -14,12 +15,11 @@
 
   // Métadonnée par type : route + libellé + clé du contenu.
   const TYPES = {
-    mappings: { route: '/api/mappings', labelSingulier: 'correspondance', cle: 'rows' },
     nommages: { route: '/api/nommages', labelSingulier: 'nommage',        cle: 'rows' },
     contacts: { route: '/api/contacts', labelSingulier: 'liste de contacts', cle: 'contacts' }
   };
 
-  let typeCourant = 'mappings';
+  let typeCourant = 'nommages';
   let recherche = '';
   let cache = [];   // dernières ressources chargées (du type courant)
 
@@ -105,7 +105,7 @@
     const rech = $('#search');
     if (rech) rech.addEventListener('input', function () { recherche = rech.value; rendre(); });
 
-    _activerOnglet('mappings');   // onglet par défaut
+    _activerOnglet('nommages');   // onglet par défaut
   }
 
   if (document.readyState === 'loading') {

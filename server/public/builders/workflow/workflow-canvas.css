@@ -317,6 +317,9 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   font-size: 11px; letter-spacing: .03em; text-transform: uppercase;
   color: var(--bd-text-dim);
 }
+.cfg-aide {
+  margin: 0; font-size: 12px; line-height: 1.4; color: var(--bd-text-dim);
+}
 .cfg-input {
   background: var(--bd-canvas-surface); border: 1px solid var(--bd-panel-border);
   color: var(--bd-text); border-radius: 6px; padding: 7px 9px; font: inherit; font-size: 13px;

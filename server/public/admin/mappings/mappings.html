@@ -1,0 +1,80 @@
+<!-- APS — admin/mappings/mappings.html — 2026-08-03 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Correspondances — APS Administration</title>
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
+  <link rel="stylesheet" href="mappings.css" />
+</head>
+<body>
+
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="../../builders/workflow/workflow.html">Workflow Builder</a> › Correspondances</span>
+    </div>
+    <div class="aps-header-center">
+      <div data-role="org-context"></div>
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar">
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="mp-main">
+
+    <div class="mp-toolbar">
+      <h1 class="mp-title">Tables de correspondance</h1>
+      <button id="mp-nouveau" class="mp-btn mp-btn-accent" type="button">Nouvelle correspondance</button>
+    </div>
+
+    <p class="mp-intro">
+      Une table de correspondance traduit un objet — typiquement des métadonnées
+      Iconik — vers un autre vocabulaire (ex. un payload partenaire). Utilisée par
+      le nœud <strong>Lookup</strong> du Builder. Chaque ligne : un champ source,
+      un chemin de destination, et en option une traduction de valeur
+      (ex. « Drame » → « av_genre_drama »).
+    </p>
+
+    <div class="mp-layout">
+      <!-- Liste des correspondances -->
+      <aside class="mp-liste" aria-label="Liste des correspondances">
+        <div id="mp-liste-items"></div>
+      </aside>
+
+      <!-- Éditeur de la correspondance sélectionnée -->
+      <section class="mp-editeur" id="mp-editeur" hidden>
+        <div class="mp-champ-ligne">
+          <label class="mp-label" for="mp-nom">Nom</label>
+          <input class="mp-input" id="mp-nom" type="text" placeholder="ex. VOD Factory | Fields" />
+        </div>
+
+        <div class="mp-rows-tete">
+          <h2 class="mp-sous-titre">Lignes de correspondance</h2>
+          <button id="mp-add-row" class="mp-btn" type="button">+ Ligne</button>
+        </div>
+        <div id="mp-rows"></div>
+
+        <div class="mp-actions">
+          <button id="mp-enregistrer" class="mp-btn mp-btn-accent" type="button">Enregistrer</button>
+          <button id="mp-supprimer" class="mp-btn mp-btn-danger" type="button">Supprimer</button>
+          <span id="mp-feedback" class="mp-feedback" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section class="mp-vide" id="mp-vide">
+        <p>Sélectionnez une correspondance ou créez-en une nouvelle.</p>
+      </section>
+    </div>
+
+  </main>
+
+  <script src="../../_shared/js/org-context-selector.js"></script>
+  <script src="mappings.js"></script>
+</body>
+</html>

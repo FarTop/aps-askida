@@ -1016,8 +1016,16 @@ async function lookup(node, ctx) {
     let   matched = 0;
 
     rows.forEach(row => {
-      const fromKey  = (row.key || row.from || '').trim();
-      const toKey    = (row.value || row.to || '').trim();
+      // `src`/`tgt` ajoutés le 3 août : l'unique Mapping réel en base
+      // ("VOD Factory | Fields") utilise CES noms au niveau de la ligne —
+      // déjà acceptés plus bas pour les enfants de traduction (`c.key ||
+      // c.src`, ligne ~1055) mais oubliés ici. Sans cet alias, chaque ligne
+      // du seul mapping réel existant était silencieusement ignorée
+      // (fromKey/toKey vides -> `if (!fromKey || !toKey) return;`) : 0 ligne
+      // traduite, aucune erreur, un Lookup qui a l'air de tourner sans rien
+      // faire.
+      const fromKey  = (row.key || row.from || row.src || '').trim();
+      const toKey    = (row.value || row.to || row.tgt || '').trim();
       const children = row.children || [];
       if (!fromKey || !toKey) return;
 
@@ -1707,6 +1715,37 @@ async function create_col(node, ctx, iconikClient) {
   return action({ ...node, config: { ...node.config, actionType: 'collection_create' } }, ctx, iconikClient);
 }
 
+// Prochain numéro pour un niveau de gabarit numéroté (nodeDef.numberField,
+// cf. create_tree ci-dessous). Interroge la fratrie RÉELLE sous ce parent
+// (recherche Iconik parent_id, doc_types collections) plutôt qu'un compteur
+// stocké : un compteur qui incrémente seulement ne sait pas qu'un numéro a
+// été libéré par une suppression (ex. "Saison 02" supprimée -> le compteur
+// donnait quand même "03"). Le numéro de chaque sœur est lu dans son TITRE
+// (dernière suite de chiffres trouvée), pas sa métadonnée : le titre est
+// TOUJOURS écrit à la création, la métadonnée seulement si une vue est
+// configurée (cf. risque déjà signalé sur metadataViewId dans create_tree).
+async function _prochainNumeroFratrie(iconikClient, parentIconikId, pad) {
+  let max = 0;
+  if (parentIconikId) {
+    try {
+      const result = await iconikClient.post('/API/search/v1/search/', {
+        query: 'parent_id:"' + parentIconikId + '"',
+        doc_types: ['collections'],
+      });
+      (result.objects || []).forEach(o => {
+        const chiffres = String(o.title || '').match(/\d+/g);
+        if (!chiffres || !chiffres.length) return;
+        const n = parseInt(chiffres[chiffres.length - 1], 10);
+        if (!isNaN(n) && n > max) max = n;
+      });
+    } catch (e) {
+      console.warn('[create_tree] recherche de fratrie échouée, numérotation depuis 1 :', e.message);
+    }
+  }
+  const suivant = max + 1;
+  return pad ? String(suivant).padStart(pad, '0') : String(suivant);
+}
+
 // ── CREATE_TREE ───────────────────────────────────────────────────
 // Matérialise récursivement une arborescence de Collections à partir d'un
 // template stocké (table ArboTemplate). Un template est un arbre de nœuds
@@ -1715,6 +1754,9 @@ async function create_col(node, ctx, iconikClient) {
 // Quand generateId=true sur un niveau : génère/réutilise un BayardID (même
 // registre que id_generator), écrit BayardID + ParentID (chaîné depuis le
 // dernier niveau généré au-dessus) sur la Vue de métadonnées configurée.
+// Quand numberField est renseigné sur un niveau : ce niveau (n'importe
+// lequel, pas seulement la racine) reçoit un numéro séquentiel calculé
+// depuis sa fratrie réelle dans Iconik — cf. _prochainNumeroFratrie().
 async function create_tree(node, ctx, iconikClient) {
   requireIconik(iconikClient, 'create_tree');
   const cfg        = node.config || {};
@@ -1787,6 +1829,36 @@ async function create_tree(node, ctx, iconikClient) {
       }
     }
 
+    // Numerotation PAR NIVEAU (nodeDef.numberField), ajoutee le 3 aout —
+    // discussion : le mecanisme ci-dessus (orderField) est un reglage de
+    // WORKFLOW, root-only ; celui-ci est declare DANS LE GABARIT, sur
+    // N'IMPORTE QUEL niveau (ex. Saison ET Episode dans le meme gabarit).
+    // Les deux coexistent sans conflit : un gabarit qui n'utilise pas
+    // numberField se comporte exactement comme avant.
+    //
+    // Corrige le defaut signale par l'utilisateur sur la premiere
+    // implementation (le compteur atomique de orderField) : un compteur qui
+    // ne fait qu'incrementer ne sait pas qu'un numero a ete libere par une
+    // suppression — Saison 02 supprimee, la prochaine creation recevait
+    // quand meme "03". Ici, le numero suivant est calcule en interrogeant
+    // Iconik pour la fratrie REELLE sous CE parent (recherche parent_id,
+    // pas un compteur stocke) : Saison 02 supprimee -> il ne reste que
+    // Saison 01 -> le prochain reçoit 02. Lu depuis le TITRE des collections
+    // soeurs (dernier nombre trouve), pas depuis la metadonnee : le titre
+    // est TOUJOURS ecrit a la creation, alors que la metadonnee ne l'est que
+    // si une vue est configuree (cf. risque deja signale sur metadataViewId)
+    // — une source qui peut manquer serait pire que pas de source du tout.
+    let numeroValue = null;
+    if (nodeDef.numberField) {
+      const pad = Math.max(0, Math.min(6, parseInt(nodeDef.numberPad) || 0));
+      try {
+        numeroValue = await _prochainNumeroFratrie(iconikClient, parentIconikId, pad);
+        WfdContext.setVar(ctx, nodeDef.numberField, numeroValue);
+      } catch (e) {
+        console.warn('[create_tree] echec numerotation par niveau, champ et titre sans numero :', e.message);
+      }
+    }
+
     const title = r(nodeDef.name || 'Sans nom', ctx);
 
     const col = await iconikClient.post('/API/assets/v1/collections/', {
@@ -1821,6 +1893,9 @@ async function create_tree(node, ctx, iconikClient) {
     // perdre la collection deja creee - on continue sans le champ.
     if (orderField && orderValue !== null) {
       fields[orderField] = { field_values: [{ value: orderValue }] };
+    }
+    if (nodeDef.numberField && numeroValue !== null) {
+      fields[nodeDef.numberField] = { field_values: [{ value: numeroValue }] };
     }
 
     if (viewId && Object.keys(fields).length) {
@@ -3738,71 +3813,102 @@ async function aws_s3(node, ctx, iconikClient) {
     const keyMatches = [...resText.matchAll(/<Key>([^<]+)<\/Key>/g)];
     const keys = keyMatches.map(m => m[1]);
     console.log('[DEBUG aws_s3 list_objects] prefix cherché:', objectKey, '| count:', count, '| clés trouvées:', keys.slice(0, 10));
-    const result = { status: res.status, count, prefix: objectKey, keys, rawXml: resText };
+
+    const base = 's3://' + bucket + '/';
+
+    // ── Post-action : stocker les URLs selon les mappings configurés ────────
+    // s3Mappings = [{ type, filter, variable, cardinalite?, n? }]. `cardinalite`/
+    // `n` viennent d'une essence de Manifeste résolue (pivot-to-wfd.js,
+    // manifestId -> s3Mappings, ajouté le 3 août) — absents si le nœud vient
+    // de l'ancien WFD (rétrocompat : pas de garde-fou dans ce cas, comme avant).
+    // Rétrocompat : si pas de s3Mappings du tout, utiliser les 3 types fixes.
+    const mappings = cfg.s3Mappings && cfg.s3Mappings.length
+      ? cfg.s3Mappings
+      : [
+          { type:'video',    filter:'.mp4,.mov,.ts,.mpeg,.mpg', variable: cfg.s3VarVideo || 's3_video_url' },
+          { type:'image',    filter:'_poster,.jpg,.jpeg,.png',  variable: cfg.s3VarImage || 's3_image_url' },
+          { type:'subtitle', filter:'.srt,.vtt',                variable: cfg.s3VarSrt   || 's3_srt_url'  },
+        ];
+
+    // Garde-fou de cardinalité — c'est la pièce qui manquait pour que
+    // "Deliver" vérifie vraiment ce que son Manifeste attend, pas seulement
+    // "il y a au moins un fichier quelque part". Une essence sans
+    // `cardinalite` (nœud pré-Manifeste, ou champ optionnel) n'est jamais en
+    // défaut : on ne durcit rien pour l'existant.
+    const cardinaliteErreurs = [];
+
+    mappings.forEach(function(mapping) {
+      if (!mapping.variable) return;
+      const filters = (mapping.filter || '').split(',').map(function(f){ return f.trim().toLowerCase(); }).filter(Boolean);
+      if (!filters.length) return;
+      // Chercher la clé correspondant au filtre
+      // Pour les sous-titres : préférer le fichier sans suffixe numérique (-N)
+      // car Iconik crée un .srt par fichier Original (doublons)
+      const matchedCandidates = keys.filter(function(k) {
+        const kl = k.toLowerCase();
+        return filters.some(function(f){ return kl.includes(f); });
+      });
+      const matchedKey = matchedCandidates.length > 1
+        ? (matchedCandidates.find(function(k) {
+            // Préférer le fichier sans -N avant l'extension (ex: "titre.srt" vs "titre-1.srt")
+            return !k.match(/-\d+\.[^.]+$/);
+          }) || matchedCandidates[0])
+        : matchedCandidates[0];
+      if (matchedKey) {
+        WfdContext.setVar(ctx, mapping.variable, base + matchedKey);
+        console.log('[AWS S3] mapping', mapping.type, '→', mapping.variable, '=', matchedKey);
+      }
+
+      const n = matchedCandidates.length;
+      switch (mapping.cardinalite) {
+        case 'exactement_un':
+          if (n !== 1) cardinaliteErreurs.push(mapping.type + ' : attendu exactement 1, trouvé ' + n);
+          break;
+        case 'au_moins_un':
+          if (n < 1) cardinaliteErreurs.push(mapping.type + ' : attendu au moins 1, trouvé ' + n);
+          break;
+        case 'au_plus_n': {
+          const max = mapping.n || 1;
+          if (n > max) cardinaliteErreurs.push(mapping.type + ' : attendu au plus ' + max + ', trouvé ' + n);
+          break;
+        }
+        // 'optionnel', ou absent (nœud pré-Manifeste) : jamais en défaut.
+      }
+    });
+
+    // ── URLs typées par artwork ─────────────────────────────────────────────
+    // Depuis que les artworks sont des assets dont le nom conserve le type
+    // (startrek_cover.png), le type est directement dans la clé S3 déposée —
+    // plus besoin d'intercepter les subjobs Iconik (ancien artwork_s3, qui
+    // existait parce qu'Iconik renommait les Files rattachés comme l'asset).
+    // On pose une variable s3_<type>_url par type trouvé, EN PLUS du
+    // s3_image_url générique. La boucle déposant un artwork typé par
+    // itération, chaque variable est posée une seule fois → elles s'accumulent
+    // au lieu de s'écraser, et restent lisibles après la boucle par la Table
+    // de correspondance. episodic/title sont optionnels : capturés si présents.
+    var ARTWORK_TOKENS = ['cover','poster','hero','box','season','episodic','title'];
+    var IMG_EXT = /\.(jpe?g|png)$/i;
+    ARTWORK_TOKENS.forEach(function(tok) {
+      var hit = keys.find(function(k) {
+        return IMG_EXT.test(k) && k.toLowerCase().includes(tok);
+      });
+      if (hit) {
+        WfdContext.setVar(ctx, 's3_' + tok + '_url', base + hit);
+        console.log('[AWS S3] artwork typé', tok, '→ s3_' + tok + '_url =', hit);
+      }
+    });
+
+    const result = { status: res.status, count, prefix: objectKey, keys, rawXml: resText, cardinaliteErreurs: cardinaliteErreurs.length ? cardinaliteErreurs : undefined };
     WfdContext.storeResult(ctx, resultVar, result);
     WfdContext.setVar(ctx, resultVar + '_count', String(count));
-    // Port 0 = trouvé (dossier non vide), Port 1 = non trouvé (dossier vide ou inexistant)
-    if (count > 0) {
-      const base = 's3://' + bucket + '/';
 
-      // ── Post-action : stocker les URLs selon les mappings configurés ────────
-      // s3Mappings = [{ type, filter, variable }]
-      // Rétrocompat : si pas de s3Mappings, utiliser les 3 types fixes
-      const mappings = cfg.s3Mappings && cfg.s3Mappings.length
-        ? cfg.s3Mappings
-        : [
-            { type:'video',    filter:'.mp4,.mov,.ts,.mpeg,.mpg', variable: cfg.s3VarVideo || 's3_video_url' },
-            { type:'image',    filter:'_poster,.jpg,.jpeg,.png',  variable: cfg.s3VarImage || 's3_image_url' },
-            { type:'subtitle', filter:'.srt,.vtt',                variable: cfg.s3VarSrt   || 's3_srt_url'  },
-          ];
-
-      mappings.forEach(function(mapping) {
-        if (!mapping.variable) return;
-        const filters = (mapping.filter || '').split(',').map(function(f){ return f.trim().toLowerCase(); }).filter(Boolean);
-        if (!filters.length) return;
-        // Chercher la clé correspondant au filtre
-        // Pour les sous-titres : préférer le fichier sans suffixe numérique (-N)
-        // car Iconik crée un .srt par fichier Original (doublons)
-        const matchedCandidates = keys.filter(function(k) {
-          const kl = k.toLowerCase();
-          return filters.some(function(f){ return kl.includes(f); });
-        });
-        const matchedKey = matchedCandidates.length > 1
-          ? (matchedCandidates.find(function(k) {
-              // Préférer le fichier sans -N avant l'extension (ex: "titre.srt" vs "titre-1.srt")
-              return !k.match(/-\d+\.[^.]+$/);
-            }) || matchedCandidates[0])
-          : matchedCandidates[0];
-        if (matchedKey) {
-          WfdContext.setVar(ctx, mapping.variable, base + matchedKey);
-          console.log('[AWS S3] mapping', mapping.type, '→', mapping.variable, '=', matchedKey);
-        }
-      });
-
-      // ── URLs typées par artwork ─────────────────────────────────────────────
-      // Depuis que les artworks sont des assets dont le nom conserve le type
-      // (startrek_cover.png), le type est directement dans la clé S3 déposée —
-      // plus besoin d'intercepter les subjobs Iconik (ancien artwork_s3, qui
-      // existait parce qu'Iconik renommait les Files rattachés comme l'asset).
-      // On pose une variable s3_<type>_url par type trouvé, EN PLUS du
-      // s3_image_url générique. La boucle déposant un artwork typé par
-      // itération, chaque variable est posée une seule fois → elles s'accumulent
-      // au lieu de s'écraser, et restent lisibles après la boucle par la Table
-      // de correspondance. episodic/title sont optionnels : capturés si présents.
-      var ARTWORK_TOKENS = ['cover','poster','hero','box','season','episodic','title'];
-      var IMG_EXT = /\.(jpe?g|png)$/i;
-      ARTWORK_TOKENS.forEach(function(tok) {
-        var hit = keys.find(function(k) {
-          return IMG_EXT.test(k) && k.toLowerCase().includes(tok);
-        });
-        if (hit) {
-          WfdContext.setVar(ctx, 's3_' + tok + '_url', base + hit);
-          console.log('[AWS S3] artwork typé', tok, '→ s3_' + tok + '_url =', hit);
-        }
-      });
-
-      return { port: 0 };
+    // Port 0 = trouvé et cardinalité respectée, Port 1 = dossier vide OU
+    // cardinalité non respectée (même port : les deux disent "ce que le
+    // Manifeste attendait n'est pas là", cf. discussion du 3 août).
+    if (cardinaliteErreurs.length) {
+      return { port: 1, warn: 'Cardinalité non respectée — ' + cardinaliteErreurs.join(' ; ') };
     }
+    if (count > 0) return { port: 0 };
     return { port: 1 };
   }
 

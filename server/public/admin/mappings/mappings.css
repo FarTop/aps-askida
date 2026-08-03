@@ -1,0 +1,136 @@
+/* APS — admin/mappings/mappings.css — 2026-08-03
+   Palette alignée sur les autres écrans Administration (mf-* / adm-* ailleurs). */
+
+:root {
+  --adm-bg:      #0f1011;
+  --adm-surface: #151718;
+  --adm-surface2:#1a1d1f;
+  --adm-border:  #262a2e;
+  --adm-text:    #eef0f1;
+  --adm-dim:     #a6b0b8;
+  --adm-accent:  #d6d233;
+  --adm-danger:  #e74c3c;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--adm-bg); min-height: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--adm-bg);
+  color: var(--adm-text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.aps-header .breadcrumb { color: #c7ced3; font-size: 12.5px; }
+.aps-header .breadcrumb a { color: #c7ced3; text-decoration: none; }
+.aps-header .breadcrumb a:hover { color: var(--adm-text); }
+
+.mp-main { max-width: 1200px; margin: 0 auto; padding: 24px 20px 60px; }
+.mp-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.mp-title { font-size: 20px; font-weight: 600; margin: 0; }
+.mp-intro { color: var(--adm-dim); font-size: 13px; margin: 0 0 20px; max-width: 780px; line-height: 1.5; }
+.mp-intro strong { color: var(--adm-text); font-weight: 600; }
+
+/* Boutons */
+.mp-btn {
+  background: var(--adm-surface2); color: var(--adm-text);
+  border: 1px solid var(--adm-border); border-radius: 7px;
+  padding: 7px 14px; font-size: 13px; cursor: pointer;
+}
+.mp-btn:hover { border-color: #3a4147; }
+.mp-btn-accent { background: rgba(214,210,51,.14); border-color: rgba(214,210,51,.4); color: var(--adm-accent); }
+.mp-btn-danger { background: rgba(231,76,60,.10); border-color: rgba(231,76,60,.35); color: #e88; }
+
+/* Layout : liste + éditeur */
+.mp-layout { display: grid; grid-template-columns: 260px 1fr; gap: 18px; }
+.mp-liste {
+  background: var(--adm-surface); border: 1px solid var(--adm-border);
+  border-radius: 10px; padding: 8px; align-self: start;
+  /* Reste visible pendant qu'on défile un éditeur long (29 lignes de
+     correspondance, ça arrive) — sinon il faut remonter en haut de page
+     pour choisir un autre élément de la liste. */
+  position: sticky; top: 24px;
+}
+.mp-liste-item {
+  display: block; width: 100%; text-align: left;
+  background: transparent; border: none; border-radius: 7px;
+  padding: 10px 12px; cursor: pointer; color: var(--adm-text);
+}
+.mp-liste-item:hover { background: var(--adm-surface2); }
+.mp-liste-item-actif { background: var(--adm-surface2); box-shadow: inset 2px 0 0 var(--adm-accent); }
+.mp-liste-nom { font-size: 13.5px; font-weight: 500; }
+.mp-liste-meta { font-size: 11px; color: var(--adm-dim); margin-top: 2px; }
+.mp-liste-vide { padding: 16px; text-align: center; color: var(--adm-dim); font-size: 13px; }
+
+/* Éditeur */
+.mp-editeur, .mp-vide {
+  background: var(--adm-surface); border: 1px solid var(--adm-border);
+  border-radius: 10px; padding: 20px;
+}
+.mp-vide { color: var(--adm-dim); font-size: 13.5px; display: flex; align-items: center; justify-content: center; min-height: 200px; }
+
+.mp-champ-ligne { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+.mp-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--adm-dim); }
+.mp-input {
+  background: #101213; color: var(--adm-text);
+  border: 1px solid var(--adm-border); border-radius: 7px;
+  padding: 8px 10px; font-size: 13.5px; font: inherit;
+}
+.mp-input:focus { outline: none; border-color: var(--adm-accent); }
+
+.mp-rows-tete { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 8px; }
+.mp-sous-titre { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--adm-dim); margin: 0; }
+
+/* Ligne de correspondance. Contraste voulu explicitement plus marqué que
+   surface/surface2 (trop proches du fond de page sur un empilement de 20+
+   lignes quasi identiques — repéré sur un écran réel, pas en théorie) : la
+   carte se détache du fond, et le CHAMP se détache à son tour de la carte
+   (plus clair qu'elle, pas plus sombre — l'inverse d'avant). */
+.mp-row {
+  background: #1d2226; border: 1px solid #333a40;
+  border-radius: 8px; padding: 12px; margin-bottom: 10px;
+}
+.mp-row-tete {
+  display: grid;
+  grid-template-columns: 1fr 1fr 110px 90px 1fr 28px;
+  gap: 8px; align-items: center;
+}
+.mp-row input, .mp-row select {
+  background: #262c32; color: var(--adm-text);
+  border: 1px solid #3a4147; border-radius: 6px;
+  padding: 6px 8px; font-size: 12.5px; font: inherit; width: 100%;
+}
+.mp-row input:focus, .mp-row select:focus { outline: none; border-color: var(--adm-accent); }
+.mp-row-suppr {
+  background: transparent; border: none; color: var(--adm-dim);
+  font-size: 18px; cursor: pointer; line-height: 1; padding: 0;
+}
+.mp-row-suppr:hover { color: var(--adm-danger); }
+
+/* Traduction de valeur (children), nichée sous la ligne */
+.mp-children { margin: 10px 0 0 0; padding-left: 12px; border-left: 2px solid #3a4147; }
+.mp-child {
+  display: grid; grid-template-columns: 1fr 20px 1fr 24px;
+  align-items: center; gap: 6px; margin-bottom: 6px;
+}
+.mp-child input {
+  background: #262c32; color: var(--adm-text);
+  border: 1px solid #3a4147; border-radius: 5px;
+  padding: 5px 7px; font-size: 12px; font: inherit; width: 100%;
+}
+.mp-child-fleche { color: var(--adm-dim); text-align: center; font-size: 12px; }
+.mp-child-suppr {
+  background: transparent; border: none; color: var(--adm-dim);
+  font-size: 15px; cursor: pointer; line-height: 1; padding: 0;
+}
+.mp-child-suppr:hover { color: var(--adm-danger); }
+.mp-add-child {
+  background: transparent; border: 1px dashed var(--adm-border); color: var(--adm-dim);
+  border-radius: 6px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; margin-top: 2px;
+}
+.mp-add-child:hover { color: var(--adm-text); border-color: #3a4147; }
+
+.mp-actions { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+.mp-feedback { font-size: 12.5px; color: #79d093; }
+.mp-feedback-erreur { color: #e88; }

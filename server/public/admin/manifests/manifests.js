@@ -68,6 +68,14 @@
   }
 
   function editer(m) {
+    // Recliquer l'item déjà ouvert le referme — évite d'avoir à remonter en
+    // haut de page pour "fermer" un éditeur long avant d'en choisir un autre.
+    if (courant && courant.id === m.id) {
+      courant = null;
+      rendreListe();
+      _reset();
+      return;
+    }
     // Copie de travail (ne pas muter la liste avant enregistrement).
     courant = { id: m.id, name: m.name, niveau: m.niveau || '*', essences: (m.essences || []).map(function (e) { return Object.assign({}, e); }) };
     rendreListe();

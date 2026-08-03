@@ -45,6 +45,9 @@ body {
 .mf-liste {
   background: var(--adm-surface); border: 1px solid var(--adm-border);
   border-radius: 10px; padding: 8px; align-self: start;
+  /* Reste visible pendant qu'on défile un éditeur long (beaucoup d'essences)
+     — sinon il faut remonter en haut de page pour choisir un autre manifeste. */
+  position: sticky; top: 24px;
 }
 .mf-liste-item {
   display: block; width: 100%; text-align: left;

@@ -36,6 +36,8 @@
     <div class="wb-tabs" role="tablist">
       <button class="wb-tab wb-tab-actif" data-tab="workflows" role="tab" type="button">Workflows</button>
       <button class="wb-tab" data-tab="manifests" role="tab" type="button">Manifestes</button>
+      <button class="wb-tab" data-tab="arbos" role="tab" type="button">Tree Builder</button>
+      <button class="wb-tab" data-tab="mappings" role="tab" type="button">Correspondances</button>
     </div>
 
     <section class="wb-panel" data-panel="workflows">
@@ -54,6 +56,30 @@
         <a class="wb-btn" href="../../admin/manifests/manifests.html">Gérer les manifestes</a>
       </div>
       <div id="mf-liste" class="wb-liste" aria-live="polite">
+        <p class="wb-muted">Chargement…</p>
+      </div>
+    </section>
+
+    <!-- Gabarits d'arborescence (ArboTemplate) : édités ici, dans le Builder,
+         plutôt que dans le Designer de platforms/iconik/viewer/ — même
+         principe que Workflows/Manifestes, une ressource du Builder s'édite
+         dans le Builder. -->
+    <section class="wb-panel" data-panel="arbos" hidden>
+      <div class="wb-panel-tete">
+        <span class="wb-panel-info" id="at-compte"></span>
+        <a class="wb-btn wb-btn-accent" href="arbo-canvas.html">Nouveau gabarit</a>
+      </div>
+      <div id="at-liste" class="wb-liste" aria-live="polite">
+        <p class="wb-muted">Chargement…</p>
+      </div>
+    </section>
+
+    <section class="wb-panel" data-panel="mappings" hidden>
+      <div class="wb-panel-tete">
+        <span class="wb-panel-info" id="mp-compte"></span>
+        <a class="wb-btn" href="../../admin/mappings/mappings.html">Gérer les correspondances</a>
+      </div>
+      <div id="mp-liste" class="wb-liste" aria-live="polite">
         <p class="wb-muted">Chargement…</p>
       </div>
     </section>

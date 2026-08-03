@@ -74,7 +74,8 @@ const PivotCatalogIconik = (() => {
   // Décoration des ports de façade, quand elle diffère de son Core.
   const DECOR_FACADE = {
     'iconik.search': { found: ['Résultats trouvés', '#8e44ad'], empty: ['Aucun résultat', '#e67e22'], error: ['Erreur', '#e74c3c'] },
-    'aws_s3.deliver': { out: ['Succès', '#ff9900'], miss: ['Non trouvé', '#e67e22'], error: ['Erreur', '#e74c3c'] }
+    'aws_s3.deliver': { out: ['Succès', '#ff9900'], miss: ['Non trouvé', '#e67e22'], error: ['Erreur', '#e74c3c'] },
+    'iconik.fetch': { out: ['Trouvé', '#27ae60'], not_found: ['Non trouvé', '#e74c3c'] }
   };
 
   const COULEUR_DECISION = ['#2ecc71', '#e74c3c', '#3498db', '#f39c12', '#9b59b6', '#1abc9c'];
@@ -92,9 +93,18 @@ const PivotCatalogIconik = (() => {
       }
     },
 
+    // Pas de httpMode : fetch() a son propre handler nommé (dispatché sur
+    // node.family, wfd-engine-executor.js:299) — handleHttpRequest n'est
+    // jamais appelé pour cette famille, contrairement à ce qu'un httpMode
+    // suggérerait. Port 1 nommé `not_found`, pas `error` : le handler ne
+    // retourne JAMAIS un port dédié aux erreurs — les vraies exceptions sont
+    // levées (throw) et tranchées par cfg.onError au niveau de l'exécuteur
+    // (stop | continue_log→port 0 | continue→port 0) ; le seul routage
+    // explicite vers le port 1 est un cas "non trouvé" (collection/asset
+    // introuvable), jamais une erreur HTTP.
     'iconik.fetch': {
-      core: 'http_request', family: 'fetch', httpMode: 'simple',
-      ports: ['out', 'error']
+      core: 'http_request', family: 'fetch',
+      ports: ['out', 'not_found']
     },
 
     'iconik.search': {
@@ -148,11 +158,17 @@ const PivotCatalogIconik = (() => {
       ports: ['out', 'err']
     },
 
+    // Pas de httpMode : id_generator() a son propre handler nommé (comme
+    // fetch), jamais handleHttpRequest. Un seul port : id_generator() ne lève
+    // jamais d'exception et ne retourne { port: 1 } que via `apiActions`, un
+    // mécanisme mort (repose sur `conn.actions`, absent du modèle Connexion —
+    // cf. config-schema.js) volontairement absent du panneau ; tant qu'il
+    // n'est pas exposé, ce port ne peut jamais être atteint.
     'aps.registry': {
-      core: 'http_request', family: 'id_generator', httpMode: 'simple',
+      core: 'http_request', family: 'id_generator',
       // Un service s'invoque comme une façade : « façade » veut dire paquet de
       // plateforme, et APS est une plateforme parmi d'autres, pas seulement Iconik.
-      ports: ['out', 'error'],
+      ports: ['out'],
       isService: true
     }
   };
@@ -203,9 +219,12 @@ const PivotCatalogIconik = (() => {
     if (etape.facade && FACADES[etape.facade]) return FACADES[etape.facade].family;
     // Une minuterie est une famille WFD distincte (`timer`), pas un `trigger` :
     // c'est un trigger Core pur (sans façade) reconnu à son cron / preset schedule.
+    // `p.cron` corrigé en `p.timerMode`/`p.cronExpr` — même faute que le
+    // schéma du panneau (config-schema.js) : le vrai champ écrit par le
+    // panneau est `cronExpr` (ce que scheduleTimer() lit), jamais `cron`.
     if (etape.core === 'trigger') {
       const p = etape.params || {};
-      if (etape.preset === 'schedule' || p.cron) return 'timer';
+      if (etape.preset === 'schedule' || p.timerMode || p.cronExpr) return 'timer';
     }
     return FAMILLE_MOTEUR[etape.core] || etape.core;
   }

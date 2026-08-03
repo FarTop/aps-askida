@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>APS — Workflow Builder · Tree Builder</title>
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
+  <link rel="stylesheet" href="builder-tokens.css" />
+  <link rel="stylesheet" href="workflow.css" />
+  <link rel="stylesheet" href="arbo-canvas.css" />
+</head>
+
+<body>
+
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="workflow.html">Workflow Builder</a> › Tree Builder</span>
+    </div>
+    <div class="aps-header-center">
+      <div data-role="org-context"></div>
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar">
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="at-main">
+
+    <div class="at-tete">
+      <div class="at-champs">
+        <input class="at-input at-nom" id="at-nom" type="text" placeholder="Nom du gabarit (ex. Arborescence Saison)" />
+        <input class="at-input at-desc" id="at-desc" type="text" placeholder="Description (optionnel)" />
+      </div>
+      <div class="at-actions">
+        <span class="at-etat" id="at-etat"></span>
+        <a class="wb-btn" href="workflow.html">Annuler</a>
+        <button class="wb-btn wb-btn-accent" id="at-save" type="button">Enregistrer</button>
+      </div>
+    </div>
+
+    <div class="at-aide">
+      Chaque niveau devient une collection Iconik à la création. « Génère un ID »
+      attribue un identifiant unique à ce niveau ; le niveau créé porte alors le
+      Parent ID du <strong>dernier ancêtre qui génère aussi un ID</strong> — pas
+      forcément son parent direct. C'est la règle du moteur aujourd'hui.<br />
+      « Numérote ce niveau » attribue un numéro séquentiel — utilisable dans le
+      titre via <strong>{NomDuChamp}</strong> (ex. « Saison {NumeroSaison} »). Le
+      numéro suivant est recalculé à chaque création en regardant les collections
+      déjà présentes sous le même parent (pas un compteur qui ne fait qu'avancer) :
+      si « Saison 02 » a été supprimée et qu'il ne reste que « Saison 01 », la
+      prochaine création redonnera 02, pas 03.
+    </div>
+
+    <div id="at-arbre" class="at-arbre"></div>
+
+    <!-- Suggestions, pas une contrainte : un autre client peut avoir un
+         vocabulaire de TypeCollection différent (cf. règle 'metadonnee' du
+         panneau Builder — champ texte libre, jamais un choix fermé). -->
+    <datalist id="at-types-suggestions">
+      <option value="Série"></option>
+      <option value="Saison"></option>
+      <option value="Episode"></option>
+      <option value="Unitaire"></option>
+    </datalist>
+
+  </main>
+
+  <script src="../../_shared/js/org-context-selector.js"></script>
+  <script src="arbo-canvas.js"></script>
+</body>
+</html>
