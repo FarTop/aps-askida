@@ -59,6 +59,20 @@ const PivotToWfd = (() => {
 
   // La config WFD reçoit les params du pivot, l'intention comme description, et
   // les références de ressources dépliées en identifiants que le moteur lit.
+  //
+  // Résolution de ressource (mappingId -> lkRows) : lookup() (moteur) ne
+  // connaît que `lkRows`, jamais `mappingId` — c'est la seule chose qu'il sait
+  // lire. Le pivot ne stocke que la référence (`mappingId`, cf. critère 2 —
+  // ce qui est déductible n'est pas dupliqué) ; le convertisseur la déplie ici
+  // en tableau `lkRows`, une fois, au moment de produire le format d'échange
+  // (cf. en-tête du fichier : « format canonique » vs « format d'échange »).
+  // La donnée résolue est fournie par l'appelant via `options.resolutions`
+  // (pré-chargée depuis /api/mappings/:id côté navigateur, ou injectée
+  // directement côté Node pour un test) — convertir() reste synchrone, aucun
+  // appel réseau ne se fait ici. Un mappingId sans résolution fournie laisse
+  // `lkRows` absent plutôt que de faire planter la conversion : mieux vaut un
+  // Lookup qui ne traduit rien (constatable en observant le run) qu'une
+  // conversion qui échoue pour toute la chaîne de nœuds.
   function _config(etape) {
     const cfg = Object.assign({}, etape.params || {});
     if (etape.intent) cfg.description = etape.intent;
@@ -71,6 +85,37 @@ const PivotToWfd = (() => {
       const f = CAT.FACADES[etape.facade];
       if (f.httpMode) cfg.httpMode = f.httpMode;
     }
+    if (etape.core === 'lookup' && cfg.mappingId && _resolutions.mappings) {
+      const rows = _resolutions.mappings[cfg.mappingId];
+      if (rows) cfg.lkRows = rows;
+    }
+    // manifestId -> s3Mappings, même principe : aws_s3() (moteur) ne connaît
+    // que `s3Mappings` (liste de { type, filter, variable }), jamais
+    // `manifestId`. Un manifeste a EXACTEMENT cette forme au niveau de ses
+    // essences (`role`/`reconnu_par`/`sortie`) — cf. discussion du 3 août
+    // sur aws_s3.deliver. `reconnu_par` est déjà un tableau (admin/manifests)
+    // là où `filter` est une chaîne jointe par virgule (forme lue par
+    // aws_s3()) : la jointure se fait ici, une fois, pas dans l'admin.
+    if (etape.core === 'deliver' && cfg.manifestId && _resolutions.manifests) {
+      const manifeste = _resolutions.manifests[cfg.manifestId];
+      const essences = manifeste && manifeste.essences;
+      if (essences && essences.length) {
+        // `cardinalite`/`n` transportés tels quels : c'est le garde-fou que
+        // aws_s3() (moteur) applique désormais (ajouté le 3 août) — sans ces
+        // deux champs, une essence resterait vérifiée en présence seule,
+        // jamais en nombre.
+        cfg.s3Mappings = essences.map(function (e) {
+          const m = {
+            type: e.role || '',
+            filter: Array.isArray(e.reconnu_par) ? e.reconnu_par.join(',') : (e.reconnu_par || ''),
+            variable: e.sortie || '',
+            cardinalite: e.cardinalite || 'optionnel'
+          };
+          if (e.cardinalite === 'au_plus_n') m.n = e.n || 1;
+          return m;
+        });
+      }
+    }
     return cfg;
   }
 
@@ -79,6 +124,10 @@ const PivotToWfd = (() => {
   // pour une seule arête pivot.
 
   let _seq = 0;
+  // Ressources pré-résolues pour cette conversion (cf. _config ci-dessus),
+  // remises à `{}` à chaque appel de convertir() — jamais de fuite d'une
+  // conversion à l'autre.
+  let _resolutions = {};
   function _connexions(arete, etapesParId) {
     const source = etapesParId[arete.from.step];
     const cible  = etapesParId[arete.to.step];
@@ -156,6 +205,7 @@ const PivotToWfd = (() => {
 
   function convertir(doc, options) {
     const opt = options || {};
+    _resolutions = opt.resolutions || {};
 
     // On ne convertit qu'un pivot valide au sens du catalogue : un port faux ou
     // une façade inconnue produirait un WFD que le moteur refuserait.

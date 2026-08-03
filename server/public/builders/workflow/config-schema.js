@@ -183,6 +183,30 @@ const ConfigSchema = (() => {
 
     // Trigger : ce qui démarre le flux. Le type de déclencheur pilote un champ
     // (planification pour 'schedule'). varName produit est déductible du type.
+    //
+    // Planification (`schedule`) réécrite après lecture de l'unique occurrence
+    // réelle (famille WFD `timer`) et du planificateur (wfd-engine-trigger.js,
+    // scheduleTimer()) : BUG RÉEL, même famille que `on`->`field` sur Decision
+    // — l'ancien champ s'appelait `cron`, mais le planificateur lit
+    // exclusivement `cfg.cronExpr` (ligne 310). Un cron construit dans le
+    // Builder aurait toujours été ignoré, silencieusement remplacé par le
+    // défaut en dur du moteur (`0 9 * * 1-5`). Corrigé ici ET dans
+    // pivot-catalog-iconik.js (familleWfd() testait `p.cron` pour reconnaître
+    // une minuterie — même faute, corrigée en `p.cronExpr`).
+    //
+    // `timerMode` a deux autres valeurs réelles et câblées (`interval`,
+    // `oneshot`) — non prouvées par l'occurrence réelle (qui est en `cron`)
+    // mais lues telles quelles par scheduleTimer(), pas des chemins morts.
+    //
+    // Omis, vestiges de l'ancien widget de construction de cron de WFD :
+    // `cronFreq`/`cronDays`/`cronHour`/`cronMinute`/`cronMday` (présents sur
+    // l'occurrence réelle, mais AUCUN n'est lu par scheduleTimer() — seul le
+    // `cronExpr` déjà compilé compte ; d'ailleurs l'occurrence réelle le
+    // prouve en creux : cronDays vaut [1,2,3,4,5] mais cronExpr est
+    // "00 02 * * *", jour-de-semaine `*` — l'ancien widget avait calculé les
+    // jours sans jamais les écrire dans l'expression finale). `intervalStart`
+    // pareil : présent, jamais lu (setInterval n'a pas de notion d'heure de
+    // départ).
     if (core === 'trigger') {
       s.push({ nature: 'choix', chemin: 'kind', label: 'Trigger on', reagit: true, options: [
         { valeur: 'asset', libelle: 'An asset' },
@@ -190,8 +214,33 @@ const ConfigSchema = (() => {
         { valeur: 'segment', libelle: 'A segment' },
         { valeur: 'schedule', libelle: 'A schedule' }
       ] });
-      s.push({ nature: 'texte', chemin: 'cron', label: 'Schedule (cron)', placeholder: '0 6 * * *',
-               visibleSi: function (m) { return m.lire('kind') === 'schedule'; } });
+      s.push({ nature: 'choix', chemin: 'timerMode', label: 'Schedule type', reagit: true,
+               visibleSi: function (m) { return m.lire('kind') === 'schedule'; },
+               aide: 'Cron: recurring on a fine-grained pattern (needs a cron expression). Fixed interval: simplest recurring case ("every N minutes/hours/days"). One-shot: runs once at a specific date and time, then never again.',
+               options: [
+                 { valeur: 'cron', libelle: 'Cron expression' },
+                 { valeur: 'interval', libelle: 'Fixed interval' },
+                 { valeur: 'oneshot', libelle: 'One-shot (single future date)' }
+               ] });
+      s.push({ nature: 'texte', chemin: 'cronExpr', label: 'Cron expression', placeholder: '0 6 * * *',
+               aide: '5 fields: minute hour day-of-month month day-of-week (0=Sunday). * means "every". Examples — every day at 2am: "0 2 * * *" · weekdays at 9am: "0 9 * * 1-5" · every hour: "0 * * * *" · every 15 minutes: "*/15 * * * *" · the 1st of each month at midnight: "0 0 1 * *".',
+               visibleSi: function (m) { return m.lire('kind') === 'schedule' && (m.lire('timerMode') || 'cron') === 'cron'; } });
+      s.push({ nature: 'texte', chemin: 'timezone', label: 'Timezone', placeholder: 'Europe/Paris',
+               aide: 'IANA timezone name. Leave empty to use the server\'s local time instead of a fixed timezone.',
+               visibleSi: function (m) { return m.lire('kind') === 'schedule' && (m.lire('timerMode') || 'cron') === 'cron'; } });
+      s.push({ nature: 'nombre', chemin: 'intervalVal', label: 'Every', min: 1, placeholder: '30',
+               visibleSi: function (m) { return m.lire('kind') === 'schedule' && m.lire('timerMode') === 'interval'; } });
+      s.push({ nature: 'choix', chemin: 'intervalUnit', label: 'Unit',
+               visibleSi: function (m) { return m.lire('kind') === 'schedule' && m.lire('timerMode') === 'interval'; },
+               aide: 'The flow runs on a fixed clock starting when the server loads it — there is no time-of-day setting for this mode (use Cron if you need one, e.g. "every day at 6am").',
+               options: [
+                 { valeur: 'minutes', libelle: 'Minutes' },
+                 { valeur: 'hours', libelle: 'Hours' },
+                 { valeur: 'days', libelle: 'Days' }
+               ] });
+      s.push({ nature: 'texte', chemin: 'oneshotDatetime', label: 'Run at (date-time)', placeholder: '2026-08-15T10:00',
+               aide: 'Any date-time your browser understands, e.g. "2026-08-15T10:00". Must be in the future — a past date is silently ignored (nothing runs).',
+               visibleSi: function (m) { return m.lire('kind') === 'schedule' && m.lire('timerMode') === 'oneshot'; } });
     }
 
     // Set variable : une LISTE d'affectations (key = value). Repris des
@@ -207,12 +256,53 @@ const ConfigSchema = (() => {
       });
     }
 
-    // Lookup : recherche une correspondance et stocke le résultat. Champs réels
-    // WFD : la source, la clé recherchée, la variable de sortie (lkOutputVar).
+    // Lookup : traduit un objet (typiquement des métadonnées Iconik, en
+    // français) vers un autre vocabulaire (typiquement un payload partenaire,
+    // en anglais) selon une table clé→chemin. Réécrit en profondeur après
+    // lecture de l'unique occurrence réelle et du handler (wfd-engine-handlers.js,
+    // lookup()) : l'ancien schéma (source/key/lkOutputVar) ne correspondait à
+    // RIEN de ce que le handler lit — ni `source` ni `key` n'existent.
+    //
+    // Le MODE (objet à traduire champ par champ, vs. valeur simple à faire
+    // correspondre) n'est PAS un choix de configuration : le handler l'infère
+    // du TYPE runtime de la valeur résolue (`typeof inputRaw === 'object'`).
+    // Rien à exposer ici — `lkFallback` (ci-dessous) ne compte que si l'entrée
+    // n'est PAS un objet.
+    //
+    // COMBLÉ le 3 août : `lkRows` est maintenant la ressource d'org `Mapping`
+    // (server/routes/mapping.js), au même titre que le Manifeste ou le
+    // gabarit d'arborescence — l'argument déjà posé dans builder-etat.md tient
+    // toujours (elle sert DEUX étapes : Lookup la lit, HTTP Sequence s'appuie
+    // sur ce qu'elle produit). Le nœud ne stocke que `mappingId` ; la
+    // résolution en `lkRows` se fait au moment de la conversion pivot → WFD
+    // (pivot-to-wfd.js, `_config()`, via `options.resolutions.mappings`),
+    // jamais recopiée ici — même principe que le format d'échange projeté et
+    // stable décrit dans l'en-tête de pivot-to-wfd.js.
+    //
+    // PAS ENCORE FAIT (chantier séparé, plus gros que ce fichier) : aucun
+    // écran ne permet de CRÉER/ÉDITER les rows d'un Mapping — admin/ressources
+    // (server/public/admin/ressources/) n'en affiche aujourd'hui que le nom et
+    // le décompte. Tant que cet écran n'existe pas, `mappingId` référence une
+    // ressource qu'on ne peut peupler que par API directe. La forme attendue
+    // d'une row par lookup() (wfd-engine-handlers.js), pour ne pas avoir à la
+    // redériver : `{ key, value, type?, _format?, fallback?, children?:
+    // [{key,value}] }` — key = champ source, value = chemin destination,
+    // type ∈ string|list|integer|float|boolean, _format ∈ ''|slug, children =
+    // table de traduction de valeur (ex. "Drame" -> "av_genre_drama").
+    //
+    // `onError` omis : comme `checker`/`aps.registry`, lookup() ne lève jamais
+    // d'exception. `lkTechMap`/`lkTechVar`/`lkApiEndpoint` omis : présents sur
+    // l'occurrence réelle mais introuvables dans TOUT le moteur (grep sur
+    // wfd-engine-handlers.js et les fichiers voisins) — vestiges morts, pas
+    // juste inutilisés par ce handler. `lkActiveTab`/`lkApiFolded`/
+    // `lkSourceFolded` omis : état de pliage de l'ancien panneau WFD, déjà
+    // catalogué comme fuite dans builder-etat.md ("Fuites à ne pas
+    // reproduire").
     if (core === 'lookup') {
-      s.push({ nature: 'variable', chemin: 'source', label: 'Lookup in', placeholder: '{table}' });
-      s.push({ nature: 'variable', chemin: 'key', label: 'Match key', placeholder: '{value}' });
-      s.push({ nature: 'variable', chemin: 'lkOutputVar', label: 'Store match as', placeholder: '{match}' });
+      s.push({ nature: 'variable', chemin: 'lkInputVar', label: 'Input', placeholder: '{collectionData}' });
+      s.push({ nature: 'mapping', chemin: 'mappingId', label: 'Mapping table' });
+      s.push({ nature: 'valeurTypee', chemin: 'lkFallback', label: 'Fallback (simple-value mode only — input not an object)', placeholder: '' });
+      s.push({ nature: 'variable', chemin: 'lkOutputVar', label: 'Store as', placeholder: '{vodFactoryPayload}' });
     }
 
     // Transform : applique une transformation à une entrée. Mode pilote le reste
@@ -236,17 +326,49 @@ const ConfigSchema = (() => {
       });
     }
 
-    // Verify : vérifie une condition/présence avant de continuer. Réutilise
-    // l'opérateur (comme Decision) mais sur une seule condition.
+    // Verify (→ famille WFD `checker`, cf. pivot-catalog-iconik.js familleWfd)
+    // : sonde une LISTE d'endpoints, chacun avec son propre chemin de réponse
+    // et opérateur attendu. Réécrit en profondeur après lecture du handler
+    // réel (wfd-engine-handlers.js, checker()) : le schéma d'origine décrivait
+    // une condition UNIQUE (on/op/value) qui ne correspond à RIEN de ce que
+    // checker() lit — le handler ne consulte QUE `cfg.checks` ; avec l'ancien
+    // schéma, `checks` restait vide et pivot-to-wfd.js (qui copie `params` tel
+    // quel dans `config`, sans transformation par famille) produisait un nœud
+    // qui retourne toujours { port: 0 } (succès silencieux), quoi que
+    // l'utilisateur configure — bug de la même famille que `on`->`field` sur
+    // Decision, plus sournois : ici rien ne plante, la vérification ne
+    // vérifie juste jamais rien. Vocabulaire d'opérateurs = exactement les 5
+    // gérés par le switch du handler (equals/not_equals/not_empty/contains/
+    // starts_with) — pas les 20 de Decision. `connexionId` optionnel (retombe
+    // sur la plateforme du flow si absent, comme `wait`). `onError` et
+    // `description` omis : présents sur les 5 occurrences réelles (toujours
+    // `continue_log`) mais AUCUN des deux n'est lu par checker() — le bloc
+    // catch retourne { port: 2 } sans consulter cfg.onError, même règle que
+    // op/method sur update_meta.
     if (core === 'verify') {
-      s.push({ nature: 'variable', chemin: 'on', label: 'Verify', placeholder: '{value}' });
-      s.push({ nature: 'operateur', chemin: 'op', label: 'Condition', options: [
-        { valeur: 'present', libelle: 'is present' },
-        { valeur: 'equals', libelle: 'equals' },
-        { valeur: 'matches', libelle: 'matches' }
-      ] });
-      s.push({ nature: 'texte', chemin: 'value', label: 'Expected',
-               visibleSi: function (m) { return ['equals', 'matches'].indexOf(m.lire('op')) >= 0; } });
+      s.push({ nature: 'connexion', chemin: 'connexionId', label: 'Connection (optional — falls back to the flow\'s platform)' });
+      s.push({
+        nature: 'liste', chemin: 'checks', label: 'Checks', ajoutLabel: 'Add check',
+        itemDefaut: { method: 'GET', endpoint: '', path: '', op: 'not_empty', value: '', label: '' },
+        itemSchema: [
+          { nature: 'texte', chemin: 'label', label: 'Label', placeholder: 'e.g. Vidéo' },
+          { nature: 'choix', chemin: 'method', label: 'Method', options: [
+            { valeur: 'GET', libelle: 'GET' },
+            { valeur: 'POST', libelle: 'POST' }
+          ] },
+          { nature: 'texte', chemin: 'endpoint', label: 'Endpoint', placeholder: '/api/contents/{external_id}' },
+          { nature: 'texte', chemin: 'path', label: 'Path in response', placeholder: 'results[0].url' },
+          { nature: 'operateur', chemin: 'op', label: 'Operator', options: [
+            { valeur: 'equals', libelle: 'equals' },
+            { valeur: 'not_equals', libelle: 'not equals' },
+            { valeur: 'not_empty', libelle: 'is not empty' },
+            { valeur: 'contains', libelle: 'contains' },
+            { valeur: 'starts_with', libelle: 'starts with' }
+          ] },
+          { nature: 'texte', chemin: 'value', label: 'Expected value',
+            visibleSi: function (m) { return m.lire('op') !== 'not_empty'; } }
+        ]
+      });
     }
 
     // Wait : sonde un endpoint jusqu'à ce qu'un chemin de la réponse atteigne
@@ -283,15 +405,101 @@ const ConfigSchema = (() => {
       ] });
     }
 
-    // HTTP Sequence : une SUITE de requêtes. Liste d'étapes (méthode + URL).
+    // HTTP Sequence : une SUITE de requêtes, chacune en mode `simple` (une
+    // requête, corps depuis un template ou une variable) ou `foreach` (une
+    // requête PAR VALEUR d'une variable multi-valeur, ex. un réalisateur par
+    // film). Réécrit en profondeur après lecture de l'unique occurrence
+    // réelle (7 étapes : 5 foreach + 2 simple) et des handlers réels —
+    // chaque étape est déléguée par handleHttpSequence() à handleHttpRequest()
+    // (wfd-engine-handlers.js:3076/2287), qui elle-même délègue au mode au
+    // format `httpMode` : `_handleHttpForeach` (2820) pour foreach. L'ancien
+    // schéma (`request.method`/`request.url`/`storeAs`) ne correspondait à
+    // AUCUN nom réel.
+    //
+    // `onError` de SÉQUENCE (top-level, présent sur l'occurrence réelle)
+    // omis : handleHttpSequence() ne lève jamais d'exception elle-même (elle
+    // boucle sur ses étapes et retourne { port } explicitement) — ce champ
+    // n'atteint donc jamais le catch générique de l'exécuteur, même
+    // constat que checker/aps.registry/lookup. Le VRAI contrôle de flux vient
+    // du `onError` DE CHAQUE ÉTAPE (step.onError), lu directement par
+    // handleHttpSequence pour décider si un échec arrête la séquence.
+    //
+    // Seuls `simple`/`foreach` sont détaillés : ce sont les deux modes des 7
+    // étapes réelles. handleHttpRequest supporte aussi `action`/`verify`
+    // (mêmes mécanismes que les façades iconik.action/checker) — pas encore
+    // branchés ici, comme les 40 actionType non détaillés d'iconik.action.
     if (core === 'http_sequence') {
       s.push({ nature: 'connexion', chemin: 'connexionId', label: 'Connection' });
       s.push({
         nature: 'liste', chemin: 'steps', label: 'Requests', ajoutLabel: 'Add request',
-        itemDefaut: { request: { method: 'GET', url: '' } },
+        itemDefaut: { name: '', httpMode: 'simple', method: 'POST', endpoint: '', onError: 'stop' },
         itemSchema: [
-          { nature: 'endpoint', chemin: 'request', label: 'Request' },
-          { nature: 'variable', chemin: 'storeAs', label: 'Store as', placeholder: '{step1}' }
+          { nature: 'texte', chemin: 'name', label: 'Step name', placeholder: 'e.g. Persons director' },
+          { nature: 'choix', chemin: 'httpMode', label: 'Mode', reagit: true, options: [
+            { valeur: 'simple', libelle: 'Single request' },
+            { valeur: 'foreach', libelle: 'One request per value' }
+          ] },
+          { nature: 'connexion', chemin: 'connexionId', label: 'Connection override (optional — else the sequence\'s)' },
+          { nature: 'choix', chemin: 'method', label: 'Method', options: [
+            { valeur: 'GET', libelle: 'GET' }, { valeur: 'POST', libelle: 'POST' },
+            { valeur: 'PUT', libelle: 'PUT' }, { valeur: 'DELETE', libelle: 'DELETE' }
+          ] },
+          { nature: 'texte', chemin: 'endpoint', label: 'Endpoint', placeholder: '/api/contents/{external_id}/videos' },
+          { nature: 'valeurTypee', chemin: 'skipIfEmpty', label: 'Skip this step unless set (optional)', placeholder: '{s3_video_url}' },
+
+          // Simple — une requête, corps depuis un template ou une variable.
+          { nature: 'texte', chemin: 'bodyTemplate', label: 'Body template (JSON, optional)', placeholder: '{"external_id":"{external_id}", "url":"{s3_video_url}"}',
+            visibleSi: function (m) { return m.lire('httpMode') === 'simple'; } },
+          { nature: 'variable', chemin: 'sourceVar', label: 'Body from variable (used if no template above)', placeholder: '{vodFactoryPayload}',
+            visibleSi: function (m) { return m.lire('httpMode') === 'simple'; } },
+          { nature: 'booleen', chemin: 'upsert', label: 'Retry as PUT on 422 (upsert)',
+            visibleSi: function (m) { return m.lire('httpMode') === 'simple'; } },
+          { nature: 'texte', chemin: 'ignoreCodes', label: 'HTTP codes to ignore (comma-separated)', placeholder: '409,422',
+            visibleSi: function (m) { return m.lire('httpMode') === 'simple'; } },
+          { nature: 'variable', chemin: 'resultVar', label: 'Store as', placeholder: '{vodFactoryPayload}',
+            visibleSi: function (m) { return m.lire('httpMode') === 'simple'; } },
+
+          // Foreach — une requête par valeur d'une variable multi-valeur (liste,
+          // ou tag cloud Iconik sérialisé en JSON). `feFields` construit le
+          // corps déclarativement (pas de JSON à écrire) : chaque ligne dit
+          // quelle partie de la valeur courante alimente quel champ.
+          { nature: 'variable', chemin: 'feSourceVar', label: 'Iterate over', placeholder: '{Realisateur}',
+            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
+          { nature: 'texte', chemin: 'feLocalName', label: 'Item variable name', placeholder: 'nom',
+            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
+          { nature: 'texte', chemin: 'feJob', label: 'Role tag (optional — available as "job" below)', placeholder: 'director',
+            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
+          { nature: 'liste', chemin: 'feFields', label: 'Body fields', ajoutLabel: 'Add field',
+            itemDefaut: { key: '', src: 'value' },
+            itemSchema: [
+              { nature: 'texte', chemin: 'key', label: 'Field', placeholder: 'external_id' },
+              { nature: 'choix', chemin: 'src', label: 'Value', options: [
+                { valeur: 'value', libelle: 'The item itself' },
+                { valeur: 'slug', libelle: 'Slug of the item' },
+                { valeur: 'index', libelle: 'Index (0, 1, 2…)' },
+                { valeur: 'job', libelle: 'Role tag (set above)' }
+              ] }
+            ],
+            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
+          { nature: 'texte', chemin: 'feBody', label: 'Raw body template (legacy — ignored if fields above are set)', placeholder: '{"name":"{{nom}}"}',
+            visibleSi: function (m) { return m.lire('httpMode') === 'foreach' && !(m.lire('feFields') || []).length; } },
+          { nature: 'texte', chemin: 'feCollectField', label: 'Field to collect from each response', placeholder: 'external_id',
+            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
+          { nature: 'texte', chemin: 'feIgnoreCodes', label: 'HTTP codes to ignore (comma-separated)', placeholder: '409,422',
+            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
+          { nature: 'choix', chemin: 'feOnError', label: 'On value error', options: [
+            { valeur: 'continue', libelle: 'Skip value, continue' },
+            { valeur: 'stop', libelle: 'Stop this step' }
+          ], visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
+          { nature: 'booleen', chemin: 'feAppend', label: 'Append to existing results (don\'t overwrite)',
+            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
+          { nature: 'variable', chemin: 'feResultVar', label: 'Store as', placeholder: '{personsResult}',
+            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
+
+          { nature: 'choix', chemin: 'onError', label: 'On step error (sequence-level)', options: [
+            { valeur: 'stop', libelle: 'Stop the sequence' },
+            { valeur: 'continue', libelle: 'Continue to next step' }
+          ] }
         ]
       });
     }
@@ -308,10 +516,13 @@ const ConfigSchema = (() => {
     // Deliver : livre selon un MANIFESTE (ce qui est livré) vers une cible
     // (connexion sortante). Le manifeste est une ressource d'org réelle ; le
     // Deliver déclenche la livraison et vérifie la cardinalité (garde-fou).
+    // En pratique toujours rendu via une façade dédiée (aws_s3.deliver) qui
+    // connaît le vrai vocabulaire de sa plateforme — ce Core nu ne sert que
+    // de repli si aucune façade n'est déclarée.
     if (core === 'deliver') {
       s.push({ nature: 'connexion', chemin: 'connexionId', label: 'Deliver to', filtreDirection: 'outbound' });
       s.push({ nature: 'manifeste', chemin: 'manifestId', label: 'Manifest' });
-      s.push({ nature: 'texte', chemin: 'prefixe', label: 'Prefix (S3 folder)', placeholder: 'e.g. amazon/episode-42' });
+      s.push({ nature: 'texte', chemin: 'objectKey', label: 'Prefix (S3 folder)', placeholder: 'e.g. amazon/episode-42' });
     }
 
     // HTTP Request : consomme Administration (connexion réelle) + endpoint.
@@ -483,12 +694,116 @@ const ConfigSchema = (() => {
           ] }
         ];
 
-      // Fetch : récupère un objet. Connexion + cible + variable.
+      // Fetch : récupère un objet Iconik — asset, collection, ses métadonnées,
+      // ou une saved search. Réécrit en profondeur après lecture du handler
+      // réel (wfd-engine-handlers.js, fonction fetch()) : l'ancien schéma
+      // (connexionId/target/fetchVar) ne correspondait à AUCUN des noms que
+      // le handler lit. Les 5 occurrences réelles (VOD Factory, toutes en
+      // sous-type `metadata`) utilisent fetchSubType/fetchSource/fetchTarget/
+      // fetchValue/fetchMdViewId. Pas de connexionId, comme iconik.search :
+      // cette façade s'appuie sur la connexion Iconik du flow (iconikClient),
+      // jamais une connexion choisie.
+      //
+      // Doublons de nom réels retenus une seule fois (le premier lu par le
+      // handler, via `a || b || c`) : `fetchVar` (pas `storeAs`), `fetchMdViewId`
+      // (pas `metadataViewId`/`fetchMdView`). `requiredFields`/`withCollections`/
+      // `viewFields`/`iconikEnv` : présents sur les 5 occurrences réelles mais
+      // AUCUN n'est lu par fetch() (`withCollections` n'existe que dans
+      // wfd-node-fetch.js, fichier mort — rien ne le `require`) — omis.
+      //
+      // `onError` EST lu ici (contrairement à `checker`) : fetch() lance de
+      // vraies exceptions (asset non résolu, contexte manquant…) que
+      // l'exécuteur générique attrape et route selon cfg.onError
+      // (wfd-engine-executor.js:331) — pas la même situation que checker(),
+      // qui avale ses propres erreurs avant que l'exécuteur les voie.
       case 'iconik.fetch':
         return [
-          { nature: 'connexion', chemin: 'connexionId', label: 'Connection' },
-          { nature: 'variable', chemin: 'target', label: 'Fetch', placeholder: '{collection.id}' },
-          { nature: 'variable', chemin: 'fetchVar', label: 'Store as', placeholder: '{fetched}' }
+          { nature: 'choix', chemin: 'fetchSubType', label: 'Fetch', reagit: true, options: [
+            { valeur: 'metadata', libelle: 'Metadata (of an asset or collection)' },
+            { valeur: 'asset', libelle: 'Asset' },
+            { valeur: 'collection', libelle: 'Collection' },
+            { valeur: 'savedsearch', libelle: 'Saved Search' }
+          ] },
+
+          // Saved Search — seul sous-type avec sa propre variable de sortie
+          // (savedSearchVar) : le handler ne lit pas fetchVar/storeAs ici.
+          { nature: 'texte', chemin: 'savedSearchId', label: 'Saved Search ID',
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'savedsearch'; } },
+          { nature: 'texte', chemin: 'savedSearchName', label: 'Saved Search name (fallback if ID not found here)',
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'savedsearch'; } },
+          { nature: 'nombre', chemin: 'savedSearchLimit', label: 'Limit', min: 1, placeholder: '100',
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'savedsearch'; } },
+          { nature: 'variable', chemin: 'savedSearchVar', label: 'Store as', placeholder: '{search_results}',
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'savedsearch'; } },
+
+          // Collection
+          { nature: 'choix', chemin: 'fetchSource', label: 'Which collection', reagit: true,
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'collection'; },
+            options: [
+              { valeur: 'parent', libelle: 'Parent of the triggering object' },
+              { valeur: 'id', libelle: 'By id' },
+              { valeur: 'path', libelle: 'By path (title chain)' }
+            ] },
+          { nature: 'valeurTypee', chemin: 'fetchValue', label: 'Id or path', placeholder: '{collection.id} or Univers/Serie',
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'collection' && ['id', 'path'].indexOf(m.lire('fetchSource')) >= 0; } },
+
+          // Metadata — le seul sous-type prouvé sur les 5 occurrences réelles.
+          // `fetchTarget` ne compte QUE si un id explicite est fourni ci-dessous
+          // (sinon le type est déduit du contexte déclencheur) — sur les 5
+          // occurrences réelles, fetchValue est toujours vide : fetchTarget y
+          // est donc écrit mais sans effet, cas identique aux réglages morts
+          // déjà trouvés ailleurs (op/method d'update_meta…), sauf qu'ici le
+          // champ EST vivant dès qu'on remplit l'id explicite.
+          { nature: 'choix', chemin: 'fetchSource', label: 'Object', reagit: true,
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'metadata'; },
+            options: [
+              { valeur: 'triggered', libelle: 'Triggering object' },
+              { valeur: 'parent', libelle: 'Its parent (e.g. the Season of a triggering Episode)' }
+            ] },
+          { nature: 'choix', chemin: 'fetchTarget', label: 'Type (only if an explicit id is set below)',
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'metadata'; },
+            options: [
+              { valeur: 'collection', libelle: 'Collection' },
+              { valeur: 'asset', libelle: 'Asset' }
+            ] },
+          { nature: 'valeurTypee', chemin: 'fetchValue', label: 'Explicit object id (optional — overrides Object above)', placeholder: '{collectionData.parent_id}',
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'metadata'; } },
+          { nature: 'vueMetadonnee', chemin: 'fetchMdViewId', label: 'Metadata view (optional — raw metadata if empty)', reagit: true,
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'metadata'; } },
+          { nature: 'liste', chemin: 'metadataFields', label: 'Only these fields (optional, empty = all)', ajoutLabel: 'Add field',
+            itemDefaut: { name: '' },
+            itemSchema: [
+              { nature: 'metadonnee', chemin: 'name', label: 'Field', vuePour: function (m) { return m.lire('fetchMdViewId'); } }
+            ],
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'metadata'; } },
+
+          // Asset
+          { nature: 'choix', chemin: 'fetchSource', label: 'Which asset', reagit: true,
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'asset'; },
+            options: [
+              { valeur: 'triggered', libelle: 'Triggering asset (or explicit id below)' },
+              { valeur: 'title', libelle: 'Search by title' }
+            ] },
+          { nature: 'valeurTypee', chemin: 'fetchValue', label: 'Value', placeholder: '{asset.id} — or a title if searching by title',
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'asset'; } },
+          { nature: 'booleen', chemin: 'withMetadata', label: 'Also fetch metadata', reagit: true,
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'asset'; } },
+          { nature: 'vueMetadonnee', chemin: 'fetchMdViewId', label: 'Metadata view (optional)',
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'asset' && m.lire('withMetadata'); } },
+          { nature: 'booleen', chemin: 'withKeyframes', label: 'Also fetch keyframes',
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'asset'; } },
+          { nature: 'booleen', chemin: 'withFormats', label: 'Also fetch technical metadata (formats)',
+            visibleSi: function (m) { return m.lire('fetchSubType') === 'asset'; } },
+
+          // Commun à tous les sous-types sauf Saved Search (qui a déjà le sien).
+          { nature: 'variable', chemin: 'fetchVar', label: 'Store as', placeholder: '{fetched}',
+            visibleSi: function (m) { return m.lire('fetchSubType') !== 'savedsearch'; } },
+
+          { nature: 'choix', chemin: 'onError', label: 'On error', options: [
+            { valeur: 'stop', libelle: 'Stop' },
+            { valeur: 'continue_log', libelle: 'Continue (log)' },
+            { valeur: 'continue', libelle: 'Continue (silent)' }
+          ] }
         ];
 
       // Set Metadata : écrit des métadonnées. Transcrit fidèlement les 12
@@ -680,38 +995,153 @@ const ConfigSchema = (() => {
           ] }
         ];
 
-      // Create Tree : crée une arborescence de collections. Connexion + racine +
-      // gabarit d'arborescence (ressource — branchée plus tard). Services
-      // registry/counter déductibles, non exposés.
+      // Create Tree : crée une arborescence de collections depuis un gabarit
+      // (ressource — branchée cette session, cf. config-sources.js/arboTemplates
+      // et la nature 'gabarit'). Transcrit fidèlement les 4 occurrences réelles
+      // et le handler (wfd-engine-handlers.js, create_tree()) : l'ancien schéma
+      // (connexionId/root/template) ne correspondait à AUCUN des noms lus.
+      // Pas de connexionId — comme iconik.search/fetch, cette façade s'appuie
+      // sur la connexion Iconik du flow. `resultVar`, présent sur les 4
+      // occurrences réelles, n'est PAS lu par le handler (seul `storeAs` l'est)
+      // — omis, même règle que fetchVar/storeAs côté Fetch mais inversée ici.
+      // Services registry/counter (aps.registry pour idFieldName, aps.counter
+      // pour orderFieldName) déductibles des champs remplis, non exposés
+      // séparément — cf. FACADES['iconik.create_tree'].services.
+      //
+      // RISQUE SIGNALÉ (pas silencieux, non corrigé) : `metadataViewId` est de
+      // fait une porte, pas un simple choix de vue — si vide, le handler
+      // n'écrit AUCUN champ (ni idFieldName/parentFieldName/typeFieldName, ni
+      // extraFields, ni le numéro d'ordre), même quand tout le reste est
+      // renseigné (`if (viewId && Object.keys(fields).length) { … }`). Les 4
+      // occurrences réelles renseignent toutes une vue — chemin vide jamais
+      // éprouvé.
       case 'iconik.create_tree':
         return [
-          { nature: 'connexion', chemin: 'connexionId', label: 'Connection' },
-          { nature: 'variable', chemin: 'root', label: 'Under collection', placeholder: '{collection.id}' },
-          { nature: 'variable', chemin: 'template', label: 'Tree template', placeholder: '{arbo}' }
+          { nature: 'gabarit', chemin: 'templateId', label: 'Tree template' },
+          { nature: 'valeurTypee', chemin: 'parentId', label: 'Under collection', placeholder: '{collection.id}' },
+          { nature: 'vueMetadonnee', chemin: 'metadataViewId', label: 'Metadata view (required to write any field — see note above)', reagit: true },
+          { nature: 'liste', chemin: 'extraFields', label: 'Extra fields (applied to every collection created)', ajoutLabel: 'Add field',
+            itemDefaut: { key: '', value: '' },
+            itemSchema: [
+              { nature: 'metadonnee', chemin: 'key', label: 'Field', vuePour: function (m) { return m.lire('metadataViewId'); } },
+              { nature: 'valeurTypee', chemin: 'value', label: 'Value', placeholder: '{serieMetadata.Univers}' }
+            ]
+          },
+          { nature: 'texte', chemin: 'idFieldName', label: 'Generated id field', placeholder: 'BayardID' },
+          { nature: 'texte', chemin: 'parentFieldName', label: 'Parent id field', placeholder: 'ParentID' },
+          { nature: 'texte', chemin: 'typeFieldName', label: 'Collection type field', placeholder: 'TypeCollection' },
+          { nature: 'nombre', chemin: 'idLength', label: 'Generated id length', min: 1, placeholder: '8' },
+          { nature: 'valeurTypee', chemin: 'parentBayardId', label: 'Parent generated id (seed from a previous run, e.g. the Série when creating a Saison)', placeholder: '{serieMetadata.BayardID}' },
+          { nature: 'texte', chemin: 'orderFieldName', label: 'Order number field (optional)', placeholder: 'e.g. NumeroSaison' },
+          { nature: 'nombre', chemin: 'orderPad', label: 'Order number padding', min: 0, placeholder: '2' },
+          { nature: 'valeurTypee', chemin: 'orderSeed', label: 'Order number seed', placeholder: '{search_results.count}' },
+          { nature: 'variable', chemin: 'storeAs', label: 'Store result as', placeholder: '{arbo}' },
+          { nature: 'choix', chemin: 'onError', label: 'On error', options: [
+            { valeur: 'stop', libelle: 'Stop' },
+            { valeur: 'continue_log', libelle: 'Continue (log)' },
+            { valeur: 'continue', libelle: 'Continue (silent)' }
+          ] }
         ];
 
-      // S3 : livraison vers un bucket. Connexion S3 (non testable en HTTP) +
-      // chemin de destination + payload.
-      // S3 (livraison) : corrigé pour rejoindre le Core `deliver`
-      // (manifestId) plutôt qu'un schéma parallèle jamais vérifié
-      // (`bucketPath`/`payload`, qui n'existaient dans aucune donnée réelle).
-      // `objectKey` (pas `prefixe`, générique côté Core) est le vrai nom que
-      // le moteur lit pour `aws_s3`/`wait_for` — vocabulaire AWS, propre à
-      // cette façade, pas au Core agnostique. Volontairement SANS
-      // `s3Mappings`/`artworks` bruts : c'est justement ce que `manifestId`
-      // remplace (cf. discussion — la même règle de mapping vidéo/image/
-      // sous-titre était dupliquée identique sur les 6 occurrences réelles).
+      // S3 : réécrit en profondeur le 3 août après audit réel (les 6
+      // occurrences réelles utilisent TOUTES `operation: "list_objects"`,
+      // jamais un "deliver" au sens d'un envoi — le nom de la façade est
+      // trompeur. Ce que fait réellement ce nœud (wfd-engine-handlers.js,
+      // aws_s3(), branche list_objects) : lister un dossier S3 où l'Export
+      // Location Iconik a déjà déposé les fichiers (cf. principe "APS ne
+      // transfère jamais d'octets", CLAUDE.md), et exposer les URLs par type
+      // (vidéo/image/sous-titre) via `s3Mappings` — la vraie "livraison" est
+      // `iconik.action` / `export_location_trigger` (façade Action), en
+      // amont ; ceci n'est que la vérification après coup.
+      //
+      // `manifestId` reste la bonne idée du 31 juillet, juste mal câblée à
+      // l'époque : `s3Mappings[].{type,filter,variable}` a EXACTEMENT la
+      // forme d'une essence de Manifeste (`role`/`reconnu_par`/`sortie`).
+      // La résolution `manifestId` -> `s3Mappings` se fait à la conversion
+      // pivot -> WFD (pivot-to-wfd.js, même mécanisme que `mappingId` ->
+      // `lkRows`), jamais recopiée ici.
+      //
+      // Vestiges MORTS omis (présents sur les 6 occurrences réelles, jamais
+      // lus par list_objects — reliquats de l'ancienne opération
+      // `artwork_s3`, remplacée par une détection automatique par nom de
+      // fichier, cf. commentaire du moteur "plus besoin d'intercepter les
+      // subjobs Iconik") : `jobId`, `artworks[]`, `mdViewId`, `titreVar`,
+      // `nommageId`. `s3VarVideo`/`s3VarImage`/`s3VarSrt` omis pareillement :
+      // ne comptent que si `s3Mappings` est vide, ce qui n'arrive jamais en
+      // réel (toujours rempli, identique sur les 6 occurrences).
       case 'aws_s3.deliver':
         return [
           { nature: 'connexion', chemin: 'connexionId', label: 'S3 connection', filtreType: 'aws_s3' },
-          { nature: 'manifeste', chemin: 'manifestId', label: 'Manifest' },
-          { nature: 'texte', chemin: 'objectKey', label: 'Destination path', placeholder: 'AmazonPrime/{slug(collectionCheck.title)}/{filebase(item.title)}' },
+          { nature: 'choix', chemin: 'operation', label: 'Operation', reagit: true, options: [
+            { valeur: 'list_objects', libelle: 'List objects (verify delivery, expose typed URLs)' },
+            { valeur: 'head_object', libelle: 'Head object (check existence)' },
+            { valeur: 'get_object', libelle: 'Get object' },
+            { valeur: 'put_object', libelle: 'Put object' },
+            { valeur: 'delete_object', libelle: 'Delete object' }
+          ] },
+          { nature: 'valeurTypee', chemin: 'objectKey', label: 'Prefix to search (folder)', placeholder: 'AmazonPrime/{slug(collectionCheck.title)}/{filebase(item.title)}',
+            visibleSi: function (m) { return (m.lire('operation') || 'list_objects') === 'list_objects'; } },
+          { nature: 'valeurTypee', chemin: 'objectKey', label: 'Object key', placeholder: 'AmazonPrime/{slug(collectionCheck.title)}/{filebase(item.title)}',
+            visibleSi: function (m) { return (m.lire('operation') || 'list_objects') !== 'list_objects'; } },
+          { nature: 'manifeste', chemin: 'manifestId', label: 'Manifest (expected files, by type)',
+            visibleSi: function (m) { return (m.lire('operation') || 'list_objects') === 'list_objects'; } },
           { nature: 'variable', chemin: 'resultVar', label: 'Store result as', placeholder: '{awsResult}' },
           { nature: 'choix', chemin: 'onError', label: 'On error', options: [
             { valeur: 'stop', libelle: 'Stop' },
             { valeur: 'continue_log', libelle: 'Continue (log)' },
             { valeur: 'continue', libelle: 'Continue (silent)' }
           ] }
+        ];
+
+      // Registre d'ID (service, cf. FACADES['aps.registry'].isService) : génère
+      // un identifiant et, pour le type numérique, garantit son unicité via
+      // BayardRegistry. Transcrit depuis l'unique occurrence réelle et le
+      // handler (wfd-engine-handlers.js, id_generator()).
+      //
+      // `onError` retiré : présent sur l'occurrence réelle mais id_generator()
+      // ne lève JAMAIS d'exception (aucun `throw` dans toute la fonction) —
+      // le champ n'atteint donc jamais le catch générique de l'exécuteur,
+      // même règle que `checker`.
+      //
+      // `apiActions` (appels HTTP après génération) omis, pas juste laissé de
+      // côté : le mécanisme lit `conn.actions` sur la Connexion trouvée
+      // (wfd-engine-handlers.js:325 et la même construction en :2664 pour
+      // `_handleHttpAction`) — un sous-objet qui n'existe NULLE PART dans le
+      // modèle `Connexion` (prisma/schema.prisma). Toute entrée non vide fait
+      // donc toujours échouer le nœud (`apiErrors` non vide -> `{ port: 1 }`),
+      // même quand l'ID a été généré et stocké avec succès juste avant. Vide
+      // sur l'unique occurrence réelle — mécanisme mort, jamais éprouvé,
+      // distinct de la façade `iconik.action` (celle-ci fonctionne, vérifiée
+      // 6/6 sur `export_location_trigger`).
+      //
+      // `outputType` : 'integer' n'a de sens que pour idType `numeric` — pour
+      // tout autre type (hex/alphanumeric/uuid/timestamp), `parseInt(id, 10)`
+      // tronque silencieusement à la première suite de chiffres décimaux
+      // (ex. hex "3F2A" -> 3). Plutôt que de le signaler seulement en
+      // commentaire, l'option 'Integer' est filtrée hors de la liste quand
+      // idType n'est pas 'numeric' — le risque n'est pas juste documenté, il
+      // est rendu impossible à choisir.
+      case 'aps.registry':
+        return [
+          { nature: 'choix', chemin: 'idType', label: 'Type', reagit: true, options: [
+            { valeur: 'numeric', libelle: 'Numeric' },
+            { valeur: 'alphanumeric', libelle: 'Alphanumeric' },
+            { valeur: 'hex', libelle: 'Hex' },
+            { valeur: 'prefixed', libelle: 'Prefixed alphanumeric' },
+            { valeur: 'uuid', libelle: 'UUID v4' },
+            { valeur: 'timestamp', libelle: 'Timestamp-based' }
+          ] },
+          { nature: 'texte', chemin: 'idPrefix', label: 'Prefix', placeholder: 'e.g. BAY-',
+            visibleSi: function (m) { return m.lire('idType') === 'prefixed'; } },
+          { nature: 'nombre', chemin: 'idLength', label: 'Length', min: 1, placeholder: '8',
+            visibleSi: function (m) { return ['uuid', 'timestamp'].indexOf(m.lire('idType')) === -1; } },
+          { nature: 'variable', chemin: 'varName', label: 'Store as', placeholder: '{generated_id}' },
+          { nature: 'choix', chemin: 'outputType', label: 'Output as',
+            options: function (model) {
+              const opts = [{ valeur: 'string', libelle: 'String' }];
+              if (model.lire('idType') === 'numeric') opts.push({ valeur: 'integer', libelle: 'Integer' });
+              return opts;
+            } }
         ];
 
       default:

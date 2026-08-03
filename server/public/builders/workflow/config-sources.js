@@ -25,8 +25,10 @@
 
 const ConfigSources = (() => {
 
-  let cacheConnexions = null;   // promesse mémorisée (une seule requête)
-  let cacheManifests  = null;
+  let cacheConnexions   = null;   // promesse mémorisée (une seule requête)
+  let cacheManifests    = null;
+  let cacheArboTemplates = null;
+  let cacheMappings     = null;
   // Les métadonnées sont scopées par environnement (contrairement aux
   // connexions/manifestes, ressources d'org) : cache PAR envSlug.
   const cacheMetadonnees     = Object.create(null);   // envSlug -> promesse
@@ -82,6 +84,45 @@ const ConfigSources = (() => {
       })
       .catch(function () { return []; });
     return cacheManifests;
+  }
+
+  // Modèles d'arborescence (ressource d'org) : pour la nature 'gabarit' du
+  // nœud Create Tree (templateId). GET /api/arbo-templates ne renvoie que la
+  // liste légère (id/name/description) — le détail (config, la structure de
+  // niveaux) reste chargé à part si un jour un aperçu est nécessaire ; le
+  // sélecteur n'a besoin que de l'identité.
+  function arboTemplates() {
+    if (cacheArboTemplates) return cacheArboTemplates;
+    cacheArboTemplates = fetch('/api/arbo-templates')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        return (Array.isArray(list) ? list : []).map(function (t) {
+          return { id: t.id, name: t.name, description: t.description };
+        });
+      })
+      .catch(function () { return []; });
+    return cacheArboTemplates;
+  }
+
+  // Tables de correspondance (ressource d'org) : pour la nature 'mapping' du
+  // nœud Lookup (mappingId) — remplace le lkRows jusqu'ici recopié dans
+  // chaque nœud. GET /api/mappings expose la clé `rows` (alias de la colonne
+  // Prisma `rules`, cf. server/routes/mapping.js — contrat déjà posé par
+  // l'écran admin/ressources, antérieur à cette route). Le détail complet
+  // (les rows elles-mêmes) est déjà dans cette liste — pas de second appel :
+  // même choix que manifests()/exportLocations, pas que arboTemplates().
+  function mappings() {
+    if (cacheMappings) return cacheMappings;
+    cacheMappings = fetch('/api/mappings')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        return (Array.isArray(list) ? list : []).map(function (m) {
+          return { id: m.id, name: m.name,
+                   nbEntrees: Array.isArray(m.rows) ? m.rows.length : 0 };
+        });
+      })
+      .catch(function () { return []; });
+    return cacheMappings;
   }
 
   // ── Iconik en direct ───────────────────────────────────────────────────
@@ -247,7 +288,7 @@ const ConfigSources = (() => {
   // horodatage reste affiché jusqu'à ce qu'un nouvel appel aboutisse
   // réellement, pour ne pas faire clignoter l'affichage sur "—".
   function rafraichir() {
-    cacheConnexions = null; cacheManifests = null;
+    cacheConnexions = null; cacheManifests = null; cacheArboTemplates = null; cacheMappings = null;
     Object.keys(cacheMetadonnees).forEach(function (k) { delete cacheMetadonnees[k]; });
     Object.keys(metadonneesResolues).forEach(function (k) { delete metadonneesResolues[k]; });
     Object.keys(cacheVues).forEach(function (k) { delete cacheVues[k]; });
@@ -257,7 +298,7 @@ const ConfigSources = (() => {
   }
 
   return {
-    connexions, manifests, metadonnees, metadonneesChargees, vuesMetadonnees, champsDeVue,
+    connexions, manifests, arboTemplates, mappings, metadonnees, metadonneesChargees, vuesMetadonnees, champsDeVue,
     exportLocations, customActions, rafraichir,
     dernierRafraichissement: function () { return dernierRafraichissement; },
     onRafraichi

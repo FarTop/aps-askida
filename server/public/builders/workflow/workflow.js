@@ -9,6 +9,12 @@
 
 (function () {
 
+  // Recharge la liste de l'onglet à chaque activation — pas seulement au
+  // chargement de la page. Sans ça, créer/modifier une ressource dans une
+  // autre page (ex. arbo-canvas.html) puis revenir sur cet onglet montrait
+  // la liste telle qu'elle était AVANT, tant que la page workflow.html
+  // elle-même n'était pas rechargée (constaté le 3 août : un gabarit
+  // fraîchement enregistré n'apparaissait pas tant qu'on ne rechargeait pas).
   function activerOnglet(nom) {
     document.querySelectorAll('.wb-tab').forEach(function (t) {
       t.classList.toggle('wb-tab-actif', t.getAttribute('data-tab') === nom);
@@ -16,6 +22,10 @@
     document.querySelectorAll('.wb-panel').forEach(function (p) {
       p.hidden = p.getAttribute('data-panel') !== nom;
     });
+    if (nom === 'workflows') chargerWorkflows();
+    else if (nom === 'manifests') chargerManifestes();
+    else if (nom === 'arbos') chargerGabarits();
+    else if (nom === 'mappings') chargerMappings();
   }
 
   async function chargerWorkflows() {
@@ -45,6 +55,7 @@
       const list = await r.json();
       _rendre(hote, Array.isArray(list) ? list : [], {
         lien: '../../admin/manifests/manifests.html',
+        outilsManifeste: true,
         msgVide: 'Aucun manifeste pour cette organisation.'
       });
       const c = document.getElementById('mf-compte');
@@ -52,6 +63,45 @@
       c.textContent = n + ' manifeste' + (n > 1 ? 's' : '');
     } catch (e) {
       _vide(hote, 'Aucun manifeste.');
+    }
+  }
+
+  async function chargerMappings() {
+    const hote = document.getElementById('mp-liste');
+    try {
+      const r = await fetch('/api/mappings');
+      const list = await r.json();
+      _rendre(hote, Array.isArray(list) ? list : [], {
+        lien: '../../admin/mappings/mappings.html',
+        outilsMapping: true,
+        msgVide: 'Aucune correspondance pour cette organisation.'
+      });
+      const c = document.getElementById('mp-compte');
+      const n = Array.isArray(list) ? list.length : 0;
+      c.textContent = n + ' correspondance' + (n > 1 ? 's' : '');
+    } catch (e) {
+      _vide(hote, 'Aucune correspondance.');
+      document.getElementById('mp-compte').textContent = '';
+    }
+  }
+
+  async function chargerGabarits() {
+    const hote = document.getElementById('at-liste');
+    try {
+      const r = await fetch('/api/arbo-templates');
+      const list = await r.json();
+      _rendre(hote, Array.isArray(list) ? list : [], {
+        lien: 'arbo-canvas.html?id=',
+        lienParItem: true,
+        outilsGabarit: true,
+        msgVide: 'Aucun gabarit d\'arborescence pour l\'instant. Créez-en un pour commencer.'
+      });
+      const c = document.getElementById('at-compte');
+      const n = Array.isArray(list) ? list.length : 0;
+      c.textContent = n + ' gabarit' + (n > 1 ? 's' : '');
+    } catch (e) {
+      _vide(hote, 'Aucun gabarit d\'arborescence pour l\'instant. Créez-en un pour commencer.');
+      document.getElementById('at-compte').textContent = '';
     }
   }
 
@@ -77,10 +127,32 @@
         meta.textContent = item.niveau;
         lien.appendChild(meta);
       }
+      if (item.description) {
+        const meta = document.createElement('span');
+        meta.className = 'wb-item-meta';
+        meta.textContent = item.description;
+        lien.appendChild(meta);
+      }
+      if (opts.outilsMapping && Array.isArray(item.rows)) {
+        const meta = document.createElement('span');
+        meta.className = 'wb-item-meta';
+        const n = item.rows.length;
+        meta.textContent = n + ' ligne' + (n > 1 ? 's' : '');
+        lien.appendChild(meta);
+      }
       ligne.appendChild(lien);
 
       if (opts.outils) {
         ligne.appendChild(_outilsWorkflow(item));
+      }
+      if (opts.outilsGabarit) {
+        ligne.appendChild(_outilsGabarit(item));
+      }
+      if (opts.outilsManifeste) {
+        ligne.appendChild(_outilsManifeste(item));
+      }
+      if (opts.outilsMapping) {
+        ligne.appendChild(_outilsMapping(item));
       }
 
       hote.appendChild(ligne);
@@ -163,6 +235,240 @@
     }
   }
 
+  // Boutons renommer / dupliquer / supprimer pour un gabarit d'arborescence.
+  // Même trio que les workflows, sur /api/arbo-templates.
+  function _outilsGabarit(item) {
+    const outils = document.createElement('div');
+    outils.className = 'wb-item-outils';
+
+    const renommer = document.createElement('button');
+    renommer.type = 'button';
+    renommer.className = 'wb-outil';
+    renommer.title = 'Renommer';
+    renommer.textContent = '✎';
+    renommer.addEventListener('click', function () { _renommerGabarit(item); });
+
+    const dupliquer = document.createElement('button');
+    dupliquer.type = 'button';
+    dupliquer.className = 'wb-outil';
+    dupliquer.title = 'Dupliquer';
+    dupliquer.textContent = '⧉';
+    dupliquer.addEventListener('click', function () { _dupliquerGabarit(item); });
+
+    const supprimer = document.createElement('button');
+    supprimer.type = 'button';
+    supprimer.className = 'wb-outil wb-outil-suppr';
+    supprimer.title = 'Supprimer';
+    supprimer.textContent = '🗑';
+    supprimer.addEventListener('click', function () { _supprimerGabarit(item); });
+
+    outils.appendChild(renommer);
+    outils.appendChild(dupliquer);
+    outils.appendChild(supprimer);
+    return outils;
+  }
+
+  async function _renommerGabarit(item) {
+    const nouveauNom = window.prompt('Nouveau nom :', item.name);
+    if (!nouveauNom || nouveauNom === item.name) return;
+    try {
+      const r = await fetch('/api/arbo-templates/' + encodeURIComponent(item.id), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nouveauNom })   // pas de config -> conservée telle quelle
+      });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || ('HTTP ' + r.status)); }
+      chargerGabarits();
+    } catch (e) {
+      window.alert('Renommage impossible : ' + e.message);
+    }
+  }
+
+  async function _dupliquerGabarit(item) {
+    try {
+      const r1 = await fetch('/api/arbo-templates/' + encodeURIComponent(item.id));
+      if (!r1.ok) throw new Error('HTTP ' + r1.status);
+      const complet = await r1.json();
+      const r2 = await fetch('/api/arbo-templates', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: complet.name + ' (copie)', description: complet.description, config: complet.config })
+      });
+      if (!r2.ok) { const d = await r2.json(); throw new Error(d.error || ('HTTP ' + r2.status)); }
+      chargerGabarits();
+    } catch (e) {
+      window.alert('Duplication impossible : ' + e.message);
+    }
+  }
+
+  async function _supprimerGabarit(item) {
+    if (!window.confirm('Supprimer le gabarit « ' + item.name + ' » ? Cette action est irréversible.')) return;
+    try {
+      const r = await fetch('/api/arbo-templates/' + encodeURIComponent(item.id), { method: 'DELETE' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      chargerGabarits();
+    } catch (e) {
+      window.alert('Suppression impossible : ' + e.message);
+    }
+  }
+
+  // Boutons renommer / dupliquer / supprimer pour un manifeste. Sur
+  // /api/manifests, contrairement aux autres ressources : PUT/POST valident
+  // la structure complète (PivotManifest.valider — name/niveau/essences),
+  // pas un simple patch tolérant l'absence de champs. Renommer/dupliquer
+  // doivent donc D'ABORD relire le manifeste complet (GET /:id) pour
+  // renvoyer niveau/essences inchangés, sous peine de 400.
+  function _outilsManifeste(item) {
+    const outils = document.createElement('div');
+    outils.className = 'wb-item-outils';
+
+    const renommer = document.createElement('button');
+    renommer.type = 'button';
+    renommer.className = 'wb-outil';
+    renommer.title = 'Renommer';
+    renommer.textContent = '✎';
+    renommer.addEventListener('click', function () { _renommerManifeste(item); });
+
+    const dupliquer = document.createElement('button');
+    dupliquer.type = 'button';
+    dupliquer.className = 'wb-outil';
+    dupliquer.title = 'Dupliquer';
+    dupliquer.textContent = '⧉';
+    dupliquer.addEventListener('click', function () { _dupliquerManifeste(item); });
+
+    const supprimer = document.createElement('button');
+    supprimer.type = 'button';
+    supprimer.className = 'wb-outil wb-outil-suppr';
+    supprimer.title = 'Supprimer';
+    supprimer.textContent = '🗑';
+    supprimer.addEventListener('click', function () { _supprimerManifeste(item); });
+
+    outils.appendChild(renommer);
+    outils.appendChild(dupliquer);
+    outils.appendChild(supprimer);
+    return outils;
+  }
+
+  async function _renommerManifeste(item) {
+    const nouveauNom = window.prompt('Nouveau nom :', item.name);
+    if (!nouveauNom || nouveauNom === item.name) return;
+    try {
+      const r1 = await fetch('/api/manifests/' + encodeURIComponent(item.id));
+      if (!r1.ok) throw new Error('HTTP ' + r1.status);
+      const complet = await r1.json();
+      const r2 = await fetch('/api/manifests/' + encodeURIComponent(item.id), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nouveauNom, niveau: complet.niveau, essences: complet.essences })
+      });
+      if (!r2.ok) { const d = await r2.json(); throw new Error((d.error || ('HTTP ' + r2.status)) + (d.details ? ' — ' + d.details.join(', ') : '')); }
+      chargerManifestes();
+    } catch (e) {
+      window.alert('Renommage impossible : ' + e.message);
+    }
+  }
+
+  async function _dupliquerManifeste(item) {
+    try {
+      const r1 = await fetch('/api/manifests/' + encodeURIComponent(item.id));
+      if (!r1.ok) throw new Error('HTTP ' + r1.status);
+      const complet = await r1.json();
+      const r2 = await fetch('/api/manifests', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: complet.name + ' (copie)', niveau: complet.niveau, essences: complet.essences })
+      });
+      if (!r2.ok) { const d = await r2.json(); throw new Error((d.error || ('HTTP ' + r2.status)) + (d.details ? ' — ' + d.details.join(', ') : '')); }
+      chargerManifestes();
+    } catch (e) {
+      window.alert('Duplication impossible : ' + e.message);
+    }
+  }
+
+  async function _supprimerManifeste(item) {
+    if (!window.confirm('Supprimer le manifeste « ' + item.name + ' » ? Cette action est irréversible.')) return;
+    try {
+      const r = await fetch('/api/manifests/' + encodeURIComponent(item.id), { method: 'DELETE' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      chargerManifestes();
+    } catch (e) {
+      window.alert('Suppression impossible : ' + e.message);
+    }
+  }
+
+  // Boutons renommer / dupliquer / supprimer pour une correspondance
+  // (Mapping). Contrairement aux manifestes, /api/mappings tolère un PUT
+  // partiel (Prisma ignore les clés absentes) — pas besoin de relire la
+  // ressource complète avant de renommer.
+  function _outilsMapping(item) {
+    const outils = document.createElement('div');
+    outils.className = 'wb-item-outils';
+
+    const renommer = document.createElement('button');
+    renommer.type = 'button';
+    renommer.className = 'wb-outil';
+    renommer.title = 'Renommer';
+    renommer.textContent = '✎';
+    renommer.addEventListener('click', function () { _renommerMapping(item); });
+
+    const dupliquer = document.createElement('button');
+    dupliquer.type = 'button';
+    dupliquer.className = 'wb-outil';
+    dupliquer.title = 'Dupliquer';
+    dupliquer.textContent = '⧉';
+    dupliquer.addEventListener('click', function () { _dupliquerMapping(item); });
+
+    const supprimer = document.createElement('button');
+    supprimer.type = 'button';
+    supprimer.className = 'wb-outil wb-outil-suppr';
+    supprimer.title = 'Supprimer';
+    supprimer.textContent = '🗑';
+    supprimer.addEventListener('click', function () { _supprimerMapping(item); });
+
+    outils.appendChild(renommer);
+    outils.appendChild(dupliquer);
+    outils.appendChild(supprimer);
+    return outils;
+  }
+
+  async function _renommerMapping(item) {
+    const nouveauNom = window.prompt('Nouveau nom :', item.name);
+    if (!nouveauNom || nouveauNom === item.name) return;
+    try {
+      const r = await fetch('/api/mappings/' + encodeURIComponent(item.id), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nouveauNom })   // pas de rows -> conservées telles quelles
+      });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || ('HTTP ' + r.status)); }
+      chargerMappings();
+    } catch (e) {
+      window.alert('Renommage impossible : ' + e.message);
+    }
+  }
+
+  async function _dupliquerMapping(item) {
+    try {
+      const r1 = await fetch('/api/mappings/' + encodeURIComponent(item.id));
+      if (!r1.ok) throw new Error('HTTP ' + r1.status);
+      const complet = await r1.json();
+      const r2 = await fetch('/api/mappings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: complet.name + ' (copie)', rows: complet.rows })
+      });
+      if (!r2.ok) { const d = await r2.json(); throw new Error(d.error || ('HTTP ' + r2.status)); }
+      chargerMappings();
+    } catch (e) {
+      window.alert('Duplication impossible : ' + e.message);
+    }
+  }
+
+  async function _supprimerMapping(item) {
+    if (!window.confirm('Supprimer la correspondance « ' + item.name + ' » ? Cette action est irréversible.')) return;
+    try {
+      const r = await fetch('/api/mappings/' + encodeURIComponent(item.id), { method: 'DELETE' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      chargerMappings();
+    } catch (e) {
+      window.alert('Suppression impossible : ' + e.message);
+    }
+  }
+
   function _vide(hote, msg) {
     hote.textContent = '';
     const p = document.createElement('p');
@@ -177,6 +483,20 @@
     });
     chargerWorkflows();
     chargerManifestes();
+    chargerGabarits();
+    chargerMappings();
+
+    // Retour arrière depuis arbo-canvas.html / workflow-canvas.html : le
+    // navigateur peut restaurer cette page depuis son cache (bfcache) SANS
+    // relancer ce script — les listes resteraient alors telles qu'elles
+    // étaient avant le départ. `pageshow` avec `persisted` détecte ce cas.
+    window.addEventListener('pageshow', function (e) {
+      if (!e.persisted) return;
+      chargerWorkflows();
+      chargerManifestes();
+      chargerGabarits();
+      chargerMappings();
+    });
   }
 
   if (document.readyState === 'loading') {

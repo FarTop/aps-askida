@@ -30,10 +30,23 @@ const ConfigRenderer = (() => {
 
   function _el(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
 
+  // Label + aide optionnelle. L'aide est déclarée une fois dans le schéma et
+  // suit le champ partout (panneau ici ; validation/doc plus tard, même
+  // source) — cf. builder-etat.md, section Panneau : "l'aide existe
+  // toujours". Un fragment, pas un élément : chaque nature fait
+  // `wrap.appendChild(_champLabel(descr))` sans savoir combien de nœuds ça
+  // ajoute, donc ça reste transparent pour les ~15 natures existantes.
   function _champLabel(descr) {
+    const frag = document.createDocumentFragment();
     const l = _el('label', 'cfg-label');
     l.textContent = descr.label || descr.chemin;
-    return l;
+    frag.appendChild(l);
+    if (descr.aide) {
+      const a = _el('p', 'cfg-aide');
+      a.textContent = descr.aide;
+      frag.appendChild(a);
+    }
+    return frag;
   }
 
   // Chemin du champ FRÈRE d'un descripteur (même parent, autre nom) — ex.
@@ -368,6 +381,84 @@ const ConfigRenderer = (() => {
             o.value = m.id;
             const niveau = m.niveau && m.niveau !== '*' ? ' · ' + m.niveau : '';
             o.textContent = m.name + niveau + ' (' + m.nbEssences + ')';
+            if (m.id === courant) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.addEventListener('change', function () {
+            model.ecrire(descr.chemin, sel.value);
+          });
+        });
+      }
+      return wrap;
+    },
+
+    // Gabarit d'arborescence : sélection d'un modèle RÉEL (ressource d'org,
+    // via ConfigSources), même mécanique que 'manifeste'. On stocke l'id
+    // choisi — le détail (les niveaux) reste sur le serveur, résolu à
+    // l'exécution par create_tree(), jamais recopié dans la config du nœud.
+    gabarit: function (descr, model) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+
+      const sel = _el('select', 'cfg-input cfg-select');
+      const attente = document.createElement('option');
+      attente.textContent = 'Loading…'; attente.disabled = true; attente.selected = true;
+      sel.appendChild(attente);
+      wrap.appendChild(sel);
+
+      const courant = model.lire(descr.chemin);
+      const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
+      if (src) {
+        src.arboTemplates().then(function (list) {
+          while (sel.firstChild) sel.removeChild(sel.firstChild);
+          const vide = document.createElement('option');
+          vide.value = ''; vide.textContent = descr.placeholder || '— select a tree template —';
+          sel.appendChild(vide);
+          list.forEach(function (t) {
+            const o = document.createElement('option');
+            o.value = t.id;
+            o.textContent = t.name + (t.description ? ' · ' + t.description : '');
+            if (t.id === courant) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.addEventListener('change', function () {
+            model.ecrire(descr.chemin, sel.value);
+          });
+        });
+      }
+      return wrap;
+    },
+
+    // Mapping : sélection d'une table de correspondance RÉELLE (ressource
+    // d'org, via ConfigSources), même mécanique que 'manifeste'/'gabarit'. On
+    // stocke l'id choisi ; les rows elles-mêmes se résolvent en `lkRows` au
+    // moment de la conversion pivot → WFD (pivot-to-wfd.js), jamais recopiées
+    // ici. Pas encore d'écran pour CRÉER/ÉDITER les rows d'un mapping
+    // (admin/ressources ne fait qu'afficher aujourd'hui) — un sélecteur vide
+    // est donc attendu tant que ce chantier n'est pas fait ; signalé, pas
+    // masqué.
+    mapping: function (descr, model) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+
+      const sel = _el('select', 'cfg-input cfg-select');
+      const attente = document.createElement('option');
+      attente.textContent = 'Loading…'; attente.disabled = true; attente.selected = true;
+      sel.appendChild(attente);
+      wrap.appendChild(sel);
+
+      const courant = model.lire(descr.chemin);
+      const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
+      if (src) {
+        src.mappings().then(function (list) {
+          while (sel.firstChild) sel.removeChild(sel.firstChild);
+          const vide = document.createElement('option');
+          vide.value = ''; vide.textContent = descr.placeholder || '— select a mapping —';
+          sel.appendChild(vide);
+          list.forEach(function (m) {
+            const o = document.createElement('option');
+            o.value = m.id;
+            o.textContent = m.name + ' (' + m.nbEntrees + ')';
             if (m.id === courant) o.selected = true;
             sel.appendChild(o);
           });

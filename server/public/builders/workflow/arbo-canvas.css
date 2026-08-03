@@ -1,0 +1,99 @@
+/* arbo-canvas.css — Éditeur de gabarit d'arborescence (ArboTemplate)
+ *
+ * Un gabarit est un ARBRE (parenté stricte), pas un graphe libre : pas de
+ * canevas à positions/arêtes comme workflow-canvas — une liste imbriquée
+ * (indentation = hiérarchie) suffit et se lit plus vite. Réutilise les
+ * tokens --wb-* de workflow.css plutôt que d'en redéfinir.
+ */
+
+.at-main { max-width: 900px; margin: 0 auto; padding: 24px 20px 80px; }
+
+.at-tete {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.at-champs { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 260px; }
+.at-input {
+  background: var(--wb-surface); border: 1px solid var(--wb-border);
+  color: var(--wb-text); border-radius: 7px; padding: 8px 11px;
+  font: inherit; font-size: 14px;
+}
+.at-input:focus { outline: none; border-color: #3a4147; }
+.at-nom { font-size: 16px; font-weight: 600; }
+.at-desc { font-size: 13px; color: var(--wb-dim); }
+
+.at-actions { display: flex; align-items: center; gap: 10px; }
+.at-etat { font-size: 12px; color: var(--wb-dim); }
+.at-etat[data-etat="enregistre"] { color: #35c46a; }
+.at-etat[data-etat="erreur"] { color: var(--wb-danger); }
+
+.at-aide {
+  font-size: 12.5px; line-height: 1.5; color: var(--wb-dim);
+  background: var(--wb-surface); border: 1px solid var(--wb-border);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 20px;
+}
+.at-aide strong { color: var(--wb-text); }
+
+.at-arbre { display: flex; flex-direction: column; }
+
+.at-noeud { position: relative; }
+.at-noeud-corps {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px; margin: 3px 0; border-radius: 8px;
+  background: var(--wb-surface); border: 1px solid var(--wb-border);
+}
+.at-noeud-corps:hover { border-color: #3a4147; }
+.at-noeud-enfants { padding-left: 26px; border-left: 1px dashed var(--wb-border); margin-left: 13px; }
+
+.at-champ-titre {
+  flex: 1; min-width: 140px;
+  background: var(--wb-surface2); border: 1px solid var(--wb-border);
+  color: var(--wb-text); border-radius: 6px; padding: 6px 9px;
+  font: inherit; font-size: 13px;
+}
+.at-champ-type {
+  width: 150px;
+  background: var(--wb-surface2); border: 1px solid var(--wb-border);
+  color: var(--wb-text); border-radius: 6px; padding: 6px 9px;
+  font: inherit; font-size: 13px;
+}
+
+.at-badge-id {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--wb-dim); cursor: pointer;
+  padding: 5px 9px; border-radius: 6px; border: 1px solid var(--wb-border);
+  white-space: nowrap;
+}
+.at-badge-id input { accent-color: var(--wb-accent); cursor: pointer; }
+.at-badge-id[data-actif="1"] { color: var(--wb-accent); border-color: rgba(214,210,51,.4); background: rgba(214,210,51,.1); }
+
+.at-num-champs { display: flex; gap: 6px; }
+.at-champ-numchamp {
+  width: 170px;
+  background: var(--wb-surface2); border: 1px solid var(--wb-border);
+  color: var(--wb-text); border-radius: 6px; padding: 6px 9px;
+  font: inherit; font-size: 13px;
+}
+.at-champ-numpad {
+  width: 62px;
+  background: var(--wb-surface2); border: 1px solid var(--wb-border);
+  color: var(--wb-text); border-radius: 6px; padding: 6px 7px;
+  font: inherit; font-size: 13px;
+}
+
+.at-noeud-outils { display: flex; gap: 4px; margin-left: auto; }
+.at-outil {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--wb-dim); font-size: 13px; line-height: 1; padding: 5px 7px;
+  border-radius: 5px; white-space: nowrap;
+}
+.at-outil:hover { color: var(--wb-text); background: var(--wb-surface2); }
+.at-outil-suppr:hover { color: var(--wb-danger); }
+.at-outil[disabled] { opacity: .3; cursor: not-allowed; }
+.at-outil[disabled]:hover { color: var(--wb-dim); background: none; }
+
+.at-racine-etiquette {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--wb-dim); background: var(--wb-surface2);
+  border-radius: 10px; padding: 1px 8px; white-space: nowrap;
+}

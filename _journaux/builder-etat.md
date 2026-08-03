@@ -7,7 +7,23 @@
 > écarté. Lire ce document suffit pour travailler ; lire le journal sert quand
 > on veut comprendre une décision ou la remettre en cause.
 >
-> Dernière mise à jour : 31 juillet 2026 (audit des façades, cf. section dédiée).
+> Dernière mise à jour : 3 août 2026 (Tree Builder, Mappings, Packager —
+> cf. sections dédiées et `journal-aps-2026-08-03.md` pour le récit).
+
+---
+
+## Point de départ pour la prochaine session
+
+1. **Garde-fou de statut de flux** — vérifié le 3 août, rien n'est construit :
+   `BuilderFlow` (Prisma) n'a aucun champ statut/version, le bouton
+   "désactiver" du canevas est une maquette visuelle sans donnée derrière.
+   Reprendre la section "Versionnement" plus bas (brouillon/publier/
+   production, posée le 31 juillet) et l'implémenter réellement.
+2. **Test grandeur nature** — reconstruire un workflow VOD Factory réel
+   (PUBLISH ou un sous-ensemble) dans le Builder, avec l'audit des façades
+   maintenant complet (8/8 + tous les Core touchant une plateforme), le
+   Tree Builder, les Correspondances et le Packager. C'est le test annoncé
+   plus bas dans "Ordre de construction".
 
 ---
 
@@ -420,9 +436,12 @@ les 5 autres catalogués mais marqués « fails at runtime ») · `action` (6,
 plutôt que de recopier le mapping S3 dupliqué à l'identique sur les 6
 occurrences réelles).
 
-**Restent à auditer** : `checker` (5) · `fetch` (5) · `create_tree` (4) ·
-`id_generator` (1) · `lookup` (1) · `http_sequence` (1) · `timer` (1).
-Même méthode à appliquer.
+**Restent à auditer** : ~~`checker` (5) · `fetch` (5) · `create_tree` (4) ·
+`id_generator` (1) · `lookup` (1) · `http_sequence` (1) · `timer` (1)~~ —
+toutes traitées le 3 août, voir section dédiée plus bas. **L'audit des
+façades contre les données réelles est maintenant complet** : les 8 façades
++ les Core touchant une plateforme sont tous vérifiés contre au moins une
+occurrence réelle et le handler du moteur.
 
 **Règle confirmée pour trancher Core vs façade**, appliquée à chaque
 famille de cette liste : est-ce que le nœud touche l'API d'une plateforme
@@ -480,3 +499,350 @@ Et une quatrième, d'un autre ordre : **40 occurrences de « Bayard » côté
 serveur**, dont un modèle Prisma `BayardRegistry`. Un nom de client dans le
 schéma du produit. Le Core parle générique — « identifiant externe » — et
 `BayardID` est le nom que le **paquet Iconik de ce client** lui donne.
+
+Ajouté le 3 août : `cronFreq`/`cronDays`/`cronHour`/`cronMinute`/`cronMday`/
+`intervalStart` (widget de construction de cron de l'ancien WFD — seul le
+`cronExpr` compilé compte pour le planificateur) · `viewFields` sur `fetch`
+(snapshot de champs de vue jamais lu par le handler) · `lkTechMap`/
+`lkTechVar`/`lkApiEndpoint` sur `lookup` (introuvables dans tout le moteur,
+pas juste inutilisés par ce handler).
+
+---
+
+## Audit des façades restantes — 3 août
+
+Suite de l'audit du 31 juillet, même méthode, sur les 7 familles qui
+restaient : `checker` · `fetch` · `create_tree` · `id_generator` (aps.registry)
+· `lookup` · `http_sequence` · `timer`. L'audit des façades est maintenant
+**complet**.
+
+- **`checker` (5 occ.)** : absent du schéma du panneau (aucun `case` ni bloc
+  `core === 'verify'` cohérent) alors que le Core `verify` du catalogue s'y
+  convertit (`familleWfd()`, `verify: 'checker'`) — **bug réel, silencieux** :
+  un `verify` construit dans le Builder produisait un `checks: []`, donc un
+  nœud qui retournait toujours succès sans jamais rien vérifier. Réécrit en
+  liste de sondes (endpoint/method/path/op/value/label). `onError` retiré :
+  checker() n'atteint jamais le catch générique de l'exécuteur (il gère ses
+  propres erreurs).
+- **`fetch` (5 occ., toutes en sous-type `metadata`)** : l'ancien schéma
+  (connexionId/target/fetchVar) ne correspondait à aucun nom réel. Réécrit
+  pour les 4 sous-types réels du handler (metadata/asset/collection/saved
+  search). Port 1 renommé `error` → `not_found` (le handler ne route jamais
+  une vraie erreur HTTP vers un port dédié — seulement des « non trouvé ») ;
+  `httpMode` retiré du catalogue (mort : `fetch` a son propre handler nommé,
+  jamais `handleHttpRequest`). Fichier `wfd-node-fetch.js` repéré comme mort
+  (rien ne le `require`) — non touché, hors périmètre.
+- **`create_tree` (4 occ.)** : même écart total (connexionId/root/template
+  fictifs). Réécrit sur les vrais champs (`templateId`/`parentId`/
+  `metadataViewId`/`idFieldName`…). `templateId` référence maintenant la
+  ressource réelle `ArboTemplate` — nouvelle nature de panneau `gabarit`
+  (config-renderer.js) + `arboTemplates()` (config-sources.js), calquées sur
+  `manifeste`/`manifests()`. Risque signalé : `metadataViewId` vide fait
+  échouer l'écriture de TOUS les champs, silencieusement, dans le handler.
+- **`id_generator` / `aps.registry` (1 occ.)** : aucun schéma de façade
+  n'existait (retombait sur le Core `http_request` brut). Réécrit ; `apiActions`
+  volontairement omis — repose sur `conn.actions`, absent du modèle
+  `Connexion` (jamais fonctionnel, même en configurant l'occurrence réelle).
+  Port `error` retiré du catalogue (inatteignable sans `apiActions`).
+  `outputType: integer` filtré hors des options sauf `idType: numeric` (évite
+  un `parseInt` tronqué silencieusement sur un id hex/alphanumérique).
+- **`lookup` (1 occ.)** : `source`/`key` fictifs, réécrit sur `lkInputVar`/
+  `lkRows`/`lkFallback`/`lkOutputVar` réels. **Dette non comblée, documentée** :
+  `lkRows` reste embarqué dans le nœud alors que builder-etat.md (section
+  Ressources) dit déjà que cette table de correspondance devrait être une
+  ressource d'org — le modèle Prisma `Mapping` existe mais n'a aucune route
+  serveur (contrairement à `ArboTemplate`, qui en avait déjà une). Suivi
+  flaggé en tâche séparée.
+- **`http_sequence` (1 occ., 7 étapes : 5 foreach + 2 simple)** : réécrit en
+  profondeur (`request.method`/`storeAs` fictifs). Chaque étape se délègue à
+  `handleHttpRequest`/`_handleHttpForeach` — deux jeux de champs distincts
+  selon `httpMode`. `onError` de séquence (top-level) retiré : mort, le vrai
+  contrôle vient du `onError` par étape.
+- **`timer` (1 occ.)** : **bug réel, le plus sérieux de cette passe** — le
+  champ de planning s'appelait `cron` dans le panneau, mais le planificateur
+  (`wfd-engine-trigger.js`, `scheduleTimer()`) lit exclusivement `cronExpr`.
+  Un cron construit dans le Builder aurait toujours été ignoré, remplacé
+  silencieusement par le défaut en dur du moteur (`0 9 * * 1-5`). Corrigé
+  dans le panneau ET dans `familleWfd()` (testait `p.cron`, même faute).
+  `timerMode` interval/oneshot ajoutés (câblés, non prouvés par l'occurrence
+  réelle qui est en `cron`).
+
+**Constat transversal** : sur les 7 familles, quatre schémas de panneau
+n'avaient tout simplement **aucune correspondance** avec ce que le moteur
+lit (`checker`, `fetch`, `create_tree`, `id_generator`) — pas des champs
+approximatifs, des noms entièrement différents. Le bug `timer`/`cronExpr`
+est le plus grave trouvé depuis `decision`/`on→field` : silencieux,
+plausible (le nœud « fonctionne », juste jamais à l'heure demandée).
+
+---
+
+## Ressource Mapping — construite et branchée le 3 août
+
+Suite directe de l'audit `lookup` ci-dessus : la dette signalée ("`lkRows`
+devrait être une ressource d'org") est comblée le jour même.
+
+- `server/routes/mapping.js` — CRUD org-scopé (calqué sur `connexions.js` pour
+  le scoping, `arbo-templates.js` pour la forme), monté sur `/api/mappings`.
+  Alias `rules` (colonne Prisma) ↔ `rows` (API) : l'écran
+  `admin/ressources/ressources.js` (29 juillet, antérieur à cette route)
+  attendait déjà `rows` pour mappings ET nommages — la route s'aligne sur ce
+  contrat plutôt que de le changer.
+- `config-sources.js` (`mappings()`) et `config-renderer.js` (nature
+  `mapping`) — même mécanique que `manifeste`/`gabarit`.
+- `config-schema.js` : le nœud Lookup ne stocke plus qu'une référence
+  (`mappingId`) — plus de `lkRows` embarqué. Forme d'une row documentée en
+  commentaire pour ne pas la reperdre : `{key, value, type?, _format?,
+  fallback?, children?}`.
+- `pivot-to-wfd.js` : **la résolution `mappingId` → `lkRows` réellement
+  écrite**, pas juste un sélecteur qui ne sert à rien. `_config()` déplie la
+  référence en tableau au moment de produire le format d'échange, depuis
+  `options.resolutions.mappings` (fourni par l'appelant — aucun appel réseau
+  dans le convertisseur, qui reste synchrone). Prouvé par un test isolé
+  (conversion d'un pivot minimal avec `mappingId` + résolution injectée : le
+  nœud WFD généré porte bien `lkRows` résolu ; sans résolution fournie,
+  `lkRows` reste absent, sans fuite d'une conversion à l'autre).
+
+**Reste ouvert, pas construit aujourd'hui** :
+- **Aucun écran ne permet de créer/éditer les rows d'un Mapping** —
+  `admin/ressources` n'affiche que nom + décompte, en lecture seule. Tant que
+  cet écran n'existe pas, `mappingId` référence une ressource qu'on ne peut
+  peupler que par API directe (POST/PUT `/api/mappings`).
+- **`manifestId`, sur `aws_s3.deliver`, a le même défaut structurel** —
+  vérifié en creusant un point du rapport de la tâche déléguée : AUCUNE lecture
+  de `manifestId` nulle part dans le moteur (`wfd-engine-handlers.js`) ni dans
+  `package-executor.js`. Ce n'est PAS un simple oubli symétrique à `mappingId` :
+  la donnée qu'un manifeste doit produire à la résolution (dépliage par
+  essence, vérification de cardinalité) n'est pas encore conçue — c'est le
+  Packager, étape 5 de l'Ordre de construction, pas encore bâti. Ne pas le
+  traiter comme une correction de parité rapide.
+- La tâche déléguée avait aussi affirmé, à tort, que `/api/manifests`
+  404 — cette route existe (montée via `wfd-data.js`, pas un fichier dédié).
+  Vérifié en lisant le code, pas supposé.
+
+---
+
+## Tree Builder — 3ème onglet, gabarits édités dans le Builder — 3 août
+
+Constat de l'utilisateur : les gabarits d'arborescence (ArboTemplate) se
+créaient jusqu'ici dans le Designer de `platforms/iconik/viewer/` — plus en
+adéquation avec le Builder, et un aller-retour entre deux apps distinctes
+pour construire un workflow. Décision : un 3ème onglet "Tree Builder", à
+côté de Workflows/Manifestes, même principe que les deux autres (une
+ressource du Builder s'édite dans le Builder).
+
+- `workflow.html`/`workflow.js` — 3ème onglet + liste (renommer/dupliquer/
+  supprimer sur `/api/arbo-templates`, déjà un CRUD complet, aucune route à
+  écrire).
+- `arbo-canvas.html`/`.js`/`.css` (nouveau) — éditeur dédié. **Pas un canevas
+  à positions/arêtes libres comme `workflow-canvas`** : un gabarit est un
+  ARBRE strict (un parent), une liste imbriquée (indentation = hiérarchie)
+  suffit et se construit/se lit plus vite. Chaque nœud : titre, type (texte
+  libre + suggestions, jamais un choix fermé — un autre client peut avoir un
+  autre vocabulaire), badge "Génère un ID" (`generateId`, le mécanisme
+  historique du Designer, reproduit à l'identique). L'aide affichée à
+  l'écran dit explicitement la règle de parenté actuelle (Parent ID = dernier
+  ancêtre qui génère aussi un ID, pas forcément le parent direct) — sujet
+  ouvert, à reprendre une fois l'outil pris en main.
+
+**Bug réel trouvé en testant en direct** (pas en théorie) : l'unique
+ressource `Mapping` déjà en base ("VOD Factory | Fields") utilise `src`/`tgt`
+au niveau de chaque ligne — `lookup()` (wfd-engine-handlers.js) n'acceptait
+CES noms que pour les enfants de traduction (`c.key || c.src`), pas pour la
+ligne elle-même (`row.key || row.from` seulement). Toutes les lignes de
+l'unique mapping réel étaient donc silencieusement ignorées (0 traduites,
+aucune erreur). Corrigé (alias `src`/`tgt` ajoutés au niveau ligne, même
+principe que l'alias déjà en place pour les enfants) et vérifié avec les
+vraies données de ce mapping (`Classification` -> `rating`, `Genres` ->
+liste traduite) : la traduction produit maintenant le bon résultat.
+
+**Vérifié** : pages servies (200), `/api/arbo-templates` et `/api/mappings`
+répondent avec de vraies données, `lookup()` testé directement en Node avec
+le mapping réel. **Pas vérifié** : l'interaction visuelle réelle dans un
+navigateur (ajout/suppression de niveau, sauvegarde) — l'outil Chrome n'était
+pas connecté dans cet environnement. À tester à la main.
+
+**Deux corrections après premier test réel par l'utilisateur** (capture
+d'écran + retour) :
+- **Listes obsolètes entre onglets** : `chargerGabarits()`/etc. ne
+  s'exécutaient qu'au chargement de `workflow.html`, pas à chaque clic
+  d'onglet — un gabarit enregistré sur `arbo-canvas.html` n'apparaissait
+  donc pas tant que la page n'était pas rechargée. `activerOnglet()`
+  recharge maintenant la liste concernée à chaque activation, et un
+  écouteur `pageshow` (`e.persisted`) couvre aussi le retour arrière depuis
+  le cache du navigateur (bfcache), qui ne réexécute pas le script.
+- **Outils manquants sur Manifestes** : renommer/dupliquer/supprimer
+  ajoutés, sur le même principe que Workflows/Tree Builder. Particularité
+  de `/api/manifests` (contrairement aux autres ressources) : PUT/POST
+  valident la structure complète via `PivotManifest.valider`
+  (name/niveau/essences) — un PUT `{name}` seul échoue en 400. Renommer/
+  dupliquer relisent donc le manifeste complet (GET /:id) avant d'écrire.
+  Vérifié par un aller-retour réel (dupliqué puis supprimé un manifeste réel
+  via l'API, cycle complet réussi).
+- **CSS manquant sur arbo-canvas.html** : `org-context-selector.css` non
+  inclus — le sélecteur d'organisation s'affichait sans style (liste
+  déroulante blanche). Corrigé (une ligne oubliée par rapport à
+  `workflow.html`).
+
+**Numérotation par niveau (nodeDef.numberField), ajoutée le 3 août** —
+suite d'une discussion sur la parenté : l'ancien mécanisme
+(`orderFieldName`/`orderPad`/`orderSeed`) est un réglage de WORKFLOW,
+appliqué SEULEMENT à la racine de ce qu'un appel Create Tree crée — un
+gabarit à plusieurs niveaux numérotés (Série+Saison+Episode dans le même
+arbre, comme le premier test de l'utilisateur) ne pouvait pas fonctionner
+avec ce mécanisme. Décision : un réglage PAR NIVEAU dans le gabarit lui-même
+(`numberField`/`numberPad`), au même titre que `generateId`, exposé dans
+Tree Builder comme un badge "Numérote ce niveau" + le nom du champ.
+
+Correction de fond demandée par l'utilisateur, pas juste un changement de
+portée : l'ancien mécanisme est un compteur ATOMIQUE STOCKÉ (BayardRegistry-
+like), qui ne sait pas qu'un numéro a été libéré par une suppression —
+"Saison 02" supprimée, la création suivante recevait quand même "03". Le
+nouveau mécanisme (`_prochainNumeroFratrie`, wfd-engine-handlers.js)
+interroge Iconik pour la fratrie RÉELLE sous le parent à chaque création
+(recherche `parent_id`, pas un compteur) et lit le numéro dans le TITRE de
+chaque sœur (dernière suite de chiffres) — pas sa métadonnée, qui peut être
+absente si aucune vue n'est configurée (risque déjà noté ailleurs sur
+`metadataViewId`). Testé isolément (algorithme seul, 6 cas dont exactement
+le cas rapporté par l'utilisateur : ne reste que "01" après suppression de
+"02" -> le suivant redonne bien "02"). Coexiste sans conflit avec l'ancien
+mécanisme : un gabarit qui n'utilise pas `numberField` se comporte
+exactement comme avant.
+
+---
+
+## Écran d'édition des Mappings — `admin/mappings/` — 3 août
+
+Premier des deux chantiers actés ("faisons-les dans l'ordre" : Mapping puis
+Packager). Écran dédié, calqué structurellement sur `admin/manifests/`
+(liste + éditeur deux colonnes, même palette `adm-*`) : nom + rows, chaque
+row = champ source / chemin destination / type / format / repli, avec une
+sous-liste optionnelle de traduction de valeur (children). Correspondances
+retirées de l'écran générique `admin/ressources/` (qui ne gardait déjà que
+nommages/contacts — Manifest en était déjà sorti avant cette date) ; un 4ème
+onglet "Correspondances" ajouté sur l'accueil du Builder, même traitement
+que Manifestes/Tree Builder (liste + outils renommer/dupliquer/supprimer +
+lien vers l'écran dédié).
+
+**Découverte importante en testant** : `/api/mappings` **existait déjà**,
+dans `wfd-data.js` (routes du 22 juin), avant que je construise
+`server/routes/mapping.js` — je l'avais raté en auditant `lookup` le 3 août
+(j'avais conclu à tort "aucune route n'existe encore"). Les deux routes
+faisaient presque la même chose, avec une différence réelle : l'ancienne
+filtrait TOUJOURS par une seule org (`getDefaultOrgId`), même pour
+superadmin — pas le comportement voulu par `org-context.js` (rôles non
+filtrés voient tout). Résolu en supprimant le bloc `mappings` de
+`wfd-data.js` (la nouvelle route le remplace intégralement, alias `rows`
+cohérent sur GET **et** POST/PUT — l'ancienne n'aliasait que les GET).
+
+**Piège trouvé en même temps, à retenir** : le serveur tournait en
+`node server/index.js` simple, pas nodemon — mes changements à `index.js`
+(montage de la nouvelle route) n'étaient donc pas actifs tant que le
+processus n'était pas relancé, ce qui a produit un faux résultat de test
+(POST retournait `rules` non-aliasé, l'ancienne route, alors que le fichier
+sur disque était déjà correct). Un `kill` du PID a suffi : un LaunchAgent
+(`com.askida.aps.plist`, déjà présent dans `_Patches/`) relance le process
+automatiquement. **À vérifier avant tout futur test de route serveur** :
+comparer l'heure de démarrage du process (`ps -p <pid> -o lstart`) à l'heure
+de modification des fichiers touchés — un serveur plus vieux que le code
+teste l'ancien comportement en silence.
+
+Vérifié après redémarrage : round-trip complet (POST/GET/PUT/DELETE) avec
+alias `rows`↔`rules` cohérent, et les autres routes (arbo-templates,
+manifests, builder-flows, connexions) toujours saines.
+
+**Bug fond blanc résolu — leçon à retenir** : après un très long diagnostic
+(éliminé un par un : mode sombre OS, Brave Shields, 3 navigateurs différents,
+navigation privée, CDN, cache navigateur avec URL jamais vue) la vraie cause
+était un **commentaire CSS mal formé** dans `mappings.css` — le texte du tout
+premier commentaire contenait littéralement `mf-*/adm-*`, où `*/` referme un
+commentaire CSS prématurément. Le reste du commentaire redevenait du CSS
+invalide, suivi d'un second `*/` orphelin — assez pour que le navigateur
+corrompe le bloc `:root {}` juste après (confirmé par `document.styleSheets`:
+49 règles chargées au lieu des 50 attendues). **Piège à ne pas reproduire** :
+ne jamais écrire `*/` (même en deux mots séparés par un caractère) à
+l'intérieur d'un commentaire CSS — y compris pour lister des préfixes de
+classes comme "mf-* et adm-*". Diagnostic le plus utile qui a mené à la
+cause : compter `/\*` vs `\*/` dans le fichier (6 vs 7, jamais égal).
+
+**UX ajoutée sur Manifestes ET Correspondances** (retour utilisateur après
+test réel) : recliquer l'élément déjà ouvert referme l'éditeur ; la liste de
+gauche reste `position: sticky` pendant le défilement d'un éditeur long —
+sinon, avec le mapping réel à 29 lignes, il fallait remonter en haut de page
+pour choisir un autre élément.
+
+---
+
+## Packager — audit `wait_for`/`aws_s3` — 3 août
+
+Avant de construire quoi que ce soit, même méthode que tout l'audit du 31
+juillet et du 3 août : données réelles (6 occurrences chacun) + relecture
+complète du handler, PAS le résumé du 31 juillet qui s'est avéré incomplet.
+
+**Ce que `aws_s3.deliver` fait VRAIMENT** (aucun rapport avec le schéma
+d'origine) : les 6 occurrences réelles utilisent TOUTES `operation:
+"list_objects"` — ce n'est pas une livraison, c'est une **vérification**.
+`wait_for` sonde un job Iconik puis, à la réussite, appelle en interne
+`aws_s3` avec `list_objects` pour lister le dossier où l'Export Location a
+déjà déposé les fichiers, et exposer les URLs par type (vidéo/image/sous-
+titre) via `s3Mappings`. La vraie livraison est `iconik.action` /
+`export_location_trigger` (façade Action, déjà validée 6/6 le 31 juillet) —
+ceci n'est que le constat après coup. Le nom de la façade (`deliver`) est
+donc trompeur par rapport à ce qu'elle fait réellement, mais on la garde
+(cohérence avec le nom de famille WFD `aws_s3`).
+
+**`manifestId` était la bonne idée le 31 juillet, juste jamais câblée** :
+`s3Mappings[].{type,filter,variable}` a EXACTEMENT la forme d'une essence de
+Manifeste (`role`/`reconnu_par`/`sortie`). Résolution ajoutée dans
+`pivot-to-wfd.js`, même mécanisme que `mappingId` → `lkRows` (module-level
+`_resolutions.manifests`, peuplé par l'appelant, aucun appel réseau dans le
+convertisseur). `reconnu_par` (tableau côté Manifeste) est joint en chaîne
+virgule pour produire `filter` (chaîne côté moteur) — seul point de
+conversion de forme. Testé avec le manifeste réel déjà en base ("Livraison
+VOD Factory | PRIME", 1 essence artwork/_poster/s3_image_url) : résolution
+correcte, et aucune fuite entre deux conversions sans résolution fournie.
+
+**Schéma `aws_s3.deliver` réécrit** : `operation` exposé (choix, `list_objects`
+en premier/coché par défaut — seul prouvé par les 6 occurrences réelles ;
+head/get/put/delete_object listés mais pas détaillés, même traitement que
+les 40 actionType non détaillés d'`iconik.action`). `manifestId` visible
+seulement en mode `list_objects` (c'est le seul où `s3Mappings` compte).
+
+**Vestiges morts confirmés, omis** (présents sur les 6 occurrences réelles,
+jamais lus par `list_objects` — reliquats de l'ancienne opération
+`artwork_s3`, remplacée par une détection automatique par nom de fichier,
+le commentaire du moteur le dit explicitement) : `jobId`, `artworks[]`,
+`mdViewId`, `titreVar`, `nommageId`. `s3VarVideo`/`s3VarImage`/`s3VarSrt` :
+ne comptent que si `s3Mappings` est vide, jamais le cas en réel.
+
+**Garde-fou de cardinalité — fait le 3 août, même session.** `aws_s3()`
+(wfd-engine-handlers.js, branche `list_objects`) compare désormais le nombre
+de clés S3 trouvées par mapping à sa `cardinalite` (`exactement_un` /
+`au_moins_un` / `au_plus_n` avec `n` / `optionnel`), et fait échouer le
+nœud (port `miss`, même port que "dossier vide" — les deux disent "ce que
+le Manifeste attendait n'est pas là") avec un message listant CE QUI a
+manqué (ex. "artwork : attendu au moins 1, trouvé 0"), pas juste un échec
+muet. `pivot-to-wfd.js` transporte `cardinalite`/`n` depuis l'essence vers
+`s3Mappings` (même résolution que `manifestId` → le reste des champs,
+ajoutée juste avant).
+
+**Rétrocompatibilité vérifiée, pas supposée** : une config sans `cardinalite`
+(nœud WFD antérieur au Manifeste) ne déclenche jamais le garde-fou — testé
+explicitement (cas F du test ci-dessous). Le calcul de cardinalité tourne
+maintenant TOUJOURS (avant : seulement si `count > 0` au niveau global),
+pour pouvoir signaler PRÉCISÉMENT quelle essence manque même quand le
+dossier est entièrement vide — avant, ce cas ne produisait qu'un échec
+générique sans détail.
+
+Testé isolément (mock de `fetch`, connexion S3 factice, 6 cas : au_moins_un
+satisfait/non satisfait, exactement_un en excès, au_plus_n dépassé,
+optionnel absent, et rétrocompat sans cardinalite) — les 6 se comportent
+comme attendu. Testé aussi avec le manifeste réel déjà en base (résolution
+complète pivot → WFD, `cardinalite: "au_moins_un"` bien transporté).
+
+**Le Packager est maintenant complet dans ses deux moitiés** : dépliage
+(`manifestId` → `s3Mappings`) et garde-fou (cardinalité vérifiée à
+l'exécution). Reste hors périmètre, non demandé : un écran pour
+créer/éditer les manifestes autrement qu'un par un (déjà couvert par
+`admin/manifests/`, pas un nouveau chantier).
+
+**Rien n'est commité** — modifications non indexées dans l'arbre de travail.
