@@ -319,3 +319,92 @@ pages servies (200) uniquement.
 
 **Rien n'est commité avant cette session** — commité à la fin de celle-ci
 (voir git log).
+
+---
+
+## Suite — de Decision (Bayard ID ?) au blocage Manifeste
+
+### Corrections rapides en configurant Decision/Générateur d'ID
+- **Tri alphabétique oublié** dans le sélecteur inline (celui accolé aux
+  champs `variable`, pas le panneau dédié qui triait déjà) — corrigé, un
+  seul helper (`_triParNom`) réutilisé partout maintenant.
+- **Convergence de graphe** : question de l'utilisateur ("ça oblige à
+  mettre 4 Decision pour évaluer le Bayard ID ?") — non. Vérifié sur le vrai
+  flow : un seul nœud `Bayard ID ?` dans les 76, les 4 branches convergent
+  vers lui (plusieurs arêtes vers la même cible, le format le permet
+  nativement). Screenshot de l'utilisateur ensuite : structure correcte,
+  sauf une 3ᵉ sortie ("Par défaut") ajoutée en trop à côté de "Is Empty"/"Is
+  Not Empty" — un test binaire n'a besoin que de 2 sorties, "Par défaut"
+  devenait une branche morte. Corrigé par l'utilisateur.
+
+### Générateur d'ID — masqué depuis le 28 juillet, redémasqué
+L'utilisateur ne le voyait pas dans la palette. Recherché : décision
+délibérée du 28 juillet (`isService`, "les services ne sont pas des nœuds à
+poser"), qui contredisait le vrai flow (nœud autonome) ET la phrase du
+document lui-même ("soit par une façade dédiée"). Démasqué avec l'accord de
+l'utilisateur.
+
+Puis discussion sur la portabilité : l'utilisateur se souvenait d'un
+mécanisme "timestamp + aléatoire + table pour ne pas régénérer" — retrouvé
+dans le code (`idType: 'timestamp'` vs `'numeric'` + `BayardRegistry`,
+jamais documenté comme choix de portabilité). Construit le mécanisme
+d'affichage décrit le 23 juillet mais jamais câblé : note de portabilité
+sous le menu Type, généralisée à toute la nature `choix`.
+
+### Deliver — bilan avant blocage
+- Connexion S3 réelle utilisée ("S3 VOD FACTORY"), manifeste réel
+  ("Livraison VOD Factory | PRIME") repéré comme incomplet (1 seule essence
+  sur les 5 réelles).
+- **Pastille grise ambiguë** : l'utilisateur a cru qu'"Actif" (admin
+  connexions) mentait. Vérifié : deux informations différentes (case admin
+  vs test en direct, impossible pour S3 par nature). Corrigé par un texte
+  toujours visible.
+- **"Prefix to search"** : l'utilisateur a voulu un chemin définitif, pas un
+  placeholder ("je vais devoir montrer et expliquer"). A mené à construire
+  une nouvelle façade.
+
+### Ancestor Resolver — nouvelle façade construite et vérifiée
+Le vrai chemin de destination suit la chaîne des ancêtres (Série/Saison/
+Episode). Le vieux WFD le faisait avec 3-4 `Fetch` répétés par branche, deux
+mécanismes différents et incohérents (parent_id structurel ET recherche par
+BayardID). La refonte du 23 juillet avait déjà tranché "3 Fetch → 1 — les
+ancêtres se résolvent seuls", jamais construit.
+
+Choix retenu, confirmé par l'utilisateur : recherche par BayardID (identifiant
+métier), pas la relation structurelle Iconik — et **portable** (aucun appel à
+l'état interne d'APS, contrairement au Générateur d'ID en mode Numeric).
+Construit : nouveau handler `resolve_ancestors` (wfd-engine-handlers.js),
+façade `iconik.resolve_ancestors`, schéma de panneau, catalogue de variables.
+
+**Testé de bout en bout contre les vraies données** — pas une simulation :
+requêtes réelles contre l'environnement QA|ASKIDA, chaîne réelle Star Trek
+(Série) → Saison 01 → Episode 01. Un bug réel trouvé et corrigé en testant :
+sans `view id`, l'API Iconik renvoie `{values:[...]}`, pas `{field_values:
+[...]}` comme la première version supposait. Chemin assemblé
+(`Star_Trek_44931263/Saison_01_93431001/Episode_01`) confirmé identique en
+listant le vrai bucket S3 (`iconik-askida-stockage-hr`) via le handler
+`aws_s3()` du moteur appelé directement.
+
+### Manifeste — contenu réel vérifié, puis blocage architectural
+En listant les 3 vrais dossiers S3 pour construire le contenu du manifeste,
+découverte de la vraie convention de nommage (rôle en minuscule, sous-chaîne
+du nom de fichier) et confirmation que **chaque niveau a des essences
+différentes** (Série : cover/hero/poster/title ; Saison : cover/hero/poster/
+season ; Episode : episodic/video/subtitle).
+
+En vérifiant `pivot-manifest.js` pour construire ce contenu, découverte que
+la structure réelle a un `niveau` UNIQUE par manifeste — pas de champ
+`appliesTo` par essence comme ce document le décrivait depuis le 23 juillet.
+Un seul Deliver partagé ne peut donc pas référencer 4 manifestes à la fois.
+
+**Décision de fin de session** : construire la vraie extension (`appliesTo`
+par essence + filtrage dans `aws_s3()` selon `TypeCollection`), pas
+contourner avec 4 manifestes/4 Deliver séparés. **C'est le premier travail
+de demain** — rien construit ce soir sur ce point précis, contexte de
+session épuisé.
+
+**Non vérifié par moi cette suite** : même limite que plus haut, pas d'outil
+Chrome — tout testé via retours directs de l'utilisateur.
+
+**Rien n'est commité depuis le dernier commit de cette session** (voir git
+status) — à faire au début de la prochaine session ou sur demande.

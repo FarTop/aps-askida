@@ -643,6 +643,22 @@ const ConfigSchema = (() => {
             } }
         ];
 
+      // Remontée d'ancêtres : un seul nœud, remplace les 3-4 Fetch répétés par
+      // branche du vieux WFD (Fetch Série / Fetch Saison / Fetch Saison Titre).
+      // Lit TypeCollection/Univers/BayardID/title/ParentID déjà posés à plat
+      // par le Search précédent — rien à choisir ici, la façade sait déjà où
+      // regarder (même convention que le reste : les champs système/de l'org
+      // sont exposés nus par aps_search, pas besoin de les redésigner).
+      case 'iconik.resolve_ancestors':
+        return [
+          { nature: 'variable', chemin: 'varName', label: 'Store as', placeholder: '{ancestorPath}' },
+          { nature: 'choix', chemin: 'onError', label: 'On error', options: [
+            { valeur: 'stop', libelle: 'Stop' },
+            { valeur: 'continue_log', libelle: 'Continue (log)' },
+            { valeur: 'continue', libelle: 'Continue (silent)' }
+          ] }
+        ];
+
       // Search (aps_search) : recherche APS multi-blocs. Transcrit fidèlement la
       // structure réelle observée sur les 17 occurrences de PUBLISH V2 : des
       // BLOCS (collection ou asset), chacun avec ses propres CRITÈRES (liste
@@ -1166,13 +1182,28 @@ const ConfigSchema = (() => {
       // est rendu impossible à choisir.
       case 'aps.registry':
         return [
+          // Portabilité vérifiée dans id_generator() (wfd-engine-handlers.js) :
+          // les six formules sont du pur calcul local (aucune n'appelle
+          // Iconik), mais SEULE `numeric` déclenche ensuite la garantie
+          // d'unicité via BayardRegistry (table Prisma d'APS) — c'est cette
+          // étape-là, pas la formule, qui est APS uniquement. Les cinq autres
+          // n'ont aucune garantie d'unicité (juste une collision improbable
+          // vu la longueur/l'aléatoire), mais aucune dépendance APS non plus
+          // : n'importe quel moteur sachant faire `now()` + aléatoire les
+          // reproduit à l'identique.
           { nature: 'choix', chemin: 'idType', label: 'Type', reagit: true, options: [
-            { valeur: 'numeric', libelle: 'Numeric' },
-            { valeur: 'alphanumeric', libelle: 'Alphanumeric' },
-            { valeur: 'hex', libelle: 'Hex' },
-            { valeur: 'prefixed', libelle: 'Prefixed alphanumeric' },
-            { valeur: 'uuid', libelle: 'UUID v4' },
-            { valeur: 'timestamp', libelle: 'Timestamp-based' }
+            { valeur: 'numeric', libelle: 'Numeric',
+              portabilite: '⚠ APS only — la formule est portable, mais l\'unicité garantie dépend de BayardRegistry (base d\'APS). Un autre moteur générerait des collisions.' },
+            { valeur: 'alphanumeric', libelle: 'Alphanumeric',
+              portabilite: '✅ Portable — calcul local, aucune dépendance APS. Pas de garantie d\'unicité (juste une collision improbable).' },
+            { valeur: 'hex', libelle: 'Hex',
+              portabilite: '✅ Portable — calcul local, aucune dépendance APS. Pas de garantie d\'unicité (juste une collision improbable).' },
+            { valeur: 'prefixed', libelle: 'Prefixed alphanumeric',
+              portabilite: '✅ Portable — calcul local, aucune dépendance APS. Pas de garantie d\'unicité (juste une collision improbable).' },
+            { valeur: 'uuid', libelle: 'UUID v4',
+              portabilite: '✅ Portable — calcul local, aucune dépendance APS. Pas de garantie d\'unicité (juste une collision improbable, négligeable pour un UUID).' },
+            { valeur: 'timestamp', libelle: 'Timestamp-based',
+              portabilite: '✅ Portable — calcul local (horodatage + aléatoire), aucune dépendance APS. Solution de repli si le workflow doit s\'exporter vers un autre moteur d\'orchestration.' }
           ] },
           { nature: 'texte', chemin: 'idPrefix', label: 'Prefix', placeholder: 'e.g. BAY-',
             visibleSi: function (m) { return m.lire('idType') === 'prefixed'; } },

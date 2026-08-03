@@ -972,10 +972,16 @@
       // plateforme (badge visible dans la liste, sans avoir à glisser le nœud).
       const PLATEFORME = { iconik: 'Iconik', aws_s3: 'AWS', vodfactory: 'VodFactory', aps: 'APS' };
       function _nomFacade(f) {
+        if (CAT.FACADES[f] && CAT.FACADES[f].nodeLabel) return CAT.FACADES[f].nodeLabel;
         return f.split('.')[1].replace(/_/g, ' ').replace(/\b\w/g, function (m) { return m.toUpperCase(); });
       }
+      // `isService` (aps.registry) ne masque plus la palette — corrigé le 3
+      // août : builder-etat.md prévoit explicitement qu'un service s'invoque
+      // « soit en interne (Create Tree), soit par une façade dédiée » — le
+      // masquage du 28 juillet ratait cette seconde clause. Confirmé par le
+      // vrai flow de production : Générateur d'ID y est un nœud autonome
+      // avec son propre déclencheur (Bayard ID ?), pas un mécanisme caché.
       Object.keys(CAT.FACADES)
-        .filter(function (f) { return !CAT.FACADES[f].isService; })   // les services ne sont pas des nœuds à poser
         .sort(function (a, b) { return _parLibelle(_nomFacade(a), _nomFacade(b)); })
         .forEach(function (f) {
           const fa = CAT.FACADES[f];

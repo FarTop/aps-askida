@@ -7,33 +7,50 @@
 > écarté. Lire ce document suffit pour travailler ; lire le journal sert quand
 > on veut comprendre une décision ou la remettre en cause.
 >
-> Dernière mise à jour : 3 août 2026 (test grandeur nature en cours — VOD
-> Factory PUBLISH construit nœud par nœud, palette triée, sélecteur de
-> variables + panneau dédié construits ; cf. `journal-aps-2026-08-03.md`,
-> section "Test grandeur nature" pour le récit).
+> Dernière mise à jour : 3 août 2026, fin de journée (construction PUBLISH
+> nœud par nœud très avancée — Trigger jusqu'à Deliver posés ; nouvelle
+> façade Ancestor Resolver construite et vérifiée contre les vraies données ;
+> blocage identifié sur le Manifeste, à lever en premier demain. Cf.
+> `journal-aps-2026-08-03.md`, section "Test grandeur nature" pour le récit
+> complet).
 
 ---
 
 ## Point de départ pour la prochaine session
 
-1. **Continuer la construction de PUBLISH nœud par nœud** — Trigger → History
-   → Search → Decision posés et configurés (vérifiés contre le vrai flow de
-   production). Reste à poser : Bayard ID ?, Générateur d'ID, Set Metadata,
-   Deliver (manifeste), Lookup, HTTP Sequence, Verify, Set Metadata + History
-   finaux — la liste à 10 étapes déjà proposée dans le journal.
-2. **Élargir le catalogue de variables au fil de la construction** — chaque
-   façade posée pour de vrai (Fetch, Set Metadata, Action, Deliver, HTTP
-   Sequence…) doit recevoir sa déclaration `variables()` vérifiée contre le
-   handler, comme Trigger/Search/History/Lookup/aps.registry aujourd'hui.
-   Les façades non encore déclarées renvoient `[]` — absence de preuve, pas
-   invention.
-3. **Vérifier à la main dans un navigateur** le badge statut/bouton Publier
-   du canevas ET le nouveau panneau Variables (câblés le 3 août sans outil
-   Chrome disponible dans cet environnement — testés uniquement via retours
-   directs de l'utilisateur en cours de session, pas par moi).
-4. Historique des versions publiées : la route existe (`GET
+1. **Étendre le Manifeste — PREMIER travail de demain.** Vérifié en fin de
+   session (`pivot-manifest.js`) : un manifeste ne couvre qu'**un seul
+   niveau** (`niveau: serie|saison|episode|unitaire|*`), pas les 4 avec une
+   condition par essence comme le reste de ce document le décrivait —
+   c'était l'intention documentée, jamais construite ainsi. Décidé en fin de
+   session : construire la vraie extension plutôt que contourner (4
+   manifestes + 4 Deliver). Concrètement :
+   - Ajouter `appliesTo` par essence dans `pivot-manifest.js` (condition sur
+     `TypeCollection`, même mécanique que `reconnu_par`/`cardinalite`)
+   - L'exposer dans l'écran `admin/manifests/`
+   - Modifier `aws_s3()` (moteur, branche `list_objects`) pour ne compter
+     que les essences dont `appliesTo` matche le `TypeCollection` courant
+   - Contenu réel à y mettre, vérifié en listant le vrai bucket S3 (section
+     "Manifeste — contenu réel vérifié" plus bas) : essences différentes par
+     niveau (cover/hero/poster/title pour Série, +season pour Saison,
+     episodic+video+subtitle pour Episode, box+cover+poster+hero+title pour
+     Unitaire d'après la doc partenaire, jamais vérifié en réel)
+2. **Continuer la construction de PUBLISH nœud par nœud** une fois le
+   Manifeste étendu — Deliver est le nœud bloqué. Après lui : Lookup, HTTP
+   Sequence, Verify, Set Metadata + History finaux.
+3. **Élargir le catalogue de variables au fil de la construction** — chaque
+   façade posée pour de vrai doit recevoir sa déclaration `variables()`
+   vérifiée contre le handler, comme Trigger/Search/History/Lookup/
+   aps.registry/Ancestor Resolver aujourd'hui. Les façades non encore
+   déclarées renvoient `[]` — absence de preuve, pas invention.
+4. **Vérifier à la main dans un navigateur** tout ce qui a été câblé sans
+   outil Chrome disponible dans cet environnement cette session (badge
+   statut/Publier, panneau Variables, correctifs pastille de connexion) —
+   testé uniquement via retours directs de l'utilisateur en cours de
+   session, pas par moi.
+5. Historique des versions publiées : la route existe (`GET
    /builder-flows/:id/versions`), aucun écran ne l'affiche ; pas de rollback
-   construit (republier une ancienne version).
+   construit.
 
 ---
 
@@ -88,8 +105,20 @@ Core qui portait à tort du vocabulaire Iconik — voir audit).
 
 ### Services — 2
 
-Registre d'identifiants externes · compteur d'ordre. Les seuls mécanismes qui
+Registre d'identifiants externes (`BayardRegistry`, table Prisma réelle —
+réutilise l'ID existant d'un objet plutôt que d'en régénérer un, garantit
+l'unicité des nouveaux) · compteur d'ordre. Les seuls mécanismes qui
 exigent un état partagé et atomique ; aucun moteur ne sait les porter.
+
+**Corrigé le 3 août** : la façade dédiée du registre (`aps.registry` /
+Générateur d'ID) était masquée de la palette du canevas depuis le 28
+juillet ("les services ne sont pas des nœuds à poser"). Ça contredisait la
+phrase juste en dessous — *"soit par une façade dédiée"* — et surtout le
+vrai flow de production, où Générateur d'ID est un nœud autonome et visible
+avec son propre déclencheur (`Bayard ID ?` → branche "ID Vide"), pas un
+mécanisme invoqué en silence. Démasqué ; `isService` reste utile ailleurs
+(déduction des services requis par un workflow), mais ne conditionne plus
+la visibilité dans la palette.
 
 ### Ressources — 3
 
@@ -263,8 +292,17 @@ refuser. **Jamais omettre en silence.**
 Une **ressource**, pas un nœud. `Deliver` la désigne, comme `Create Tree`
 désigne un modèle d'arborescence.
 
-**Un seul manifeste couvre tous les niveaux.** Chaque composant porte deux jeux
-de critères, dans le même langage :
+**Correction du 3 août, en vérifiant `pivot-manifest.js` avant de remplir un
+vrai manifeste** : "un seul manifeste couvre tous les niveaux" décrit
+l'intention posée le 23 juillet, **jamais construite ainsi**. La structure
+réelle a un `niveau` UNIQUE par manifeste (`serie|saison|episode|unitaire|*`),
+`valider()` ne connaît aucun champ `appliesTo` par essence. Décidé : construire
+la vraie extension (ci-dessous, "Point de départ pour la prochaine session"),
+pas contourner avec 4 manifestes séparés. Le paragraphe qui suit reste la
+CIBLE, pas l'état actuel :
+
+**Un seul manifeste couvre tous les niveaux** *(cible, pas encore construite)*.
+Chaque composant porte deux jeux de critères, dans le même langage :
 
 ```
 season_box_art
@@ -299,6 +337,75 @@ Unitaire   {title}
 ```
 
 Quatre lignes au lieu de quatre chemins écrits à la main.
+
+### Contenu réel vérifié le 3 août — en listant le vrai bucket S3
+
+Pas deviné : le vrai bucket (`iconik-askida-stockage-hr`, connexion "S3 VOD
+FACTORY") a été listé directement pour la chaîne réelle Série "Star Trek"
+(BayardID 44931263) → Saison 01 (93431001) → Episode 01 (67939181), en
+appelant `aws_s3()` du moteur directement (pas une simulation).
+
+```
+Série    AmazonPrime/Star_Trek_44931263/
+           startrek_cover.png · startrek_hero.png · startrek_poster.png
+           startrek_title.png (optionnel, seul absent nulle part ailleurs)
+
+Saison   .../Saison_01_93431001/
+           startrek_s01_cover.png · _hero.png · _poster.png · _season.png
+
+Episode  .../Episode_01/
+           Next_Generation.mp4 · Next_Generation.srt
+           startrek_s01e01_episodic.jpg
+```
+
+Convention de nommage confirmée : le rôle apparaît en minuscule, n'importe où
+dans le nom de fichier (`reconnu_par` en sous-chaîne suffit — pas besoin d'un
+préfixe/suffixe strict). `box_art` (requis pour Unitaire d'après la doc
+partenaire) n'a **pas** d'exemple réel dans ce bucket — cette chaîne est une
+Série, pas un Unitaire/Program. À vérifier sur un vrai Unitaire si l'occasion
+se présente.
+
+Chemin `ancestorPath` calculé par le nouvel Ancestor Resolver (section
+suivante) et chemin S3 réel : **identiques**, confirmé en listant.
+
+---
+
+## Ancestor Resolver — nouvelle façade, construite et vérifiée le 3 août
+
+`iconik.resolve_ancestors` (handler `resolve_ancestors`, ajouté en fin de
+`wfd-engine-handlers.js`). Remplace les 3-4 `Fetch` répétés par branche du
+vieux WFD (`Fetch Série` / `Fetch Saison` / `Fetch Saison Titre`) — la
+refonte du 23 juillet l'avait déjà décidé ("3 Fetch → 1 — les ancêtres se
+résolvent seuls") sans jamais le construire.
+
+**Mécanisme** : lit `TypeCollection`/`Univers`/`BayardID`/`title`/`ParentID`
+déjà posés à plat par le Search précédent. Décide combien de niveaux
+remonter selon le type (Série/Unitaire = 0, Saison = 1, Episode = 2), puis
+remonte via une **recherche par BayardID** (`metadata.BayardID:"{ParentID}"`)
+— un identifiant métier explicite, pas la relation structurelle `parent_id`
+d'Iconik (moins fiable, dépend du rangement réel des collections). Assemble
+le chemin selon la table ci-dessus, l'expose dans `{varName}` (défaut
+`ancestorPath`).
+
+**Portable** — vérifié explicitement : aucun appel à l'état interne d'APS,
+seulement à l'API Iconik. N'importe quel autre moteur d'orchestration
+reproduit le même algorithme. Contraste direct avec `aps.registry` en mode
+Numeric (dépend de `BayardRegistry`, base d'APS) — le même test ("est-ce que
+ça dépend d'un état interne à APS ?") a servi aux deux décisions.
+
+**Bug réel trouvé en testant contre les vraies données, corrigé avant
+livraison** : sans `view id` explicite, l'endpoint `/API/metadata/v1/
+collections/{id}/` renvoie `{ Champ: { values:[{value}] } }` — PAS
+`metadata_values`/`field_values` comme la première version du code
+supposait (cette forme-là n'apparaît qu'avec `.../views/{id}/`, un id
+spécifique à un environnement qu'on ne veut pas coder en dur ici).
+
+**Testé de bout en bout** contre la vraie chaîne Star Trek (voir ci-dessus) :
+chemin assemblé identique au vrai dossier S3.
+
+**Reste ouvert** : le nœud n'a qu'un seul port de succès + un port d'erreur
+générique (pas de distinction "ancêtre introuvable" vs "erreur réseau") —
+suffisant pour l'instant, à affiner si besoin réel.
 
 **`Deliver` ne connaît pas S3.** Sa destination est une **connexion typée** —
 le modèle `Connexion` porte déjà `type` (`iconik | aws_s3 | http | listener`).
@@ -377,6 +484,39 @@ compléter au fil de la construction, façade par façade, quand elle sert
 vraiment (même principe que le catalogue lui-même). Le corps d'une Loop
 n'est pas parcouru — bloqué par un gap plus profond : une Loop n'a pas encore
 d'éditeur de corps dans ce canevas.
+
+### Portabilité affichée au choix — enfin câblée (3 août)
+
+Le mécanisme décrit au 23 juillet ("✅ Node-RED · n8n · Step Functions vs ⚠
+APS uniquement", affiché au moment du choix) n'existait nulle part dans le
+code avant ce jour. Construit en généralisant la nature `choix`
+(config-renderer.js) : un champ optionnel `portabilite` par option, affiché
+en note sous le menu, mise à jour à chaque changement — jamais stocké dans
+le modèle. Premier usage réel : le Type du Générateur d'ID (`Numeric` =
+APS uniquement, dépend de BayardRegistry ; les 5 autres = portables, pur
+calcul local). Réutilisable pour n'importe quel autre choix du catalogue.
+
+### Générateur d'ID redémasqué de la palette (3 août)
+
+`aps.registry` (`isService: true`) était masqué de la palette depuis le 28
+juillet ("les services ne sont pas des nœuds à poser"). Contredit par le vrai
+flow de production (nœud autonome, son propre déclencheur `Bayard ID ?`) ET
+par la phrase juste en dessous dans ce document ("soit par une façade
+dédiée"). Démasqué — `isService` reste utile pour la déduction des services
+requis, ne conditionne plus la palette. Libellé palette ajusté (`nodeLabel`
+sur la façade) : "ID Generator", pas "Registry" (dérivé du nom de façade,
+peu clair une fois visible).
+
+### Pastille de connexion — inactive vs non testable (3 août)
+
+Retour utilisateur en configurant Deliver : une connexion S3 active
+affichait la même pastille grise qu'une connexion inactive, donnant
+l'impression qu'"Actif" (admin/connexions/, `isActive`, une case cochée à la
+main) mentait. Ce n'était pas le cas — deux questions différentes (l'admin
+ne fait aucun test en direct, la pastille du Builder oui, sauf pour S3 qui
+n'a pas de handshake HTTP simple). Corrigé : un texte TOUJOURS VISIBLE à
+côté de la pastille (pas juste une infobulle au survol) distingue
+"inactive" de "not tested — this type has no live check".
 
 ---
 

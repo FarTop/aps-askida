@@ -4413,3 +4413,91 @@ function _apsSearchEvalExpression(expr, allIds) {
 }
 
 WfdHandlers.aps_search = aps_search;
+
+// ── Remontée d'ancêtres (Série/Saison/Episode/Unitaire) ──────────────────────
+// Construit le chemin de destination S3 en remontant la hiérarchie éditoriale
+// — { Univers }_{ BayardID } pour la Série, { title }_{ BayardID } pour la
+// Saison, { title } pour Episode/Unitaire (builder-etat.md, section
+// Manifeste de livraison). Conçu le 3 août pour remplacer les 3-4 Fetch
+// répétés par branche du vieux flow WFD (Fetch Série / Fetch Saison / Fetch
+// Saison Titre) par un seul nœud qui décide lui-même combien de niveaux
+// remonter, selon TypeCollection.
+//
+// Mécanisme choisi : recherche par BayardID (metadata.BayardID == ParentID
+// du niveau courant), PAS la relation structurelle parent_id d'Iconik — un
+// identifiant métier explicite est plus fiable que la façon dont les
+// collections sont rangées, et ne dépend d'aucun état interne à APS. Portable
+// à n'importe quel autre moteur d'orchestration : ce ne sont que des appels
+// à l'API Iconik, jamais à la base d'APS (contrairement à id_generator en
+// mode Numeric, qui dépend de BayardRegistry).
+function _resolveAncestorsSlug(v) {
+  return String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '').replace(/_+/g, '_').replace(/^_|_$/g, '');
+}
+
+async function resolve_ancestors(node, ctx, iconikClient) {
+  requireIconik(iconikClient, 'resolve_ancestors');
+  const cfg = node.config || {};
+  const varName = cfg.varName || 'ancestorPath';
+
+  // Lit les champs bruts (posés par le Search précédent — toujours exposés à
+  // plat, quel que soit le nom choisi pour `resultVar`, cf. aps_search()).
+  const type     = ctx.vars?.TypeCollection || '';
+  const univers  = ctx.vars?.Univers  || '';
+  const bayardId = ctx.vars?.BayardID || '';
+  const title    = ctx.vars?.title    || '';
+  let   parentId = ctx.vars?.ParentID || '';
+
+  const NIVEAUX = { 'Série': 0, 'Saison': 1, 'Episode': 2, 'Unitaire': 0 };
+  const n = NIVEAUX[type];
+  if (n === undefined) {
+    WfdContext.addError(ctx, node.name, 'resolve_ancestors : TypeCollection inconnu ou absent (' + type + ')', 'error');
+    return { port: 1 };
+  }
+
+  const segments = [];
+  if (type === 'Série')       segments.unshift(_resolveAncestorsSlug(univers) + '_' + bayardId);
+  else if (type === 'Saison') segments.unshift(_resolveAncestorsSlug(title) + '_' + bayardId);
+  else                        segments.unshift(_resolveAncestorsSlug(title));   // Episode / Unitaire
+
+  for (let i = 0; i < n; i++) {
+    if (!parentId) {
+      WfdContext.addError(ctx, node.name, 'resolve_ancestors : ParentID manquant au niveau ' + (i + 1), 'error');
+      return { port: 1 };
+    }
+    let trouve;
+    try {
+      const res = await iconikClient.post('/API/search/v1/search/', {
+        query: 'metadata.BayardID:"' + String(parentId).replace(/"/g, '\\"') + '"',
+        doc_types: ['collections']
+      });
+      trouve = (res.objects || [])[0];
+    } catch (e) {
+      WfdContext.addError(ctx, node.name, 'resolve_ancestors : recherche ancêtre échouée — ' + e.message, 'error');
+      return { port: 1 };
+    }
+    if (!trouve) {
+      WfdContext.addError(ctx, node.name, 'resolve_ancestors : aucune collection avec BayardID ' + parentId, 'error');
+      return { port: 1 };
+    }
+    const md = await iconikClient.get('/API/metadata/v1/collections/' + trouve.id + '/');
+    // Vérifié en direct (env réel) : SANS view id, l'endpoint renvoie
+    // { Champ: { name, type, values:[{value}] } } — PAS `metadata_values`/
+    // `field_values` (cette forme-là n'apparaît qu'avec .../views/{id}/, un
+    // id spécifique à un environnement qu'on ne veut pas coder en dur ici).
+    const mv = md || {};
+    const aUnivers  = mv.Univers?.values?.[0]?.value  || '';
+    const aBayardId = mv.BayardID?.values?.[0]?.value || '';
+    const aParentId = mv.ParentID?.values?.[0]?.value || '';
+
+    const estRacine = (i === n - 1);   // dernier niveau remonté = Série (racine)
+    if (estRacine) segments.unshift(_resolveAncestorsSlug(aUnivers) + '_' + aBayardId);
+    else           segments.unshift(_resolveAncestorsSlug(trouve.title) + '_' + aBayardId);
+    parentId = aParentId;
+  }
+
+  WfdContext.setVar(ctx, varName, segments.join('/'));
+  return { port: 0 };
+}
+
+WfdHandlers.resolve_ancestors = resolve_ancestors;

@@ -121,6 +121,25 @@ const PivotCatalogIconik = (() => {
       }
     },
 
+    // Remonte la hiérarchie éditoriale (Série/Saison/Episode/Unitaire) pour
+    // construire le chemin de destination S3, en un seul nœud — remplace les
+    // 3-4 Fetch répétés par branche du vieux flow WFD (Fetch Série / Fetch
+    // Saison / Fetch Saison Titre), cf. journal-aps-2026-08-03.md. Handler
+    // dédié (resolve_ancestors()), pas de httpMode.
+    //
+    // Portable : recherche par BayardID (identifiant métier), aucun appel à
+    // l'état interne d'APS — contrairement à `aps.registry` en mode Numeric,
+    // qui dépend de BayardRegistry (base d'APS). N'importe quel moteur
+    // capable d'appeler l'API Iconik reproduit le même algorithme.
+    'iconik.resolve_ancestors': {
+      core: 'http_request', family: 'resolve_ancestors',
+      ports: ['out', 'error'],
+      variables: function (etape) {
+        const v = (etape.params || {}).varName || 'ancestorPath';
+        return [{ nom: v, aide: 'chemin S3 assemblé depuis la chaîne des ancêtres' }];
+      }
+    },
+
     // Pas de httpMode : fetch() a son propre handler nommé (dispatché sur
     // node.family, wfd-engine-executor.js:299) — handleHttpRequest n'est
     // jamais appelé pour cette famille, contrairement à ce qu'un httpMode
@@ -232,6 +251,9 @@ const PivotCatalogIconik = (() => {
       // plateforme, et APS est une plateforme parmi d'autres, pas seulement Iconik.
       ports: ['out'],
       isService: true,
+      // Libellé palette explicite : dérivé du nom de façade ("registry"),
+      // "ID Generator" serait resté flou une fois redémasqué (3 août).
+      nodeLabel: 'ID Generator',
       // Vérifié : config-schema.js, case 'aps.registry' — champ réel `varName`
       // (« Store as »), pas `resultVar`.
       variables: function (etape) {

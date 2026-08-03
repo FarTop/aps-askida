@@ -300,6 +300,9 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 .cfg-aide {
   margin: 0; font-size: 12px; line-height: 1.4; color: var(--bd-text-dim);
 }
+/* Note de portabilité, sous un choix — reflète l'option sélectionnée, jamais
+   stockée (le générateur la déclare, cf. builder-etat.md). */
+.cfg-portabilite { margin-top: 2px; }
 .cfg-input {
   background: var(--bd-canvas-surface); border: 1px solid var(--bd-panel-border);
   color: var(--bd-text); border-radius: 6px; padding: 7px 9px; font: inherit; font-size: 13px;
@@ -366,6 +369,10 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 .cfg-bille[data-etat="gris"]     { background: var(--bd-text-dim); }
 .cfg-bille[data-etat="test"]     { background: var(--info, #4c8dff); animation: cfg-pulse 1s ease-in-out infinite; }
 @keyframes cfg-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* Texte toujours visible à côté de la pastille — distingue "inactive" de
+   "non testable par nature" (ex. S3), qui partagent la même couleur grise. */
+.cfg-connexion-etat { font-size: 10.5px; color: var(--bd-text-dim); flex: none; white-space: nowrap; }
 
 /* Nature liste : lignes avec sous-champs + boutons add/remove. */
 .cfg-liste-ligne { display: flex; gap: 8px; align-items: flex-start;

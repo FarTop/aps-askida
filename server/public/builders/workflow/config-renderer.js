@@ -52,7 +52,7 @@ const ConfigRenderer = (() => {
           items.push({ nom: c.name, aide: c.label, incertain: true });
         });
       }
-      if (items.length) groupes.push({ label: etape.label || etape.id, items: items });
+      if (items.length) groupes.push({ label: etape.label || etape.id, items: _triParNom(items, 'nom') });
     });
     return groupes;
   }
@@ -192,14 +192,30 @@ const ConfigRenderer = (() => {
     // `options` est soit un tableau statique, soit une fonction (model, contexte)
     // -> tableau — pour les choix dont l'éventail dépend d'un autre champ (ex.
     // les opérateurs valides dépendent du type de la métadonnée choisie).
+    // `portabilite` (optionnel, par option) : note affichée sous le menu,
+    // MISE À JOUR selon l'option choisie — jamais stockée dans le modèle (le
+    // générateur la déclare, le Builder l'affiche, cf. builder-etat.md
+    // « Décision — le marquage de portabilité est calculé »). Conçu le 23
+    // juillet pour la gestion d'erreur, jamais câblé nulle part avant le 3
+    // août (id_generator, Numeric vs Timestamp-based).
     choix: function (descr, model, contexte) {
       const wrap = _el('div', 'cfg-field');
       wrap.appendChild(_champLabel(descr));
       const sel = _el('select', 'cfg-input cfg-select');
       const courant = model.lire(descr.chemin);
       const options = typeof descr.options === 'function' ? (descr.options(model, contexte, descr) || []) : (descr.options || []);
+      const note = _el('p', 'cfg-aide cfg-portabilite');
+      note.hidden = true;
+
+      function _majNote(valeur) {
+        const opt = options.find(function (o) { return (o && o.valeur != null ? o.valeur : o) === valeur; });
+        const texte = opt && opt.portabilite;
+        if (texte) { note.textContent = texte; note.hidden = false; }
+        else { note.hidden = true; }
+      }
+
       options.forEach(function (opt) {
-        // Une option est soit une chaîne, soit { valeur, libelle }.
+        // Une option est soit une chaîne, soit { valeur, libelle, portabilite? }.
         const valeur = (opt && opt.valeur != null) ? opt.valeur : opt;
         const libelle = (opt && opt.libelle != null) ? opt.libelle : String(valeur);
         const o = document.createElement('option');
@@ -210,8 +226,11 @@ const ConfigRenderer = (() => {
       });
       sel.addEventListener('change', function () {
         model.ecrire(descr.chemin, sel.value);
+        _majNote(sel.value);
       });
       wrap.appendChild(sel);
+      _majNote(courant);
+      wrap.appendChild(note);
       return wrap;
     },
 
@@ -364,11 +383,20 @@ const ConfigRenderer = (() => {
 
     // Connexion : sélection d'une connexion RÉELLE d'Administration (async, via
     // ConfigSources, avec cache). On stocke l'id choisi. Une BILLE indique l'état
-    // de connectivité, testé automatiquement au choix (aucun texte à lire) :
+    // de connectivité, testé automatiquement au choix :
     //   vert  = testé, répond (ok pour bosser)
     //   bleu  = connectée (choisie) mais pas encore testée
     //   rouge = testé, échoue (auth rejetée ou serveur absent)
-    //   gris  = inactive ou non testable (ex. S3)
+    //   gris  = inactive OU non testable par nature (ex. S3, pas de handshake
+    //           HTTP simple possible pour une connexion signée)
+    //
+    // Corrigé le 3 août : ces deux gris se ressemblaient au point qu'une vraie
+    // connexion S3 active semblait "ne pas marcher" (retour utilisateur en
+    // testant) — alors que "Actif" dans l'écran Connexions (isActive, une
+    // case cochée à la main) ne mentait pas du tout, il répond juste à une
+    // question différente du test en direct. Un texte TOUJOURS VISIBLE
+    // (pas juste une infobulle au survol) lève l'ambiguïté sans qu'il faille
+    // deviner ou survoler.
     connexion: function (descr, model) {
       const wrap = _el('div', 'cfg-field');
       wrap.appendChild(_champLabel(descr));
@@ -376,21 +404,32 @@ const ConfigRenderer = (() => {
       const ligne = _el('div', 'cfg-connexion');
       const bille = _el('span', 'cfg-bille');
       bille.setAttribute('data-etat', 'vide');
+      const etatTexte = _el('span', 'cfg-connexion-etat');
+      etatTexte.hidden = true;
       const sel = _el('select', 'cfg-input cfg-select');
       const attente = document.createElement('option');
       attente.textContent = 'Loading…'; attente.disabled = true; attente.selected = true;
       sel.appendChild(attente);
       ligne.appendChild(bille);
       ligne.appendChild(sel);
+      ligne.appendChild(etatTexte);
       wrap.appendChild(ligne);
 
+      function _afficherEtatTexte(texte) {
+        if (!texte) { etatTexte.hidden = true; return; }
+        etatTexte.textContent = texte;
+        etatTexte.hidden = false;
+      }
+
       function _tester(id) {
-        if (!id) { bille.setAttribute('data-etat', 'vide'); return; }
+        if (!id) { bille.setAttribute('data-etat', 'vide'); _afficherEtatTexte(''); return; }
         bille.setAttribute('data-etat', 'test');   // en cours
+        _afficherEtatTexte('');
         fetch('/api/connexions/' + encodeURIComponent(id) + '/test', { method: 'POST' })
           .then(function (r) { return r.ok ? r.json() : { ok: false, state: 'error' }; })
           .then(function (res) {
-            // Map état serveur -> couleur de bille.
+            // Map état serveur -> couleur de bille + texte visible pour les
+            // deux cas qui se ressemblent en gris.
             //   vert   = ok (200, token valide, API joignable)
             //   orange = auth (API joignable mais token invalide/refusé)
             //   rouge  = injoignable / erreur serveur
@@ -398,9 +437,10 @@ const ConfigRenderer = (() => {
             let etat = 'rouge';
             if (res.state === 'ok') etat = 'vert';
             else if (res.state === 'auth') etat = 'orange';
-            else if (res.ok === null || res.state === 'inactive' || res.state === 'untestable') etat = 'gris';
+            else if (res.state === 'inactive') { etat = 'gris'; _afficherEtatTexte('inactive'); }
+            else if (res.ok === null || res.state === 'untestable') { etat = 'gris'; _afficherEtatTexte('not tested — this type has no live check'); }
             bille.setAttribute('data-etat', etat);
-            if (res.message) bille.title = res.message;   // info-bulle, pas du texte à lire
+            if (res.message) bille.title = res.message;   // détail complet, en plus du texte visible
           })
           .catch(function () { bille.setAttribute('data-etat', 'rouge'); });
       }
