@@ -127,9 +127,14 @@ across months of sessions, and re-discovering it from scratch is the single bigg
 of effort in this project. Do not re-litigate the "APS never touches bytes" rule above — it was
 violated once and cost a large fraction of a session to unwind.
 
-- **Never commit directly to `main`** in this repo's established workflow — the human maintainer
-  applies patches themselves. If asked to produce changes, prefer `feat-*`/`fix-*` branches and let
-  the user review before any merge; don't push or merge without explicit instruction.
+- **Commit and push directly to `main` when asked to land work** — no feature branch, no PR needed
+  for routine changes. (Updated 2026-08-03: the previous "branch first, human applies patches"
+  rule dated from before this project used Claude Code, when Claude occasionally committed to
+  `main` in the wrong clone — a tooling-confusion problem that doesn't apply once Claude is
+  operating directly in the user's one true working directory. A branch→PR→squash cycle was tried
+  once on 2026-08-03 and found slow/error-prone for a single-maintainer repo; direct-to-main is the
+  standing preference now.) Still only commit/push when the user has actually asked for it in the
+  conversation — this changes *how* landing happens, not whether to commit unprompted.
 - Run `node --check` on every touched `.js` file — there is no other automated correctness check.
 - Deliver CRLF files (e.g. `navbar.css`) as complete file replacements, not diffs/patches — `git am`
   silently mis-handles CRLF line endings in this repo.
