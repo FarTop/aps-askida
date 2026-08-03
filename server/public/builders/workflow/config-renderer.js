@@ -30,6 +30,44 @@ const ConfigRenderer = (() => {
 
   function _el(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
 
+  // Sélecteur de variables (étape 4, Ordre de construction — builder-etat.md,
+  // « Modèle de données ») : « montrer, pas déclarer ». Un run réel et un
+  // contexte de test n'existent pas encore pour un BuilderFlow (aucun pont
+  // d'exécution câblé) — cette version dérive donc ce qu'il y a à montrer de
+  // deux sources qui EXISTENT déjà : ce que le catalogue sait qu'une façade
+  // produit à coup sûr (`CAT.variablesDe`, vérifié contre les handlers), et
+  // les vrais champs de métadonnées de l'org (ConfigSources) pour les étapes
+  // qui aplatissent un résultat unique — marqués "si présent" plutôt que
+  // certains, honnêteté que le catalogue seul ne peut pas garantir.
+  function _optionsVariables(contexte) {
+    const etapes = (contexte && contexte.etapesPrecedentes) || [];
+    const CAT = (typeof window !== 'undefined') ? window.PivotCatalogIconik : null;
+    const src = (typeof window !== 'undefined') ? window.ConfigSources : null;
+    if (!CAT || !etapes.length) return [];
+    const groupes = [];
+    etapes.forEach(function (etape) {
+      const items = (CAT.variablesDe(etape) || []).slice();
+      if (CAT.aplatitMetadonnees(etape) && src && contexte.envSlug) {
+        src.metadonneesChargees(contexte.envSlug).forEach(function (c) {
+          items.push({ nom: c.name, aide: c.label, incertain: true });
+        });
+      }
+      if (items.length) groupes.push({ label: etape.label || etape.id, items: items });
+    });
+    return groupes;
+  }
+
+  // Tri alphabétique des listes de ressources réelles (connexions, manifestes,
+  // gabarits, mappings, vues, export locations, custom actions) avant de les
+  // rendre en options — jamais l'ordre d'arrivée de l'API (updatedAt). Ne
+  // s'applique qu'aux listes DYNAMIQUES ; les choix fixes d'un schéma (nature
+  // `choix`) gardent l'ordre déclaré, qui peut être significatif.
+  function _triParNom(liste, champ) {
+    return (liste || []).slice().sort(function (a, b) {
+      return String((a && a[champ]) || '').localeCompare(String((b && b[champ]) || ''), 'fr', { sensitivity: 'base' });
+    });
+  }
+
   // Label + aide optionnelle. L'aide est déclarée une fois dans le schéma et
   // suit le champ partout (panneau ici ; validation/doc plus tard, même
   // source) — cf. builder-etat.md, section Panneau : "l'aide existe
@@ -95,9 +133,16 @@ const ConfigRenderer = (() => {
 
     // Variable : on affiche {brut}, on stocke brut. La décoration est purement
     // visuelle ; à la saisie, on nettoie les accolades éventuellement tapées.
-    variable: function (descr, model) {
+    // Sélecteur accolé : choisir une entrée écrit sa valeur ET repeint (pour
+    // que les champs qui en dépendent plus loin dans le panneau réagissent) —
+    // le champ texte reste ouvert pour une expression écrite à la main
+    // (`{now()}`, une combinaison...), le sélecteur n'est qu'un raccourci qui
+    // évite de deviner un nom de mémoire.
+    variable: function (descr, model, contexte) {
       const wrap = _el('div', 'cfg-field');
       wrap.appendChild(_champLabel(descr));
+      const ligne = _el('div', 'cfg-variable-ligne');
+
       const input = _el('input', 'cfg-input cfg-variable');
       input.type = 'text';
       input.placeholder = descr.placeholder || '{variable}';
@@ -108,7 +153,36 @@ const ConfigRenderer = (() => {
       input.addEventListener('blur', function () {
         input.value = _decore(model.lire(descr.chemin));
       });
-      wrap.appendChild(input);
+      ligne.appendChild(input);
+
+      const groupes = _optionsVariables(contexte);
+      if (groupes.length) {
+        const sel = _el('select', 'cfg-input cfg-select cfg-variable-picker');
+        const vide = document.createElement('option');
+        vide.value = ''; vide.textContent = '— insert —';
+        sel.appendChild(vide);
+        groupes.forEach(function (grp) {
+          const og = document.createElement('optgroup');
+          og.label = grp.label;
+          grp.items.forEach(function (it) {
+            const o = document.createElement('option');
+            o.value = it.nom;
+            o.textContent = it.nom + (it.aide ? ' — ' + it.aide : '') + (it.incertain ? ' (si présent)' : '');
+            og.appendChild(o);
+          });
+          sel.appendChild(og);
+        });
+        sel.addEventListener('change', function () {
+          if (!sel.value) return;
+          model.ecrire(descr.chemin, sel.value);
+          input.value = _decore(sel.value);
+          sel.value = '';
+          if (contexte && typeof contexte._repeindre === 'function') contexte._repeindre();
+        });
+        ligne.appendChild(sel);
+      }
+
+      wrap.appendChild(ligne);
       return wrap;
     },
 
@@ -203,8 +277,15 @@ const ConfigRenderer = (() => {
       ajouter.addEventListener('click', function () {
         const arr = model.lire(descr.chemin);
         const idx = Array.isArray(arr) ? arr.length : 0;
-        model.ecrire(descr.chemin + '.' + idx,
-          descr.itemDefaut ? JSON.parse(JSON.stringify(descr.itemDefaut)) : {});
+        // itemDefaut peut être une fonction (idx, arr) -> objet, pour les cas
+        // où une valeur dépend de la position (ex. aps_search : `id` de bloc,
+        // requis pour que parentBlock/returnBlock puissent le référencer —
+        // un objet statique ne peut jamais fournir "l'index au moment de
+        // l'ajout").
+        const val = typeof descr.itemDefaut === 'function'
+          ? descr.itemDefaut(idx, arr || [])
+          : (descr.itemDefaut ? JSON.parse(JSON.stringify(descr.itemDefaut)) : {});
+        model.ecrire(descr.chemin + '.' + idx, val);
       });
       wrap.appendChild(ajouter);
       return wrap;
@@ -332,11 +413,11 @@ const ConfigRenderer = (() => {
           const vide = document.createElement('option');
           vide.value = ''; vide.textContent = descr.placeholder || '— select a connection —';
           sel.appendChild(vide);
-          list.filter(function (c) {
+          _triParNom(list.filter(function (c) {
             if (descr.filtreType && c.type !== descr.filtreType) return false;
             if (descr.filtreDirection && c.direction !== descr.filtreDirection) return false;
             return true;
-          }).forEach(function (c) {
+          }), 'name').forEach(function (c) {
             const o = document.createElement('option');
             o.value = c.id;
             o.textContent = c.name + (c.type ? ' · ' + c.type : '');
@@ -376,7 +457,7 @@ const ConfigRenderer = (() => {
           const vide = document.createElement('option');
           vide.value = ''; vide.textContent = descr.placeholder || '— select a manifest —';
           sel.appendChild(vide);
-          list.forEach(function (m) {
+          _triParNom(list, 'name').forEach(function (m) {
             const o = document.createElement('option');
             o.value = m.id;
             const niveau = m.niveau && m.niveau !== '*' ? ' · ' + m.niveau : '';
@@ -414,7 +495,7 @@ const ConfigRenderer = (() => {
           const vide = document.createElement('option');
           vide.value = ''; vide.textContent = descr.placeholder || '— select a tree template —';
           sel.appendChild(vide);
-          list.forEach(function (t) {
+          _triParNom(list, 'name').forEach(function (t) {
             const o = document.createElement('option');
             o.value = t.id;
             o.textContent = t.name + (t.description ? ' · ' + t.description : '');
@@ -455,7 +536,7 @@ const ConfigRenderer = (() => {
           const vide = document.createElement('option');
           vide.value = ''; vide.textContent = descr.placeholder || '— select a mapping —';
           sel.appendChild(vide);
-          list.forEach(function (m) {
+          _triParNom(list, 'name').forEach(function (m) {
             const o = document.createElement('option');
             o.value = m.id;
             o.textContent = m.name + ' (' + m.nbEntrees + ')';
@@ -507,7 +588,7 @@ const ConfigRenderer = (() => {
       const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
       function _peuplerDatalist(liste) {
         while (dl.firstChild) dl.removeChild(dl.firstChild);
-        (liste || []).forEach(function (m) {
+        _triParNom(liste, 'name').forEach(function (m) {
           const o = document.createElement('option');
           o.value = m.name;
           o.label = m.label && m.label !== m.name ? m.label : '';
@@ -621,7 +702,7 @@ const ConfigRenderer = (() => {
           vide.value = ''; vide.textContent = descr.placeholder || '— no view —';
           sel.appendChild(vide);
           const courant = model.lire(descr.chemin);
-          (liste || []).forEach(function (v) {
+          _triParNom(liste, 'nom').forEach(function (v) {
             const o = document.createElement('option');
             o.value = v.id; o.textContent = v.nom;
             if (v.id === courant) o.selected = true;
@@ -655,7 +736,7 @@ const ConfigRenderer = (() => {
           vide.value = ''; vide.textContent = descr.placeholder || '— select an export location —';
           sel.appendChild(vide);
           const courant = model.lire(descr.chemin);
-          (liste || []).forEach(function (v) {
+          _triParNom(liste, 'nom').forEach(function (v) {
             const o = document.createElement('option');
             o.value = v.id; o.textContent = v.nom;
             if (v.id === courant) o.selected = true;
@@ -692,7 +773,7 @@ const ConfigRenderer = (() => {
           vide.value = ''; vide.textContent = descr.placeholder || '— select a custom action —';
           sel.appendChild(vide);
           const courant = model.lire(descr.chemin);
-          (liste || []).forEach(function (v) {
+          _triParNom(liste, 'nom').forEach(function (v) {
             const o = document.createElement('option');
             o.value = v.id;
             o.textContent = v.nom + (v.disabled ? ' (disabled)' : '');
@@ -729,6 +810,64 @@ const ConfigRenderer = (() => {
         if (contexte && typeof contexte._repeindre === 'function') contexte._repeindre();
       });
       wrap.appendChild(input);
+      return wrap;
+    },
+
+    // Choix ou texte : un menu de préréglages courants + une échappatoire
+    // texte libre ("Personnalisé…"), repeint au blur — même mécanique que
+    // `texteRepeint`. Repris tel quel d'un widget de WFD (workflow_history,
+    // champ "Statut") : rationaliser le catalogue ne veut pas dire perdre les
+    // facilités concrètes de l'ancien outil. Un seul champ du modèle au final
+    // (`descr.chemin`) — le préréglage choisi ET le texte personnalisé
+    // écrivent la même valeur, jamais un état transitoire séparé à
+    // resynchroniser (contrairement à WFD, qui gardait le préréglage choisi
+    // hors du modèle et ne réconciliait qu'à la sauvegarde).
+    choixOuTexte: function (descr, model, contexte) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+
+      const CUSTOM = '__custom__';
+      const options = descr.options || [];
+      const courant = model.lire(descr.chemin);
+      const estPreset = options.some(function (o) { return o.valeur === (courant == null ? '' : courant); });
+
+      const sel = _el('select', 'cfg-input cfg-select');
+      options.forEach(function (opt) {
+        const o = document.createElement('option');
+        o.value = opt.valeur; o.textContent = opt.libelle;
+        if (estPreset && opt.valeur === courant) o.selected = true;
+        sel.appendChild(o);
+      });
+      const optCustom = document.createElement('option');
+      optCustom.value = CUSTOM;
+      optCustom.textContent = descr.customLibelle || '✏️ Personnalisé…';
+      if (!estPreset) optCustom.selected = true;
+      sel.appendChild(optCustom);
+
+      const input2 = _el('input', 'cfg-input');
+      input2.type = 'text';
+      if (descr.placeholder) input2.placeholder = descr.placeholder;
+      input2.value = estPreset ? '' : (courant == null ? '' : courant);
+      if (estPreset) input2.classList.add('cfg-hidden');
+
+      sel.addEventListener('change', function () {
+        if (sel.value === CUSTOM) {
+          input2.classList.remove('cfg-hidden');
+          input2.value = '';
+          input2.focus();
+          return;   // n'écrit rien : le texte personnalisé écrira à la frappe
+        }
+        input2.classList.add('cfg-hidden');
+        model.ecrire(descr.chemin, sel.value);
+        if (contexte && typeof contexte._repeindre === 'function') contexte._repeindre();
+      });
+      input2.addEventListener('input', function () { model.ecrire(descr.chemin, input2.value); });
+      input2.addEventListener('blur', function () {
+        if (contexte && typeof contexte._repeindre === 'function') contexte._repeindre();
+      });
+
+      wrap.appendChild(sel);
+      wrap.appendChild(input2);
       return wrap;
     },
 

@@ -284,8 +284,9 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
    La vue active occupe la hauteur restante en flex, pour que son corps
    (bd-panel-bd) puisse scroller quand le contenu déborde. */
 .bd-view { display: none; flex: 1; min-height: 0; flex-direction: column; }
-.bd-dock-right[data-panel="palette"] .bd-view-palette { display: flex; }
-.bd-dock-right[data-panel="config"]  .bd-view-config  { display: flex; }
+.bd-dock-right[data-panel="palette"]   .bd-view-palette   { display: flex; }
+.bd-dock-right[data-panel="config"]    .bd-view-config    { display: flex; }
+.bd-dock-right[data-panel="variables"] .bd-view-variables { display: flex; }
 .bd-dock-right[data-panel="run"]     .bd-view-config  { display: none; }
 /* Dans une vue flex, le corps prend l'espace et scrolle. */
 .bd-view .bd-panel-bd { flex: 1; min-height: 0; }
@@ -312,6 +313,33 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 .cfg-checkbox { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
 .cfg-field-inline { padding-top: 10px; padding-bottom: 10px; }
 
+/* Masque le champ texte libre d'un `choixOuTexte` quand un préréglage est
+   choisi (jamais style.display, cf. discipline du dépôt). */
+.cfg-hidden { display: none; }
+
+/* Panneau Variables — groupé par étape d'origine, ligne cliquable (copie). */
+.bd-vars-filter { flex: none; width: 120px; }
+.bd-var-groupe-titre {
+  font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--bd-text-dim); padding: 9px 12px 3px;
+}
+.bd-var-ligne {
+  display: flex; align-items: baseline; gap: 8px; padding: 3px 12px;
+  cursor: pointer; font-size: 12px; border-radius: 3px;
+}
+.bd-var-ligne:hover { background: var(--bd-canvas-surface); }
+.bd-var-nom { font-family: ui-monospace, Menlo, monospace; color: var(--accent); flex: none; }
+.bd-var-aide {
+  color: var(--bd-text-dim); font-size: 11px; flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bd-var-incertain { color: var(--warn); font-size: 10px; flex: none; }
+.bd-var-toggle {
+  padding: 3px 12px; font-size: 11px; color: var(--accent); cursor: pointer;
+}
+.bd-var-toggle:hover { text-decoration: underline; }
+.bd-var-ligne-copie { background: color-mix(in srgb, var(--ok) 18%, transparent); }
+
 /* Endpoint : méthode (étroite) + URL (extensible) sur une ligne. */
 .cfg-endpoint { display: flex; gap: 8px; }
 .cfg-method { flex: none; width: 92px; }
@@ -322,6 +350,12 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
    gris = inactive / non testable · pulsation pendant le test. */
 .cfg-connexion { display: flex; align-items: center; gap: 8px; }
 .cfg-connexion .cfg-select { flex: 1; min-width: 0; }
+
+/* Champ variable + sélecteur d'insertion accolé — le texte reste éditable à
+   la main, le menu n'est qu'un raccourci pour éviter de deviner un nom. */
+.cfg-variable-ligne { display: flex; align-items: center; gap: 8px; }
+.cfg-variable-ligne .cfg-variable { flex: 2; min-width: 0; }
+.cfg-variable-picker { flex: 1; min-width: 0; font-size: 11px; }
 .cfg-bille { flex: none; width: 10px; height: 10px; border-radius: 50%;
   background: var(--bd-panel-border); }
 .cfg-bille[data-etat="vide"]     { background: var(--bd-panel-border); }

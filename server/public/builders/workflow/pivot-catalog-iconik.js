@@ -30,7 +30,17 @@ const PivotCatalogIconik = (() => {
     wait:          { ports: ['out', 'timeout', 'error'] },
     set_variable:  { ports: ['out'] },
     transform:     { ports: ['out'] },
-    lookup:        { ports: ['found', 'not_found'] },
+    // Vérifié : lookup(), wfd-engine-handlers.js:995+ — lit `cfg.lkInputVar`,
+    // écrit dans `cfg.lkOutputVar` (jamais `cfg.resultVar`, malgré la case
+    // "Store result as" que config-schema.js ajoute génériquement à ce Core —
+    // un champ mort pour lookup spécifiquement, pas déclaré ici en
+    // conséquence : mieux vaut une liste courte et vraie qu'une supposition.
+    lookup:        { ports: ['found', 'not_found'],
+      variables: function (etape) {
+        const v = (etape.params || {}).lkOutputVar;
+        return v ? [{ nom: v, aide: 'objet traduit par Lookup' }] : [];
+      }
+    },
     http_request:  { ports: ['out', 'error'] },
     http_sequence: { ports: ['out', 'err'] },
     history:       { ports: ['out', 'error'] },
@@ -90,6 +100,24 @@ const PivotCatalogIconik = (() => {
       presets: {
         custom_action: { field: 'customActionId' },
         schedule:      { note: 'un cron sans plateforme est un trigger Core pur, sans façade' }
+      },
+      // Vérifié : wfd-engine-executor.js:178-194 — l'exécuteur peuple TOUJOURS
+      // les deux formes (plate `collection_id` ET imbriquée `collection.id`)
+      // pour l'id de l'objet déclencheur, selon `context` — les deux
+      // résolvent la MÊME valeur (`resolvePath` retombe sur `ctx.vars` si la
+      // forme imbriquée n'existe pas). Une seule est montrée ici : proposer
+      // les deux synonymes au designer n'ajoute rien, ça n'ajoute que la
+      // question "laquelle choisir ?" (retour utilisateur du 3 août — WFD
+      // avait déjà ce défaut).
+      variables: function (etape) {
+        const ctx = (etape.params || {}).context;
+        if (ctx === 'ASSET') return [
+          { nom: 'asset.id', aide: 'id de l\'asset déclencheur' }
+        ];
+        if (ctx === 'COLLECTION') return [
+          { nom: 'collection.id', aide: 'id de la collection déclencheuse' }
+        ];
+        return [];   // context pas encore choisi dans le panneau
       }
     },
 
@@ -112,7 +140,34 @@ const PivotCatalogIconik = (() => {
       // La famille la plus fréquente (20 usages), sans handler dédié : elle
       // passe par handleHttpRequest, donc c'est bien une façade, pas un Core.
       ports: ['found', 'empty', 'error'],
-      modes: ['retrieve', 'presence']
+      modes: ['retrieve', 'presence'],
+      // Vérifié : aps_search(), wfd-engine-handlers.js:4157-4210. `resultVar`
+      // (défaut 'search_results') porte TOUJOURS le tableau brut + son compte.
+      // Quand le résultat est UNIQUE (cas le plus fréquent : "l'objet précis
+      // existe-t-il ?"), le moteur aplatit aussi id/title/object_type/
+      // external_id, sous les deux formes (prefixée ET nue) — et fait de même
+      // pour CHAQUE métadonnée du résultat, mais celles-ci ne se devinent pas
+      // depuis le catalogue seul (dépend de l'objet réellement trouvé) : le
+      // sélecteur les complète séparément depuis la vraie liste des champs de
+      // l'org (ConfigSources), marquées "si présent" plutôt que certaines.
+      variables: function (etape) {
+        const rv = (etape.params || {}).resultVar || 'search_results';
+        const champsUniques = ['id', 'title', 'object_type', 'external_id'];
+        const out = [
+          { nom: rv, aide: 'tableau JSON des objets trouvés' },
+          { nom: rv + '.count', aide: 'nombre de résultats' }
+        ];
+        champsUniques.forEach(function (c) {
+          out.push({ nom: c, aide: 'si un seul résultat — ' + c, incertain: true });
+          out.push({ nom: rv + '.' + c, aide: 'même valeur, forme préfixée', incertain: true });
+        });
+        return out;
+      },
+      // Vrai uniquement en mode 'retrieve' (mode par défaut) : en mode
+      // 'presence', le moteur n'aplatit RIEN (c'est un test, pas une source de
+      // données — wfd-engine-handlers.js:4175-4180). Le sélecteur doit le
+      // savoir pour ne pas proposer des champs qui n'existeront jamais.
+      metadonneesAplatiesSi: function (etape) { return ((etape.params || {}).mode || 'retrieve') !== 'presence'; }
     },
 
     'iconik.action': {
@@ -150,7 +205,14 @@ const PivotCatalogIconik = (() => {
       // agnostique — le Core `history` reste minimal ("enregistrer un
       // évènement"), cette façade porte le vrai vocabulaire (vérifié sur les
       // 11 occurrences réelles + le handler workflow_history du moteur).
-      ports: ['out', 'error']
+      ports: ['out', 'error'],
+      // Écrit dans Iconik, ne produit RIEN pour les étapes suivantes — vérifié
+      // (workflow_history(), wfd-engine-handlers.js:3233-3343 : aucun setVar/
+      // storeResult exposé au-delà de `_workflow_history`, interne). Déclaré
+      // explicitement vide pour que le sélecteur ne suggère jamais rien ici,
+      // plutôt que de simplement l'omettre (qui laisserait planer un doute :
+      // "pas encore vérifié" vs "vérifié, rien à offrir").
+      variables: function () { return []; }
     },
 
     'vodfactory.partner': {
@@ -169,7 +231,13 @@ const PivotCatalogIconik = (() => {
       // Un service s'invoque comme une façade : « façade » veut dire paquet de
       // plateforme, et APS est une plateforme parmi d'autres, pas seulement Iconik.
       ports: ['out'],
-      isService: true
+      isService: true,
+      // Vérifié : config-schema.js, case 'aps.registry' — champ réel `varName`
+      // (« Store as »), pas `resultVar`.
+      variables: function (etape) {
+        const v = (etape.params || {}).varName;
+        return v ? [{ nom: v, aide: 'identifiant généré' }] : [];
+      }
     }
   };
 
@@ -204,6 +272,35 @@ const PivotCatalogIconik = (() => {
 
   function facadeConnue(nom)  { return Object.prototype.hasOwnProperty.call(FACADES, nom); }
   function coreConnu(nom)     { return Object.prototype.hasOwnProperty.call(CORES, nom); }
+
+  // Variables STRUCTURELLES qu'une étape est connue pour produire — pas la
+  // capture réelle d'exécution (aucun run n'existe encore pour un BuilderFlow,
+  // voir builder-etat.md « Modèle de données »), juste ce que le handler
+  // vérifié fait TOUJOURS. Une étape non déclarée ici renvoie [] : absence de
+  // preuve, pas preuve d'absence — le sélecteur doit rester honnête plutôt que
+  // d'inventer un champ jamais vérifié.
+  function variablesDe(etape) {
+    if (!etape) return [];
+    if (etape.facade && FACADES[etape.facade] && typeof FACADES[etape.facade].variables === 'function') {
+      return FACADES[etape.facade].variables(etape) || [];
+    }
+    // Pas de façade : Core pur (ex. Lookup posé sans façade Iconik). Une
+    // façade prime toujours (même règle que config-schema.js `pour(etape)`).
+    const core = etape.core && CORES[etape.core];
+    if (core && typeof core.variables === 'function') return core.variables(etape) || [];
+    return [];
+  }
+
+  // Une étape aplatit-elle les métadonnées d'un résultat unique (donc : les
+  // vrais champs de l'org peuvent apparaître en variable, en plus de la liste
+  // structurelle ci-dessus) ? Distinct de `variablesDe` parce que CES noms-là
+  // ne se devinent pas depuis le catalogue seul.
+  function aplatitMetadonnees(etape) {
+    if (!etape || !etape.facade || !FACADES[etape.facade]) return false;
+    const f = FACADES[etape.facade];
+    if (typeof f.metadonneesAplatiesSi === 'function') return f.metadonneesAplatiesSi(etape);
+    return false;
+  }
 
   // ── Pour le convertisseur pivot → WFD ─────────────────────────────────────
 
@@ -278,7 +375,8 @@ const PivotCatalogIconik = (() => {
     servicesDe, services: servicesDe,
     facadeConnue, coreConnu,
     portsDecision,
-    familleWfd, portsWfd, indexPort
+    familleWfd, portsWfd, indexPort,
+    variablesDe, aplatitMetadonnees
   };
 
 })();

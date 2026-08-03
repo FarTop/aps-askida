@@ -157,6 +157,27 @@
               <p class="bd-empty" data-role="config-empty">Select a single node to configure it.</p>
             </div>
           </div>
+
+          <!-- Vue Variables : parcourt le graphe pour montrer ce que les
+               étapes sont CONNUES pour produire (catalogue vérifié + vrais
+               champs de métadonnées de l'org) — jamais un nom à taper de
+               mémoire. Reprend le principe d'un panneau dédié de WFD, adapté
+               : pas d'onglet "Dernier run" ici, aucune exécution réelle
+               n'existe encore pour un workflow du Builder. Titre géré par le
+               bandeau PARTAGÉ du dock (comme la vue Config) ; le filtre vit
+               ici, dans la vue, pas dans ce bandeau commun (déjà pris par la
+               recherche de la Palette). -->
+          <div class="bd-view bd-view-variables">
+            <div class="bd-subtabs" data-role="vars-subtabs">
+              <button class="bd-subtab bd-subtab-active" data-scope="toutes">All</button>
+              <button class="bd-subtab" data-scope="amont">Upstream of selection</button>
+              <input class="bd-filter bd-vars-filter" data-role="vars-filter" placeholder="Filter…" aria-label="Filter variables" />
+            </div>
+            <div class="bd-panel-bd">
+              <div data-role="vars-liste"></div>
+              <p class="bd-empty" data-role="vars-empty" data-hidden="1">No variables found.</p>
+            </div>
+          </div>
         </aside>
         <div class="bd-grip" data-side="right"
              role="separator" aria-orientation="vertical" tabindex="0"
@@ -164,6 +185,7 @@
         <div class="bd-tabs">
           <button class="bd-tab" data-panel="palette" data-side="right">Palette</button>
           <button class="bd-tab" data-panel="config" data-side="right">Config</button>
+          <button class="bd-tab" data-panel="variables" data-side="right">Variables</button>
           <button class="bd-tab" data-panel="run" data-side="right">Run</button>
         </div>
       </div>

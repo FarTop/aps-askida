@@ -7,26 +7,31 @@
 > écarté. Lire ce document suffit pour travailler ; lire le journal sert quand
 > on veut comprendre une décision ou la remettre en cause.
 >
-> Dernière mise à jour : 3 août 2026 (reprise de session — garde-fou de
-> statut de flux ; cf. `journal-aps-2026-08-03.md`, section "Reprise de
-> session" pour le récit).
+> Dernière mise à jour : 3 août 2026 (test grandeur nature en cours — VOD
+> Factory PUBLISH construit nœud par nœud, palette triée, sélecteur de
+> variables + panneau dédié construits ; cf. `journal-aps-2026-08-03.md`,
+> section "Test grandeur nature" pour le récit).
 
 ---
 
 ## Point de départ pour la prochaine session
 
-1. **Test grandeur nature** — reconstruire un workflow VOD Factory réel
-   (PUBLISH ou un sous-ensemble) dans le Builder, avec l'audit des façades
-   maintenant complet (8/8 + tous les Core touchant une plateforme), le
-   Tree Builder, les Correspondances, le Packager, et maintenant le
-   garde-fou de statut. C'est le test annoncé plus bas dans "Ordre de
-   construction". Un flow réel existe déjà en base (`BAYARD | PUBLISH |
-   VODFACTORY`) — à vérifier s'il sert de point de départ ou si on repart
-   de zéro.
-2. **Vérifier à la main dans un navigateur** le badge statut/bouton Publier
-   du canevas (câblés le 3 août, jamais vus rendus — l'outil Chrome n'était
-   pas connecté dans cet environnement).
-3. Historique des versions publiées : la route existe (`GET
+1. **Continuer la construction de PUBLISH nœud par nœud** — Trigger → History
+   → Search → Decision posés et configurés (vérifiés contre le vrai flow de
+   production). Reste à poser : Bayard ID ?, Générateur d'ID, Set Metadata,
+   Deliver (manifeste), Lookup, HTTP Sequence, Verify, Set Metadata + History
+   finaux — la liste à 10 étapes déjà proposée dans le journal.
+2. **Élargir le catalogue de variables au fil de la construction** — chaque
+   façade posée pour de vrai (Fetch, Set Metadata, Action, Deliver, HTTP
+   Sequence…) doit recevoir sa déclaration `variables()` vérifiée contre le
+   handler, comme Trigger/Search/History/Lookup/aps.registry aujourd'hui.
+   Les façades non encore déclarées renvoient `[]` — absence de preuve, pas
+   invention.
+3. **Vérifier à la main dans un navigateur** le badge statut/bouton Publier
+   du canevas ET le nouveau panneau Variables (câblés le 3 août sans outil
+   Chrome disponible dans cet environnement — testés uniquement via retours
+   directs de l'utilisateur en cours de session, pas par moi).
+4. Historique des versions publiées : la route existe (`GET
    /builder-flows/:id/versions`), aucun écran ne l'affiche ; pas de rollback
    construit (republier une ancienne version).
 
@@ -338,6 +343,40 @@ d'une spec n'a pas le même statut qu'une valeur observée.
 **Contexte de test** : un objet réel attaché au workflow, choisi une fois. Sans
 effet à l'exécution. Il sert au sélecteur, à la validation du manifeste, et
 préremplit le test du déclencheur.
+
+### Construit le 3 août — version réduite, pas la vision complète
+
+Ni le run réel ni le contexte de test n'existent encore (pas de pont
+d'exécution pour un `BuilderFlow`, toujours vrai). Version buildable
+maintenant, sur ce qui existe déjà : le catalogue (`CAT.variablesDe(etape)`,
+vérifié handler par handler — Trigger/Search/History/Lookup/aps.registry
+déclarés à ce jour) + les vrais champs de métadonnées de l'org
+(`ConfigSources`, déjà en cache). Deux endroits :
+
+- **Sélecteur inline** — un menu accolé à tout champ de nature `variable`
+  (config-renderer.js), qui remonte le graphe depuis le nœud courant
+  (`_etapesPrecedentes`, parcours en largeur sur les arêtes top-level — ne
+  descend PAS dans le corps d'une boucle, pas encore représenté dans ce
+  canevas). Choisir une entrée écrit `{nom}` et repeint.
+- **Panneau dédié** — nouvel onglet "Variables" à côté de Palette/Config/Run,
+  repris du principe d'un panneau de WFD (`script-workflow-designer.js`,
+  `_wfdCollectVars`) mais sans onglet "Dernier run" (rien à y montrer). Deux
+  vues : "All" (tout le flow) et "Upstream of selection". Clic pour copier.
+
+**Repli par défaut, retour utilisateur en testant** : les champs "si présent"
+(métadonnées de l'org, potentiellement des dizaines par étape) rendaient le
+panneau aussi peu lisible que celui de WFD — repliés derrière un "show N
+possible fields", sauf en recherche active (filtrer ignore le repli). Un
+doublon trouvé en même temps : Trigger proposait `collection_id` ET
+`collection.id` pour la même valeur (le moteur pose bien les deux formes,
+vérifié, mais ça n'ajoute qu'une question "laquelle ?") — une seule forme
+montrée désormais.
+
+**Reste ouvert** : seules 5 façades/cores sur ~20 sont déclarées — à
+compléter au fil de la construction, façade par façade, quand elle sert
+vraiment (même principe que le catalogue lui-même). Le corps d'une Loop
+n'est pas parcouru — bloqué par un gap plus profond : une Loop n'a pas encore
+d'éditeur de corps dans ce canevas.
 
 ---
 

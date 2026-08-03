@@ -229,4 +229,93 @@ la main dans un navigateur.
 cette session). Chantier VOD Factory from scratch reporté à une prochaine
 session.
 
-**Rien n'est commité** — modifications non indexées (voir `git status`).
+---
+
+## Test grandeur nature — VOD Factory PUBLISH, nœud par nœud
+
+Suite directe. Décision de l'utilisateur : reconstruire PUBLISH **from
+scratch depuis la palette**, pas en repartant du flow réel déjà en base
+(patchwork d'audit, jamais passé par la palette) — le but explicite n'est
+pas que "juste tester si VOD Factory se représente", mais éprouver la
+**manière** dont le Builder se construit, pas seulement le résultat.
+
+Chrome non connecté dans cet environnement, et l'utilisateur a déjà vérifié
+qu'il ne peut pas l'installer (avertissement macOS) — mode "toi à la
+manette" pour toute la suite : l'utilisateur construit dans son navigateur,
+je guide/corrige en lisant le code.
+
+### Premier incident réel — le garde-fou à l'épreuve
+En reprenant, le brouillon du flow réel (`BAYARD | PUBLISH | VODFACTORY`)
+était vide (0 étape) alors qu'il en avait 12 quelques minutes plus tôt —
+l'utilisateur avait testé le bouton Publier plusieurs fois en explorant.
+Restauré depuis `BuilderFlowVersion` (version 3, la plus récente, réelle et
+intacte) — **rien n'a été perdu**, exactement le rôle du garde-fou construit
+plus tôt. Cause du vidage non investiguée (pas bloquant, l'essentiel —
+récupération sans perte — a fonctionné).
+
+### Erreur de conception corrigée en cours de route
+Première proposition de nœuds à poser : reproduisait la logique par branche
+du vieux WFD (Decision "Collection Type ?" → 4 fois le même motif
+vérification-artwork). L'utilisateur a immédiatement corrigé : **c'est
+exactement ce que le Manifeste + Packager ont été construits pour
+éliminer** — un seul nœud `Deliver` avec `manifestId` couvre tous les
+niveaux via les conditions `appliesTo` de chaque essence. Liste corrigée à
+10 étapes (Trigger → Search → Bayard ID? → Générateur d'ID → Set Metadata →
+Deliver → Lookup → HTTP Sequence → Verify → Set Metadata + History).
+
+### Nœuds posés et vérifiés contre le vrai flow de production
+- **Trigger** : confirmé par l'utilisateur — Custom Action liée à une
+  **Collection uniquement**, jamais un asset (résout une ambiguïté ouverte
+  depuis `methode-vodfactory-2026-07-07.md` §4). Mémoire projet créée
+  (`project-vodfactory-publish-trigger-scope.md`).
+- **History** (juste après Trigger, "en cours") : `Target Type`/`On Object`
+  clarifiés (le premier choisit l'endpoint collections/ vs assets/, le
+  second fournit juste l'id — pas redondants). Confirmé : `{collection.id}`
+  est correct ET c'est le vrai fallback du moteur si le champ est laissé
+  vide — recommandé de le taper explicitement quand même (même classe de
+  bug que le `cronExpr` du 3 août : un défaut cliché doit être visible dans
+  le panneau, pas dans le moteur).
+- **Search** : **bug réel trouvé et corrigé** — `blocks[].id` n'existait nulle
+  part dans le schéma du panneau (`itemDefaut` ne posait que
+  `{objectType, parentBlock, criteria}`), alors que le moteur (`aps_search()`)
+  indexe ses résultats PAR `block.id` pour résoudre `returnBlock`. Toute
+  recherche construite dans le Builder revenait donc vide en silence, même
+  un bloc unique avec `returnBlock` par défaut. Corrigé : `itemDefaut` de la
+  nature `liste` accepte maintenant une fonction `(idx) => objet` (pas
+  seulement un objet statique), et `blocks[].id` s'auto-assigne à la position
+  (1, 2…), même convention que les vraies données. Configuré : bloc unique,
+  Type=Collection, critère `id equals {collection.id}`.
+- **Decision** : champ réel identifié en vérifiant le nœud `Collection Type ?`
+  du vrai export — c'est `{TypeCollection}`, PAS `{ContenuPrime}` comme
+  affirmé par erreur d'abord (`ContenuPrime` ne sert que plus tard, dans le
+  Lookup, pour traduire vers le vocabulaire de l'API partenaire). 4
+  conditions (Série/Saison/Episode/Unitaire), `onError: continue_log` —
+  copiées du nœud réel.
+
+### Sélecteur de variables — construit en direct, à la demande de l'utilisateur
+En configurant Decision, l'utilisateur a noté que taper `{TypeCollection}`
+de mémoire "casse la linéarité du narratif" et redécouvert, par la friction
+réelle, exactement le gap "sélecteur de variables" (étape 4, jamais
+construit). Demande explicite : construire maintenant, pas comme un patch —
+"le but n'est pas de tester que le résultat VOD Factory mais aussi la
+manière". Construit (détail dans `builder-etat.md`, section "Modèle de
+données") : sélecteur inline sur tout champ `variable` + panneau dédié
+(onglet "Variables"), catalogue étendu (Lookup, aps.registry).
+
+Deux retours en testant, corrigés dans la foulée :
+1. **Flot de métadonnées peu lisible** — Search proposait des dizaines de
+   champs "si présent" en vrac, aussi peu lisible que l'ancien panneau WFD
+   (capture d'écran fournie par l'utilisateur pour comparaison). Repliés par
+   défaut derrière un "show N possible fields", sauf en recherche active.
+2. **Faux doublon** — Trigger proposait `collection_id` ET `collection.id`
+   pour la même valeur (le moteur pose bien les deux, vérifié, mais c'est un
+   synonyme inutile). Une seule forme montrée désormais (`collection.id`).
+
+**Non vérifié par moi** : tout le rendu visuel de cette session (badge,
+Publier, sélecteur, panneau Variables) a été testé par l'utilisateur
+directement dans son navigateur — je n'ai pas d'outil Chrome fonctionnel
+dans cet environnement. Vérifié de mon côté : syntaxe (`node --check`) et
+pages servies (200) uniquement.
+
+**Rien n'est commité avant cette session** — commité à la fin de celle-ci
+(voir git log).

@@ -163,15 +163,36 @@ const ConfigSources = (() => {
       .catch(function () { return { objects: [] }; });
   }
 
+  // Champs SYSTÈME Iconik — propriétés natives de l'objet, pas des métadonnées
+  // custom : /API/metadata/v1/fields/ ne les renvoie donc jamais, alors que le
+  // moteur les reconnaît très bien (aps_search(), wfd-engine-handlers.js,
+  // `SYSTEM_FIELDS`). Repéré en testant : le champ "Field" d'un critère de
+  // recherche ne suggérait jamais `id`, alors qu'il est le critère le plus
+  // courant pour identifier l'objet déclencheur (`id equals {collection.id}`).
+  // Liste tenue en miroir de celle du moteur — la recopier ici est un choix
+  // délibéré (fichier navigateur, ne peut pas `require` le fichier serveur).
+  const CHAMPS_SYSTEME = [
+    { name: 'id',             label: 'id (system)' },
+    { name: 'title',          label: 'title (system)' },
+    { name: 'media_type',     label: 'media_type (system)' },
+    { name: 'date_created',   label: 'date_created (system)' },
+    { name: 'date_modified',  label: 'date_modified (system)' },
+    { name: 'object_type',    label: 'object_type (system)' },
+    { name: 'status',         label: 'status (system)' },
+    { name: 'archive_status', label: 'archive_status (system)' },
+    { name: 'external_id',    label: 'external_id (system)' }
+  ];
+
   // Champs Iconik réels de l'environnement (nom, libellé, type, options pour
   // les champs à liste). En direct — voir note de fraîcheur en tête de
   // fichier. Pas d'envSlug (aucun environnement choisi sur le flow) -> liste
-  // vide, fail-safe, pas d'erreur.
+  // vide, fail-safe, pas d'erreur. Champs système préfixés — toujours
+  // disponibles, indépendants de l'org/environnement.
   function metadonnees(envSlug) {
-    if (!envSlug) return Promise.resolve([]);
+    if (!envSlug) return Promise.resolve(CHAMPS_SYSTEME.slice());
     if (cacheMetadonnees[envSlug]) return cacheMetadonnees[envSlug];
     cacheMetadonnees[envSlug] = _iconikGet(envSlug, '/API/metadata/v1/fields/').then(function (d) {
-      const list = (Array.isArray(d.objects) ? d.objects : []).map(function (f) {
+      const custom = (Array.isArray(d.objects) ? d.objects : []).map(function (f) {
         return {
           name:      f.name,
           label:     f.label || f.name,
@@ -180,6 +201,7 @@ const ConfigSources = (() => {
           valeurs:   _valeursOptions(f.options)
         };
       });
+      const list = CHAMPS_SYSTEME.concat(custom);
       metadonneesResolues[envSlug] = list;
       _marquerFrais();
       return list;
@@ -189,13 +211,14 @@ const ConfigSources = (() => {
 
   // Lecture SYNCHRONE du cache déjà résolu (pour les natures qui doivent
   // décider d'un rendu — options d'opérateur, type de contrôle — sans pouvoir
-  // attendre une promesse). Tableau vide si rien de résolu pour l'instant,
-  // mais déclenche le chargement en tâche de fond pour la prochaine peinture.
+  // attendre une promesse). Les champs système sont rendus tout de suite (pas
+  // besoin d'attendre l'API) ; les champs custom arrivent à la peinture
+  // suivante, une fois la promesse résolue.
   function metadonneesChargees(envSlug) {
     if (!envSlug) return [];
     if (metadonneesResolues[envSlug]) return metadonneesResolues[envSlug];
     metadonnees(envSlug);   // déclenche le chargement, sans bloquer
-    return [];
+    return CHAMPS_SYSTEME.slice();
   }
 
   // Vues de métadonnées de l'environnement — TOUTES, sans filtre par type

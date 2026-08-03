@@ -655,9 +655,20 @@ const ConfigSchema = (() => {
       // dans les données réelles (endpoint interne, pas une connexion choisie).
       case 'iconik.search':
         return [
+          // `id` : requis par le moteur (aps_search(), wfd-engine-handlers.js)
+          // pour que `parentBlock`/`returnBlock` puissent désigner CE bloc —
+          // absent de l'ancien itemDefaut statique, donc jamais posé par le
+          // Builder. Conséquence vérifiée : un bloc sans id ne correspond
+          // jamais à un `returnBlock` (même sa propre valeur par défaut, 1),
+          // donc toute recherche construite dans le Builder revenait vide en
+          // silence. Auto-assigné à la position (1, 2…) — même convention que
+          // les occurrences réelles (VOD Factory, blocks[].id: 1, 2). Éditable
+          // si besoin de renuméroter, mais pré-rempli pour ne jamais partir
+          // vide.
           { nature: 'liste', chemin: 'blocks', label: 'Blocks', ajoutLabel: 'Add block',
-            itemDefaut: { objectType: 'asset', parentBlock: null, criteria: [] },
+            itemDefaut: function (idx) { return { id: idx + 1, label: '', objectType: 'asset', parentBlock: null, criteria: [] }; },
             itemSchema: [
+              { nature: 'nombre', chemin: 'id', label: 'Block ID', placeholder: '1' },
               { nature: 'choix', chemin: 'objectType', label: 'Type', options: [
                 { valeur: 'collection', libelle: 'Collection' },
                 { valeur: 'asset', libelle: 'Asset' }
@@ -872,6 +883,16 @@ const ConfigSchema = (() => {
       // et même suggestion "champs de la vue" que set_metadata, réutilisée
       // telle quelle). Transcrit depuis les 11 occurrences réelles et le
       // handler du moteur (wfd-engine-handlers.js, workflow_history).
+      //
+      // Statut + aperçu de ligne repris de WFD (wfd-config-panel.js) le 3 août,
+      // suite à un retour utilisateur : rationaliser le catalogue ne veut pas
+      // dire perdre des facilités concrètes de l'ancien outil. `whStatut`
+      // reste un simple champ texte côté moteur (r(cfg.whStatut...), ligne
+      // 3243) — seul le panneau propose des préréglages + une échappatoire,
+      // aucun nouveau champ de modèle. L'aperçu est un gabarit STATIQUE (date
+      // réelle, mais "utilisateur"/"workflow"/"run-abc123" en substituts) —
+      // pas une résolution contre de vraies données, qui demanderait le
+      // sélecteur de variables (jamais construit, builder-etat.md).
       case 'iconik.history':
         return [
           { nature: 'choix', chemin: 'target', label: 'Target type', options: [
@@ -891,19 +912,41 @@ const ConfigSchema = (() => {
             { valeur: 'newest', libelle: 'On top (newest first)' },
             { valeur: 'oldest', libelle: 'At the end (oldest first)' }
           ] },
-          { nature: 'texte', chemin: 'whStatut', label: 'Status badge', placeholder: 'e.g. ✅ Succès' },
-          { nature: 'texte', chemin: 'whMessage', label: 'Message', placeholder: 'e.g. Delivered · {now(Europe/Paris)}' },
-          { nature: 'texte', chemin: 'whWfName', label: 'Workflow name (override)', placeholder: 'defaults to the flow name' },
-          { nature: 'variable', chemin: 'whSummaryVar', label: 'Auto-summarize', placeholder: '{path.to.results}' },
           // Réel : ces 4 cases sont VRAIES par défaut côté moteur (!== false) —
           // un nœud neuf, cases décochées ici, affiche donc moins que le
           // comportement par défaut du moteur tant qu'on ne les coche pas.
           // Signalé, pas corrigé (pas d'infrastructure de valeurs par défaut
-          // à la création).
-          { nature: 'booleen', chemin: 'whShowDate', label: 'Show date' },
-          { nature: 'booleen', chemin: 'whShowWf', label: 'Show workflow name' },
-          { nature: 'booleen', chemin: 'whShowUser', label: 'Show triggering user' },
-          { nature: 'booleen', chemin: 'whShowRunId', label: 'Show run id' },
+          // à la création). `reagit` : chacune pilote l'aperçu plus bas.
+          { nature: 'booleen', chemin: 'whShowDate', label: 'Show date', reagit: true },
+          { nature: 'booleen', chemin: 'whShowRunId', label: 'Show run id', reagit: true },
+          { nature: 'booleen', chemin: 'whShowWf', label: 'Show workflow name', reagit: true },
+          { nature: 'texteRepeint', chemin: 'whWfName', label: 'Workflow name (override)', placeholder: 'defaults to the flow name' },
+          { nature: 'booleen', chemin: 'whShowUser', label: 'Show triggering user', reagit: true },
+          { nature: 'choixOuTexte', chemin: 'whStatut', label: 'Status badge', placeholder: '{variable} or free text',
+            customLibelle: '✏️ Custom…', options: [
+              { valeur: '🔄 En cours', libelle: '🔄 En cours' },
+              { valeur: '✅ Succès', libelle: '✅ Succès' },
+              { valeur: '⚠️ Incomplet', libelle: '⚠️ Incomplet' },
+              { valeur: '❌ Échec', libelle: '❌ Échec' },
+              { valeur: '', libelle: '— None —' }
+            ] },
+          { nature: 'texteRepeint', chemin: 'whMessage', label: 'Message', placeholder: 'e.g. Delivered · {now(Europe/Paris)}' },
+          { nature: 'variable', chemin: 'whSummaryVar', label: 'Auto-summarize', placeholder: '{path.to.results}',
+            aide: 'Ex. {vfStatus.body.results.amazon.actions} → liste les sous-clés dont le statut n\'est pas complete/ready/sent/success. Résolu seulement à l\'exécution, absent de l\'aperçu ci-dessous.' },
+          { nature: 'apercu', chemin: 'whApercuLigne', label: 'Aperçu de la ligne', calcule: function (m) {
+            const parts = [];
+            const now = new Date();
+            const dateStr = now.toISOString().slice(0, 10) + '_' + now.toTimeString().slice(0, 5);
+            if (m.lire('whShowDate') !== false) parts.push(dateStr);
+            if (m.lire('whShowRunId') === true) parts.push('run-abc123');
+            if (m.lire('whShowWf') !== false) parts.push((m.lire('whWfName') || '').trim() || 'workflow');
+            if (m.lire('whShowUser') !== false) parts.push('utilisateur');
+            const statut = m.lire('whStatut') || '';
+            if (statut) parts.push(statut);
+            const message = m.lire('whMessage') || '';
+            if (message) parts.push(message);
+            return parts.join(' | ') || '(aperçu vide)';
+          } },
           { nature: 'choix', chemin: 'onError', label: 'On error', options: [
             { valeur: 'stop', libelle: 'Stop' },
             { valeur: 'continue_log', libelle: 'Continue (log)' },

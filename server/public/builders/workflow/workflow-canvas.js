@@ -22,7 +22,7 @@
   const MIN = px(styles.getPropertyValue('--bd-panel-min'));
   const MAX = px(styles.getPropertyValue('--bd-panel-max'));
 
-  const TITRE = { jobs: 'Jobs', logs: 'Logs', config: 'Config', run: 'Run', api: 'API ops' };
+  const TITRE = { jobs: 'Jobs', logs: 'Logs', config: 'Config', variables: 'Variables', run: 'Run', api: 'API ops' };
 
   // ── Ouverture / fermeture des volets ──────────────────────────────────────
   // data-open porte la liste des bords ouverts ("left right"). Le CSS fait
@@ -433,8 +433,183 @@
       });
 
       const schema = window.ConfigSchema.pour(noeud.etape);
-      offConfig = window.ConfigRenderer.rendre(configHost, schema, cfg, { envSlug: root._envSlug });
+      offConfig = window.ConfigRenderer.rendre(configHost, schema, cfg,
+        { envSlug: root._envSlug, etapesPrecedentes: _etapesPrecedentes(noeud.id) });
     }
+
+    // Sélecteur de variables (étape 4, Ordre de construction) : remonte le
+    // graphe depuis le nœud courant pour lister ce que les étapes en amont
+    // sont connues pour produire — jamais un nom tapé de mémoire. Parcours en
+    // largeur, dédupliqué, ordre "le plus proche d'abord". Ne descend PAS
+    // dans le corps d'une boucle (pas encore représenté dans ce canevas —
+    // limite connue, pas un oubli) : seul le graphe plat (edges top-level)
+    // est parcouru.
+    function _etapesPrecedentes(nodeId) {
+      const aretes = model.aretes();
+      const vus = { }; vus[nodeId] = true;
+      const file = [nodeId];
+      const resultat = [];
+      while (file.length) {
+        const courant = file.shift();
+        aretes.forEach(function (a) {
+          if (!a.to || a.to.step !== courant) return;
+          const pid = a.from && a.from.step;
+          if (!pid || vus[pid]) return;
+          vus[pid] = true;
+          const n = model.noeud(pid);
+          if (n && n.etape) resultat.push(n.etape);
+          file.push(pid);
+        });
+      }
+      return resultat;
+    }
+
+    // ── Panneau Variables : vue dédiée, pas juste un sélecteur par champ ─────
+    // Reprend le principe d'un panneau de WFD (script-workflow-designer.js,
+    // _wfdCollectVars/_wfdRenderVarsPanel) — mais sans onglet "Dernier run" :
+    // aucune exécution réelle n'existe encore pour un workflow du Builder
+    // (pas de pont vers un moteur). "Toutes" liste chaque nœud du graphe,
+    // "Upstream of selection" réutilise _etapesPrecedentes.
+    (function () {
+      const varsHost    = root.querySelector('[data-role="vars-liste"]');
+      const varsEmpty   = root.querySelector('[data-role="vars-empty"]');
+      const varsFilter  = root.querySelector('[data-role="vars-filter"]');
+      const varsSubtabs = root.querySelectorAll('[data-role="vars-subtabs"] .bd-subtab');
+      if (!varsHost) return;
+
+      let scope = 'toutes';
+      // Groupes "repliés" (étape id -> true) : les champs "si présent" (ex.
+      // les dizaines de métadonnées possibles d'un résultat Search) ne
+      // s'affichent pas par défaut — repli, pas suppression, retour
+      // utilisateur du 3 août : la liste à plat devenait aussi peu lisible
+      // que l'ancien panneau WFD. Persiste entre deux rendus (sinon rouvrir
+      // reviendrait à zéro à chaque frappe ailleurs dans le panneau).
+      const deplies = {};
+
+      function _etapesPourVarsPanel() {
+        if (scope === 'amont') {
+          const ids = selection.ids();
+          return ids.length === 1 ? _etapesPrecedentes(ids[0]) : [];
+        }
+        return model.noeuds().map(function (n) { return n.etape; }).filter(Boolean);
+      }
+
+      function _rendreVars() {
+        const CAT = window.PivotCatalogIconik;
+        const src = window.ConfigSources;
+        varsHost.textContent = '';
+        if (!CAT) { if (varsEmpty) varsEmpty.setAttribute('data-hidden', '0'); return; }
+
+        const etapes = _etapesPourVarsPanel();
+        const filtreTexte = ((varsFilter && varsFilter.value) || '').toLowerCase().trim();
+        let total = 0;
+
+        function _ligne(it) {
+          total++;
+          const ligne = document.createElement('div');
+          ligne.className = 'bd-var-ligne';
+          ligne.title = 'Click to copy {' + it.nom + '}';
+
+          const nom = document.createElement('span');
+          nom.className = 'bd-var-nom';
+          nom.textContent = '{' + it.nom + '}';
+          ligne.appendChild(nom);
+
+          if (it.aide) {
+            const aide = document.createElement('span');
+            aide.className = 'bd-var-aide';
+            aide.textContent = it.aide;
+            ligne.appendChild(aide);
+          }
+          if (it.incertain) {
+            const marque = document.createElement('span');
+            marque.className = 'bd-var-incertain';
+            marque.textContent = 'if present';
+            ligne.appendChild(marque);
+          }
+
+          ligne.addEventListener('click', function () {
+            const texte = '{' + it.nom + '}';
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(texte).catch(function () {});
+            }
+            ligne.classList.add('bd-var-ligne-copie');
+            setTimeout(function () { ligne.classList.remove('bd-var-ligne-copie'); }, 500);
+          });
+          return ligne;
+        }
+
+        etapes.forEach(function (etape) {
+          const certains = (CAT.variablesDe(etape) || []).slice();
+          const incertains = [];
+          if (CAT.aplatitMetadonnees(etape) && src && root._envSlug) {
+            src.metadonneesChargees(root._envSlug).forEach(function (c) {
+              incertains.push({ nom: c.name, aide: c.label, incertain: true });
+            });
+          }
+
+          // En recherche active, on ignore le repli : filtrer EST la façon
+          // d'aller chercher un champ "si présent" précis sans le voir tout
+          // le temps.
+          const cible = filtreTexte ? certains.concat(incertains) : certains;
+          const filtresCertains = filtreTexte
+            ? cible.filter(function (it) { return it.nom.toLowerCase().indexOf(filtreTexte) !== -1; })
+            : cible;
+          const filtresIncertains = filtreTexte
+            ? []   // déjà inclus dans filtresCertains ci-dessus quand on filtre
+            : incertains;
+
+          if (!filtresCertains.length && !filtresIncertains.length) return;
+
+          const titre = document.createElement('div');
+          titre.className = 'bd-var-groupe-titre';
+          titre.textContent = etape.label || etape.id;
+          varsHost.appendChild(titre);
+
+          filtresCertains.slice().sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); })
+            .forEach(function (it) { varsHost.appendChild(_ligne(it)); });
+
+          if (filtresIncertains.length) {
+            const cle = etape.id;
+            const ouvert = !!deplies[cle];
+            const toggle = document.createElement('div');
+            toggle.className = 'bd-var-toggle';
+            toggle.textContent = (ouvert ? '▾ hide ' : '▸ show ') + filtresIncertains.length + ' possible metadata field'
+              + (filtresIncertains.length > 1 ? 's' : '');
+            toggle.addEventListener('click', function () {
+              deplies[cle] = !deplies[cle];
+              _rendreVars();
+            });
+            varsHost.appendChild(toggle);
+
+            if (ouvert) {
+              filtresIncertains.slice().sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); })
+                .forEach(function (it) { varsHost.appendChild(_ligne(it)); });
+            } else {
+              total += filtresIncertains.length;   // comptent pour "non vide", pas affichées
+            }
+          }
+        });
+
+        if (varsEmpty) varsEmpty.setAttribute('data-hidden', total ? '1' : '0');
+      }
+
+      varsSubtabs.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          varsSubtabs.forEach(function (b) { b.classList.toggle('bd-subtab-active', b === btn); });
+          scope = btn.getAttribute('data-scope');
+          _rendreVars();
+        });
+      });
+      if (varsFilter) varsFilter.addEventListener('input', _rendreVars);
+
+      // Rafraîchit sur changement de sélection (utile pour "Upstream of
+      // selection") et sur changement du modèle (un nœud ajouté/renommé doit
+      // apparaître sans réouvrir l'onglet).
+      selection.onChange(_rendreVars);
+      model.onChange(_rendreVars);
+      _rendreVars();
+    })();
 
     selection.onChange(function () { _majPanneauConfig(); });
 
@@ -517,6 +692,8 @@
           .then(function (list) {
             environnements = (Array.isArray(list) ? list : []).filter(function (e) {
               return !orgIdWorkflow || e.orgId === orgIdWorkflow;
+            }).sort(function (a, b) {
+              return String(a.name || '').localeCompare(String(b.name || ''), 'fr', { sensitivity: 'base' });
             });
             envSelect.textContent = '';
             const vide = document.createElement('option');
@@ -773,11 +950,19 @@
       return el;
     }
 
+    // Tri alphabétique par LIBELLÉ affiché, pas par clé interne — c'est ce que
+    // l'œil lit dans la palette, indépendamment de l'ordre du catalogue.
+    function _parLibelle(a, b) {
+      return a.localeCompare(b, 'fr', { sensitivity: 'base' });
+    }
+
     const coreHost = root.querySelector('[data-role="palette-core"]');
     if (coreHost) {
-      Object.keys(CAT.CORES).forEach(function (c) {
-        coreHost.appendChild(_node(GLYPHES_CORE[c] || '·', NOM_CORE[c] || c, null, { core: c }));
-      });
+      Object.keys(CAT.CORES)
+        .sort(function (a, b) { return _parLibelle(NOM_CORE[a] || a, NOM_CORE[b] || b); })
+        .forEach(function (c) {
+          coreHost.appendChild(_node(GLYPHES_CORE[c] || '·', NOM_CORE[c] || c, null, { core: c }));
+        });
     }
 
     const platHost = root.querySelector('[data-role="palette-platform"]');
@@ -786,19 +971,22 @@
       // multi-plateformes : on montre TOUTES les façades, chacune taguée par sa
       // plateforme (badge visible dans la liste, sans avoir à glisser le nœud).
       const PLATEFORME = { iconik: 'Iconik', aws_s3: 'AWS', vodfactory: 'VodFactory', aps: 'APS' };
-      Object.keys(CAT.FACADES).forEach(function (f) {
-        const fa = CAT.FACADES[f];
-        // Les services (isService) ne sont pas des nœuds à poser : on les saute.
-        if (fa.isService) return;
-        const prefixe = f.split('.')[0];
-        const plateforme = PLATEFORME[prefixe] || prefixe;
-        const nom = f.split('.')[1].replace(/_/g, ' ').replace(/\b\w/g, function (m) { return m.toUpperCase(); });
-        const el = _node('◆', nom, plateforme, { core: fa.core, facade: f });
-        // Tag de plateforme porté sur le nœud : sert au badge (couleur) et,
-        // à terme, au filtre par contexte d'orchestration (org + plateforme).
-        el.setAttribute('data-platform', prefixe);
-        platHost.appendChild(el);
-      });
+      function _nomFacade(f) {
+        return f.split('.')[1].replace(/_/g, ' ').replace(/\b\w/g, function (m) { return m.toUpperCase(); });
+      }
+      Object.keys(CAT.FACADES)
+        .filter(function (f) { return !CAT.FACADES[f].isService; })   // les services ne sont pas des nœuds à poser
+        .sort(function (a, b) { return _parLibelle(_nomFacade(a), _nomFacade(b)); })
+        .forEach(function (f) {
+          const fa = CAT.FACADES[f];
+          const prefixe = f.split('.')[0];
+          const plateforme = PLATEFORME[prefixe] || prefixe;
+          const el = _node('◆', _nomFacade(f), plateforme, { core: fa.core, facade: f });
+          // Tag de plateforme porté sur le nœud : sert au badge (couleur) et,
+          // à terme, au filtre par contexte d'orchestration (org + plateforme).
+          el.setAttribute('data-platform', prefixe);
+          platHost.appendChild(el);
+        });
     }
 
     // Filtrage par contexte d'organisation (étape 4). La palette est remplie

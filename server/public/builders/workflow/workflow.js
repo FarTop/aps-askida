@@ -108,7 +108,12 @@
   function _rendre(hote, list, opts) {
     hote.textContent = '';
     if (!list.length) { _vide(hote, opts.msgVide); return; }
-    list.forEach(function (item) {
+    // Ordre alphabétique par nom, pas l'ordre d'arrivée de l'API (updatedAt
+    // desc) — c'est ce que l'œil cherche dans une liste de ressources.
+    const trie = list.slice().sort(function (a, b) {
+      return String(a.name || '').localeCompare(String(b.name || ''), 'fr', { sensitivity: 'base' });
+    });
+    trie.forEach(function (item) {
       const ligne = document.createElement('div');
       ligne.className = 'wb-item';
 
