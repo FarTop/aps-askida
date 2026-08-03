@@ -116,27 +116,6 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 .bd-tech { color: var(--bd-text-dim); font-size: 11.5px; gap: 12px; }
 .bd-tech b { color: var(--bd-text); font-weight: 600; }
 
-/* ── État actif : segment intégré, jamais un bandeau flottant qui recouvre ── */
-.bd-lock {
-  display: none; align-items: center; gap: 7px; height: 100%; padding: 0 12px;
-  color: var(--ok);
-  background: color-mix(in srgb, var(--ok) 12%, transparent);
-}
-.bd-lock-modif { color: var(--bd-text-dim); }
-.bd-linklike {
-  background: none; border: none; color: var(--accent); cursor: pointer;
-  font: inherit; padding: 0;
-}
-.bd-canvas-root[data-active="1"] .bd-lock { display: flex; }
-.bd-canvas-root[data-active="1"] .bd-statusbar {
-  border-bottom-color: color-mix(in srgb, var(--ok) 30%, var(--bd-panel-border));
-}
-/* Lecture seule : très légère teinte du canevas, SANS voile masquant. */
-.bd-canvas-root[data-active="1"] .cnv-frame::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: color-mix(in srgb, var(--ok) 4%, transparent);
-}
-
 
 /* ── Palette (dock droit) ─────────────────────────────────────────────────── */
 .bd-panel-hd { display: flex; align-items: center; justify-content: space-between; }

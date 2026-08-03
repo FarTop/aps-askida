@@ -295,10 +295,28 @@ model BuilderFlow {
   organisation  Organisation @relation(fields: [orgId], references: [id])
   name          String
   document      Json         @default("{}")
+  versions      BuilderFlowVersion[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
   @@unique([orgId, name])
+}
+
+// Instantané figé par un geste explicite ("Publier"). Append-only : jamais
+// modifié après création — `document` exclut `presentation` (la disposition
+// n'est pas versionnée, voir builder-etat.md "Versionnement"). Le statut
+// brouillon/publié et le numéro de version courante se déduisent de cette
+// table (dernier `version` pour un flowId) plutôt que d'être stockés sur
+// BuilderFlow, qui les ferait diverger.
+model BuilderFlowVersion {
+  id        String      @id @default(cuid())
+  flowId    String
+  flow      BuilderFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  version   Int
+  document  Json
+  createdAt DateTime    @default(now())
+
+  @@unique([flowId, version])
 }
 
 model Nommage {

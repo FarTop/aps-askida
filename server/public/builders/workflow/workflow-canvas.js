@@ -618,6 +618,7 @@
               flowId = res.id; flowName = res.name;
               root.setAttribute('data-dirty', '0');
               if (errEl) errEl.hidden = true;
+              _rafraichirStatut();
             })
             .catch(function (e) {
               // Silencieux : pas d'alerte à chaque tentative auto, mais
@@ -636,12 +637,54 @@
         _declencherAutoSave();
       });
 
+      // ── Statut brouillon/publié — informatif, pas un verrou ────────────────
+      // « Publié » veut dire : le brouillon actuel EST la dernière version
+      // figée (à la présentation près) — calculé côté serveur (GET
+      // /builder-flows/:id), jamais stocké ici. Éditer et sauvegarder ne fait
+      // jamais qu'écraser le brouillon ; la version figée (BuilderFlowVersion)
+      // n'est, elle, jamais modifiée après coup — c'est ce qui protège la
+      // production, pas un cadenas d'édition.
+      const statutEl = root.querySelector('[data-role="statut"]');
+      const publishBtn = root.querySelector('[data-role="publish-flow"]');
+
+      function _majStatut(status, version) {
+        if (!statutEl) return;
+        statutEl.setAttribute('data-state', status || 'idle');
+        statutEl.textContent = status === 'published' ? ('published · v' + version)
+          : status === 'draft' ? 'draft' : '—';
+      }
+
+      function _rafraichirStatut() {
+        if (!flowId) { _majStatut(null, null); return; }
+        fetch('/api/builder-flows/' + encodeURIComponent(flowId))
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (res) { if (res) _majStatut(res.status, res.publishedVersion); })
+          .catch(function () { /* badge non critique : silencieux */ });
+      }
+
+      if (publishBtn) {
+        publishBtn.addEventListener('click', function () {
+          if (!flowId) { _afficherErreur('Enregistrer le workflow avant de publier.'); return; }
+          fetch('/api/builder-flows/' + encodeURIComponent(flowId) + '/publish', { method: 'POST' })
+            .then(function (r) {
+              if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || ('HTTP ' + r.status)); });
+              return r.json();
+            })
+            .then(function (res) {
+              _majStatut('published', res.version);
+              if (errEl) errEl.hidden = true;
+            })
+            .catch(function (e) { _afficherErreur('Erreur de publication : ' + e.message); });
+        });
+      }
+
       if (flowId) {
         chargementEnCours = true;
         WfPersistence.charger(flowId).then(function (res) {
           flowName = res.name;
           orgIdWorkflow = res.orgId || null;
           _afficherOrg(res.orgName);
+          _majStatut(res.status, res.publishedVersion);
           const initial = WfPersistence.initialDepuisDocument(res.document);
           initial.nodes.forEach(function (n) { model.ajouterNoeud(n); });
           initial.edges.forEach(function (e) { model.ajouterArete(e); });
@@ -682,6 +725,7 @@
             _majEntete();
             root.setAttribute('data-dirty', '0');
             if (errEl) errEl.hidden = true;
+            _rafraichirStatut();
           }).catch(function (e) {
             _afficherErreur('Erreur d\'enregistrement : ' + e.message);
           });
@@ -808,16 +852,5 @@
       });
     });
   });
-
-  // ── Bandeau d'état : mécanique (le câblage des données viendra ensuite) ────
-  // Le verrou « flux actif » se lève par le bouton désactiver : il retire
-  // data-active de la racine, ce qui referme le segment cadenas et la teinte de
-  // lecture seule. L'état lui-même sera piloté par les données au patch suivant.
-  const btnOff = root.querySelector('[data-role="deactivate"]');
-  if (btnOff) {
-    btnOff.addEventListener('click', function () {
-      root.setAttribute('data-active', '0');
-    });
-  }
 
 })();

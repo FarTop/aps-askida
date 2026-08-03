@@ -128,3 +128,105 @@ jamais le construire.
 
 **Rien n'est commité** — modifications non indexées dans l'arbre de travail
 (voir `git status`) ; aucune branche créée.
+
+---
+
+## Reprise de session — garde-fou de statut de flux
+
+Nouvelle session, même journée. Deux chantiers annoncés : le garde-fou de
+statut (brouillon/publié) et la reconstruction de VOD Factory from scratch.
+Fait aujourd'hui : le premier seulement.
+
+### Correction d'une note obsolète
+Avant de commencer, vérification de l'affirmation de `builder-etat.md`
+("collision de vocabulaire `draft` à régler avant que le champ n'entre dans
+le pivot") — **déjà fausse au moment où elle a été écrite** : `git log` sur
+`pivot-schema.js` montre que `CLES_SUPPRIMEES.draft` (bannit `draft` au
+niveau étape, scope `'etape'` seulement) et `STATUTS = ['draft','published']`
+au niveau workflow datent du 24 juillet, une semaine avant la note du 3 août.
+Pas de code à écrire : la séparation existait déjà, juste jamais recopiée
+dans l'état. Note corrigée ci-dessous.
+
+### Cadrage avec l'utilisateur — ce que "production" veut dire ici
+En creusant le pont d'exécution avant de coder, découverte : **rien ne relie
+aujourd'hui un `BuilderFlow` à une exécution réelle** — `pivot-to-wfd.js`
+existe et est testé, mais rien ne l'appelle côté serveur, aucune route ne
+crée/active un `Flow` WFD depuis un `BuilderFlow`. Question posée à
+l'utilisateur : le garde-fou doit-il aller jusqu'à ce pont, ou rester sur le
+document (brouillon/publié) ?
+
+Précision importante de l'utilisateur, à retenir : **WFD est un prototype
+voué à disparaître à terme**, gardé uniquement comme base de comparaison
+fonctionnelle — pas une dépendance à construire dans le Builder. Bâtir le
+garde-fou autour d'une conversion vers WFD recréerait exactement la
+dépendance à éviter. Décision : le garde-fou de cette session porte
+uniquement sur le document ; le moteur propre du Builder est un chantier
+séparé, non chiffré, pour plus tard. (Mémoire projet mise à jour en
+conséquence — `project-wfd-vos-builder.md`.)
+
+### Modèle : `BuilderFlowVersion`
+Nouvelle table, append-only : `{id, flowId, version, document, createdAt}`,
+unique sur `(flowId, version)`. **Rien n'est stocké de déductible** (même
+critère que le pivot lui-même) : pas de `status`/`publishedVersion` sur
+`BuilderFlow` — les deux se calculent depuis la dernière ligne de
+`BuilderFlowVersion` pour ce flow. `presentation` est exclue du document figé
+(builder-etat.md : "la présentation n'est pas versionnée") — comparer un
+brouillon à sa dernière version publiée ignore donc les déplacements de
+nœuds, qui ne doivent jamais faire croire à une divergence.
+
+**Incident évité en appliquant la migration** : `prisma migrate dev` a
+demandé un reset complet de la base (drift déjà présent avant toute
+intervention). Refusé. `prisma db push` a ensuite refusé pour une bonne
+raison distincte : il voulait supprimer la table `ApsCounter` (4 lignes
+réelles — les compteurs Saison/Épisode), **absente du schéma Prisma par
+choix délibéré** (commentaire explicite dans `wfd-engine-handlers.js` :
+créée par SQL brut pour "éviter une migration Prisma"). Contournement :
+`BuilderFlowVersion` créée par SQL brut ciblé (`prisma db execute`), sans
+toucher au reste — `prisma generate` ensuite, sans jamais passer par `db
+push`. Aucune donnée perdue, `ApsCounter` intact. À garder en tête pour
+toute future migration sur ce dépôt : `db push` seul n'est plus fiable tant
+que ce drift existe.
+
+### Routes serveur (`server/routes/wfd-data.js`)
+- `GET /builder-flows/:id` — enrichi : renvoie maintenant `status`
+  (`'draft'`/`'published'`, déduit), `publishedVersion`, `publishedAt`.
+- `GET /builder-flows/:id/versions` — historique (métadonnées seules, pas le
+  document complet).
+- `POST /builder-flows/:id/publish` — fige le brouillon courant (moins
+  `presentation`) en nouvelle version. N'écrase jamais une version
+  existante, ne touche jamais `document` (le brouillon reste librement
+  éditable après publication).
+
+Testé en direct contre le vrai workflow déjà en base (`BAYARD | PUBLISH |
+VODFACTORY`) : publish → statut passe à `published` (v1) ; édition du
+brouillon → statut repasse à `draft`, `publishedVersion` reste 1, la version
+figée ne bouge pas ; document restauré à l'identique après le test (`intent`
+vide, comme avant).
+
+### Décision d'interaction : pas de verrou d'édition
+Question posée : une fois publié, faut-il verrouiller le canevas (mock déjà
+ébauché : "Active flow — deactivate to edit") ? Réponse de l'utilisateur :
+**édition toujours libre**. Le raisonnement retenu : la copie figée protège
+déjà tout, un verrou n'ajouterait rien. Le mock (`data-active`, `.bd-lock`,
+bouton "deactivate") est **retiré** — HTML, CSS et JS — plutôt que laissé
+mort : un demi-mécanisme jamais branché est pire qu'une absence.
+
+### Câblage canevas (`workflow-canvas.html`/`.js`/`.css`)
+Badge `data-role="statut"` (déjà stylé draft/published depuis une session
+antérieure, jamais lu) branché sur le vrai statut, rafraîchi au chargement,
+après chaque save (manuel + auto-save) et après publish. Nouveau bouton
+"📌 Publier" à côté de "💾 Save". `data-demo="1"` retiré du bandeau d'état :
+tout y est maintenant réellement câblé.
+
+**Non vérifié visuellement** : l'outil Chrome n'était pas connecté dans cet
+environnement (comme le 3 août pour Tree Builder) — vérifié par lecture de
+code + tests d'API directs (curl) uniquement. Page servie (200). À tester à
+la main dans un navigateur.
+
+**Reste ouvert** : pas de UI pour l'historique des versions (route
+`/versions` existe, aucun écran ne l'affiche) ni pour un retour arrière
+(rollback = republier une ancienne version — pas construit, pas demandé
+cette session). Chantier VOD Factory from scratch reporté à une prochaine
+session.
+
+**Rien n'est commité** — modifications non indexées (voir `git status`).

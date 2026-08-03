@@ -7,23 +7,28 @@
 > écarté. Lire ce document suffit pour travailler ; lire le journal sert quand
 > on veut comprendre une décision ou la remettre en cause.
 >
-> Dernière mise à jour : 3 août 2026 (Tree Builder, Mappings, Packager —
-> cf. sections dédiées et `journal-aps-2026-08-03.md` pour le récit).
+> Dernière mise à jour : 3 août 2026 (reprise de session — garde-fou de
+> statut de flux ; cf. `journal-aps-2026-08-03.md`, section "Reprise de
+> session" pour le récit).
 
 ---
 
 ## Point de départ pour la prochaine session
 
-1. **Garde-fou de statut de flux** — vérifié le 3 août, rien n'est construit :
-   `BuilderFlow` (Prisma) n'a aucun champ statut/version, le bouton
-   "désactiver" du canevas est une maquette visuelle sans donnée derrière.
-   Reprendre la section "Versionnement" plus bas (brouillon/publier/
-   production, posée le 31 juillet) et l'implémenter réellement.
-2. **Test grandeur nature** — reconstruire un workflow VOD Factory réel
+1. **Test grandeur nature** — reconstruire un workflow VOD Factory réel
    (PUBLISH ou un sous-ensemble) dans le Builder, avec l'audit des façades
    maintenant complet (8/8 + tous les Core touchant une plateforme), le
-   Tree Builder, les Correspondances et le Packager. C'est le test annoncé
-   plus bas dans "Ordre de construction".
+   Tree Builder, les Correspondances, le Packager, et maintenant le
+   garde-fou de statut. C'est le test annoncé plus bas dans "Ordre de
+   construction". Un flow réel existe déjà en base (`BAYARD | PUBLISH |
+   VODFACTORY`) — à vérifier s'il sert de point de départ ou si on repart
+   de zéro.
+2. **Vérifier à la main dans un navigateur** le badge statut/bouton Publier
+   du canevas (câblés le 3 août, jamais vus rendus — l'outil Chrome n'était
+   pas connecté dans cet environnement).
+3. Historique des versions publiées : la route existe (`GET
+   /builder-flows/:id/versions`), aucun écran ne l'affiche ; pas de rollback
+   construit (republier une ancienne version).
 
 ---
 
@@ -173,34 +178,52 @@ préfixe commun, ce qui a provoqué des collisions massives à la génération B
 
 ---
 
-## Versionnement
+## Versionnement — construit le 3 août
 
-`Flow` n'en a aucun aujourd'hui : un enregistrement écrase, et `upsertFlux`
-replanifie immédiatement — corriger un workflow actif, c'est modifier la
-production.
+`BuilderFlow.document` reste le brouillon : écrasé à chaque enregistrement,
+librement éditable en permanence. `BuilderFlowVersion` (nouvelle table,
+append-only) porte les instantanés figés :
 
 | | |
 |---|---|
-| **Brouillon** | ce qu'on édite, écrasé à chaque enregistrement |
-| **Publier** | geste explicite, crée une version figée |
-| **Production** | exécute la dernière version publiée, jamais le brouillon |
+| **Brouillon** | `BuilderFlow.document`, écrasé à chaque enregistrement |
+| **Publier** | `POST /builder-flows/:id/publish`, geste explicite, crée une ligne `BuilderFlowVersion` |
+| **Statut** | `'draft'`/`'published'` — **déduit**, jamais stocké : le brouillon actuel est-il identique à la dernière version figée (hors présentation) ? |
 
-Un **run** enregistre la version exécutée. Un **export** enregistre la version
-décrite — le docx porte « version 7 », et c'est un fait, plus une promesse.
-Retour arrière : republier la version précédente. Toutes les versions publiées
-sont conservées (~200 Ko pour 76 nœuds).
+**Pas de verrou d'édition** — décision prise le 3 août : la copie figée
+protège déjà tout, un cadenas d'édition n'ajouterait rien. Le mock qui
+existait dans le canevas (`data-active`, "Active flow — deactivate to
+edit") a été retiré plutôt que branché.
 
-**La présentation n'est pas versionnée.** Déplacer un nœud n'est pas modifier un
-workflow, et republier la version 5 ne doit pas faire perdre le rangement du
-canevas. Conséquence assumée : un diagramme régénéré depuis une version ancienne
-montre la disposition **d'aujourd'hui**, pas celle de l'époque. C'est acceptable
-précisément parce que la disposition est de la présentation.
+**La présentation n'est pas versionnée**, comme prévu : exclue du document
+figé au moment de publier, et exclue de la comparaison qui déduit le statut
+— déplacer un nœud ne fait jamais croire à une divergence.
 
-**Collision de vocabulaire à régler avant que le champ n'entre dans le pivot** :
-`draft` existe déjà au niveau du nœud et ne veut pas dire « version non
-publiée ». Deux notions, un mot — exactement le motif « Créer sous » / « Bayard
-ID parent ». Clarifier ce que signifie le `draft` de nœud, puis le renommer ;
-`status: draft | published` garde le mot au niveau du flux.
+**Pas de pont vers une exécution réelle.** Publier fige un document ; rien
+ne le convertit ni ne l'active dans un moteur. Voir la clarification WFD
+ci-dessous — c'est délibéré, pas un oubli.
+
+**Reste à construire, pas fait le 3 août** : écran d'historique des versions
+(la route `GET /builder-flows/:id/versions` existe, aucun affichage), et
+rollback (republier une version antérieure — pas demandé, pas construit).
+
+**Collision de vocabulaire `draft`/`draft` — déjà résolue, pas le 3 août** :
+vérifié par `git log`, la séparation existe depuis le 24 juillet
+(`pivot-schema.js`) : `draft` au niveau étape est une clé bannie du pivot
+(`CLES_SUPPRIMEES`, scope `'etape'` — c'est le sens WFD "à configurer",
+jamais transporté dans le pivot), `status: draft|published` au niveau
+workflow est un mot différent, sans collision réelle une fois les deux
+scopes distingués par `pivot-validate.js`. Une note précédente de ce document
+affirmait à tort que c'était encore à régler.
+
+**Pont Builder ↔ exécution — clarifié le 3 août, pas construit** :
+`pivot-to-wfd.js` existe et est testé, mais rien ne l'appelle côté serveur —
+aucun `BuilderFlow` ne produit aujourd'hui un `Flow` WFD exécutable.
+Précision de l'utilisateur : **WFD est un prototype voué à disparaître à
+terme**, gardé comme base de comparaison fonctionnelle, pas une dépendance à
+construire dans le Builder. Le moteur propre du Builder est un chantier
+séparé, non chiffré — ne pas le confondre avec le garde-fou de statut, qui
+ne porte que sur le document.
 
 ---
 
@@ -472,8 +495,6 @@ non indexées dans l'arbre de travail (`git status`) — pas de branche créée.
 
 ## Ce qui reste ouvert
 
-- **Le `draft` de nœud** — clarifier son sens, puis le renommer avant qu'il
-  n'entre en collision avec `status: draft` du flux.
 - **Le manifeste unique** — à éprouver en construisant PUBLISH. C'est le
   premier vrai test.
 - **Les mark in/out des segments** — APS écrit `time_start` / `time_end` ; à

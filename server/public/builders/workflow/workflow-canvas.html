@@ -41,16 +41,19 @@
        l'API ops (lecture gauche->droite). Chaque volet et ses onglets forment
        une piece solidaire qui coulisse EN SUPERPOSITION par-dessus le canevas
        fixe : le canevas ne bouge jamais quand un volet s'ouvre. -->
-  <div class="bd-canvas-root" data-open="" data-active="0" data-dirty="0">
+  <div class="bd-canvas-root" data-open="" data-dirty="0">
 
     <!-- Bandeau d'état — informe, ne commande pas. Trois zones hiérarchisées :
          identité (gauche) · contexte (centre) · technique (droite). Le sapin de
          Noël s'évite par la retenue : tout gris/dim, la couleur ne sert qu'aux
-         pastilles d'état. Valeurs de DÉMONSTRATION à ce stade (data-demo) ; le
-         câblage sur les vraies routes viendra au patch suivant. -->
-    <header class="bd-statusbar" aria-label="Status" data-demo="1">
+         pastilles d'état. -->
+    <header class="bd-statusbar" aria-label="Status">
 
-      <!-- Identité : nom + version/statut + indicateur non-enregistré -->
+      <!-- Identité : nom + statut/version publiée + indicateur non-enregistré.
+           Pas de verrou d'édition : une version publiée est une copie figée
+           (BuilderFlowVersion), jamais modifiée après coup — éditer le
+           brouillon ne peut donc jamais l'abîmer (builder-etat.md,
+           Versionnement). Le badge est purement informatif. -->
       <div class="bd-seg">
         <span class="bd-wf-name" data-role="wf-name">— no workflow —</span>
         <span class="bd-badge" data-role="statut" data-state="idle">—</span>
@@ -58,6 +61,7 @@
           <span class="bd-dot bd-dot-warn"></span>unsaved
         </span>
         <button class="bd-icon-btn" data-role="save-flow" title="Save workflow" type="button">💾 Save</button>
+        <button class="bd-icon-btn" data-role="publish-flow" title="Figer une version publiée" type="button">📌</button>
         <span class="bd-save-error" data-role="save-error" hidden></span>
       </div>
 
@@ -75,13 +79,6 @@
       <div class="bd-seg">
         <span class="bd-dot" data-role="engine-dot"></span>
         <span class="bd-engine-name" data-role="engine-name">— engine —</span>
-      </div>
-
-      <!-- État actif : segment intégré, apparaît sans rien recouvrir -->
-      <div class="bd-lock" data-role="lock">
-        <span class="bd-lk" aria-hidden="true">🔒</span>
-        <span>Active flow</span>
-        <span class="bd-lock-modif">— <button class="bd-linklike" data-role="deactivate" type="button">deactivate</button> to edit</span>
       </div>
 
       <div class="bd-spacer"></div>

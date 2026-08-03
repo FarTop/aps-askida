@@ -331,6 +331,16 @@ router.get('/builder-flows', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// La présentation (positions du canevas) n'est pas versionnée (builder-etat.md,
+// section Versionnement) : déplacer un nœud n'est pas modifier un workflow.
+// Exclue du gel ET de la comparaison brouillon/publié, sinon tout déplacement
+// ferait croire à une divergence qui n'en est pas une.
+function _sansPresentation(doc) {
+  if (!doc || typeof doc !== 'object') return doc;
+  const { presentation, ...reste } = doc;
+  return reste;
+}
+
 router.get('/builder-flows/:id', async (req, res) => {
   try {
     // orgId + nom de l'org exposés : ce workflow appartient à une org FIXE
@@ -339,13 +349,60 @@ router.get('/builder-flows/:id', async (req, res) => {
     // contexte global ambiant qui pourrait diverger.
     const item = await prisma.builderFlow.findUnique({
       where: { id: req.params.id },
-      include: { organisation: { select: { id: true, name: true } } }
+      include: {
+        organisation: { select: { id: true, name: true } },
+        versions: { orderBy: { version: 'desc' }, take: 1 }
+      }
     });
     if (!item) return res.status(404).json({ error: 'Non trouvé' });
+    const derniere = item.versions[0] || null;
+    // « Publié » veut dire : le brouillon actuel EST la dernière version figée
+    // (à la présentation près). Le statut se déduit de cette comparaison, il
+    // n'est stocké nulle part (critère 2, builder-etat.md).
+    const publie = !!derniere &&
+      JSON.stringify(_sansPresentation(item.document)) === JSON.stringify(derniere.document);
     res.json({
       id: item.id, name: item.name, document: item.document,
-      orgId: item.orgId, orgName: item.organisation ? item.organisation.name : null
+      orgId: item.orgId, orgName: item.organisation ? item.organisation.name : null,
+      status: publie ? 'published' : 'draft',
+      publishedVersion: derniere ? derniere.version : null,
+      publishedAt: derniere ? derniere.createdAt : null
     });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Historique des versions publiées (métadonnées seulement, pas le document
+// complet — évite de transporter 76 nœuds par entrée pour un simple historique).
+router.get('/builder-flows/:id/versions', async (req, res) => {
+  try {
+    const versions = await prisma.builderFlowVersion.findMany({
+      where: { flowId: req.params.id },
+      orderBy: { version: 'desc' },
+      select: { id: true, version: true, createdAt: true }
+    });
+    res.json(versions);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Geste explicite qui fige le brouillon courant en nouvelle version. Append-
+// only : n'écrit jamais une version existante, ne touche pas `document` (le
+// brouillon continue de vivre sa vie, éditable librement après publication —
+// la protection vient de la copie figée, pas d'un verrou d'édition).
+router.post('/builder-flows/:id/publish', async (req, res) => {
+  try {
+    const flow = await prisma.builderFlow.findUnique({ where: { id: req.params.id } });
+    if (!flow) return res.status(404).json({ error: 'Non trouvé' });
+
+    const derniere = await prisma.builderFlowVersion.findFirst({
+      where: { flowId: flow.id }, orderBy: { version: 'desc' }
+    });
+    const prochaineVersion = derniere ? derniere.version + 1 : 1;
+    const document = _sansPresentation(flow.document);
+
+    const version = await prisma.builderFlowVersion.create({
+      data: { flowId: flow.id, version: prochaineVersion, document }
+    });
+    res.status(201).json({ version: version.version, createdAt: version.createdAt });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
