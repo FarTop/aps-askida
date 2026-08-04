@@ -7,10 +7,26 @@
 > écarté. Lire ce document suffit pour travailler ; lire le journal sert quand
 > on veut comprendre une décision ou la remettre en cause.
 >
-> Dernière mise à jour : 4 août 2026, fin de session (reconstruction PUBLISH
+> Dernière mise à jour : 5 août 2026, fin de session (**moteur d'exécution
+> natif du pivot construit et vérifié en conditions réelles** —
+> `server/engine-builder/`, 12 Cores + 11 Facades, zéro dépendance runtime à
+> WFD. Décision de l'utilisateur en début de session : arrêter de valider des
+> workflows sans jamais pouvoir les exécuter pour de vrai — "je ne veux pas
+> investir du temps en bossant sur un moteur qui disparaîtra". Vérifié en
+> faisant tourner PUBLISH — le vrai workflow VOD Factory, pas un test jouet —
+> côte à côte avec WFD sur une vraie collection QA (Star Trek) : les deux
+> moteurs produisent une trace **identique, étape par étape, port par port**,
+> sur les 14 étapes, avec de vrais appels Iconik/S3/API partenaire. Deux
+> bugs réels trouvés dans le document PUBLISH lui-même au passage (pas dans
+> le moteur, cf. section "Moteur d'exécution natif" tout en bas) et corrigés
+> en base. Cf. cette même section pour l'architecture complète et ce qui
+> reste ouvert (panneaux Logs/Run, webhook déjà câblé mais jamais essayé
+> depuis une vraie Custom Action Iconik).
+>
+> Historique : 4 août 2026, fin de session (reconstruction PUBLISH
 > nœud par nœud poussée jusqu'à l'étape 12 — HTTP Sequence — avec deux
 > questions de conception encore en suspens. Cf. section "Reprise PUBLISH —
-> tableau, bugs, HTTP Sequence" tout en bas pour le détail et le point de
+> tableau, bugs, HTTP Sequence" plus bas pour le détail et le point de
 > reprise exact).
 >
 > Plus tôt le 4 août : éditeur de corps de boucle construit — `wf-scope.js` —
@@ -52,22 +68,48 @@
 
 ## Point de départ pour la prochaine session
 
-1. **Configurer l'étape 12 (HTTP Sequence "Publication API")** dans le
-   Builder — mécanique déjà clarifiée en fin de session (Simple = "Single
-   request", Foreach = "One request per value", `{external_id}` vient du
-   Lookup — étape 11 — pas d'une étape de cette séquence). Les 7 étapes
-   réelles (5 Persons + Contents + Video) sont documentées avec leurs
-   valeurs exactes dans la section "Reprise PUBLISH" tout en bas.
-2. **Deux questions de conception encore ouvertes**, posées mais pas
-   tranchées avec l'utilisateur (cf. même section pour le détail) :
-   - Étape 7 (Search des assets à exporter) : un seul Search sans filtre
-     `media_type`, ou deux Search séparés (images/vidéo) comme le faisait
-     l'ancien WFD ?
-   - Étapes 13/14 (Verify, History) : la production les duplique **4 fois**
-     (une par niveau Série/Saison/Episode/Unitaire, champs et messages
-     différents à chaque fois) — même motif que le Manifeste avant sa
-     refonte. Accepter la duplication pour l'instant, ou piloter Verify/
-     History depuis le Manifeste (essences + `appliesTo`) comme Deliver ?
+> Mis à jour le 5 août — les points 1-2 ci-dessous (étape 12 HTTP Sequence,
+> Verify/History pilotés par Manifeste) sont **résolus** depuis la fin du 4
+> août ; conservés en historique juste en dessous. Nouveaux points de reprise :
+
+0. **Le moteur natif existe maintenant** (`server/engine-builder/`, cf.
+   section "Moteur d'exécution natif" tout en bas) — priorité déclarée par
+   l'utilisateur pour la suite :
+   - **Reconstruire les autres workflows Créer** (Série/Saison/Episode/
+     Unitaire, `BAYARD | CREER | COLLECTION | *`) dans le Builder — ils
+     peuvent maintenant être **réellement exécutés et validés** via `POST
+     /api/builder-engine/trigger/:flowId`, pas seulement dessinés.
+   - **Panneaux Logs/Run du canevas** — désormais débloqués (de vraies
+     données `BuilderRun`/`BuilderRunEvent` existent), mais le périmètre
+     UI n'est toujours pas cadré. Contrainte déjà actée : ne pas reproduire
+     les tabs Assets/Action du vieux panel WFD (Assets jamais alimenté,
+     Action trop large) — le tab Jobs est le bon modèle ; tout texte doit
+     être copiable.
+   - **Webhook jamais essayé en conditions réelles** — `POST
+     /api/builder-engine/action/:slug` existe et est câblé (dernière
+     version publiée uniquement, 409 sinon), mais n'a été testé qu'avec un
+     payload construit à la main, jamais depuis une vraie Custom Action
+     cliquée dans Iconik.
+   - **Deux imperfections trouvées dans PUBLISH pendant la vérification,
+     non corrigées** (hors périmètre de la session engine) : l'étape
+     "Search" (assets à exporter) utilise `field:"_"` au lieu de
+     `"__collection__"` (l'opérateur `in_collection` n'est reconnu nulle
+     part, la requête part sans filtre de collection) ; la Boucle utilise
+     `loopVariablePath: "assetsAExporter.object_type"`, qui ne résout
+     jamais vers un tableau (probablement `.objects` attendu) — la boucle
+     ne s'exécute donc jamais en pratique sur cette collection.
+
+<details>
+<summary>Historique — points de reprise du 4 août (résolus depuis)</summary>
+
+1. ~~Configurer l'étape 12 (HTTP Sequence "Publication API")~~ — fait le 4
+   août (ressource `Endpoint`, cf. section "Étape 12").
+2. ~~Verify/History pilotés depuis le Manifeste~~ — fait le 4 août (cf.
+   sections "Verify piloté depuis le Manifeste" / "History piloté depuis
+   le Manifeste").
+
+</details>
+
 3. **Vérifier à la main dans un navigateur le reste déjà en attente** —
    l'éditeur de corps de boucle est vérifié (4 août, outil `chrome-devtools`
    en MCP, pointé sur Brave), mais le badge statut/Publier, le panneau
@@ -1861,3 +1903,160 @@ mais non expliqué (l'écran affichait 29 lignes juste avant l'incident, pas
 32). Clarifié par l'utilisateur le 4 août : suppression volontaire de lignes
 inutiles de sa part, pas un second incident ni une perte de données à
 investiguer. Rien à corriger côté code.
+
+## Moteur d'exécution natif — construit et vérifié contre PUBLISH — 5 août
+
+### Pourquoi
+Le Builder savait construire des workflows (format pivot) mais ne pouvait
+en exécuter aucun — `pivot-to-wfd.js` ne servait qu'à convertir vers WFD
+pour validation hors-ligne (`scripts/preuve-conversion.js`), jamais depuis
+une route en production. Décision de l'utilisateur en tout début de
+session, avant même de discuter du périmètre des panneaux Logs/Run (ce qui
+avait motivé la question) : "il faut s'attaquer au moteur... je ne veux pas
+investir du temps en bossant sur un moteur qui disparaîtra. Pour le moment
+on a pas validé le moindre workflow dans le builder donc c'est le moment
+ou jamais." Décision plus ancienne réaffirmée : WFD reste une base de
+comparaison, jamais une dépendance d'exécution du Builder — y compris pour
+la *lecture* de son historique de runs, pas seulement pour l'exécution
+elle-même (nuance ajoutée cette session).
+
+### Architecture
+Nouveau dossier `server/engine-builder/` (une vingtaine de fichiers),
+aucune dépendance runtime à `server/engine/wfd-engine*.js` — la logique
+d'appel Iconik proprement dite (construction d'URL, pagination, mapping de
+champs) a été copiée/adaptée depuis `wfd-engine-handlers.js` dans des
+fichiers neufs, ce qui était explicitement autorisé (interdiction porte sur
+le *couplage runtime*, pas sur la réutilisation de logique éprouvée).
+
+- **Exécuteur** (`builder-executor.js`) : parcours récursif de
+  `{steps, edges}` (+ `body` des boucles), un chemin actif à la fois — même
+  modèle que WFD, mais les ports du pivot sont des **chaînes** (le libellé
+  de la condition), donc aucune traduction port-nommé ↔ index numérique à
+  faire, contrairement à `pivot-to-wfd.js`. Le fan-out `otherwise` d'une
+  décision (que WFD doit synthétiser à la conversion) est résolu
+  dynamiquement ici, à la recherche de l'arête suivante.
+- **Boucles** : pile de scope (`builder-context.js`,
+  `pushLoopScope`/`scopedSetVar`/`popLoopScope`) qui corrige un bug réel de
+  WFD trouvé en le portant — une boucle imbriquée réutilisant le même nom
+  de variable qu'une boucle englobante (`loopVar: 'item'` des deux côtés)
+  écrase silencieusement la valeur externe sans jamais la restaurer.
+  Vérifié avec un test dédié (deux boucles imbriquées, même `loopVar`) :
+  chaque boucle retrouve bien sa propre valeur d'itération à la sortie.
+- **Résolveur** (`builder-resolver.js`) : résout en bloc, au démarrage du
+  run, toutes les ressources d'org référencées
+  (`mappingId`/`manifestId`/`sequenceId`/`templateId`/`connexionId`,
+  récursif dans les corps de boucle) — pas de résolution paresseuse par
+  étape, pour échouer avant tout appel Iconik plutôt qu'au milieu d'un run.
+- **Client Iconik** : résolu depuis `workflow.environment` — **un ID
+  d'Environment, pas un nom** (vérifié sur le document réel de PUBLISH et
+  sur `workflow-canvas.js:913`, `o.value = e.id` ; le commentaire de
+  `pivot-io.js` ne précisait pas le format et a induit en erreur au premier
+  essai). Repli sur les credentials de la Custom Action elle-même
+  (`auth_token`/`app_id`) si l'environnement n'est pas configuré — même
+  priorité que WFD.
+- **Persistance** : nouvelles tables `BuilderRun`/`BuilderRunEvent`
+  (Postgres, org-scopées) — pas de fichier JSON comme
+  `wfd-run-history.js`. Chaque événement stocke un **snapshot complet** du
+  contexte (pas un résumé), décision explicite pour que le futur panneau
+  Logs puisse inspecter l'état à n'importe quelle étape passée (contraste
+  avec le reproche fait au vieux panel Debug de WFD).
+- **Déclenchement** : `POST /api/builder-engine/trigger/:flowId` (manuel,
+  org-scopé, brouillon par défaut ou version publiée explicite) et `POST
+  /api/builder-engine/action/:slug` (webhook Custom Action Iconik — ne peut
+  pas être org-scopé en entrée, Iconik n'a aucune notion d'org APS ;
+  exécute **toujours la dernière version publiée**, jamais le brouillon,
+  409 sinon). `GET /api/builder-runs` pour la lecture (pensé pour `curl`,
+  pas encore d'UI).
+- **Couverture** : les 12 Cores + les 11 Facades du catalogue pivot sont
+  tous câblés dans `builder-handlers-index.js`. La façade `iconik.action`
+  porte les 41 `actionType` du dispatcher WFD d'origine (le panneau les
+  expose tous, un seul — `export_location_trigger` — a des champs dédiés).
+  Cores déclarés mais hors périmètre (`qc`/`script`/`delay`/`approval`/
+  `call_workflow`) lèvent une erreur explicite plutôt qu'un no-op muet.
+
+### Vérification — `scripts/preuve-execution.js`
+Nouveau script (pendant de `preuve-conversion.js`, mais pour l'exécution) :
+charge un document pivot, l'exécute deux fois — via WFD
+(`pivot-to-wfd.js` + `WfdExecutor.executeFlux`, en mémoire, sans toucher
+aux tables `Flow`/`Run`) et via le moteur natif — puis compare statut,
+séquence de ports et variables clés.
+
+Lancé contre **PUBLISH réel** (`BAYARD | PUBLISH | VODFACTORY`) sur une
+vraie collection QA ("Star Trek", `db96828e-7f91-11f1-8269-2ae267fc2477`,
+env `QA | ASKIDA`), avec de vrais appels Iconik/S3/API partenaire (VOD
+Factory **preprod**, jamais prod). Deux allers-retours nécessaires :
+
+1. **Premier run, arrêt prématuré des deux côtés** — l'étape "Notify
+   Running" (History) et l'étape "Get Collection ID" (Search) échouaient
+   identiquement dans WFD ET le moteur natif, pour la même raison réelle :
+   deux champs du document PUBLISH stocké en base contiennent une
+   référence de variable **sans ses accolades** (`targetId: "collection_id"`
+   au lieu de `"{collection_id}"` ; critère de recherche
+   `value: "collection.id"` au lieu de `"{collection.id}"`) — donc jamais
+   résolus, utilisés tels quels comme chaînes littérales. Une troisième
+   occurrence trouvée par cohérence (`fields[0].value: "generated_id"` sur
+   "Set Bayard ID") et une quatrième dans le corps de boucle (`assetId:
+   "item.id"` sur l'étape Action). **4 corrections appliquées directement
+   dans le document** (accord explicite de l'utilisateur) : accolades
+   ajoutées. Une cinquième valeur (`targetId: "collectionsID"` sur l'étape
+   "Set Metadata" finale, orthographe ne correspondant à aucune variable
+   connue) corrigée par forte inférence contextuelle vers `"{collection.id}"`
+   — le step voisin (History final) cible déjà correctement `{collection.id}`
+   pour le même besoin.
+2. **Deuxième run, nouvel arrêt identique des deux côtés** — la décision
+   "Programme ?" a 4 conditions étiquetées `Série`/`Saison`/`Episode`/
+   `Unitaire`, mais ses 4 arêtes sortantes stockées utilisaient encore
+   l'ancien encodage numérique WFD (`out-0`..`out-3`) au lieu du libellé —
+   ni WFD (dont la conversion ne retrouve aucune arête matching) ni le
+   moteur natif (qui cherche l'arête par libellé) ne pouvaient continuer.
+   **Corrigé** (accord explicite) : les 4 arêtes renommées vers leur
+   libellé réel.
+3. **Troisième run — équivalence exacte, bout en bout.** Les deux moteurs
+   exécutent l'intégralité des **14 étapes** de PUBLISH avec la même
+   séquence de ports et les mêmes variables : recherche réelle qui trouve
+   la collection, décision "Série", "Bayard ID ?" → `default` (déjà
+   renseigné), Ancestor Resolver → `"Star_Trek_44931263"` (identique des
+   deux côtés), Deliver "Check Collection" → `miss`, recherche des assets
+   → 10 résultats, Loop → `out` (0 itération réelle sur cette collection,
+   cf. "reste ouvert" ci-dessous), Lookup → `found`, **Partner** (vraie
+   séquence HTTP vers le partenaire preprod, y compris la logique de retry
+   POST→PUT sur 422) → `err` (rejet réel du partenaire, "external_id déjà
+   pris" — pas un bug, une vraie contrainte métier), Verify → `ok`, Set
+   Metadata + History finale → `out`. Statut final `partial` identique des
+   deux côtés (2 erreurs identiques).
+
+**Effet de bord réel resté en base** : le champ `StatutPrime` de la
+collection de test porte une ligne d'historique supplémentaire par run de
+vérification (texte informatif, jamais nettoyé — à traiter manuellement si
+la collection sert encore à autre chose). Aucun enregistrement créé côté
+partenaire (les deux tentatives ont été rejetées par une vraie validation
+422).
+
+### Reste ouvert
+- Deux imperfections trouvées dans PUBLISH, **non corrigées** (hors
+  accord explicite, contrairement aux deux corrections ci-dessus) : l'étape
+  Search des assets à exporter a `field: "_"` au lieu de `"__collection__"`
+  (l'opérateur `in_collection` n'existe dans aucun des deux moteurs — la
+  requête part sans filtre de collection, ce qui explique les "10
+  résultats" venant potentiellement de tout le catalogue plutôt que de
+  cette seule collection) ; la Boucle a `loopVariablePath:
+  "assetsAExporter.object_type"`, qui ne résout jamais vers un tableau
+  (probablement `.objects` attendu) — la boucle ne fait donc jamais tourner
+  son corps (Video Info / Check Asset / Action / Wait / Recheck) sur cette
+  collection dans son état actuel.
+- Pas de panneau UI pour déclencher un run ou voir les résultats — tout se
+  fait par API (`curl`) pour l'instant. Cf. "Point de départ pour la
+  prochaine session" en tête de ce document.
+- Webhook (`POST /api/builder-engine/action/:slug`) jamais essayé depuis
+  une vraie Custom Action cliquée dans Iconik — seulement avec un payload
+  construit à la main.
+- Cron/planification pas construits (différé, comme pour WFD au départ).
+- Drift de base pré-existant découvert en passant (sans rapport avec ce
+  chantier) : la table `ApsCounter` existe en production mais n'a jamais
+  eu de modèle Prisma déclaré — `prisma db push` voulait la supprimer
+  (`--accept-data-loss` l'aurait fait). Contournement : `BuilderRun`/
+  `BuilderRunEvent` créées via SQL brut (`psql`), `prisma generate` lancé
+  séparément (codegen pur, sans toucher à la base). Le compteur atomique du
+  moteur natif (`builder-iconik-shared.js`, `nextOrderNumber`) recrée cette
+  même table à la volée (`CREATE TABLE IF NOT EXISTS`), comme le faisait
+  déjà WFD — ne pas "corriger" ce gap sans en parler d'abord.
