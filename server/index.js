@@ -55,6 +55,8 @@ const mappingRouter        = require('./routes/mapping');
 const endpointsRouter      = require('./routes/endpoints');
 const contextRouter        = require('./routes/context');
 const packageRouter        = require('./routes/package');
+const builderEngineRouter  = require('./routes/builder-engine');
+const builderRunsRouter    = require('./routes/builder-runs');
 
 app.use('/api/flows',      flowsRouter);
 app.use('/api/connexions', connexionsRouter);
@@ -69,6 +71,8 @@ app.use('/api/endpoints',   endpointsRouter);
 app.use('/api/jobs',         syncJobsRouter);
 app.use('/api/iconik',       iconikProxy);
 app.use('/api/package',    packageRouter);
+app.use('/api/builder-engine', builderEngineRouter);
+app.use('/api/builder-runs',   builderRunsRouter);
 app.use('/api',            contextRouter);
 app.use('/api',            wfdDataRouter);
 app.use('/wfd',            wfdEngineRouter.router);

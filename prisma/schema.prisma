@@ -35,6 +35,7 @@ model Organisation {
   manifests    Manifest[]
   endpoints    Endpoint[]
   builderFlows BuilderFlow[]
+  builderRuns  BuilderRun[]
   nommages     Nommage[]
   scripts      Script[]
   managedApps  ManagedApp[]
@@ -314,6 +315,7 @@ model BuilderFlow {
   name          String
   document      Json         @default("{}")
   versions      BuilderFlowVersion[]
+  runs          BuilderRun[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -335,6 +337,58 @@ model BuilderFlowVersion {
   createdAt DateTime    @default(now())
 
   @@unique([flowId, version])
+}
+
+// Historique d'exécution du moteur natif du Builder (server/engine-builder/).
+// Volontairement distinct du couple Flow/Run existant (WFD) — pas d'extension
+// des models WFD, voir abstract-honking-map.md. Org-scopé (contrairement à
+// WFD, qui ne l'est pas par choix historique) : cette table est neuve, elle
+// suit la convention org-scoping normale (server/lib/org-context.js).
+model BuilderRun {
+  id            String            @id @default(cuid())
+  orgId         String
+  organisation  Organisation      @relation(fields: [orgId], references: [id])
+  flowId        String
+  flow          BuilderFlow       @relation(fields: [flowId], references: [id])
+  flowVersion   Int?              // version publiée exécutée, null si contre le brouillon
+  status        String            // running | success | partial | failed
+  triggerType   String            // manual | custom_action
+  triggerRef    String?           // slug/customActionId matché, ou null en manuel
+  startedAt     DateTime          @default(now())
+  finishedAt    DateTime?
+  durationMs    Int?
+  vars          Json?             // snapshot final de ctx.vars
+  errors        Json?             // ctx.errors[]
+  errorMessage  String?
+  createdAt     DateTime          @default(now())
+
+  events        BuilderRunEvent[]
+
+  @@index([orgId])
+  @@index([flowId])
+}
+
+// Un événement par transition d'étape. `ctxSnapshot` est volontairement un
+// snapshot COMPLET du contexte à cet instant (pas un résumé) : décision
+// explicite du 2026-08-05 pour que le futur panneau Logs puisse inspecter
+// l'état exact à n'importe quelle étape passée (contraste assumé avec
+// l'ancien panneau Debug de WFD, critiqué pour ne pas tout stocker).
+model BuilderRunEvent {
+  id           String     @id @default(cuid())
+  runId        String
+  run          BuilderRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  seq          Int        // ordre monotone par run
+  type         String     // start | step:start | step:done | step:error | step:skip | end
+  stepId       String?
+  stepCore     String?
+  stepFacade   String?
+  port         String?
+  message      String?
+  severity     String?    // warn | fatal
+  ctxSnapshot  Json?
+  at           DateTime   @default(now())
+
+  @@unique([runId, seq])
 }
 
 model Nommage {
