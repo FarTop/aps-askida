@@ -24,7 +24,7 @@ body {
 .aps-header .breadcrumb a { color: var(--adm-dim); text-decoration: none; }
 .aps-header .breadcrumb a:hover { color: var(--adm-text); }
 
-.mf-main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+.mf-main { max-width: 1440px; margin: 0 auto; padding: 24px 20px 60px; }
 .mf-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .mf-title { font-size: 20px; font-weight: 600; margin: 0; }
 .mf-intro { color: var(--adm-dim); font-size: 13px; margin: 0 0 20px; max-width: 720px; }
@@ -83,7 +83,7 @@ select.mf-input { cursor: pointer; }
 /* Ligne d'essence */
 .mf-essence {
   display: grid;
-  grid-template-columns: 110px 1fr 130px 60px 1fr 28px;
+  grid-template-columns: 110px 1fr 130px 60px 1fr 140px 28px;
   gap: 8px; align-items: center; margin-bottom: 8px;
 }
 .mf-essence input, .mf-essence select {
@@ -92,7 +92,29 @@ select.mf-input { cursor: pointer; }
   padding: 6px 8px; font-size: 12.5px; font: inherit; width: 100%;
 }
 .mf-essence input:focus, .mf-essence select:focus { outline: none; border-color: var(--adm-accent); }
+
+/* Colonnes épinglées explicitement — sans ça, cacher `N` (au_plus_n
+   seulement, `display:none`) décale tous les champs suivants d'une colonne
+   en placement implicite (sortie hérite de la case étroite de N, niveaux de
+   la case large de sortie). */
+.mf-essence-role    { grid-column: 1; }
+.mf-essence-reco    { grid-column: 2; }
+.mf-essence-card    { grid-column: 3; }
+.mf-essence-n       { grid-column: 4; }
+.mf-essence-sortie  { grid-column: 5; }
+.mf-essence-niveaux { grid-column: 6; }
+.mf-essence-suppr   { grid-column: 7; }
 .mf-essence-n[hidden] { display: none; }
+
+/* Niveaux d'applicabilité — chips à cocher (Sé/Sa/Ép/Un) */
+.mf-essence-niveaux { display: flex; gap: 4px; }
+.mf-niveau-chip {
+  display: flex; align-items: center; gap: 3px;
+  background: #101213; border: 1px solid var(--adm-border); border-radius: 6px;
+  padding: 4px 6px; font-size: 11px; color: var(--adm-dim); cursor: pointer;
+}
+.mf-niveau-chip input { width: auto; padding: 0; margin: 0; cursor: pointer; }
+.mf-niveau-chip:has(input:checked) { color: var(--adm-text); border-color: rgba(214,210,51,.4); }
 .mf-essence-suppr {
   background: transparent; border: none; color: var(--adm-dim);
   font-size: 18px; cursor: pointer; line-height: 1; padding: 0;

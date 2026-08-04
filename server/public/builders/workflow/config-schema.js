@@ -84,7 +84,13 @@ const ConfigSchema = (() => {
     // — `resultVar` n'existe dans aucune donnée réelle et n'est jamais lu par
     // le moteur pour ce Core (chaque item est exposé via `loopVar`, pas un
     // résultat agrégé stocké à la fin).
-    const produit = ['http_request', 'lookup', 'transform', 'set_variable', 'http_sequence'];
+    // `lookup` retiré de la même façon (constaté le 4 août, en répondant à une
+    // question sur le panneau) : lookup() (wfd-engine-handlers.js) ne lit QUE
+    // `cfg.lkOutputVar` (déjà déclaré plus bas, champ "Store as") — jamais
+    // `cfg.resultVar`. Avant ce retrait, CHAQUE nœud Lookup affichait deux
+    // champs de stockage ("Store result as" ET "Store as"), dont un mort :
+    // remplir le mauvais silencieusement ne stockait rien nulle part.
+    const produit = ['http_request', 'transform', 'set_variable', 'http_sequence'];
     if (core && produit.indexOf(core) >= 0) {
       s.push({ nature: 'variable', chemin: 'resultVar', label: 'Store result as',
                placeholder: '{result}' });

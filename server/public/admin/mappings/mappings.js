@@ -76,11 +76,24 @@
     }
     // Copie de travail (ne pas muter la liste avant enregistrement). La liste
     // porte déjà les rows complètes (cf. mapping.js — pas de second appel).
+    // BUG RÉEL corrigé le 4 août : les données stockées utilisent parfois
+    // `src`/`tgt` (alias historique côté moteur, cf. l'en-tête de ce fichier)
+    // plutôt que `key`/`value`. `_ligneRow()` les affichait déjà via ce repli
+    // (`row.key || row.src`), mais `enregistrer()` ne regardait QUE
+    // `row.key`/`row.value` — toute ligne jamais retapée à la main était donc
+    // traitée comme vide et retirée au premier enregistrement, quel que soit
+    // ce qu'on venait de faire (même juste supprimer UNE autre ligne).
+    // Normaliser ici, une fois, à l'ouverture : tout le reste du fichier ne
+    // manipule plus que key/value, la forme canonique annoncée en en-tête.
     courant = {
       id: m.id, name: m.name,
       rows: (m.rows || []).map(function (row) {
         return Object.assign({}, row, {
-          children: (row.children || []).map(function (c) { return Object.assign({}, c); })
+          key: row.key || row.src || '',
+          value: row.value || row.tgt || '',
+          children: (row.children || []).map(function (c) {
+            return Object.assign({}, c, { key: c.key || c.src || '', value: c.value || c.tgt || '' });
+          })
         });
       })
     };

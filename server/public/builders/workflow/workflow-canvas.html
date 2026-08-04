@@ -94,6 +94,17 @@
     <!-- Scène : canevas + volets superposés -->
     <div class="bd-stage">
 
+      <!-- Fil d'Ariane — navigation de portée (racine / corps de boucle
+           ouverts). En SUPERPOSITION sur le canevas, même principe que les
+           volets (le canevas fixe ne bouge jamais). Masqué à la racine
+           (aucun intérêt à dire "vous êtes déjà là"), affiché dès qu'on
+           entre dans un corps. Jamais de style.display : l'attribut
+           `hidden` seul contrôle la visibilité. -->
+      <nav class="bd-breadcrumb" data-role="breadcrumb" aria-label="Portée du canevas" hidden>
+        <span data-role="breadcrumb-chemin"></span>
+        <button class="bd-icon-btn" data-role="breadcrumb-sortir" type="button" title="Sortir (Échap)">← Sortir</button>
+      </nav>
+
       <!-- Canevas : cadre fixe (.cnv-frame) + surface transformable
            (.cnv-surface). La transformation vit dans la surface, jamais dans le
            cadre : redimensionner ou ouvrir un volet ne bouge aucun noeud. -->
@@ -217,6 +228,7 @@
   <script src="wf-persistence.js"></script>
   <script src="wf-history.js"></script>
   <script src="wf-selection.js"></script>
+  <script src="wf-scope.js"></script>
   <script src="wf-clipboard.js"></script>
   <script src="wf-lasso.js"></script>
   <script src="wf-palette-drag.js"></script>

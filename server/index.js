@@ -1,7 +1,7 @@
 // APS — server/index.js — 2026-06-24 19:15 — modifié le 2026-06-23
 // Serveur Express — point d'entrée APS + frontend statique WFD
 
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express     = require('express');
 const cors        = require('cors');
 const helmet      = require('helmet');

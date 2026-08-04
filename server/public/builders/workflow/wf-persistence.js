@@ -16,7 +16,15 @@ const WfPersistence = (() => {
   const API = '/api/builder-flows';
 
   // Modèle -> document pivot (pour sauvegarder). `entete` : { id?, name }.
-  function documentDepuisModele(model, entete) {
+  // `layoutsDeCorps` (optionnel) : { loopId: { stepId: {x,y} } }, fourni par
+  // WfScope.layoutsDeCorps() — le corps de chaque boucle imbriquée (son
+  // `.body`) est déjà porté par l'étape Loop elle-même dans `model.noeuds()`
+  // (WfScope réécrit `etape.body` en sortant d'un corps édité, ou via
+  // flush() avant sauvegarde), donc `doc.steps` n'a rien de spécial à faire
+  // pour ça — seules les POSITIONS des nœuds internes à un corps vivent
+  // ailleurs (presentation.bodyLayout), puisque « les positions appartiennent
+  // à la section presentation » (pivot-schema.js).
+  function documentDepuisModele(model, entete, layoutsDeCorps) {
     const PivotIO = (typeof window !== 'undefined') ? window.PivotIO : null;
     const doc = PivotIO ? PivotIO.creer(entete) : {
       pivot: 1, form: 'canonical',
@@ -35,6 +43,7 @@ const WfPersistence = (() => {
     doc.presentation = doc.presentation || {};
     doc.presentation.versioned = false;
     doc.presentation.layout = layout;
+    doc.presentation.bodyLayout = Object.assign({}, layoutsDeCorps || {});
 
     return doc;
   }
@@ -53,7 +62,11 @@ const WfPersistence = (() => {
     const edges = ((doc && doc.edges) || []).map(function (e) {
       return { from: e.from, to: e.to };
     });
-    return { nodes: nodes, edges: edges };
+    // bodyLayout suit tel quel — WfScope.creer() en a besoin pour retrouver
+    // les positions des corps de boucle déjà édités, plutôt que de tout
+    // redisposer par défaut à chaque entrée.
+    const bodyLayout = (doc && doc.presentation && doc.presentation.bodyLayout) || {};
+    return { nodes: nodes, edges: edges, bodyLayout: bodyLayout };
   }
 
   // Charge un workflow existant : { id, name, document }.
@@ -64,7 +77,7 @@ const WfPersistence = (() => {
 
   // Sauvegarde (création si pas d'id, mise à jour sinon). Renvoie { id, name }.
   function sauvegarder(opts) {
-    const doc = documentDepuisModele(opts.model, { id: opts.id, name: opts.name, environment: opts.environment });
+    const doc = documentDepuisModele(opts.model, { id: opts.id, name: opts.name, environment: opts.environment }, opts.layoutsDeCorps);
     // N'inclut PAS la clé id quand elle est absente : un id null explicite dans
     // le JSON forcerait Prisma à rejeter le create (champ id non-nullable, le
     // défaut @default(cuid()) ne s'applique que si la clé est absente, pas si
@@ -86,3 +99,4 @@ const WfPersistence = (() => {
 })();
 
 if (typeof window !== 'undefined') window.WfPersistence = WfPersistence;
+if (typeof module !== 'undefined') module.exports = WfPersistence;

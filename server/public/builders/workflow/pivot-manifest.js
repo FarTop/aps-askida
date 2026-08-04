@@ -28,6 +28,17 @@ const PivotManifest = (() => {
   // garde de cardinalité d'une purge : « exactement un / au moins un / au plus N ».
   const CARDINALITES = ['exactement_un', 'au_moins_un', 'optionnel', 'au_plus_n'];
 
+  // Niveaux d'applicabilité — même vocabulaire que `niveau` au niveau du
+  // manifeste (serie|saison|episode|unitaire|*). Portés maintenant PAR
+  // ESSENCE (`appliesTo`), pas seulement au niveau du manifeste entier :
+  // corrige le 3 août la limite trouvée en remplissant le manifeste réel — un
+  // manifeste ne couvrait qu'un seul niveau, alors que les essences réelles
+  // diffèrent par niveau (Série : cover/hero/poster/title ; Saison :
+  // +season ; Episode : episodic/video/subtitle). `appliesTo` absent ou
+  // contenant `'*'` veut dire « toutes les essences » — rétrocompatible avec
+  // les manifestes déjà en base, qui n'ont jamais porté ce champ.
+  const NIVEAUX = ['serie', 'saison', 'episode', 'unitaire'];
+
   // Rôles d'essence observés dans le réel (PUBLISH V2). Extensible : le manifeste
   // ne se limite pas aux artworks — il couvre aussi audio éclatés, sous-titres
   // multiples, etc. Le rôle est libre ; ceux-ci sont les rôles connus.
@@ -38,11 +49,13 @@ const PivotManifest = (() => {
   //   name: "Livraison Amazon Prime — Épisode",
   //   niveau: "episode",              // serie | saison | episode | unitaire | *
   //   essences: [
-  //     { role: "video",    reconnu_par: [".mp4",".mov",".ts"], cardinalite: "exactement_un", sortie: "s3_video_url" },
+  //     { role: "video",    reconnu_par: [".mp4",".mov",".ts"], cardinalite: "exactement_un", sortie: "s3_video_url", appliesTo: ["episode","unitaire"] },
   //     { role: "image",    reconnu_par: ["_poster",".jpg",".png"], cardinalite: "au_moins_un", sortie: "s3_image_url" },
-  //     { role: "subtitle", reconnu_par: [".srt",".vtt"], cardinalite: "optionnel", sortie: "s3_srt_url" }
+  //     { role: "subtitle", reconnu_par: [".srt",".vtt"], cardinalite: "optionnel", sortie: "s3_srt_url", appliesTo: ["episode"] }
   //   ]
   // }
+  // `appliesTo` : tableau de niveaux (cf. NIVEAUX) où cette essence compte ;
+  // absent ou ["*"] = tous niveaux (deuxième ligne ci-dessus).
 
   // Valide un objet manifeste. Renvoie { ok, erreurs: [] }.
   function valider(manifeste) {
@@ -78,6 +91,17 @@ const PivotManifest = (() => {
         err(p + '.n requis (>0) quand cardinalite = au_plus_n');
       }
       if (!e.sortie) err(p + '.sortie requise (clé où l\'URL déposée sera rangée)');
+      if (e.appliesTo != null) {
+        if (!Array.isArray(e.appliesTo) || !e.appliesTo.length) {
+          err(p + '.appliesTo doit être un tableau non vide s\'il est présent (ou absent = tous niveaux)');
+        } else {
+          e.appliesTo.forEach(function (niv) {
+            if (niv !== '*' && NIVEAUX.indexOf(niv) === -1) {
+              err(p + '.appliesTo : niveau inconnu "' + niv + '" (attendu ' + NIVEAUX.join('|') + '|*)');
+            }
+          });
+        }
+      }
     });
 
     return { ok: erreurs.length === 0, erreurs: erreurs };
@@ -94,13 +118,15 @@ const PivotManifest = (() => {
         optionnel: 'optionnel',
         au_plus_n: 'au plus ' + (e.n || '?')
       }[e.cardinalite] || e.cardinalite;
-      return e.role + ' (' + card + ')';
+      const portee = Array.isArray(e.appliesTo) && e.appliesTo.length && e.appliesTo.indexOf('*') === -1
+        ? ' [' + e.appliesTo.join(',') + ']' : '';
+      return e.role + ' (' + card + ')' + portee;
     });
     const niveau = manifeste.niveau && manifeste.niveau !== '*' ? ' au niveau ' + manifeste.niveau : '';
     return 'Livraison' + niveau + ' : ' + parts.join(', ') + '.';
   }
 
-  return { CARDINALITES, ROLES_CONNUS, valider, resumer };
+  return { CARDINALITES, ROLES_CONNUS, NIVEAUX, valider, resumer };
 
 })();
 

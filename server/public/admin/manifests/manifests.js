@@ -17,6 +17,16 @@
     { v: 'au_plus_n',     label: 'au plus N' }
   ];
   const ROLES = ['video', 'image', 'subtitle', 'audio', 'poster', 'artwork'];
+  // Niveaux d'applicabilité par essence (3 août — pivot-manifest.js NIVEAUX) :
+  // un manifeste unique couvre les 4 niveaux, chaque essence dit lesquels la
+  // concernent. Toutes cochées = appliesTo absent (rétrocompatible, "tous
+  // niveaux" — même sens qu'avant que ce champ existe).
+  const NIVEAUX = [
+    { v: 'serie',    l: 'Sé', f: 'Série' },
+    { v: 'saison',   l: 'Sa', f: 'Saison' },
+    { v: 'episode',  l: 'Ép', f: 'Episode' },
+    { v: 'unitaire', l: 'Un', f: 'Unitaire' }
+  ];
 
   let manifests = [];   // liste chargée
   let courant = null;   // manifeste en édition { id?, name, niveau, essences[] }
@@ -151,6 +161,35 @@
     sortie.value = essence.sortie || '';
     sortie.addEventListener('input', function () { essence.sortie = sortie.value.trim(); });
 
+    // Niveaux d'applicabilité — chaque essence dit à quels niveaux elle
+    // compte (Série/Saison/Épisode/Unitaire). Toutes cochées ⇔ appliesTo
+    // absent (compte à tous les niveaux, rétrocompatible).
+    const niveaux = document.createElement('div');
+    niveaux.className = 'mf-essence-niveaux';
+    niveaux.setAttribute('role', 'group');
+    niveaux.setAttribute('aria-label', 'Niveaux où cette essence compte');
+    const actuel = Array.isArray(essence.appliesTo) && essence.appliesTo.indexOf('*') === -1
+      ? essence.appliesTo : null; // null = tous niveaux
+    NIVEAUX.forEach(function (niv) {
+      const lab = document.createElement('label');
+      lab.className = 'mf-niveau-chip';
+      lab.title = niv.f;
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = actuel ? actuel.indexOf(niv.v) !== -1 : true;
+      box.addEventListener('change', function () { _majAppliesTo(); });
+      lab.appendChild(box);
+      lab.appendChild(document.createTextNode(niv.l));
+      niveaux.appendChild(lab);
+    });
+    function _majAppliesTo() {
+      const boxes = niveaux.querySelectorAll('input[type=checkbox]');
+      const coches = [];
+      boxes.forEach(function (b, i) { if (b.checked) coches.push(NIVEAUX[i].v); });
+      essence.appliesTo = coches.length === NIVEAUX.length ? undefined : coches;
+      rendreResume();
+    }
+
     // Retirer
     const suppr = document.createElement('button');
     suppr.type = 'button';
@@ -168,6 +207,7 @@
     ligne.appendChild(card);
     ligne.appendChild(n);
     ligne.appendChild(sortie);
+    ligne.appendChild(niveaux);
     ligne.appendChild(suppr);
     return ligne;
   }
@@ -188,7 +228,9 @@
         exactement_un: 'exactement 1', au_moins_un: 'au moins 1',
         optionnel: 'optionnel', au_plus_n: 'au plus ' + (e.n || '?')
       }[e.cardinalite] || e.cardinalite;
-      return (e.role || '?') + ' (' + card + ')';
+      const portee = Array.isArray(e.appliesTo) && e.appliesTo.length
+        ? ' [' + e.appliesTo.join(',') + ']' : '';
+      return (e.role || '?') + ' (' + card + ')' + portee;
     });
     const niv = courant.niveau && courant.niveau !== '*' ? ' au niveau ' + courant.niveau : '';
     hote.textContent = 'Livraison' + niv + ' : ' + parts.join(', ') + '.';

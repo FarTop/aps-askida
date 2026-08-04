@@ -112,6 +112,13 @@ const PivotToWfd = (() => {
             cardinalite: e.cardinalite || 'optionnel'
           };
           if (e.cardinalite === 'au_plus_n') m.n = e.n || 1;
+          // appliesTo (3 août, extension) : niveaux où cette essence compte
+          // (serie|saison|episode|unitaire) — transporté tel quel, absent ⇔
+          // tous niveaux. aws_s3() (moteur) l'utilise pour ignorer une
+          // essence hors de sa portée au lieu de la compter partout.
+          if (Array.isArray(e.appliesTo) && e.appliesTo.length && e.appliesTo.indexOf('*') === -1) {
+            m.appliesTo = e.appliesTo;
+          }
           return m;
         });
       }

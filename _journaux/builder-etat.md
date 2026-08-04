@@ -7,47 +7,79 @@
 > écarté. Lire ce document suffit pour travailler ; lire le journal sert quand
 > on veut comprendre une décision ou la remettre en cause.
 >
-> Dernière mise à jour : 3 août 2026, fin de journée (construction PUBLISH
-> nœud par nœud très avancée — Trigger jusqu'à Deliver posés ; nouvelle
-> façade Ancestor Resolver construite et vérifiée contre les vraies données ;
-> blocage identifié sur le Manifeste, à lever en premier demain. Cf.
-> `journal-aps-2026-08-03.md`, section "Test grandeur nature" pour le récit
-> complet).
+> Dernière mise à jour : 4 août 2026, fin de session (reconstruction PUBLISH
+> nœud par nœud poussée jusqu'à l'étape 12 — HTTP Sequence — avec deux
+> questions de conception encore en suspens. Cf. section "Reprise PUBLISH —
+> tableau, bugs, HTTP Sequence" tout en bas pour le détail et le point de
+> reprise exact).
+>
+> Plus tôt le 4 août : éditeur de corps de boucle construit — `wf-scope.js` —
+> en creusant un trou trouvé en continuant PUBLISH après Deliver : Iconik ne
+> sait déclencher un Export Location que par asset individuel, jamais en bloc
+> sur une collection, donc le vrai motif est Search → **Boucle** → Action →
+> Attendre. Deux bugs réels trouvés au passage : `pivot-validate.js` validait
+> un vieux vocabulaire de boucle (`params.over`/`as`) que ni le panneau ni le
+> moteur n'ont jamais utilisé — toute boucle réelle échouait la validation
+> complète, invisible jusqu'ici faute de boucle jamais menée jusqu'au bout ;
+> et `wf-persistence.js` n'avait jamais de `module.exports`, jamais testable
+> hors navigateur.
+>
+> **Vérifié pour de vrai dans un navigateur avant la fin de la session** —
+> `chrome-devtools` (MCP) installé et pointé sur Brave (pas de Chrome sur
+> cette machine, l'extension `claude-in-chrome` reste bloquée par une
+> restriction macOS). Un troisième bug réel trouvé en regardant l'écran, pas
+> en lisant le code : le fil d'Ariane restait visible à la racine — une
+> règle CSS auteur (`display: flex`) bat toujours la règle `[hidden]` de
+> l'agent utilisateur, quelle que soit la spécificité. Corrigé. Le reste
+> (glisser un Loop, entrer/sortir, glisser un nœud dans le corps, badge "N
+> steps", bouton "Edit body →", sauvegarde + rechargement complet avec
+> positions restaurées, panneau Variables avec `{item}`) fonctionne comme
+> prévu. Cf. section "Éditeur de corps de boucle" plus bas pour le détail.
+>
+> Plus tôt le 4 août : Manifeste étendu aux 4 niveaux (`appliesTo` par
+> essence), contenu réel saisi dans "PRIME", et un bug S3 réel corrigé au
+> passage — `list_objects` remontait récursivement les fichiers des niveaux
+> enfants, faute de `delimiter`. Cf. section "Manifeste — étendu aux 4
+> niveaux" plus bas pour le détail.
+>
+> Historique : 3 août 2026, fin de journée (construction PUBLISH nœud par
+> nœud très avancée — Trigger jusqu'à Deliver posés ; nouvelle façade
+> Ancestor Resolver construite et vérifiée contre les vraies données ;
+> blocage identifié sur le Manifeste. Cf. `journal-aps-2026-08-03.md`,
+> section "Test grandeur nature" pour le récit complet).
 
 ---
 
 ## Point de départ pour la prochaine session
 
-1. **Étendre le Manifeste — PREMIER travail de demain.** Vérifié en fin de
-   session (`pivot-manifest.js`) : un manifeste ne couvre qu'**un seul
-   niveau** (`niveau: serie|saison|episode|unitaire|*`), pas les 4 avec une
-   condition par essence comme le reste de ce document le décrivait —
-   c'était l'intention documentée, jamais construite ainsi. Décidé en fin de
-   session : construire la vraie extension plutôt que contourner (4
-   manifestes + 4 Deliver). Concrètement :
-   - Ajouter `appliesTo` par essence dans `pivot-manifest.js` (condition sur
-     `TypeCollection`, même mécanique que `reconnu_par`/`cardinalite`)
-   - L'exposer dans l'écran `admin/manifests/`
-   - Modifier `aws_s3()` (moteur, branche `list_objects`) pour ne compter
-     que les essences dont `appliesTo` matche le `TypeCollection` courant
-   - Contenu réel à y mettre, vérifié en listant le vrai bucket S3 (section
-     "Manifeste — contenu réel vérifié" plus bas) : essences différentes par
-     niveau (cover/hero/poster/title pour Série, +season pour Saison,
-     episodic+video+subtitle pour Episode, box+cover+poster+hero+title pour
-     Unitaire d'après la doc partenaire, jamais vérifié en réel)
-2. **Continuer la construction de PUBLISH nœud par nœud** une fois le
-   Manifeste étendu — Deliver est le nœud bloqué. Après lui : Lookup, HTTP
-   Sequence, Verify, Set Metadata + History finaux.
-3. **Élargir le catalogue de variables au fil de la construction** — chaque
+1. **Configurer l'étape 12 (HTTP Sequence "Publication API")** dans le
+   Builder — mécanique déjà clarifiée en fin de session (Simple = "Single
+   request", Foreach = "One request per value", `{external_id}` vient du
+   Lookup — étape 11 — pas d'une étape de cette séquence). Les 7 étapes
+   réelles (5 Persons + Contents + Video) sont documentées avec leurs
+   valeurs exactes dans la section "Reprise PUBLISH" tout en bas.
+2. **Deux questions de conception encore ouvertes**, posées mais pas
+   tranchées avec l'utilisateur (cf. même section pour le détail) :
+   - Étape 7 (Search des assets à exporter) : un seul Search sans filtre
+     `media_type`, ou deux Search séparés (images/vidéo) comme le faisait
+     l'ancien WFD ?
+   - Étapes 13/14 (Verify, History) : la production les duplique **4 fois**
+     (une par niveau Série/Saison/Episode/Unitaire, champs et messages
+     différents à chaque fois) — même motif que le Manifeste avant sa
+     refonte. Accepter la duplication pour l'instant, ou piloter Verify/
+     History depuis le Manifeste (essences + `appliesTo`) comme Deliver ?
+3. **Vérifier à la main dans un navigateur le reste déjà en attente** —
+   l'éditeur de corps de boucle est vérifié (4 août, outil `chrome-devtools`
+   en MCP, pointé sur Brave), mais le badge statut/Publier, le panneau
+   Variables du 3 août, les correctifs pastille de connexion et les chips
+   `appliesTo` du Manifeste restent testés uniquement via retours directs de
+   l'utilisateur ou API directe (curl), jamais par un navigateur dans cet
+   environnement.
+4. **Élargir le catalogue de variables au fil de la construction** — chaque
    façade posée pour de vrai doit recevoir sa déclaration `variables()`
    vérifiée contre le handler, comme Trigger/Search/History/Lookup/
    aps.registry/Ancestor Resolver aujourd'hui. Les façades non encore
    déclarées renvoient `[]` — absence de preuve, pas invention.
-4. **Vérifier à la main dans un navigateur** tout ce qui a été câblé sans
-   outil Chrome disponible dans cet environnement cette session (badge
-   statut/Publier, panneau Variables, correctifs pastille de connexion) —
-   testé uniquement via retours directs de l'utilisateur en cours de
-   session, pas par moi.
 5. Historique des versions publiées : la route existe (`GET
    /builder-flows/:id/versions`), aucun écran ne l'affiche ; pas de rollback
    construit.
@@ -418,6 +450,119 @@ sait pousser vers une connexion de destination — sur Iconik,
 
 **Hors périmètre** : IMF, DCP, AS-11. Un moteur dédié les fera mieux, appelé
 comme n'importe quel système externe.
+
+---
+
+## Manifeste — étendu aux 4 niveaux (`appliesTo` par essence) — 4 août
+
+Suite directe du blocage de fin de journée le 3 août : `pivot-manifest.js`
+n'avait qu'un `niveau` unique par manifeste, incapable de représenter qu'un
+seul manifeste couvre les 4 niveaux avec des essences différentes par
+niveau (cover/hero/poster/title pour Série, +season pour Saison,
+episodic/video/subtitle pour Episode). Décision de fin de journée
+appliquée : construire la vraie extension, pas contourner avec 4
+manifestes/4 Deliver.
+
+**`pivot-manifest.js`** : nouveau champ `appliesTo` par essence — tableau
+de niveaux (`serie|saison|episode|unitaire`, même vocabulaire que `niveau`
+au niveau du manifeste), absent ou `['*']` = tous niveaux (rétrocompatible :
+un manifeste existant, jamais rempli avec ce champ, continue de compter à
+tous les niveaux comme avant). `valider()` rejette un `appliesTo` vide ou
+une valeur hors vocabulaire connu. `resumer()` affiche la portée entre
+crochets quand elle est restreinte (`video (exactement 1) [episode,unitaire]`).
+
+**`admin/manifests/manifests.js`/`.html`/`.css`** : 4 chips à cocher par
+essence (Sé/Sa/Ép/Un) — toutes cochées par défaut (⇔ `appliesTo` absent).
+Décocher une case restreint la portée de cette essence ; le résumé narratif
+se met à jour en direct, même mécanisme que pour la cardinalité.
+
+**`pivot-to-wfd.js`** (`_config()`, résolution `manifestId` → `s3Mappings`,
+même mécanisme que `mappingId` → `lkRows`) : `appliesTo` transporté tel
+quel sur chaque entrée de `s3Mappings` quand présent et restreint ; omis
+(pas `['*']` recopié) quand l'essence s'applique à tous niveaux — cohérent
+avec « ce qui est déductible n'est pas stocké ».
+
+**`wfd-engine-handlers.js`, `aws_s3()` branche `list_objects`** : le vrai
+garde-fou. Une table `TYPE_TO_NIVEAU` (`Série→serie`, `Saison→saison`,
+`Episode→episode`, `Unitaire→unitaire`) traduit `ctx.vars.TypeCollection`
+(posé à plat par le Search précédent — même champ que `resolve_ancestors`)
+vers le vocabulaire du Manifeste. Une essence dont `appliesTo` ne contient
+pas le niveau courant est **ignorée entièrement** : ni recherchée dans les
+clés S3, ni comptée dans la cardinalité — c'est ce qui permet à un Deliver
+unique, avec un seul `manifestId`, de couvrir les 4 niveaux sans jamais
+signaler une essence manquante hors de sa portée. Sans `TypeCollection`
+connu (contexte hors Search, valeur inattendue), **aucun filtrage** —
+rétrocompat explicite, même principe que le reste du garde-fou de
+cardinalité du 3 août.
+
+**Testé isolément** (mock de `fetch`, pas de réseau réel — script non
+commité), 4 cas en chaîne validation → résolution → exécution : (A) niveau
+Saison, une essence `episode,unitaire` absente du dossier n'est pas comptée
+en échec ; (B) niveau Episode, l'essence `episode,unitaire` présente est
+posée normalement ; (C) niveau Episode, l'essence manquante fait échouer le
+garde-fou de cardinalité (preuve que le filtrage n'empêche pas la
+vérification quand l'essence EST dans la portée) ; (D) `TypeCollection`
+absent, aucun filtrage, comportement identique à avant le 4 août. Vérifié
+aussi contre l'API réelle (`/api/manifests` PUT avec `appliesTo`, round-trip
+confirmé, manifeste réel restauré à son état d'origine après le test) —
+le serveur avait le même piège de process obsolète que le 3 août (`node
+server/index.js` démarré avant les modifications de ce jour), résolu par un
+`kill` (LaunchAgent relance automatiquement).
+
+**Contenu réel saisi dans le manifeste "PRIME" — même session.** Source :
+la table officielle "Required" du doc partenaire (*Partner API – Onboarding
+external*, citée dans `journal-aps-2026-07-16.md`, corrigée le 17/07) +
+les vrais fichiers listés le 3 août. 9 essences :
+
+```
+cover/poster/hero   au_moins_un   [serie,saison,unitaire]
+title                optionnel     [serie]
+season_box           au_moins_un   [saison]
+box                  au_moins_un   [unitaire]
+episodic             optionnel     [episode]
+video                exactement_un [episode,unitaire]
+subtitle             au_moins_un   [episode,unitaire]
+```
+
+`cardinalite: au_moins_un` (pas `exactement_un`) pour les artworks
+obligatoires — décision produit déjà actée le 16 juillet : "le dépôt prend
+tout ce qu'il trouve... pour laisser Bayard ajouter de l'éditorial", donc le
+garde-fou ne doit bloquer que sur l'absence, jamais sur le surplus. Deux
+choix non explicitement tranchés par la doc, pris par défaut (à corriger en
+un clic dans l'écran Manifestes si besoin) : `video` en `exactement_un` (un
+seul fichier canonique — cohérent avec "resoumission = nouvel asset =
+nouvel ID") et `subtitle` en `au_moins_un` (le doc groupe vidéo+sous-titres
+comme ce qui remplace l'absence d'artwork obligatoire à ce niveau).
+
+**Bug réel trouvé en vérifiant contre les 3 vrais dossiers (Série/Saison/
+Episode de la chaîne Star Trek) — corrigé avant de considérer la
+vérification concluante** : `aws_s3()` interrogeait S3 avec `list-type=2&
+prefix=...` **sans `delimiter`**, donc récursif — le préfixe du dossier
+Série remontait aussi tous les fichiers nichés dans sa Saison et son
+Episode. Resté invisible tant que Deliver ne livrait qu'au niveau Episode
+(une feuille, sans enfants) ; révélé pour la première fois en vérifiant le
+Manifeste étendu contre un niveau non-feuille. Pire : l'ordre de tri S3
+('S' majuscule < 's' minuscule) faisait gagner `Saison_01.../
+startrek_s01_cover.png` sur le vrai `startrek_cover.png` de la Série — la
+Série aurait silencieusement reçu l'artwork de sa Saison. Corrigé
+(`delimiter=%2F` ajouté, paramètres re-triés alphabétiquement pour la
+signature SigV4) ; `count` (déclenche le port "dossier vide") recalculé
+depuis `keys.length` plutôt que `<KeyCount>` du XML (qui, avec `delimiter`,
+compte aussi les sous-dossiers — aurait pu masquer un dossier réellement
+vide de fichiers directs).
+
+**Vérifié après correction**, contre la vraie chaîne Star Trek (même
+connexion S3, mêmes 3 dossiers que le 3 août) : Série récupère son propre
+cover/poster/hero/title (pas ceux de sa Saison), Saison son propre
+cover/poster/hero/season, Episode son video/subtitle/episodic — les 3
+niveaux passent le garde-fou de cardinalité sans erreur, chaque essence hors
+de sa portée (ex. `season_box` au niveau Episode) correctement ignorée.
+Manifeste "PRIME" restauré à son contenu réel (pas de rollback nécessaire,
+contrairement au test intermédiaire de la section précédente).
+
+**Reste ouvert** : Unitaire jamais vérifié contre un vrai dossier S3 (aucun
+Unitaire réel connu au moment d'écrire) — contenu saisi d'après la doc
+partenaire seule, à confirmer sur un cas réel si l'occasion se présente.
 
 ---
 
@@ -1044,5 +1189,278 @@ complète pivot → WFD, `cardinalite: "au_moins_un"` bien transporté).
 l'exécution). Reste hors périmètre, non demandé : un écran pour
 créer/éditer les manifestes autrement qu'un par un (déjà couvert par
 `admin/manifests/`, pas un nouveau chantier).
+
+---
+
+## Éditeur de corps de boucle — 4 août
+
+En reprenant PUBLISH après Deliver, question posée en continuant la
+construction : faut-il un nœud Action avant Deliver, pour déclencher
+l'Export Location si les fichiers manquent ? Réponse en creusant le vrai
+flow de production (`WORKFLOWS_WFD_VODFACTORY.json`) : oui, et c'est plus
+précis que prévu — Iconik ne sait déclencher un Export Location que **par
+asset individuel** (`/API/files/v1/assets/{assetId}/export_locations/{id}/`),
+jamais en bloc sur une collection. Le vrai motif, confirmé sur les 6
+occurrences réelles : Search (assets artwork/vidéo de la collection) →
+**Boucle** sur ces assets → Action (export) par itération → Attendre.
+
+Construire cette étape suppose une boucle avec des nœuds dedans — bloqué :
+« le corps d'une Loop n'a pas encore d'éditeur dans ce canevas » (limite déjà
+documentée). Décidé avec l'utilisateur : construire cet éditeur maintenant
+plutôt que documenter le trou et continuer.
+
+**Bonne nouvelle en creusant avant de coder** : côté format, tout était déjà
+prêt. `pivot-schema.js`/`pivot-validate.js` définissent et valident déjà
+`etape.body = {steps, edges}` (portée imbriquée, jamais déduite du graphe)
+et `presentation.bodyLayout[loopId]`. `pivot-to-wfd.js` (`_aplatir`) sait
+déjà aplatir un corps de boucle dans le graphe WFD, en connectant
+automatiquement le port 0 de la boucle à la première étape de son corps.
+Il ne manquait que le canevas.
+
+**Conception retenue** : pas de refonte de `WfModel` (reste un modèle plat
+à un seul niveau, volontairement — cf. son en-tête). À la place, une **pile
+de portées** (nouveau module `wf-scope.js`) : le triplet racine
+`{model, history, selection}`, puis un par boucle ouverte. Entrer dans une
+boucle pousse une portée construite depuis `etape.body` (vide si absent) ;
+en sortir la dépile et réécrit `etape.body` **dans le même objet étape** que
+porte la portée parente — c'est ce qui fait que `wf-persistence.js` n'a
+presque rien à savoir de l'imbrication, seules les positions des nœuds
+internes (`presentation.bodyLayout`) sont passées à part.
+
+`workflow-canvas.js` (les ~700 lignes qui créent modèle/historique/
+sélection et branchent tout le reste) est devenu réentrant SANS dupliquer
+ce bloc : `model`/`history`/`selection` sont passés de `const` à `let`,
+réassignés (jamais redéclarés) à chaque changement de portée — toute
+fonction qui les referme continue de lire la valeur courante sans être
+redéfinie. Seuls les abonnements liés à une INSTANCE précise (
+`model.onChange`, `selection.onChange`, et les 4 modules externes
+WfPaletteDrag/WfConnect/WfContextMenu/WfShortcuts + WfLasso, qui capturent
+le triplet par valeur à l'appel de `.brancher()`) doivent se désabonner et
+se réabonner — un seul petit helper (`_reabonnable`) gère ça partout,
+plutôt que de répéter le motif.
+
+**Navigation** : double-clic sur un nœud Loop, ou bouton "Edit body →" dans
+son panneau Config (découvrabilité — rien ne suggérait le double-clic).
+Fil d'Ariane en superposition sur le canevas (même principe que les volets
+— jamais dans la grille CSS du bandeau d'état, qui n'a que 2 lignes fixes),
+segments cliquables + bouton "← Sortir" + touche Échap (neutralisée si le
+focus est dans un champ). Badge "N steps" sur un Loop dont le corps n'est
+pas vide, visible sans avoir à entrer dedans.
+
+**Sélecteur de variables étendu** (`etapesExterieures()` dans `wf-scope.js`) :
+depuis l'intérieur d'un corps, le panneau Variables et le sélecteur inline
+montrent aussi ce qui a été posé AVANT la boucle dans sa portée parente —
+sans ça, entrer dans un corps aurait rendu aveugle exactement l'outil
+construit plus tôt cette session pour ne jamais taper un nom de mémoire.
+Variable synthétique `{item}` (nom réel = `loopVar` de la boucle) injectée
+en tête du panneau quand on est dans un corps — elle ne sort d'aucune
+façade du catalogue, elle vient de la config du Loop lui-même.
+
+**Piège à ne pas reproduire, déjà écrit en commentaire à l'endroit qui
+compte** : sauvegarder (bouton Save ou auto-save) DOIT toujours viser
+`modeleRacine`, jamais `model` (qui peut pointer sur un corps ouvert), et
+appeler `portee.flush()` juste avant — sans ce flush, sauvegarder pendant
+qu'on édite l'intérieur d'une boucle perdrait silencieusement les
+modifications en cours (le corps resterait figé à son état d'avant la
+dernière sortie).
+
+**Deux bugs réels trouvés en écrivant les tests, corrigés avant de
+considérer le chantier terminé** :
+- `pivot-validate.js` validait un Loop sur `params.over`/`params.as` — un
+  vocabulaire d'exemple posé le 23 juillet (`boucler_sur`), jamais mis à
+  jour quand le panneau réel (`config-schema.js`) et le moteur
+  (`wfd-engine-executor.js:364-374`, "loop hors executor" — pas dans
+  `wfd-engine-handlers.js`) ont tranché sur `loopVariablePath`/`loopVar`.
+  Conséquence concrète : **toute boucle réellement construite dans le
+  Builder aurait échoué la validation complète**, invisible jusqu'ici faute
+  d'avoir jamais mené une boucle jusqu'au bout. Corrigé (`loopVariablePath`
+  exigé seulement en mode `variable`, le seul réellement câblé — les 5
+  autres sources sont marquées "not implemented" dans le panneau lui-même).
+- `wf-persistence.js` n'avait jamais de `module.exports` (seul fichier de
+  `builders/workflow/` dans ce cas) — jamais testable hors navigateur.
+  Ajouté (une ligne, même motif que tous les autres modules).
+
+**Testé isolément** (Node, sans DOM, script non commité) : `entrer`/`sortir`/
+`flush` réécrivent bien `etape.body` sur le MÊME objet que porte le modèle
+racine (pas une copie) ; `flush()` réécrit sans dépiler ; round-trip complet
+`documentDepuisModele` → `initialDepuisDocument` → reconstruction d'une
+nouvelle portée restaure les positions du corps (pas une redisposition par
+défaut) ; le document complet (racine + corps) passe `pivot-validate.js`
+avec le catalogue une fois les deux bugs ci-dessus corrigés ; `pivot-to-wfd.js`
+aplatit correctement le corps dans le graphe WFD, port 0 de la boucle vers
+la première étape du corps. 29 assertions, toutes passées. Vérifié aussi
+que le vrai flow "BAYARD | PUBLISH | VODFACTORY" (encore sans Loop à ce
+stade de sa construction) continue de se valider exactement pareil
+qu'avant le correctif `pivot-validate.js` — aucune régression.
+
+**Vérifié ensuite pour de vrai dans un navigateur** (même session, après
+avoir installé `chrome-devtools` en MCP, pointé sur Brave — pas de Chrome
+sur cette machine) : glisser un Loop depuis la palette, double-clic pour
+entrer (la simulation de double-clic de l'outil ne produit pas de vrai
+événement `dblclick` — contourné en le déclenchant directement pour ce
+test ; un vrai double-clic humain, lui, fonctionne, vérifié en dispatchant
+l'événement réel), glisser un nœud dans le corps (atterrit bien dans la
+portée du corps, pas la racine), bouton "Sortir" et touche Échap, badge
+"1 step" sur le Loop refermé, bouton "Edit body →" dans le panneau Config,
+panneau Variables affichant `{item}` sous "BOUCLE — LOOP". Sauvegarde
+(gestion du `window.prompt` du nom) puis **rechargement complet de la
+page** : le corps ET la position du nœud interne survivent à l'identique.
+
+**Troisième bug réel trouvé en regardant l'écran, pas en lisant le code** :
+le fil d'Ariane restait affiché à la racine malgré `hidden`. Cause :
+`.bd-breadcrumb { display: flex }` (règle auteur) bat toujours
+`[hidden] { display: none }` (règle de l'agent utilisateur), quelle que
+soit la spécificité — l'origine prime avant la spécificité dans la cascade
+CSS. Corrigé par une règle explicite `.bd-breadcrumb[hidden] { display: none }`.
+Workflow de test supprimé après vérification (`DELETE /api/builder-flows/...`).
+
+**Reste ouvert** : contenu réel du chantier qui a motivé cet éditeur — poser
+Search → Loop (`{item}` = asset trouvé) → Action (`export_location_trigger`,
+`assetId: {item.id}`) → sortir de la boucle → Wait → retour à Deliver pour
+re-vérifier → Lookup. L'éditeur est prêt, cette construction-là ne l'est pas
+encore.
+
+---
+
+## Reprise PUBLISH — tableau, bugs, HTTP Sequence — 4 août (suite)
+
+Suite directe de l'éditeur de corps de boucle : retour à la construction de
+PUBLISH elle-même, en relisant le workflow depuis le début à chaque étape
+pour vérifier qu'il n'y a pas de trou dans le narratif — c'est cette relecture
+qui a fait remonter deux trous réels (ci-dessous) plutôt que de les découvrir
+plus tard à l'exécution.
+
+### Trou trouvé : vérifier l'existant avant de déclencher un export
+
+Question de l'utilisateur, de mémoire de WFD : avant de déclencher un export
+Iconik, il faut vérifier ce qui existe déjà, sinon le job Iconik échoue et on
+gaspille une ressource d'export. Vérifié dans le vrai flow : c'est exact, et
+plus précis que la première proposition — la vérification est **par asset**,
+pas seulement au niveau collection. Chaîne PUBLISH complète, mise à jour :
+
+```
+1  Trigger              Custom Action, Collection
+2  Search               Collection, id equals {collection.id} → search_results
+3  Decision             {BayardID} is_empty / not_empty
+4  Générateur d'ID       (si vide)
+5  Set Metadata          (non retouché cette session)
+6  Deliver               list_objects, manifestId=PRIME, {ancestorPath}
+     Succès  → 11
+     Non trouvé → 7
+7  Search               Asset, in_collection {collection.id} → assetsAExporter
+8  Loop                 sur {assetsAExporter.objects}, loopVar=item
+8a   ↳ Deliver          list_objects, SANS manifeste, {ancestorPath}/{filebase(item.title)}
+       Succès → rien (suivant)     Non trouvé → 8b
+8b   ↳ Action           export_location_trigger, assetId={item.id},
+                        fileName={ancestorPath}/{filebase(item.title)}
+9  Wait                 poll job, jusqu'à FINISHED
+10 Deliver              re-vérification (nouveau nœud, même manifestId)
+11 Lookup               {search_results.objects[0]} + Mapping "VOD Factory | Fields" → {vodFactoryPayload}
+12 HTTP Sequence        Publication API (7 étapes, cf. plus bas)
+13 Verify               (pas encore configuré — bloqué, cf. question ouverte)
+14 Set Metadata+History (pas encore configuré — bloqué, cf. question ouverte)
+```
+
+**Étape 7 (`in_collection`)** : deux détails de panneau creusés en répondant
+aux questions de l'utilisateur, à retenir pour la suite —
+`_operateursPourType()` (config-schema.js) n'ajoute l'opérateur "in
+collection" que si le champ "Field" ne résout à AUCUNE vraie métadonnée
+(laisser Field vide suffit) ; côté moteur, `__collection__` + `in_collection`
+se traduit en `in_collections:"{id}"` pour un asset (`in_branch` irait
+chercher aussi dans les sous-collections, pas voulu ici).
+
+**Étape 8a (check par asset)** : vérifié contre les 6 vraies occurrences
+(`n-1784126131331` et les 5 autres nœuds S3 dans les boucles réelles,
+description "Vérification de l'existence de l'asset dans le bucket S3") —
+`list_objects` (pas `head_object`), préfixe descendant jusqu'à
+`{filebase(item.title)}`, EXACTEMENT la même expression que `fileName` sur
+l'Action (8b). L'ancien WFD reconstruit ce chemin à la main sur 3-4
+variables par branche ; simplifié ici via `{ancestorPath}` (Ancestor
+Resolver, déjà construit et vérifié le 3 août).
+
+**Question ouverte, pas tranchée** : à l'étape 7, un seul Search sans filtre
+`media_type` (ma proposition, plus simple, pas de distinction image/vidéo
+dans le Loop) ou deux Search séparés comme WFD ? Pas bloquant pour continuer.
+
+### HTTP Sequence (étape 12) — mécanique clarifiée, valeurs réelles
+
+Un seul nœud partagé en production (pas dupliqué par niveau, contrairement à
+Verify/History) — "Publication API", 7 étapes : 5 `foreach` (Persons
+director/actor/creator/writer/producer, sur `{Realisateur}`/`{Acteur}`/
+`{AuteurOrigine}`/`{Auteur}`/`{Producteur}`, endpoint `/api/persons`,
+`feAppend` vrai sauf le premier, codes 409/422 ignorés) + 2 `simple`
+(Contents Action POST `/api/contents/` corps `{vodFactoryPayload}` ; Video
+Action POST `/api/contents/{external_id}/videos`, sauté si `{s3_video_url}`
+vide, corps JSON explicite avec sous-titres/pistes audio).
+
+Deux points de mécanique vérifiés en répondant aux questions de
+l'utilisateur : `Simple` = "Single request", `Foreach` = "One request per
+value" (labels du panneau, confirmés). "Store as" n'est pas obligatoire pour
+que l'étape réussisse seule, mais nécessaire si une étape suivante relit ce
+qui a été produit — et **`{external_id}` (utilisé par Video Action) ne vient
+d'aucune étape de cette séquence** : `lookup()` (wfd-engine-handlers.js)
+expose déjà ses champs plats en variables directes après l'étape 11
+(commentaire du code : "Cela permet d'utiliser `{external_id}` directement
+dans les nœuds suivants") — trouvé en traçant précisément d'où vient cette
+variable avant de répondre, pas supposé.
+
+### Verify/History (étapes 13/14) — même trou que le Manifeste, pas encore rebouché
+
+Vérifié contre les vraies données : Verify et History sont dupliqués **4
+fois** en production (un Vérificateur + une paire Histo Succès/Échec par
+niveau), avec des champs et des messages différents à chaque fois (Série
+vérifie cover/hero/poster ; Saison ajoute season ; Episode vérifie
+vidéo+sous-titres ; Unitaire vérifie tout + box). Exactement le motif que le
+Manifeste (`appliesTo`) a éliminé pour Deliver — mais Verify/History n'ont
+aujourd'hui aucune notion de Manifeste. **Question posée à l'utilisateur,
+pas tranchée** : accepter la duplication pour l'instant, ou étendre le même
+mécanisme `appliesTo` à Verify/History ? Reste le point de blocage pour
+finir PUBLISH.
+
+### Bug réel — Lookup avait deux champs de stockage, un seul réel
+
+Question de l'utilisateur en lisant le panneau ("Store Result As" vs "Store
+As"). Vérifié : `lookup()` (wfd-engine-handlers.js) ne lit jamais
+`cfg.resultVar` — seulement `cfg.lkOutputVar`. "Store Result As" venait du
+tableau générique `produit` (config-schema.js, `pour()`) qui l'ajoutait à
+Lookup par erreur, en plus de son vrai champ ("Store As") déclaré plus loin
+dans le même fichier — remplir le mauvais champ ne stockait rien nulle part,
+silencieusement. Corrigé (`lookup` retiré du tableau `produit`).
+
+**Trouvé au passage, pas corrigé (hors sujet, mis en tâche séparée)** : le
+panneau du Core `transform` ne correspond à AUCUN des champs que son handler
+lit réellement (`target`/`source`/`operation`/`rules`… contre
+`input`/`mode`/`expression`/`fields` dans le panneau) — jamais audité dans
+les passes du 31 juillet/3 août. Un Transform construit dans le Builder
+aujourd'hui ne ferait jamais ce qui est configuré.
+
+### Incident réel — perte de données sur le Mapping "VOD Factory | Fields"
+
+En cours de session, l'utilisateur a supprimé UNE ligne dans l'écran
+`admin/mappings/`, enregistré, et s'est retrouvé avec **zéro ligne** au lieu
+de 28. Cause trouvée en vérifiant les logs serveur
+(`~/Library/Logs/aps.log`, PUT ne portait que 152 octets) puis le code :
+`admin/mappings/mappings.js`, `_ligneRow()` affiche `row.key || row.src`
+(repli déjà en place pour les données stockées en `src`/`tgt`, alias
+historique), mais `enregistrer()` ne filtrait/nettoyait que sur
+`row.key`/`row.value` — **toute ligne jamais retapée à la main était donc
+traitée comme vide et retirée**, pas seulement celle volontairement
+supprimée. Corrigé : normalisation `key = key||src`, `value = value||tgt`
+faite une fois à l'ouverture (`editer()`), tout le reste du fichier ne
+manipule plus que la forme canonique.
+
+**Récupération** : pas de sauvegarde du Mapping lui-même, mais son contenu
+source était déjà dans cette session (le nœud LookUp du vrai export WFD,
+lu pour construire ce mapping le 3 août) — 32 lignes réinjectées via API
+directe. Écart signalé à l'utilisateur : le mapping affichait 29 lignes
+avant l'incident, pas 32 — 3 lignes avaient été retirées à un moment non
+documenté (probablement `EnvoiPrime`/`LivraisonsAmazonPrime`, valeur vide
+dans la source donc inertes pour `lookup()`, + une autre). Tout remis pour
+ne rien perdre ; à trier dans l'écran maintenant réparé.
+
+**Leçon générale** : deuxième bug du même genre ce jour (après celui de
+Lookup) où un écran affiche correctement une donnée via un repli
+(`a || b`) mais ne le reproduit pas symétriquement à l'écriture — motif à
+surveiller ailleurs dans le Builder si l'occasion se présente.
 
 **Rien n'est commité** — modifications non indexées dans l'arbre de travail.

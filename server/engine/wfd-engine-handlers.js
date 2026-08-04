@@ -3756,7 +3756,16 @@ async function aws_s3(node, ctx, iconikClient) {
   const path    = operation === 'list_objects'
     ? `/${bucket}/`
     : `/${bucket}/${encodedKey}`;
-  const query   = operation === 'list_objects' ? 'list-type=2&prefix=' + encodeURIComponent(objectKey) : '';
+  // `delimiter=/` arrête S3 à un niveau — sans lui, `list_objects` remonte
+  // TOUT ce qui est niché sous le préfixe (récursif), pas seulement le
+  // contenu direct du dossier interrogé. Resté invisible tant que Deliver ne
+  // livrait qu'au niveau Episode (une feuille, sans enfants) ; révélé en
+  // vérifiant le Manifeste étendu (4 août) contre Série/Saison — le préfixe
+  // Série remontait aussi les fichiers de sa Saison, et l'ordre de tri S3
+  // ('S' majuscule < 's' minuscule) faisait gagner le cover de la Saison sur
+  // celui de la Série. Paramètres triés alphabétiquement (exigé par la
+  // signature SigV4) : delimiter < list-type < prefix.
+  const query   = operation === 'list_objects' ? 'delimiter=%2F&list-type=2&prefix=' + encodeURIComponent(objectKey) : '';
   const host    = `s3.${region}.amazonaws.com`;
   const url     = `https://${host}${path}${query ? '?' + query : ''}`;
 
@@ -3807,11 +3816,14 @@ async function aws_s3(node, ctx, iconikClient) {
 
   // Pour list_objects — parser le XML et vérifier s'il y a des objets
   if (operation === 'list_objects') {
-    const keyCount = resText.match(/<KeyCount>(\d+)<\/KeyCount>/)?.[1];
-    const count = parseInt(keyCount) || 0;
     // Extraire les clés
     const keyMatches = [...resText.matchAll(/<Key>([^<]+)<\/Key>/g)];
     const keys = keyMatches.map(m => m[1]);
+    // `count` = objets directs trouvés (keys.length), PAS <KeyCount> — avec le
+    // `delimiter=/` ajouté ci-dessus, <KeyCount> compte aussi les sous-dossiers
+    // (CommonPrefixes), ce qui gonflerait faussement "dossier non vide" même
+    // sans aucun fichier direct dedans.
+    const count = keys.length;
     console.log('[DEBUG aws_s3 list_objects] prefix cherché:', objectKey, '| count:', count, '| clés trouvées:', keys.slice(0, 10));
 
     const base = 's3://' + bucket + '/';
@@ -3837,8 +3849,24 @@ async function aws_s3(node, ctx, iconikClient) {
     // défaut : on ne durcit rien pour l'existant.
     const cardinaliteErreurs = [];
 
+    // Portée par niveau (`appliesTo`, extension du 3 août) — c'est ce qui
+    // permet à UN SEUL manifeste de couvrir les 4 niveaux (Série/Saison/
+    // Episode/Unitaire) au lieu d'un manifeste par niveau : chaque essence
+    // dit à quels niveaux elle compte, TypeCollection (posé à plat par le
+    // Search précédent, même champ que resolve_ancestors) dit le niveau
+    // courant. Même vocabulaire que pivot-manifest.js NIVEAUX.
+    const TYPE_TO_NIVEAU = { 'Série': 'serie', 'Saison': 'saison', 'Episode': 'episode', 'Unitaire': 'unitaire' };
+    const niveauCourant  = TYPE_TO_NIVEAU[ctx.vars?.TypeCollection] || '';
+
     mappings.forEach(function(mapping) {
       if (!mapping.variable) return;
+      // Essence hors de portée pour ce niveau : ignorée entièrement (ni
+      // recherchée, ni comptée dans la cardinalité). Sans TypeCollection
+      // connu, ne jamais filtrer (rétrocompat — mieux vaut vérifier trop que
+      // jamais).
+      if (Array.isArray(mapping.appliesTo) && mapping.appliesTo.length && niveauCourant && mapping.appliesTo.indexOf(niveauCourant) === -1) {
+        return;
+      }
       const filters = (mapping.filter || '').split(',').map(function(f){ return f.trim().toLowerCase(); }).filter(Boolean);
       if (!filters.length) return;
       // Chercher la clé correspondant au filtre

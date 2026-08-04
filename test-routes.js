@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 // Mock app.listen pour éviter qu'il démarre vraiment
 const http = require('http');

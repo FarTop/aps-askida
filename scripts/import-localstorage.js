@@ -2,7 +2,7 @@
 // Importe les données depuis un export localStorage Electron → PostgreSQL
 // Usage : node scripts/import-localstorage.js ./aps-export.json
 
-require('dotenv').config()
+require('dotenv').config({ quiet: true })
 const { PrismaClient } = require('@prisma/client')
 const { PrismaPg } = require('@prisma/adapter-pg')
 const fs = require('fs')

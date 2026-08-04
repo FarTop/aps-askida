@@ -226,6 +226,23 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   color: var(--bd-text-dim); margin-left: 6px;
 }
 
+/* Boucle avec un corps déjà posé : "N steps", visible sans double-cliquer. */
+.nc-loop-badge {
+  flex: none; align-self: flex-start;
+  font-size: 10px; padding: 2px 7px; border-radius: 5px;
+  border: 1px solid var(--bd-panel-border); color: var(--bd-text-dim);
+  background: var(--bd-canvas-surface);
+}
+
+/* Bouton "Edit body →" dans le panneau Config d'un nœud Loop. */
+.bd-btn-loop-body {
+  display: block; width: 100%; margin-top: 14px;
+  background: var(--bd-canvas-surface); color: var(--bd-text);
+  border: 1px solid var(--bd-panel-border); border-radius: 7px;
+  padding: 8px 12px; font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.bd-btn-loop-body:hover { border-color: var(--accent); color: var(--accent); }
+
 .nc-body { padding: 2px 14px 10px; font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; }
 .nc-var { color: var(--bd-text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nc-arrow { color: var(--accent); }
@@ -248,6 +265,35 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   position: relative;
   overflow: hidden;
 }
+
+/* ── Fil d'Ariane : navigation de portée, en superposition sur le canevas,
+   même principe que les volets (le canevas fixe ne bouge jamais). ────────── */
+.bd-breadcrumb {
+  position: absolute;
+  top: 10px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 8px 5px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--bd-panel-border);
+  background: var(--bd-panel-bg);
+  color: var(--bd-text-dim);
+  font-size: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+}
+/* `display: flex` ci-dessus est une règle AUTEUR — elle gagne sur la règle
+   `[hidden] { display: none }` de l'agent utilisateur quelle que soit sa
+   spécificité (l'origine prime avant la spécificité dans la cascade). Sans
+   cette ligne, l'attribut `hidden` ne cachait plus rien : constaté en testant
+   dans un vrai navigateur, le fil d'Ariane restait visible à la racine. */
+.bd-breadcrumb[hidden] { display: none; }
+.bd-breadcrumb-seg {
+  background: none; border: none; color: inherit; font: inherit; cursor: pointer;
+  padding: 0; color: var(--bd-text-dim);
+}
+.bd-breadcrumb-seg:hover:not(:disabled) { color: var(--bd-text); text-decoration: underline; }
+.bd-breadcrumb-seg:disabled { color: var(--bd-text); cursor: default; font-weight: 600; }
 
 /* ── Canevas : cadre fixe + surface transformable ────────────────────────── */
 .cnv-frame {

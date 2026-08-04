@@ -151,9 +151,21 @@ const PivotValidate = (() => {
       } else {
         _controlerPortee(etape.body, chemin + '.body', r);
       }
+      // Noms réels (config-schema.js, wfd-engine-executor.js:364-374) —
+      // `over`/`as` étaient le vocabulaire de l'exemple en en-tête de ce
+      // fichier (`boucler_sur`), jamais mis à jour quand les vrais champs du
+      // panneau/moteur ont été tranchés. Bug réel et silencieux : toute
+      // boucle réellement construite dans le Builder échouait la validation
+      // complète (`params.over`/`params.as` introuvables), même avec un
+      // corps parfaitement valide.
       const p = etape.params || {};
-      if (!p.over) r.err(chemin + '.params.over', 'sur quoi la boucle itère');
-      if (!p.as)   r.err(chemin + '.params.as', 'nom de la variable de l\'élément courant');
+      // `loopVariablePath` n'a de sens qu'en mode `variable` — le seul
+      // réellement câblé (les 5 autres sources, config-schema.js, sont
+      // explicitement marquées « not implemented — fails at runtime »).
+      if ((p.loopSource || 'variable') === 'variable' && !p.loopVariablePath) {
+        r.err(chemin + '.params.loopVariablePath', 'sur quoi la boucle itère');
+      }
+      if (!p.loopVar) r.err(chemin + '.params.loopVar', 'nom de la variable de l\'élément courant');
     } else if (etape.body !== undefined) {
       r.err(chemin + '.body', 'seule une boucle porte un corps');
     }

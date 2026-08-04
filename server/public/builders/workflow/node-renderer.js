@@ -108,6 +108,14 @@ const NodeRenderer = (() => {
     if (plat) type.appendChild(_el('span', 'nc-plat', plat));
     id.appendChild(type);
     head.appendChild(id);
+
+    // Boucle avec un corps déjà posé : indicateur "N steps" visible sans
+    // avoir à double-cliquer pour vérifier si le Loop a du contenu.
+    if (etape.core === 'loop') {
+      const n = (etape.body && etape.body.steps && etape.body.steps.length) || 0;
+      if (n > 0) head.appendChild(_el('div', 'nc-loop-badge', n + ' step' + (n > 1 ? 's' : '')));
+    }
+
     node.appendChild(head);
 
     // Corps : variable de stockage (toujours), source distante (optionnelle).

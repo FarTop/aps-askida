@@ -171,18 +171,57 @@
   const ER = window.EdgeRenderer;
   const WfModel = window.WfModel;
   const WfHistory = window.WfHistory;
+  const WfScope = window.WfScope;
   const nodesHost = root.querySelector('.cnv-nodes');
   const svgEdges = root.querySelector('.cnv-edges');
   // `surface` est déjà déclaré plus haut (pan/zoom) — on le réutilise.
 
   if (NR && WfModel && nodesHost) {
-    const model = WfModel.creer({ nodes: [], edges: [] });
+    // Portée racine, toujours la même instance — c'est CELLE-CI que la
+    // persistance sauvegarde (jamais la portée courante, qui peut être un
+    // corps de boucle ouvert). `model`/`history`/`selection` ci-dessous
+    // pointent vers la portée COURANTE (racine au départ) et sont
+    // réassignés (jamais redéclarés) à chaque entrée/sortie de corps — cf.
+    // `_surScope` : tout le reste du fichier continue de lire ces mêmes
+    // noms de variable sans changement, seule la valeur qu'ils tiennent
+    // change avec la portée.
+    const modeleRacine = WfModel.creer({ nodes: [], edges: [] });
+    // Nommé `portee` (pas `scope`) : le panneau Variables plus bas a déjà une
+    // variable locale `scope` (mode d'affichage "toutes"/"amont"), sans
+    // rapport — éviter la collision plutôt que la masquer.
+    const portee = WfScope ? WfScope.creer(modeleRacine, {}) : null;
+    root._wfScope = portee;
 
-    // Le gestionnaire de commandes existe dès maintenant (undo/redo prêts pour
-    // les gestes à venir : déplacer, supprimer, coller). Exposé pour la suite.
-    const history = WfHistory ? WfHistory.creer(model) : null;
+    let model     = portee ? portee.courant().model     : modeleRacine;
+    let history   = portee ? portee.courant().history   : (WfHistory ? WfHistory.creer(modeleRacine) : null);
+    let selection = portee ? portee.courant().selection : null;
     root._wfModel = model;
     root._wfHistory = history;
+    root._wfSelection = selection;
+
+    // ── Réabonnement sur changement de portée ─────────────────────────────
+    // `model`/`history`/`selection` sont réassignés (jamais redéclarés) à
+    // chaque entrée/sortie d'un corps de boucle — cf. `_surScope` plus bas.
+    // Tout ce qui s'abonne à `model.onChange`/`selection.onChange`, ou
+    // branche un module externe (WfPaletteDrag, WfConnect, WfContextMenu,
+    // WfShortcuts, WfLasso — chacun capture le triplet PAR VALEUR à l'appel
+    // de son `.brancher()`), doit se désabonner de l'ancienne portée et se
+    // réabonner à la nouvelle. `_reabonnable(fn)` fait ça une fois pour
+    // toutes : `fn()` s'exécute immédiatement (portée racine) et à chaque
+    // futur changement de portée, après avoir défait son abonnement précédent.
+    const _reScope = [];
+    function _reabonnable(fn) {
+      let off = null;
+      function relier() { if (off) off(); off = fn() || null; }
+      _reScope.push(relier);
+      relier();
+    }
+    // Assignés plus bas (panneau Variables, fil d'Ariane) — déclarés ici pour
+    // que `_surChangementDePortee`, défini avant eux, puisse les appeler sans
+    // dépendre de l'ordre d'exécution (les deux IIFE tournent avant le
+    // premier changement de portée réel).
+    let _rendreVarsPanel = function () {};
+    let _majFilDAriane = function () {};
 
     // Compteurs de la statusbar (jusqu'ici jamais câblés — comme "snapshot").
     const nodeCountEl = root.querySelector('[data-role="node-count"]');
@@ -233,26 +272,26 @@
     // qu'une reconstruction totale — sinon le glissé rebâtirait tout le DOM à
     // chaque pixel, cassant la capture du pointeur. Les ajouts/retraits, eux,
     // reconstruisent (structure changée).
-    model.onChange(function (type, detail) {
-      if (type === 'node:move') {
-        const el = nodesHost.querySelector('[data-step-id="' + detail.id + '"]');
-        if (el) {
-          el.style.setProperty('--nx', detail.x + 'px');
-          el.style.setProperty('--ny', detail.y + 'px');
+    _reabonnable(function () {
+      return model.onChange(function (type, detail) {
+        if (type === 'node:move') {
+          const el = nodesHost.querySelector('[data-step-id="' + detail.id + '"]');
+          if (el) {
+            el.style.setProperty('--nx', detail.x + 'px');
+            el.style.setProperty('--ny', detail.y + 'px');
+          }
+          retracerAretes();
+        } else {
+          rendreDepuisModele();
         }
-        retracerAretes();
-      } else {
-        rendreDepuisModele();
-      }
+      });
     });
 
     // ── Sélection + déplacement ───────────────────────────────────────────────
-    const selection = window.WfSelection ? window.WfSelection.creer() : null;
-    root._wfSelection = selection;
 
-    if (selection) {
-      selection.onChange(function () { _marquerSelection(); retracerAretes(); });
-    }
+    _reabonnable(function () {
+      return selection ? selection.onChange(function () { _marquerSelection(); retracerAretes(); }) : null;
+    });
 
     // Clic sur une arête : la sélectionner (zone de clic élargie côté SVG).
     if (svgEdges && selection) {
@@ -336,6 +375,21 @@
       history.executer(history.cmdDeplacer(d.ids, d.dx, d.dy));
     });
 
+    // Double-clic sur un nœud Loop : entre dans son corps (éditeur de corps
+    // de boucle). Sur tout autre type de nœud, ne fait rien — pas de
+    // sur-interprétation d'un double-clic hors contexte.
+    if (portee) {
+      nodesHost.addEventListener('dblclick', function (e) {
+        const nodeEl = e.target.closest('.bd-node-canvas');
+        if (!nodeEl) return;
+        const id = nodeEl.getAttribute('data-step-id');
+        const n = model.noeud(id);
+        if (!n || !n.etape || n.etape.core !== 'loop') return;
+        e.stopPropagation();
+        if (portee.entrer(id)) _surChangementDePortee();
+      });
+    }
+
     // Focus du cadre au clic (pour les raccourcis clavier). Le vidage de
     // sélection sur clic-vide est désormais géré par le lasso (un lasso de la
     // taille d'un clic vide la sélection).
@@ -343,9 +397,13 @@
       frame.focus({ preventScroll: true });
     });
 
-    // Lasso : sélection par encadrement (module séparé).
+    // Lasso : sélection par encadrement (module séparé). Capture `selection`
+    // par valeur à l'appel de `.brancher()` — comme les autres modules
+    // externes ci-dessous, doit être rebranché à chaque changement de portée.
     if (window.WfLasso) {
-      window.WfLasso.brancher({ frame: frame, nodesHost: nodesHost, selection: selection });
+      _reabonnable(function () {
+        return window.WfLasso.brancher({ frame: frame, nodesHost: nodesHost, selection: selection });
+      });
     }
 
     // Raccourcis clavier (undo/redo, suppression, copier/coller/dupliquer) —
@@ -353,34 +411,44 @@
     // déclencher des commandes déjà écrites, donc tout reste annulable.
     const clipboard = window.WfClipboard ? window.WfClipboard.creer() : null;
     if (window.WfShortcuts) {
-      window.WfShortcuts.brancher({ model: model, history: history, selection: selection, clipboard: clipboard, root: root });
+      _reabonnable(function () {
+        return window.WfShortcuts.brancher({ model: model, history: history, selection: selection, clipboard: clipboard, root: root });
+      });
     }
 
     // Glisser un nœud depuis la palette vers le canevas (module séparé). Le
-    // dépôt crée une étape via commande annulable — Ctrl+Z l'annule.
+    // dépôt crée une étape via commande annulable — Ctrl+Z l'annule. Dépose
+    // TOUJOURS dans la portée courante (racine ou corps de boucle ouvert) :
+    // c'est `model` qui le décide, rebranché à chaque changement de portée.
     if (window.WfPaletteDrag) {
       const paletteRoot = root.querySelector('.bd-dock-right');
-      window.WfPaletteDrag.brancher({
-        paletteRoot: paletteRoot, frame: frame, surface: surface,
-        model: model, history: history, selection: selection, view: view
+      _reabonnable(function () {
+        return window.WfPaletteDrag.brancher({
+          paletteRoot: paletteRoot, frame: frame, surface: surface,
+          model: model, history: history, selection: selection, view: view
+        });
       });
     }
 
     // Créer une liaison en tirant d'un port de sortie vers une entrée (module
     // séparé). Arête créée via commande annulable.
     if (window.WfConnect) {
-      window.WfConnect.brancher({
-        nodesHost: nodesHost, svgEdges: svgEdges, surface: surface, frame: frame,
-        model: model, history: history, view: view
+      _reabonnable(function () {
+        return window.WfConnect.brancher({
+          nodesHost: nodesHost, svgEdges: svgEdges, surface: surface, frame: frame,
+          model: model, history: history, view: view
+        });
       });
     }
 
     // Menu contextuel au clic droit sur un nœud (module séparé). Le pan reste
     // sur le vide. Actions sur la sélection courante, via commandes annulables.
     if (window.WfContextMenu) {
-      window.WfContextMenu.brancher({
-        root: root, nodesHost: nodesHost, model: model, history: history,
-        selection: selection, clipboard: clipboard
+      _reabonnable(function () {
+        return window.WfContextMenu.brancher({
+          root: root, nodesHost: nodesHost, model: model, history: history,
+          selection: selection, clipboard: clipboard
+        });
       });
     }
 
@@ -435,15 +503,31 @@
       const schema = window.ConfigSchema.pour(noeud.etape);
       offConfig = window.ConfigRenderer.rendre(configHost, schema, cfg,
         { envSlug: root._envSlug, etapesPrecedentes: _etapesPrecedentes(noeud.id) });
+
+      // Boucle : bouton explicite en plus du double-clic sur le nœud — pour
+      // la découvrabilité (rien dans le panneau Config ne suggérait qu'on
+      // pouvait entrer dans un Loop avant ce bouton).
+      if (noeud.etape.core === 'loop' && portee) {
+        const n2 = (noeud.etape.body && noeud.etape.body.steps && noeud.etape.body.steps.length) || 0;
+        const bouton = document.createElement('button');
+        bouton.type = 'button';
+        bouton.className = 'bd-btn-loop-body';
+        bouton.textContent = 'Edit body →' + (n2 ? ' (' + n2 + ' step' + (n2 > 1 ? 's' : '') + ')' : '');
+        bouton.addEventListener('click', function () {
+          if (portee.entrer(noeud.id)) _surChangementDePortee();
+        });
+        configHost.appendChild(bouton);
+      }
     }
 
     // Sélecteur de variables (étape 4, Ordre de construction) : remonte le
     // graphe depuis le nœud courant pour lister ce que les étapes en amont
     // sont connues pour produire — jamais un nom tapé de mémoire. Parcours en
-    // largeur, dédupliqué, ordre "le plus proche d'abord". Ne descend PAS
-    // dans le corps d'une boucle (pas encore représenté dans ce canevas —
-    // limite connue, pas un oubli) : seul le graphe plat (edges top-level)
-    // est parcouru.
+    // largeur, dédupliqué, ordre "le plus proche d'abord", DANS LA PORTÉE
+    // COURANTE (racine ou corps de boucle ouvert). Complété par ce qui a été
+    // posé AVANT la boucle dans sa portée parente (`portee.etapesExterieures`)
+    // — sans ça, entrer dans un corps rendrait le sélecteur aveugle à tout ce
+    // qui précède, contredisant la raison d'être du panneau Variables.
     function _etapesPrecedentes(nodeId) {
       const aretes = model.aretes();
       const vus = { }; vus[nodeId] = true;
@@ -460,6 +544,9 @@
           if (n && n.etape) resultat.push(n.etape);
           file.push(pid);
         });
+      }
+      if (portee && !portee.estRacine()) {
+        portee.etapesExterieures().forEach(function (e) { resultat.push(e); });
       }
       return resultat;
     }
@@ -491,7 +578,14 @@
           const ids = selection.ids();
           return ids.length === 1 ? _etapesPrecedentes(ids[0]) : [];
         }
-        return model.noeuds().map(function (n) { return n.etape; }).filter(Boolean);
+        const ici = model.noeuds().map(function (n) { return n.etape; }).filter(Boolean);
+        // "Toutes" à l'intérieur d'un corps de boucle : aussi tout ce qui a
+        // été posé avant la boucle dans sa portée parente — utilisable
+        // depuis l'intérieur, donc doit rester visible même en mode "tout".
+        if (portee && !portee.estRacine()) {
+          portee.etapesExterieures().forEach(function (e) { ici.push(e); });
+        }
+        return ici;
       }
 
       function _rendreVars() {
@@ -537,6 +631,21 @@
             setTimeout(function () { ligne.classList.remove('bd-var-ligne-copie'); }, 500);
           });
           return ligne;
+        }
+
+        // Variable de boucle : {item} (ou le nom choisi via `loopVar`) n'est
+        // la sortie d'AUCUNE façade du catalogue — elle vient de la config du
+        // Loop dont on édite le corps. Sans cette ligne, la variable la plus
+        // évidente à utiliser à l'intérieur d'un corps (l'élément courant)
+        // serait absente du panneau censé éviter d'en taper le nom de mémoire.
+        if (portee && !portee.estRacine()) {
+          const etapeBoucle = portee.courant().etape;
+          const nomVar = (etapeBoucle.params && etapeBoucle.params.loopVar) || 'item';
+          const titre = document.createElement('div');
+          titre.className = 'bd-var-groupe-titre';
+          titre.textContent = 'Boucle — ' + (etapeBoucle.label || etapeBoucle.id);
+          varsHost.appendChild(titre);
+          varsHost.appendChild(_ligne({ nom: nomVar, aide: 'élément courant de la boucle' }));
         }
 
         etapes.forEach(function (etape) {
@@ -606,12 +715,81 @@
       // Rafraîchit sur changement de sélection (utile pour "Upstream of
       // selection") et sur changement du modèle (un nœud ajouté/renommé doit
       // apparaître sans réouvrir l'onglet).
-      selection.onChange(_rendreVars);
-      model.onChange(_rendreVars);
+      _reabonnable(function () { return selection.onChange(_rendreVars); });
+      _reabonnable(function () { return model.onChange(_rendreVars); });
       _rendreVars();
+      // Exposé pour `_surChangementDePortee` : un changement de portée ne
+      // déclenche ni model.onChange ni selection.onChange (l'INSTANCE change,
+      // ce n'est pas une mutation dedans) — il doit rafraîchir explicitement.
+      _rendreVarsPanel = _rendreVars;
     })();
 
-    selection.onChange(function () { _majPanneauConfig(); });
+    _reabonnable(function () { return selection.onChange(function () { _majPanneauConfig(); }); });
+
+    // ── Changement de portée (entrer/sortir d'un corps de boucle) ──────────
+    // Réassigne model/history/selection depuis la portée courante, refait
+    // tous les abonnements/branchements enregistrés via `_reabonnable`, et
+    // rafraîchit tout ce qui en dépend. Déclenché par le double-clic sur un
+    // Loop, le bouton "Edit body →", le fil d'Ariane, ou Échap.
+    function _surChangementDePortee() {
+      if (!portee) return;
+      const s = portee.courant();
+      model = s.model; history = s.history; selection = s.selection;
+      root._wfModel = model; root._wfHistory = history; root._wfSelection = selection;
+      _reScope.forEach(function (fn) { fn(); });
+      rendreDepuisModele();
+      _majPanneauConfig();
+      _rendreVarsPanel();
+      _majFilDAriane();
+    }
+
+    // ── Fil d'Ariane : navigation entre les portées ouvertes ────────────────
+    (function () {
+      if (!portee) return;
+      const nav = root.querySelector('[data-role="breadcrumb"]');
+      const cheminEl = root.querySelector('[data-role="breadcrumb-chemin"]');
+      const sortirBtn = root.querySelector('[data-role="breadcrumb-sortir"]');
+      if (!nav || !cheminEl) return;
+
+      function _majFilDArianeImpl() {
+        nav.hidden = portee.estRacine();
+        cheminEl.textContent = '';
+        const noms = portee.chemin();
+        noms.forEach(function (nom, i) {
+          if (i > 0) cheminEl.appendChild(document.createTextNode(' › '));
+          const seg = document.createElement('button');
+          seg.type = 'button';
+          seg.className = 'bd-breadcrumb-seg';
+          seg.textContent = nom;
+          seg.disabled = (i === noms.length - 1);
+          seg.addEventListener('click', function () {
+            // Sort jusqu'au niveau `i` (0 = racine).
+            while (portee.profondeur() > i) portee.sortir();
+            _surChangementDePortee();
+          });
+          cheminEl.appendChild(seg);
+        });
+      }
+      _majFilDAriane = _majFilDArianeImpl;
+      _majFilDAriane();
+
+      if (sortirBtn) {
+        sortirBtn.addEventListener('click', function () {
+          if (portee.sortir()) _surChangementDePortee();
+        });
+      }
+
+      // Échap : sort d'un niveau, sauf si le focus est dans un champ de
+      // saisie (ne pas voler Échap à un panneau de config en cours d'usage).
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        if (portee.estRacine()) return;
+        const actif = document.activeElement;
+        const dansChamp = actif && (actif.tagName === 'INPUT' || actif.tagName === 'TEXTAREA' || actif.isContentEditable);
+        if (dansChamp) return;
+        if (portee.sortir()) _surChangementDePortee();
+      });
+    })();
 
     rendreDepuisModele();
 
@@ -790,7 +968,16 @@
         clearTimeout(autoSaveTimer);
         autoSaveTimer = setTimeout(function () {
           const environment = envSelect ? envSelect.value : '';
-          WfPersistence.sauvegarder({ id: flowId, name: flowName, model: model, environment: environment })
+          // TOUJOURS `modeleRacine`, jamais `model` (qui peut pointer sur un
+          // corps de boucle ouvert) — `portee.flush()` réécrit d'abord tout
+          // corps ouvert dans son étape Loop hôte, qui vit dans
+          // `modeleRacine` ; sans ce flush, sauvegarder pendant qu'on édite
+          // l'intérieur d'une boucle perdrait silencieusement ces édits.
+          if (portee) portee.flush();
+          WfPersistence.sauvegarder({
+            id: flowId, name: flowName, model: modeleRacine, environment: environment,
+            layoutsDeCorps: portee ? portee.layoutsDeCorps() : undefined
+          })
             .then(function (res) {
               flowId = res.id; flowName = res.name;
               root.setAttribute('data-dirty', '0');
@@ -807,11 +994,17 @@
 
       // Marque « unsaved » à tout changement structurel réel (pas pendant le
       // chargement programmatique initial, qui ne doit pas se déclarer sale),
-      // et déclenche l'auto-save (filet de sécurité).
-      model.onChange(function () {
-        if (chargementEnCours) return;
-        root.setAttribute('data-dirty', '1');
-        _declencherAutoSave();
+      // et déclenche l'auto-save (filet de sécurité) — y compris pour un
+      // édit fait À L'INTÉRIEUR d'un corps de boucle ouvert : `model` pointe
+      // alors sur ce corps, et l'auto-save (plus bas) commence par
+      // `portee.flush()`, qui le réécrit dans son étape Loop avant de
+      // sérialiser. Réabonné à chaque changement de portée comme le reste.
+      _reabonnable(function () {
+        return model.onChange(function () {
+          if (chargementEnCours) return;
+          root.setAttribute('data-dirty', '1');
+          _declencherAutoSave();
+        });
       });
 
       // ── Statut brouillon/publié — informatif, pas un verrou ────────────────
@@ -863,8 +1056,12 @@
           _afficherOrg(res.orgName);
           _majStatut(res.status, res.publishedVersion);
           const initial = WfPersistence.initialDepuisDocument(res.document);
-          initial.nodes.forEach(function (n) { model.ajouterNoeud(n); });
-          initial.edges.forEach(function (e) { model.ajouterArete(e); });
+          // `modeleRacine` explicitement (pas `model`) : au chargement, aucun
+          // corps n'est encore ouvert, mais autant ne pas dépendre de cet
+          // invariant temporel — un chargement doit toujours remplir la racine.
+          initial.nodes.forEach(function (n) { modeleRacine.ajouterNoeud(n); });
+          initial.edges.forEach(function (e) { modeleRacine.ajouterArete(e); });
+          if (portee) portee.importerLayouts(initial.bodyLayout);
           _majEntete();
           const envDejaChoisi = res.document && res.document.workflow && res.document.workflow.environment;
           return _peuplerEnvironnements(envDejaChoisi);
@@ -895,7 +1092,11 @@
             flowName = name;
           }
           const environment = envSelect ? envSelect.value : '';
-          WfPersistence.sauvegarder({ id: flowId, name: name, model: model, environment: environment }).then(function (res) {
+          if (portee) portee.flush();   // cf. auto-save : jamais perdre un corps en cours d'édition
+          WfPersistence.sauvegarder({
+            id: flowId, name: name, model: modeleRacine, environment: environment,
+            layoutsDeCorps: portee ? portee.layoutsDeCorps() : undefined
+          }).then(function (res) {
             flowId = res.id;
             flowName = res.name;
             window.history.replaceState(null, '', '?id=' + encodeURIComponent(flowId));
