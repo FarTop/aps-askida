@@ -180,6 +180,29 @@ const PivotCatalogIconik = (() => {
           out.push({ nom: c, aide: 'si un seul résultat — ' + c, incertain: true });
           out.push({ nom: rv + '.' + c, aide: 'même valeur, forme préfixée', incertain: true });
         });
+        // Infos techniques (withFormats, 4 août) : posées par _extractTechnical
+        // (wfd-engine-handlers.js) UNIQUEMENT si la case est cochée ET qu'un
+        // seul asset est trouvé — mêmes conditions que champsUniques ci-dessus.
+        if ((etape.params || {}).withFormats) {
+          [
+            ['duration', 'durée en secondes'],
+            ['duration_ms', 'durée en millisecondes'],
+            ['width', 'largeur vidéo (px)'],
+            ['height', 'hauteur vidéo (px)'],
+            ['video_quality', 'SD/HD/UHD, déduit de la résolution'],
+            ['video_codec', 'codec vidéo'],
+            ['fps', 'images par seconde'],
+            ['bitrate', 'débit global'],
+            ['container', 'format conteneur'],
+            ['file_size', 'taille du fichier'],
+            ['audio_tracks', 'nombre de pistes audio'],
+            ['audio_codec', 'codec audio'],
+            ['filename', 'nom du fichier source'],
+            ['filename_noext', 'nom du fichier source, sans extension']
+          ].forEach(function (pair) {
+            out.push({ nom: pair[0], aide: pair[1] + ' — si un seul asset trouvé', incertain: true });
+          });
+        }
         return out;
       },
       // Vrai uniquement en mode 'retrieve' (mode par défaut) : en mode
@@ -387,6 +410,19 @@ const PivotCatalogIconik = (() => {
       if (portPivot === 'default') idx.push(conds.length);
       return idx;
     }
+    // Boucle : `out` (« Suite ») doit résolver à l'index WFD 1, PAS 0 — le
+    // moteur réel a trois ports en dur (wfd-engine-executor.js, executeLoopNode) :
+    // 0 = chaque élément (followPort(node, 0, ...) par itération), 1 = terminé
+    // (followPort(node, 1, ...) une fois tous les éléments traités), 2 = erreur
+    // d'élément si onError:'port' (non câblé côté panneau, hors sujet ici).
+    // CORES.loop ne déclare qu'un seul port pivot (`out`) — sans ce cas
+    // particulier, `portsDe(etape).indexOf('out')` renverrait 0, la MÊME valeur
+    // que l'entrée du corps (_aplatir, pivot-to-wfd.js, `fromPort: 0` en dur) :
+    // collision silencieuse qui aurait déclenché la suite du workflow à CHAQUE
+    // itération au lieu d'une seule fois après la boucle. Trouvé le 4 août en
+    // testant la conversion d'un vrai corps de boucle pour la première fois
+    // (l'éditeur de corps de boucle est nouveau ce jour, jamais exercé jusque-là).
+    if (etape.core === 'loop' && portPivot === 'out') return [1];
     const i = portsDe(etape).indexOf(portPivot);
     return i === -1 ? [] : [i];
   }

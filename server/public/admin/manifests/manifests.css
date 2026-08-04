@@ -80,11 +80,14 @@ select.mf-input { cursor: pointer; }
 .mf-essences-tete { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 8px; }
 .mf-sous-titre { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--adm-dim); margin: 0; }
 
+/* Bloc d'essence : ligne principale + ligne de vérification secondaire */
+.mf-essence-bloc { margin-bottom: 8px; }
+
 /* Ligne d'essence */
 .mf-essence {
   display: grid;
   grid-template-columns: 110px 1fr 130px 60px 1fr 140px 28px;
-  gap: 8px; align-items: center; margin-bottom: 8px;
+  gap: 8px; align-items: center;
 }
 .mf-essence input, .mf-essence select {
   background: #101213; color: var(--adm-text);
@@ -105,6 +108,22 @@ select.mf-input { cursor: pointer; }
 .mf-essence-niveaux { grid-column: 6; }
 .mf-essence-suppr   { grid-column: 7; }
 .mf-essence-n[hidden] { display: none; }
+
+/* Ligne de vérification (secondaire, sous chaque essence) — pour Verify */
+.mf-essence-verify {
+  display: grid;
+  grid-template-columns: 110px 1fr 1fr;
+  gap: 8px; align-items: center; margin-top: 4px;
+}
+.mf-essence-verify-label {
+  font-size: 10.5px; color: var(--adm-dim); text-transform: uppercase; letter-spacing: .03em;
+}
+.mf-essence-verify input {
+  background: #101213; color: var(--adm-text);
+  border: 1px solid var(--adm-border); border-radius: 6px;
+  padding: 5px 8px; font-size: 12px; font: inherit; width: 100%;
+}
+.mf-essence-verify input:focus { outline: none; border-color: var(--adm-accent); }
 
 /* Niveaux d'applicabilité — chips à cocher (Sé/Sa/Ép/Un) */
 .mf-essence-niveaux { display: flex; gap: 4px; }

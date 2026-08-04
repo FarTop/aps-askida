@@ -3243,6 +3243,29 @@ async function workflow_history(node, ctx, iconikClient) {
   const statut    = r(cfg.whStatut || '', ctx);
   const message   = r(cfg.whMessage || '', ctx);
 
+  // Checklist d'essences depuis le Manifeste (4 août, manifestId -> essences
+  // en amont dans pivot-to-wfd.js) — même portée par niveau que checker()/
+  // aws_s3() : TypeCollection (posé à plat par le Search précédent) dit le
+  // niveau courant, chaque essence dit à quels niveaux elle compte. Génère
+  // ce qui était tapé à la main sur les 8 occurrences réelles (Histo Succès/
+  // Échec × Série/Saison/Episode/Unitaire), ex. "Cover ✅ Poster ✅ Hero ❌" —
+  // en réutilisant le conditionnel `{var?oui|non}` déjà résolu par r() plus
+  // bas, pas un mécanisme séparé.
+  let essenceChecklist = '';
+  if (Array.isArray(cfg.essences) && cfg.essences.length) {
+    const TYPE_TO_NIVEAU_H = { 'Série': 'serie', 'Saison': 'saison', 'Episode': 'episode', 'Unitaire': 'unitaire' };
+    const niveauCourantH   = TYPE_TO_NIVEAU_H[ctx.vars?.TypeCollection] || '';
+    const _libelle = (role) => (role || '').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+    const essencesPortee = cfg.essences.filter(e => {
+      if (!Array.isArray(e.appliesTo) || !e.appliesTo.length || !niveauCourantH) return true;
+      return e.appliesTo.indexOf(niveauCourantH) !== -1;
+    });
+    const gabarit = essencesPortee
+      .map(e => '{' + e.sortie + '?' + _libelle(e.role) + ' ✅|' + _libelle(e.role) + ' ❌}')
+      .join(' ');
+    essenceChecklist = r(gabarit, ctx);
+  }
+
   console.log('[WH DEBUG] targetId:', targetId, '| mdViewId:', mdViewId, '| mdField:', mdField);
   if (!targetId || !mdField) throw new Error('Workflow History : targetId et mdField requis');
 
@@ -3259,6 +3282,7 @@ async function workflow_history(node, ctx, iconikClient) {
   if (cfg.whShowUser    !== false && user)              parts.push(user);
   if (statut)                                           parts.push(statut);
   if (message)                                          parts.push(message);
+  if (essenceChecklist)                                 parts.push(essenceChecklist);
 
   // Résumer un objet — liste les clés dont status n'est pas complete/ready/sent
   console.log('[WH SUMMARY] whSummaryVar:', cfg.whSummaryVar);
@@ -4054,10 +4078,24 @@ async function checker(node, ctx, iconikClient) {
     }, obj);
   };
 
+  // Portée par niveau (`appliesTo`, 4 août) — même mécanisme que aws_s3() :
+  // un seul Manifeste couvre les 4 niveaux (Série/Saison/Episode/Unitaire),
+  // chaque essence résolue en check (pivot-to-wfd.js, manifestId -> checks)
+  // dit à quels niveaux elle compte. TypeCollection posé à plat par le
+  // Search précédent (même champ que aws_s3()/resolve_ancestors). Sans
+  // TypeCollection connu, ne jamais filtrer (rétrocompat — mieux vaut
+  // vérifier trop que jamais).
+  const TYPE_TO_NIVEAU_V = { 'Série': 'serie', 'Saison': 'saison', 'Episode': 'episode', 'Unitaire': 'unitaire' };
+  const niveauCourantV   = TYPE_TO_NIVEAU_V[ctx.vars?.TypeCollection] || '';
+  const checksPortee = checks.filter(chk => {
+    if (!Array.isArray(chk.appliesTo) || !chk.appliesTo.length || !niveauCourantV) return true;
+    return chk.appliesTo.indexOf(niveauCourantV) !== -1;
+  });
+
   const failures = [];
   const results  = {};
 
-  for (const chk of checks) {
+  for (const chk of checksPortee) {
     const endpoint = r(chk.endpoint || '', ctx);
     const method   = (chk.method || 'GET').toUpperCase();
     const label    = chk.label || endpoint;
@@ -4108,7 +4146,7 @@ async function checker(node, ctx, iconikClient) {
   }
 
   // Stocker le résumé dans le contexte
-  const summary = { total: checks.length, passed: checks.length - failures.length, failures };
+  const summary = { total: checksPortee.length, passed: checksPortee.length - failures.length, failures };
   WfdContext.storeResult(ctx, 'checkerResult', summary);
   WfdContext.setVar(ctx, 'checkerSummary', failures.length
     ? failures.map(f => (f.label || f.path) + ': ' + (f.error || f.actual || 'échec')).join(', ')

@@ -29,6 +29,7 @@ const ConfigSources = (() => {
   let cacheManifests    = null;
   let cacheArboTemplates = null;
   let cacheMappings     = null;
+  let cacheEndpoints    = null;
   // Les métadonnées sont scopées par environnement (contrairement aux
   // connexions/manifestes, ressources d'org) : cache PAR envSlug.
   const cacheMetadonnees     = Object.create(null);   // envSlug -> promesse
@@ -123,6 +124,26 @@ const ConfigSources = (() => {
       })
       .catch(function () { return []; });
     return cacheMappings;
+  }
+
+  // Séquences HTTP nommées (ressource d'org) : pour la nature 'endpoints' du
+  // nœud http_sequence / façade vodfactory.partner (sequenceId) — remplace le
+  // tableau `steps` jusqu'ici recopié dans chaque nœud. GET /api/endpoints
+  // expose `steps` en clair (server/routes/endpoints.js) — même choix que
+  // mappings()/manifests() : le détail complet est déjà dans cette liste, pas
+  // de second appel.
+  function endpoints() {
+    if (cacheEndpoints) return cacheEndpoints;
+    cacheEndpoints = fetch('/api/endpoints')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        return (Array.isArray(list) ? list : []).map(function (e) {
+          return { id: e.id, name: e.name,
+                   nbSteps: Array.isArray(e.steps) ? e.steps.length : 0 };
+        });
+      })
+      .catch(function () { return []; });
+    return cacheEndpoints;
   }
 
   // ── Iconik en direct ───────────────────────────────────────────────────
@@ -311,7 +332,7 @@ const ConfigSources = (() => {
   // horodatage reste affiché jusqu'à ce qu'un nouvel appel aboutisse
   // réellement, pour ne pas faire clignoter l'affichage sur "—".
   function rafraichir() {
-    cacheConnexions = null; cacheManifests = null; cacheArboTemplates = null; cacheMappings = null;
+    cacheConnexions = null; cacheManifests = null; cacheArboTemplates = null; cacheMappings = null; cacheEndpoints = null;
     Object.keys(cacheMetadonnees).forEach(function (k) { delete cacheMetadonnees[k]; });
     Object.keys(metadonneesResolues).forEach(function (k) { delete metadonneesResolues[k]; });
     Object.keys(cacheVues).forEach(function (k) { delete cacheVues[k]; });
@@ -321,7 +342,7 @@ const ConfigSources = (() => {
   }
 
   return {
-    connexions, manifests, arboTemplates, mappings, metadonnees, metadonneesChargees, vuesMetadonnees, champsDeVue,
+    connexions, manifests, arboTemplates, mappings, endpoints, metadonnees, metadonneesChargees, vuesMetadonnees, champsDeVue,
     exportLocations, customActions, rafraichir,
     dernierRafraichissement: function () { return dernierRafraichissement; },
     onRafraichi

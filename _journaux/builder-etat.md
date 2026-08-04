@@ -1404,7 +1404,7 @@ expose déjà ses champs plats en variables directes après l'étape 11
 dans les nœuds suivants") — trouvé en traçant précisément d'où vient cette
 variable avant de répondre, pas supposé.
 
-### Verify/History (étapes 13/14) — même trou que le Manifeste, pas encore rebouché
+### Verify/History (étapes 13/14) — même trou que le Manifeste, tranché le 4 août
 
 Vérifié contre les vraies données : Verify et History sont dupliqués **4
 fois** en production (un Vérificateur + une paire Histo Succès/Échec par
@@ -1412,10 +1412,16 @@ niveau), avec des champs et des messages différents à chaque fois (Série
 vérifie cover/hero/poster ; Saison ajoute season ; Episode vérifie
 vidéo+sous-titres ; Unitaire vérifie tout + box). Exactement le motif que le
 Manifeste (`appliesTo`) a éliminé pour Deliver — mais Verify/History n'ont
-aujourd'hui aucune notion de Manifeste. **Question posée à l'utilisateur,
-pas tranchée** : accepter la duplication pour l'instant, ou étendre le même
-mécanisme `appliesTo` à Verify/History ? Reste le point de blocage pour
-finir PUBLISH.
+aujourd'hui aucune notion de Manifeste.
+
+**Décision (4 août)** : piloter Verify/History depuis le même Manifeste
+(essences + `appliesTo`) plutôt que des listes figées par niveau — cohérent
+avec Deliver. **Confirmé comme un vrai chantier séparé, non construit cette
+passe** : Verify n'a aujourd'hui aucune notion de Manifeste (contrairement à
+Deliver, qui l'a depuis le 4 août) — il faudrait lui donner un `manifestId`
+et faire lire ses essences par `checker()` (wfd-engine-handlers.js), un
+travail de la même ampleur que l'extension `appliesTo` de Deliver. Prochain
+chantier concret sur PUBLISH après le contenu de la Publication API.
 
 ### Bug réel — Lookup avait deux champs de stockage, un seul réel
 
@@ -1427,12 +1433,9 @@ Lookup par erreur, en plus de son vrai champ ("Store As") déclaré plus loin
 dans le même fichier — remplir le mauvais champ ne stockait rien nulle part,
 silencieusement. Corrigé (`lookup` retiré du tableau `produit`).
 
-**Trouvé au passage, pas corrigé (hors sujet, mis en tâche séparée)** : le
-panneau du Core `transform` ne correspond à AUCUN des champs que son handler
-lit réellement (`target`/`source`/`operation`/`rules`… contre
-`input`/`mode`/`expression`/`fields` dans le panneau) — jamais audité dans
-les passes du 31 juillet/3 août. Un Transform construit dans le Builder
-aujourd'hui ne ferait jamais ce qui est configuré.
+**Trouvé le 3 août, corrigé le 4 août** (cf. section dédiée plus bas) : le
+panneau du Core `transform` ne correspondait à AUCUN des champs que son
+handler lit réellement.
 
 ### Incident réel — perte de données sur le Mapping "VOD Factory | Fields"
 
@@ -1463,4 +1466,398 @@ Lookup) où un écran affiche correctement une donnée via un repli
 (`a || b`) mais ne le reproduit pas symétriquement à l'écriture — motif à
 surveiller ailleurs dans le Builder si l'occasion se présente.
 
-**Rien n'est commité** — modifications non indexées dans l'arbre de travail.
+## Étape 12 (Partner / Publication API) — 4ème ressource d'org : `Endpoint` — 4 août (suite)
+
+En reprenant l'étape 12 (nœud "Partner", façade `vodfactory.partner`, core
+`http_sequence`) : le tableau inline `steps` du panneau (~10 champs
+conditionnels PAR étape × 7 étapes réelles) ne correspondait déjà plus
+vraiment à ce qu'on veut construire à la main dans le canevas — même
+diagnostic que Lookup avant `Mapping` ou Deliver avant `Manifest`. Bug réel
+trouvé au passage : `ignoreCodes`/`feIgnoreCodes` étaient déclarés `texte`
+"comma-separated" dans le panneau, mais `handleHttpRequest`/`_handleHttpForeach`
+(wfd-engine-handlers.js) ne les splittent JAMAIS — ils font `.map(Number)`
+(voire un spread) directement dessus. Une chaîne tapée dans le Builder aurait
+crashé en mode foreach et cassé silencieusement le filtrage en mode simple
+(contraste avec `wait`/`failValues`, où le handler fait bien `.split(',')`).
+
+**Décision** (validée par l'utilisateur, qui a aussi tranché le nom) : 4ème
+ressource d'org, **`Endpoint`** (modèle Prisma), présentée comme
+**"Endpoints"** dans l'UI — 5ème onglet du Workflow Builder, écran dédié
+`admin/endpoints/`. Un Endpoints = nom + `steps[]` (même vocabulaire exact
+que l'ancien panneau inline : `name`/`httpMode`/`method`/`endpoint`/
+`skipIfEmpty`, puis champs simple OU foreach). Le panneau du nœud Partner ne
+porte plus que `connexionId` (reste sur LE NŒUD, comme Deliver — la séquence
+décrit CE QUI est appelé, pas OÙ) + `sequenceId` (référence, nature
+`endpoints`). `ignoreCodes`/`feIgnoreCodes` sont saisis en texte
+"409,422" dans l'éditeur mais **stockés comme de vrais tableaux de nombres**
+dans le JSON — le bug ne peut plus se reproduire, la conversion se fait une
+fois à la sauvegarde, pas à chaque lecture par le moteur.
+
+Construit, dans l'ordre établi (Mapping/Manifest) :
+- `prisma/schema.prisma` : `model Endpoint {id, orgId, name, steps Json, …}`,
+  `@@unique([orgId, name])`. Migration appliquée via `prisma migrate deploy`
+  (pas `db push` — `ApsCounter` vérifié intact après, 4 lignes).
+- `server/routes/endpoints.js` — CRUD calqué sur `mapping.js`, monté sur
+  `/api/endpoints`.
+- `admin/endpoints/` (html/js/css) — liste + éditeur, une carte par étape
+  (nom, mode, réordonner ▲▼, connexion override, method/endpoint/skip,
+  puis bloc simple OU foreach conditionnel, `feFields` en sous-liste
+  key/src). Mêmes tokens visuels que `admin/manifests/`.
+- `config-sources.js` : `endpoints()`, même cache-par-liste que
+  `mappings()`/`manifests()`.
+- `config-renderer.js` : nature `endpoints` (sélecteur), même mécanique que
+  `manifeste`/`mapping`/`gabarit`.
+- `config-schema.js` : `core === 'http_sequence'` réduit à `connexionId` +
+  `sequenceId` (nature `endpoints`) — l'ancien bloc `liste` de ~100 lignes
+  est parti.
+- `pivot-to-wfd.js` : résolution `sequenceId -> steps`, même filet que
+  `mappingId`/`manifestId` (résolution absente ⇒ `steps` reste tel quel,
+  jamais de crash de conversion).
+- `workflow.html`/`workflow.js` : 5ème onglet "Endpoints", même trio
+  renommer/dupliquer/supprimer que Correspondances (PUT tolérant, pas de
+  relecture complète nécessaire).
+
+**Vérifié en vrai** (chrome-devtools MCP disponible cette session,
+contrairement au 3/4 août précédent) : créé une séquence de test dans
+`admin/endpoints/`, basculé simple↔foreach (les deux blocs s'affichent/se
+masquent correctement), ajouté un `feFields`, enregistré — `ignoreCodes`
+confirmé stocké en tableau (`[409,422]`, pas la chaîne) via l'API. Sélecteur
+"Endpoints" vérifié sur le VRAI nœud Partner du flow de production (`BAYARD
+| PUBLISH | VODFACTORY`) : liste bien la séquence créée, sauvegarde du
+workflow confirmée (GET après save montre `sequenceId` persisté). Résolution
+`pivot-to-wfd.js` vérifiée par un test Node direct (`convertir()` avec
+`resolutions.endpoints` fourni) : `cfg.steps` de sortie contient bien le
+contenu résolu depuis la ressource, pas l'ancien `params.steps` inline
+périmé qui traînait sur le nœud réel. **Nettoyé après vérification** : la
+séquence de test et la référence `sequenceId` posée sur le nœud Partner réel
+ont été retirées — le flow de production est revenu exactement à son état
+d'avant ce test (`steps`/`connexionId` inchangés).
+
+**Reste ouvert** : le contenu RÉEL de la Publication API (7 étapes — 5
+foreach Persons director/actor/creator/writer/producer + 2 simple
+Contents/Video Action, détail dans la section "HTTP Sequence (étape 12)"
+plus haut) n'est pas encore saisi dans `admin/endpoints/` — l'écran existe,
+vide. C'est le prochain travail concret sur étape 12. `params.steps` périmé
+qui traîne encore sur le nœud Partner réel (un seul step "Persons director"
+incomplet, vestige d'avant cette passe) sera de toute façon écrasé dès
+qu'un `sequenceId` réel sera choisi — pas nettoyé séparément, pas la peine.
+Rien n'est commité par moi cette passe — à faire sur demande de
+l'utilisateur.
+
+### Publication API — contenu réel saisi dans `admin/endpoints/`
+
+Suite directe. L'utilisateur a créé la ressource `BAYARD | ENDPOINTS |
+VODFACTORY` dans l'écran ; les 7 étapes réelles ont été retrouvées dans
+`_journaux/WORKFLOWS_WFD_VODFACTORY.json` (nœud `n-1784408918017`, "Publication
+API" du vrai flow) et saisies telles quelles (mêmes `feFields`, `feSourceVar`,
+`feJob`, `feAppend` — faux uniquement pour "Persons director", le premier,
+qui initialise `personsResult` ; les 4 suivants l'enrichissent —, corps JSON
+complet de "Video Action"). Vérifié après écriture : liste = "7 étapes",
+détail conforme à l'export dans l'éditeur, aucune erreur console. Reste à
+faire : relier le nœud Partner réel à cette séquence (sélecteur "Endpoints")
+quand le montage de PUBLISH reprendra — pas fait cette passe, le nœud réel a
+été délibérément laissé dans son état d'avant les tests du 4 août (voir
+section précédente).
+
+## Bug réel — panneau du Core `transform` réécrit — 4 août
+
+Repéré le 3 août ("trouvé au passage, pas corrigé"), tranché et corrigé le 4
+août à la demande de l'utilisateur, avant tout commit. Le panneau d'origine
+(`input`/`mode: expression|fields`/`fields[]`) ne correspondait à AUCUN nom
+lu par le handler réel (`transform()`, wfd-engine-handlers.js:365) :
+`input` n'était jamais lu (`cfg.source`/`cfg.value` seuls le sont), `mode`
+n'a aucun lecteur, `fields` n'a aucun lecteur — et surtout **`target`, le
+seul champ qui décide si quoi que ce soit est stocké, était absent du
+panneau**. Un Transform construit dans le Builder avant cette passe ne
+faisait donc RIEN d'observable, même avec une expression valide dedans.
+
+Le handler a en réalité deux branches, jamais les deux en même temps :
+- si `cfg.rules[]` est présent — mode "composition" (assembler plusieurs
+  sources + séparateur + casse + longueur max) — hérité de l'ancien
+  "Transformer designer" du WFD Designer (`platforms/iconik/workflow/`), un
+  outil séparé de ce Builder, pas ce Core ;
+- sinon — mode "opération unique sur une valeur" (`upper`/`lower`/`trim`/
+  `replace`/`regex_replace`/`slice`/`pad_start`/`truncate`/
+  `separator_join`/`expression`, avec `target` pour stocker).
+
+**Zéro occurrence réelle de `family: transform`** dans tout l'export VOD
+Factory (grep complet) — rien à auditer contre du réel, contrairement aux
+autres façades cette semaine. Décision : cibler la branche "opération
+unique", la plus générale et la seule qui correspond au but affiché du Core
+("applique une transformation à une entrée") ; la branche "composition"
+reste un chantier à part si le besoin apparaît un jour (elle appartient à un
+autre outil aujourd'hui).
+
+Panneau reconstruit (`config-schema.js`, `core === 'transform'`) :
+`source` (Value) → `operation` (10 choix, `reagit: true`) → champs
+conditionnels par opération (`find`/`replace` pour replace/regex ;
+`start`/`end` pour slice ; `length`/`char` pour pad_start ; `maxLen` pour
+truncate ; `separator` pour separator_join ; `expression` pour expression)
+→ `target` (Store as), toujours visible. Vérifié en vrai dans le navigateur
+(chrome-devtools MCP) : nœud Transform posé par glisser-déposer sur un
+canevas vierge, panneau ouvert, bascule Replace (regex) → FIND/REPLACE WITH
+apparaissent ; bascule Slice → START/END apparaissent. Aucune erreur
+console. Non enregistré (canevas de test jetable, jamais sauvegardé).
+
+## Résolution technique (durée, résolution, codec…) — gap trouvé et rebouché sur Search — 4 août
+
+Question de l'utilisateur : dans WFD, la durée/résolution vidéo étaient
+résolues depuis les métadonnées techniques Iconik — est-ce conservé ici ?
+Vérifié en remontant le mécanisme réel, pas supposé :
+
+- Le vrai moteur (`_extractTechnical()`, wfd-engine-handlers.js:585) appelle
+  `/file_sets/` puis `/formats/{id}/` et pose `{duration}`, `{duration_ms}`,
+  `{width}`, `{height}`, `{video_quality}` (SD/HD/UHD déduit de
+  max(largeur,hauteur)), `{video_codec}`, `{fps}`, `{bitrate}`,
+  `{container}`, `{file_size}`, `{audio_tracks}`, `{audio_codec}`,
+  `{filename}`/`{filename_noext}` — vrai, pas inventé, déjà présent avant
+  cette session.
+- **À ne pas confondre** : le `lkTechMap`/`lkTechVar` de l'ancien Lookup
+  (repérés comme vestiges morts dès l'audit du 31 juillet/3 août) n'ont
+  RIEN à voir avec ce mécanisme — ils ne sont lus par aucun handler. Le vrai
+  chemin passe par un flag `withFormats`, lu par DEUX handlers :
+  `fetch()` (sous-type asset) et `aps_search()` (mode retrieve, résultat
+  asset unique).
+- **Gap réel trouvé** : `withFormats` était exposé sur le panneau Fetch
+  (`config-schema.js`, déjà présent) mais PAS sur le panneau Search — alors
+  que l'occurrence réelle de PUBLISH ("Video", `resultVar: episodeVideo`,
+  `withFormats: true`) prouve que c'est bien le nœud Search qui pose
+  `{duration}` en production, consommé ensuite par "Video Action"
+  (Publication API). Un Search reconstruit dans le Builder aurait donc
+  laissé `{duration}` silencieusement vide.
+
+**Corrigé** : champ `withFormats` ajouté au panneau `iconik.search`
+(`config-schema.js`) ; catalogue de variables étendu
+(`pivot-catalog-iconik.js`, `iconik.search.variables()`) pour proposer les
+14 champs techniques dans le sélecteur — visibles UNIQUEMENT quand la case
+est cochée, marqués "if present" (dépend qu'un seul asset soit trouvé,
+même garde-fou que le moteur). Vérifié en vrai dans le navigateur : nœud
+Search posé, case cochée, onglet Variables → les 14 champs apparaissent.
+Non enregistré (canevas de test jetable).
+
+## Corps structuré du Loop — construit, et un vrai bug de fond trouvé au passage — 4 août
+
+Suite directe de la discussion sur la lisibilité métier : l'utilisateur a
+tranché — pas de nœud "Video" dupliqué en plus, on répare la vraie
+structure. Jusqu'ici Check Asset/Action/Wait/Recheck/Lookup/Partner/Verify/
+Set Metadata/History étaient tous posés À PLAT après le Loop (reliquat
+d'avant l'éditeur de corps de boucle construit plus tôt le 4 août), reliés
+par des arêtes qui simulaient un enchaînement sans jamais utiliser le
+mécanisme réel de corps imbriqué.
+
+**Clarification métier de l'utilisateur, tranchant l'ambiguïté posée avant** :
+la republication (Lookup → Partner → Verify → Set Metadata → History) doit
+TOUJOURS s'exécuter, même quand `Check Collection` constate que la
+collection est déjà entièrement livrée — l'utilisateur aura toujours besoin
+de remettre à jour des données déjà présentes côté VOD Factory. Donc Lookup/
+Partner/etc. restent HORS de la boucle (republication une fois, pour toute
+la collection), et seule la livraison fichier par fichier (Check Asset →
+Action → Wait → Recheck) est vraiment PAR ASSET, donc dans le corps.
+
+**Restructuration faite** (JSON du document, testée avant sauvegarde — voir
+plus bas) : Check Asset, Action, Wait, Recheck déplacés dans `Loop.body`
+(steps + edges internes). `Loop --out--> Check Asset` remplacé par
+`Loop --out--> Lookup` (republication après la boucle). Les 4 arêtes qui
+reliaient Check Asset/Recheck directement à Lookup (`out`/`error`)
+supprimées — elles auraient traversé la frontière du corps, interdit par
+`pivot-validate.js`. Le raccourci `Check Collection --out--> Lookup`
+(collection déjà livrée) conservé tel quel, maintenant valide puisque Lookup
+reste au niveau racine.
+
+### Bug réel trouvé en testant la conversion — collision de port sur Loop
+
+Avant de sauvegarder, conversion testée via `pivot-to-wfd.js` (contournement
+temporaire de la validation stricte pour isoler ce test — le document réel a
+60 erreurs de dette préexistante, sans rapport, jamais nettoyées, confirmées
+identiques avant/après par un diff exact des rapports de validation).
+Résultat : `Loop` n'a qu'**un seul port pivot** déclaré (`out`,
+pivot-catalog-iconik.js `CORES.loop`), donc `indexPort(loop, 'out')`
+renvoyait toujours l'index WFD 0 — la MÊME valeur que l'entrée du corps
+(codée en dur `fromPort: 0` dans `_aplatir`, pivot-to-wfd.js). Or le vrai
+moteur (`wfd-engine-executor.js`, `executeLoopNode`) a ce contrat en dur :
+port 0 = chaque élément (`followPort(node, 0, ...)` par itération), port 1 =
+terminé (`followPort(node, 1, ...)` une seule fois après la boucle), port 2
+= erreur d'élément si `onError:'port'` (non câblé côté panneau). Sans
+correction, la republication (Lookup) se serait déclenchée à CHAQUE
+itération de la boucle en plus de l'unique fois voulue après coup — jamais
+détecté avant car aucun BuilderFlow n'avait encore eu un corps de boucle
+réellement peuplé ET une arête `out` en aval simultanément (l'éditeur de
+corps de boucle est nouveau ce jour même).
+
+**Corrigé** : `indexPort()` (pivot-catalog-iconik.js) cas particulier pour
+`core === 'loop'` — `out` → index 1, jamais 0 (documenté en commentaire avec
+la référence exacte au contrat du moteur). Revérifié après correction :
+`Loop --port0--> Check Asset` (corps) et `Loop --port1--> Lookup` (après),
+plus de collision.
+
+**Vérifié en vrai dans le navigateur** : document sauvegardé, canevas
+rechargé (16 nœuds top-level, 28 connexions — contre 20/36 avant), badge
+"4 steps" sur Loop, entrée dans le corps (double-clic simulé via
+`dispatchEvent(new MouseEvent('dblclick'))`, le simulateur de clic du MCP ne
+déclenche pas d'événement natif) : Check Asset → Action → Wait → Recheck
+dans le bon ordre, fil d'Ariane "Workflow › Loop", sortie propre. Aucune
+erreur console à aucune étape.
+
+### Technique vidéo (durée/résolution) résolu dans le corps, pas par un nœud dupliqué
+
+Suite directe. Plutôt que de dupliquer un nœud "Video" (comme WFD, qui
+enchaîne Artwork loop → Video search → Video loop, une branche par type
+d'asset — exactement le motif de duplication que le Manifeste a déjà
+éliminé pour Deliver), un seul nœud **Fetch** ("Video Info") ajouté en tête
+du corps de boucle : `fetchSubType: asset`, `fetchValue: {item.id}`,
+`withFormats: true`, `onError: continue_log`. Il tourne sur CHAQUE asset de
+la boucle (image, vidéo, sous-titre), pas seulement la vidéo — sans risque :
+`_extractTechnical()` ne pose `{duration}`/`{width}`/`{height}`/… que si le
+format de l'asset a un composant `kind_of_stream: Video` (wfd-engine-
+handlers.js:627+) ; pour une image ou un sous-titre, ces champs restent
+simplement non posés, aucune valeur écrasée par erreur. Ses deux sorties
+(`out`/`not_found`) convergent vers `Check Asset`, la suite du corps
+inchangée — un échec de récupération technique ne bloque jamais la
+livraison du fichier.
+
+Testé avant sauvegarde (validation stricte + conversion, même méthode que
+la restructuration précédente) : zéro nouvelle catégorie d'erreur, câblage
+confirmé `Loop --port0--> Video Info --port0/1--> Check Asset`. Vérifié en
+vrai dans le navigateur : corps de boucle à 5 étapes, panneau du nœud
+"Video Info" affiche Fetch/Asset/`{item.id}`/case technique cochée/
+`{itemTechnical}`, aucune erreur console.
+
+## Verify piloté depuis le Manifeste — chantier fermé — 4 août
+
+Suite de la décision actée plus haut ("piloter Verify/History depuis le même
+Manifeste"). Retrouvé les 4 vrais Vérificateurs de production (Série/Saison/
+Episode/Unitaire, family `checker`) pour ancrer le design sur du réel, même
+méthode que tout le reste de la journée — pas de conception à l'aveugle.
+
+**Trouvaille clé** : les checks réels utilisent des rôles identiques aux
+essences du Manifeste déjà en base ("Livraison VOD Factory | PRIME"), mais
+via un endpoint/chemin DIFFÉRENT par rôle (pas un endpoint unique par nœud
+comme supposé au départ) : les essences image partagent `/api/contents/
+{external_id}` avec `images.amazon.{role}_art`, mais vidéo utilise `/api/
+contents/{external_id}/videos` + `results[0].url`, et sous-titre `/api/
+videos/{external_id}-video-main` + `results.subtitles[0].url`. D'où deux
+nouveaux champs PAR ESSENCE (`verifyEndpoint`/`verifyPath`), pas un champ
+unique sur le nœud Verify.
+
+**Construit** :
+- `pivot-manifest.js` — essences acceptent `verifyEndpoint`/`verifyPath`
+  optionnels ; une essence sans `verifyPath` n'est simplement jamais
+  vérifiée (title/episodic, cohérent avec le réel — jamais recontrôlés).
+- `admin/manifests/` — ligne "Vérification (optionnel)" ajoutée sous chaque
+  essence (2 champs), sans toucher à la ligne principale existante.
+- `config-schema.js`, `core === 'verify'` — la liste `checks[]` libre est
+  remplacée par `connexionId` + `manifestId` (nature `manifeste`).
+- `pivot-to-wfd.js` — résolution `manifestId -> checks`, même filet que
+  `mappingId`/`manifestId`(Deliver)/`sequenceId` : essences filtrées sur
+  `verifyPath` présent, `op` toujours `not_empty` (seul opérateur observé
+  sur les 4 occurrences réelles), `appliesTo` transporté tel quel.
+- `checker()` (moteur) — même mécanisme de portée par niveau que `aws_s3()`
+  : `TypeCollection` → niveau courant → filtre les checks par `appliesTo`
+  avant de les exécuter. `summary.total` corrigé pour compter les checks
+  RÉELLEMENT exécutés (portée), pas la liste complète du manifeste.
+
+**Vérifié, pas supposé** : un test isolé de `checker()` (fetch stubbé,
+`TypeCollection` variable) confirme que le nombre de checks exécutés
+correspond EXACTEMENT aux 4 occurrences réelles : Episode → 2 (vidéo, sous-
+titres), Série → 3 (cover/poster/hero), Saison → 4, Unitaire → 6, sans
+niveau connu → les 9 essences ayant un `verifyPath` (rétrocompat). Manifeste
+réel peuplé (`verifyEndpoint`/`verifyPath` sur cover/poster/hero/
+season_box/box/video/subtitle) et nœud Verify du flow réel câblé sur
+`manifestId`. Vérifié en vrai dans le navigateur : panneau Verify affiche
+"Manifest (checks the same essences it delivers)" → "Livraison VOD Factory
+| PRIME (9)" ; écran Manifestes affiche les 9 lignes "Vérification
+(optionnel)" avec les bonnes valeurs. Aucune erreur console.
+
+## History piloté depuis le Manifeste — 4 août
+
+Suite directe de Verify, même après-midi. Retrouvé les 8 vrais nœuds History
+(Histo Succès/Échec × Série/Saison/Episode/Unitaire, family
+`workflow_history`) pour ancrer le design.
+
+**Trouvaille clé** : le moteur a DÉJÀ un interpolateur conditionnel générique
+`{variable?texte_si_présent|texte_si_absent}` (`wfd-engine-context.js:103`,
+`resolve()` — pas spécifique à History, utilisé partout). Les vrais
+`whMessage` s'en servent déjà pour lister les essences à la main, ex. sur
+"Histo Succès Série" : `"...{s3_cover_url?Cover ✅|Cover ❌} {s3_poster_url?
+Poster ✅|Poster ❌}..."`. La duplication n'est donc pas un manque de
+mécanisme moteur — c'est cette liste retapée à la main, une fois par niveau,
+avec le risque de désynchronisation d'avec le vrai Manifeste que ça implique.
+
+**Construit** (garde `whMessage` libre intact, n'enlève rien) :
+- `config-schema.js`, façade `iconik.history` — nouveau champ optionnel
+  `manifestId` (nature `manifeste`), à côté de `whMessage`.
+- `pivot-to-wfd.js` — résolution `manifestId -> essences` (role/sortie/
+  appliesTo, verbatim, non filtré — contrairement à Verify, pas de filtre
+  sur un champ particulier, seule `sortie` doit exister).
+- `workflow_history()` (moteur) — si `cfg.essences` présent : filtre par
+  `appliesTo`/`TypeCollection` (même mécanisme que `checker()`), construit
+  un gabarit `{sortie?Rôle ✅|Rôle ❌}` par essence dans la portée, le résout
+  via `r()` (réutilise l'interpolateur existant, pas un second mécanisme),
+  et l'ajoute comme dernier segment de la ligne.
+
+**Vérifié, pas supposé** : test isolé (get/put Iconik simulés) confirme
+Episode → "Episodic ❌ Video ✅ Subtitle ✅", Série → "Cover ✅ Poster ✅
+Hero ❌ Title ❌" — exactement la portée réelle par niveau, générée depuis le
+Manifeste plutôt que retapée. Nœud History réel peuplé avec les vraies
+valeurs de production (target/mdField/whMode/whWfName… retrouvées sur
+"Histo Succès Série") + `manifestId`. Vérifié en vrai dans le navigateur :
+panneau complet, "Manifest" → "Livraison VOD Factory | PRIME (9)" sélectionné,
+aucune erreur console. Note : l'aperçu de ligne (`whApercuLigne`) n'inclut
+pas la checklist — elle dépend de variables (`{s3_cover_url}`…) qui n'existent
+qu'à l'exécution réelle, même limite déjà documentée pour `whSummaryVar`.
+
+**Avec Verify + History, PUBLISH n'a plus aucune duplication par niveau** —
+Deliver (3 août), Verify et History (4 août) se pilotent tous les trois
+depuis le même Manifeste (`essences` + `appliesTo`), chacun lisant les
+champs qui le concernent (`sortie`/`cardinalite` pour Deliver, `verifyPath`
+pour Verify, `role`+`sortie` pour History).
+
+## Import/Export JSON + badge Draft/Published + compteur d'usage — 4 août
+
+Dernier chantier de la session, sur les 5 onglets du Workflow Builder
+(Workflows/Manifestes/Tree Builder/Correspondances/Endpoints).
+
+**Design tranché avec l'utilisateur** avant de coder : pour "où cette
+ressource est-elle utilisée", pas de liste dépliée dans la cartouche (risque
+de bruit visuel signalé par l'utilisateur) — un compteur discret réutilisant
+exactement le style des compteurs déjà existants ("30 lignes", "9 essences"),
+absent plutôt qu'à "0" quand la ressource n'est référencée nulle part, avec
+le détail (quels workflows) au survol (`title`) plutôt qu'affiché en dur.
+
+**Construit** :
+- `GET /api/builder-flows` (liste) — inclut désormais `status`/
+  `publishedVersion` par item, même calcul que le détail (le brouillon
+  courant EST-IL la dernière version figée), sans stocker le statut nulle
+  part (builder-etat.md, section Versionnement).
+- `GET /api/builder-flows/usage` (nouveau) — un seul scan de tous les
+  BuilderFlow de l'org, récursif dans les corps de boucle, pour
+  `mappingId`/`manifestId`/`sequenceId`/`templateId` → renvoie qui référence
+  quoi. Une requête, mémoïsée côté client (une seule fois par chargement de
+  page, pas par onglet), pas de N+1.
+- `workflow.js` — helpers génériques `_boutonExport`/`_exporterJSON` (GET
+  complet + téléchargement Blob) et `_declencherImport`/`_initImportBouton`
+  (file picker + POST + reload), réutilisés tels quels sur les 5 types.
+  L'id de la ressource exportée n'est jamais renvoyé au POST — réimporter
+  crée toujours une NOUVELLE ressource, jamais un écrasement silencieux ;
+  une collision de nom fait échouer avec le message d'erreur de l'API.
+- Badge `.wb-badge-draft`/`.wb-badge-published` sur les lignes Workflows.
+- Compteur `.wb-item-usage` sur les 4 autres onglets.
+
+**Vérifié** : cycle export→import complet testé (Manifeste "Livraison VOD
+Factory | PRIME", 9 essences avec `verifyPath`) — réimporté avec un nom
+différent, contenu identique confirmé, nettoyé après coup. Vérifié en vrai
+dans le navigateur sur les 5 onglets : bouton Importer présent partout,
+export par ligne présent partout, badges DRAFT sur les 5 workflows actuels
+(cohérent — aucun n'est à jour avec sa dernière version publiée), compteur
+"utilisé dans 1 workflow" correct sur le Manifeste/la Correspondance/les
+Endpoints réellement branchés à PUBLISH, absent sur les gabarits (aucun
+n'est encore référencé). Aucune erreur console sur aucun onglet.
+
+## Mapping "VOD Factory | Fields" — écart de 29→32 lignes clarifié
+
+Le 3 août, l'incident de perte de données sur ce Mapping avait été réparé en
+réinjectant 32 lignes depuis le nœud Lookup source, avec un écart signalé
+mais non expliqué (l'écran affichait 29 lignes juste avant l'incident, pas
+32). Clarifié par l'utilisateur le 4 août : suppression volontaire de lignes
+inutiles de sa part, pas un second incident ni une perte de données à
+investiguer. Rien à corriger côté code.

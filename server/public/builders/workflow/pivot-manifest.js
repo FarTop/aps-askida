@@ -51,11 +51,22 @@ const PivotManifest = (() => {
   //   essences: [
   //     { role: "video",    reconnu_par: [".mp4",".mov",".ts"], cardinalite: "exactement_un", sortie: "s3_video_url", appliesTo: ["episode","unitaire"] },
   //     { role: "image",    reconnu_par: ["_poster",".jpg",".png"], cardinalite: "au_moins_un", sortie: "s3_image_url" },
-  //     { role: "subtitle", reconnu_par: [".srt",".vtt"], cardinalite: "optionnel", sortie: "s3_srt_url", appliesTo: ["episode"] }
+  //     { role: "subtitle", reconnu_par: [".srt",".vtt"], cardinalite: "optionnel", sortie: "s3_srt_url", appliesTo: ["episode"],
+  //       verifyEndpoint: "/api/videos/{external_id}-video-main", verifyPath: "results.subtitles[0].url" }
   //   ]
   // }
   // `appliesTo` : tableau de niveaux (cf. NIVEAUX) où cette essence compte ;
   // absent ou ["*"] = tous niveaux (deuxième ligne ci-dessus).
+  //
+  // `verifyEndpoint`/`verifyPath` (4 août, optionnels) : CE MANIFESTE dit ce
+  // qui est livré côté S3 (source) — `verifyEndpoint`/`verifyPath` disent où
+  // et comment retrouver la MÊME essence côté PARTENAIRE (VOD Factory), une
+  // fois publiée, pour le nœud Verify. Repose sur les mêmes essences (Deliver
+  // et Verify vérifient la même liste de rôles, juste à deux moments et deux
+  // endroits différents) — évite de dupliquer la liste des rôles une seconde
+  // fois pour Verify. Une essence sans `verifyPath` n'est simplement jamais
+  // vérifiée (cohérent avec le réel : `title`/`episodic` sont livrés mais
+  // jamais recontrôlés dans les 4 occurrences réelles auditées).
 
   // Valide un objet manifeste. Renvoie { ok, erreurs: [] }.
   function valider(manifeste) {

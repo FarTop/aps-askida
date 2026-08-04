@@ -591,6 +591,46 @@ const ConfigRenderer = (() => {
       return wrap;
     },
 
+    // Endpoints : sélection d'une séquence HTTP nommée RÉELLE (ressource
+    // d'org, via ConfigSources), même mécanique que 'manifeste'/'mapping'/
+    // 'gabarit'. On stocke l'id choisi ; les steps eux-mêmes se résolvent en
+    // `cfg.steps` au moment de la conversion pivot → WFD (pivot-to-wfd.js),
+    // jamais recopiés ici — c'est ce qui remplace le tableau `steps` géant
+    // qu'un http_sequence (façade vodfactory.partner, node "Partner")
+    // portait auparavant en config inline.
+    endpoints: function (descr, model) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+
+      const sel = _el('select', 'cfg-input cfg-select');
+      const attente = document.createElement('option');
+      attente.textContent = 'Loading…'; attente.disabled = true; attente.selected = true;
+      sel.appendChild(attente);
+      wrap.appendChild(sel);
+
+      const courant = model.lire(descr.chemin);
+      const src = (typeof window !== 'undefined' && window.ConfigSources) ? window.ConfigSources : null;
+      if (src) {
+        src.endpoints().then(function (list) {
+          while (sel.firstChild) sel.removeChild(sel.firstChild);
+          const vide = document.createElement('option');
+          vide.value = ''; vide.textContent = descr.placeholder || '— select a sequence —';
+          sel.appendChild(vide);
+          _triParNom(list, 'name').forEach(function (e) {
+            const o = document.createElement('option');
+            o.value = e.id;
+            o.textContent = e.name + ' (' + e.nbSteps + ')';
+            if (e.id === courant) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.addEventListener('change', function () {
+            model.ecrire(descr.chemin, sel.value);
+          });
+        });
+      }
+      return wrap;
+    },
+
     // Métadonnée : nom d'un champ Iconik. Reste un champ TEXTE — un champ
     // fermé casserait les pseudo-champs réels observés en production
     // (__collection__, media_type…) qui ne sont pas des IkonField. Un

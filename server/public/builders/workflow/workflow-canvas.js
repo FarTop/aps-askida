@@ -386,7 +386,7 @@
         const n = model.noeud(id);
         if (!n || !n.etape || n.etape.core !== 'loop') return;
         e.stopPropagation();
-        if (portee.entrer(id)) _surChangementDePortee();
+        if (portee.entrer(id)) _surChangementDePortee(true);
       });
     }
 
@@ -514,7 +514,7 @@
         bouton.className = 'bd-btn-loop-body';
         bouton.textContent = 'Edit body →' + (n2 ? ' (' + n2 + ' step' + (n2 > 1 ? 's' : '') + ')' : '');
         bouton.addEventListener('click', function () {
-          if (portee.entrer(noeud.id)) _surChangementDePortee();
+          if (portee.entrer(noeud.id)) _surChangementDePortee(true);
         });
         configHost.appendChild(bouton);
       }
@@ -726,18 +726,49 @@
 
     _reabonnable(function () { return selection.onChange(function () { _majPanneauConfig(); }); });
 
+    // Recentre la vue (pan) sur le contenu du modèle COURANT. Un corps de
+    // boucle vit dans son propre espace de coordonnées, indépendant de celui
+    // de la racine (positions posées près de 120,120 par défaut) — sans ça,
+    // entrer dans un corps garde le pan hérité de la portée précédente, et le
+    // contenu se retrouve hors champ (repéré le 4 août : un vrai corps de 5
+    // étapes rendu, mais invisible tant qu'on ne pense pas à faire défiler).
+    // Approximatif par nature (pas de vraie boîte englobante des nœuds
+    // rendus) — suffisant pour ramener le contenu à l'écran, pas besoin
+    // d'exactitude au pixel.
+    function _centrerSurContenu() {
+      const noeuds = model.noeuds();
+      if (!noeuds.length) return;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      noeuds.forEach(function (n) {
+        minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x + 220); maxY = Math.max(maxY, n.y + 120);
+      });
+      const rect = frame.getBoundingClientRect();
+      view.x = rect.width  / 2 - ((minX + maxX) / 2) * view.zoom;
+      view.y = rect.height / 2 - ((minY + maxY) / 2) * view.zoom;
+      appliquer();
+    }
+
     // ── Changement de portée (entrer/sortir d'un corps de boucle) ──────────
     // Réassigne model/history/selection depuis la portée courante, refait
     // tous les abonnements/branchements enregistrés via `_reabonnable`, et
     // rafraîchit tout ce qui en dépend. Déclenché par le double-clic sur un
     // Loop, le bouton "Edit body →", le fil d'Ariane, ou Échap.
-    function _surChangementDePortee() {
+    // `centrer` : true seulement en ENTRANT dans un corps — un corps est un
+    // petit espace de coordonnées propre, presque toujours hors champ du pan
+    // hérité (cf. commentaire de `_centrerSurContenu`). En sortant (ou en
+    // naviguant le fil d'Ariane vers un niveau déjà vu), on préfère garder le
+    // pan tel quel : recentrer systématiquement sur tout le graphe racine
+    // (souvent large et épars, positions héritées de WFD) recadre sur un
+    // centre de masse qui n'a rien à voir avec ce que l'utilisateur regardait.
+    function _surChangementDePortee(centrer) {
       if (!portee) return;
       const s = portee.courant();
       model = s.model; history = s.history; selection = s.selection;
       root._wfModel = model; root._wfHistory = history; root._wfSelection = selection;
       _reScope.forEach(function (fn) { fn(); });
       rendreDepuisModele();
+      if (centrer) _centrerSurContenu();
       _majPanneauConfig();
       _rendreVarsPanel();
       _majFilDAriane();

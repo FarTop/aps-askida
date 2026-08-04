@@ -1,0 +1,82 @@
+<!-- APS — admin/endpoints/endpoints.html — 2026-08-04 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Endpoints — APS Administration</title>
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
+  <link rel="stylesheet" href="endpoints.css" />
+</head>
+<body>
+
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="../../builders/workflow/workflow.html">Workflow Builder</a> › Endpoints</span>
+    </div>
+    <div class="aps-header-center">
+      <div data-role="org-context"></div>
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar">
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="ep-main">
+
+    <div class="ep-toolbar">
+      <h1 class="ep-title">Endpoints</h1>
+      <button id="ep-nouveau" class="ep-btn ep-btn-accent" type="button">Nouvelle séquence</button>
+    </div>
+
+    <p class="ep-intro">
+      Un Endpoints décrit une <strong>suite de requêtes HTTP</strong> vers une API
+      partenaire (ex. Publication API) : chaque étape est une requête unique
+      ou une requête répétée par valeur (ex. un réalisateur par film). Objet
+      réutilisable par les workflows, référencé par un nœud Partner.
+    </p>
+
+    <div class="ep-layout">
+      <!-- Liste des séquences -->
+      <aside class="ep-liste" aria-label="Liste des séquences">
+        <div id="ep-liste-items"></div>
+      </aside>
+
+      <!-- Éditeur de la séquence sélectionnée -->
+      <section class="ep-editeur" id="ep-editeur" hidden>
+        <div class="ep-champ-ligne">
+          <label class="ep-label" for="ep-nom">Nom</label>
+          <input class="ep-input" id="ep-nom" type="text" placeholder="Publication API" />
+        </div>
+        <p class="ep-note">La connexion se choisit sur le nœud Partner, dans le canevas —
+          cette séquence ne décrit que les étapes, pas où elles s'exécutent
+          (sauf override par étape ci-dessous).</p>
+
+        <div class="ep-steps-tete">
+          <h2 class="ep-sous-titre">Étapes</h2>
+          <button id="ep-add-step" class="ep-btn" type="button">+ Étape</button>
+        </div>
+        <div id="ep-steps"></div>
+
+        <div class="ep-actions">
+          <button id="ep-enregistrer" class="ep-btn ep-btn-accent" type="button">Enregistrer</button>
+          <button id="ep-supprimer" class="ep-btn ep-btn-danger" type="button">Supprimer</button>
+          <span id="ep-feedback" class="ep-feedback" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section class="ep-vide" id="ep-vide">
+        <p>Sélectionnez une séquence ou créez-en une nouvelle.</p>
+      </section>
+    </div>
+
+  </main>
+
+  <script src="../../_shared/js/org-context-selector.js"></script>
+  <script src="endpoints.js"></script>
+</body>
+</html>

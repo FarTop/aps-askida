@@ -51,6 +51,7 @@ body {
   margin-bottom: 12px;
 }
 .wb-panel-info { font-size: 12.5px; color: var(--wb-dim); }
+.wb-panel-actions { display: flex; gap: 8px; align-items: center; }
 
 .wb-btn {
   background: var(--wb-surface2); color: var(--wb-text);
@@ -82,6 +83,19 @@ body {
   background: var(--wb-surface2); border: 1px solid var(--wb-border);
   border-radius: 10px; padding: 1px 8px;
 }
+
+/* Badge Draft/Published (Workflows) — 4 août */
+.wb-badge {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  border-radius: 10px; padding: 2px 8px; flex-shrink: 0;
+}
+.wb-badge-draft     { background: rgba(166,176,184,.14); border: 1px solid rgba(166,176,184,.35); color: var(--wb-dim); }
+.wb-badge-published { background: rgba(214,210,51,.14); border: 1px solid rgba(214,210,51,.4); color: var(--wb-accent); }
+
+/* Usage — "utilisé dans N workflow(s)" (4 août) : même style que les autres
+   compteurs (.wb-item-meta), pas de bloc à part — ne pas polluer la
+   cartouche, cf. discussion avec l'utilisateur. */
+.wb-item-usage { cursor: help; }
 
 .wb-item-outils { display: flex; gap: 6px; align-items: center; }
 .wb-outil {

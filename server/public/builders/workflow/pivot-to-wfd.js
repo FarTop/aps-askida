@@ -123,6 +123,70 @@ const PivotToWfd = (() => {
         });
       }
     }
+    // manifestId -> checks, pour Verify (4 août) : checker() (moteur) ne
+    // connaît que `cfg.checks` (liste de {label,endpoint,path,op,value}),
+    // jamais `manifestId`. Une essence ne devient un check QUE si elle porte
+    // `verifyPath` — les essences purement livrées mais jamais recontrôlées
+    // (title/episodic dans le réel) sont silencieusement absentes du
+    // résultat, pas une essence vide. `op` toujours `not_empty` : c'est le
+    // seul opérateur observé sur les 4 occurrences réelles (Vérificateur
+    // Série/Saison/Episode/Unitaire) — vérifier une PRÉSENCE, jamais une
+    // valeur précise. `appliesTo` transporté tel quel, même convention que
+    // s3Mappings ci-dessus : le filtrage par niveau se fait dans checker()
+    // (moteur), pas ici.
+    if (etape.core === 'verify' && cfg.manifestId && _resolutions.manifests) {
+      const manifesteV = _resolutions.manifests[cfg.manifestId];
+      const essencesV = manifesteV && manifesteV.essences;
+      if (essencesV && essencesV.length) {
+        cfg.checks = essencesV
+          .filter(function (e) { return e.verifyPath; })
+          .map(function (e) {
+            const c = {
+              label: e.role || '',
+              endpoint: e.verifyEndpoint || '',
+              path: e.verifyPath,
+              op: 'not_empty'
+            };
+            if (Array.isArray(e.appliesTo) && e.appliesTo.length && e.appliesTo.indexOf('*') === -1) {
+              c.appliesTo = e.appliesTo;
+            }
+            return c;
+          });
+      }
+    }
+    // manifestId -> essences, pour History (4 août) : workflow_history()
+    // (moteur) ne connaît que `cfg.essences` (role/sortie/appliesTo,
+    // verbatim, non filtré), jamais `manifestId`. Contrairement à Deliver/
+    // Verify, PAS de filtre ici sur un champ particulier (sortie est
+    // toujours présent) — seules `role`/`sortie` comptent pour construire la
+    // checklist, `appliesTo` pour la filtrer PAR NIVEAU au moment de
+    // l'exécution (workflow_history(), même mécanisme que checker()) : la
+    // conversion ne sait pas encore quel niveau tournera.
+    if (etape.core === 'history' && cfg.manifestId && _resolutions.manifests) {
+      const manifesteH = _resolutions.manifests[cfg.manifestId];
+      const essencesH = manifesteH && manifesteH.essences;
+      if (essencesH && essencesH.length) {
+        cfg.essences = essencesH
+          .filter(function (e) { return e.role && e.sortie; })
+          .map(function (e) {
+            const eh = { role: e.role, sortie: e.sortie };
+            if (Array.isArray(e.appliesTo) && e.appliesTo.length && e.appliesTo.indexOf('*') === -1) {
+              eh.appliesTo = e.appliesTo;
+            }
+            return eh;
+          });
+      }
+    }
+    // sequenceId -> steps (4 août) : handleHttpSequence() (moteur) ne connaît
+    // que `cfg.steps`, jamais `sequenceId` — le pivot ne stocke que la
+    // référence à la ressource d'org `Endpoint` (cf. admin/endpoints/), le
+    // convertisseur déplie ici, une fois. Même filet que mappingId/
+    // manifestId : une résolution absente laisse `steps` absent plutôt que de
+    // faire planter la conversion.
+    if (etape.core === 'http_sequence' && cfg.sequenceId && _resolutions.endpoints) {
+      const sequence = _resolutions.endpoints[cfg.sequenceId];
+      if (sequence && sequence.steps) cfg.steps = sequence.steps;
+    }
     return cfg;
   }
 

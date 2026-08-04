@@ -38,12 +38,16 @@
       <button class="wb-tab" data-tab="manifests" role="tab" type="button">Manifestes</button>
       <button class="wb-tab" data-tab="arbos" role="tab" type="button">Tree Builder</button>
       <button class="wb-tab" data-tab="mappings" role="tab" type="button">Correspondances</button>
+      <button class="wb-tab" data-tab="endpoints" role="tab" type="button">Endpoints</button>
     </div>
 
     <section class="wb-panel" data-panel="workflows">
       <div class="wb-panel-tete">
         <span class="wb-panel-info" id="wf-compte"></span>
-        <a class="wb-btn wb-btn-accent" href="workflow-canvas.html">Nouveau workflow</a>
+        <div class="wb-panel-actions">
+          <button class="wb-btn" type="button" id="wf-importer">Importer</button>
+          <a class="wb-btn wb-btn-accent" href="workflow-canvas.html">Nouveau workflow</a>
+        </div>
       </div>
       <div id="wf-liste" class="wb-liste" aria-live="polite">
         <p class="wb-muted">Chargement…</p>
@@ -53,7 +57,10 @@
     <section class="wb-panel" data-panel="manifests" hidden>
       <div class="wb-panel-tete">
         <span class="wb-panel-info" id="mf-compte"></span>
-        <a class="wb-btn" href="../../admin/manifests/manifests.html">Gérer les manifestes</a>
+        <div class="wb-panel-actions">
+          <button class="wb-btn" type="button" id="mf-importer">Importer</button>
+          <a class="wb-btn" href="../../admin/manifests/manifests.html">Gérer les manifestes</a>
+        </div>
       </div>
       <div id="mf-liste" class="wb-liste" aria-live="polite">
         <p class="wb-muted">Chargement…</p>
@@ -67,7 +74,10 @@
     <section class="wb-panel" data-panel="arbos" hidden>
       <div class="wb-panel-tete">
         <span class="wb-panel-info" id="at-compte"></span>
-        <a class="wb-btn wb-btn-accent" href="arbo-canvas.html">Nouveau gabarit</a>
+        <div class="wb-panel-actions">
+          <button class="wb-btn" type="button" id="at-importer">Importer</button>
+          <a class="wb-btn wb-btn-accent" href="arbo-canvas.html">Nouveau gabarit</a>
+        </div>
       </div>
       <div id="at-liste" class="wb-liste" aria-live="polite">
         <p class="wb-muted">Chargement…</p>
@@ -77,9 +87,28 @@
     <section class="wb-panel" data-panel="mappings" hidden>
       <div class="wb-panel-tete">
         <span class="wb-panel-info" id="mp-compte"></span>
-        <a class="wb-btn" href="../../admin/mappings/mappings.html">Gérer les correspondances</a>
+        <div class="wb-panel-actions">
+          <button class="wb-btn" type="button" id="mp-importer">Importer</button>
+          <a class="wb-btn" href="../../admin/mappings/mappings.html">Gérer les correspondances</a>
+        </div>
       </div>
       <div id="mp-liste" class="wb-liste" aria-live="polite">
+        <p class="wb-muted">Chargement…</p>
+      </div>
+    </section>
+
+    <!-- Endpoints (séquences HTTP nommées, ex. Publication API) : édités dans
+         admin/endpoints/, même principe que Correspondances/Manifestes —
+         référencés par le nœud Partner (http_sequence) via sequenceId. -->
+    <section class="wb-panel" data-panel="endpoints" hidden>
+      <div class="wb-panel-tete">
+        <span class="wb-panel-info" id="ep-compte"></span>
+        <div class="wb-panel-actions">
+          <button class="wb-btn" type="button" id="ep-importer">Importer</button>
+          <a class="wb-btn" href="../../admin/endpoints/endpoints.html">Gérer les endpoints</a>
+        </div>
+      </div>
+      <div id="ep-liste" class="wb-liste" aria-live="polite">
         <p class="wb-muted">Chargement…</p>
       </div>
     </section>

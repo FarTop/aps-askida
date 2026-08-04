@@ -105,8 +105,45 @@
     const hote = document.getElementById('mf-essences');
     hote.textContent = '';
     (courant.essences || []).forEach(function (e, i) {
-      hote.appendChild(_ligneEssence(e, i));
+      const bloc = document.createElement('div');
+      bloc.className = 'mf-essence-bloc';
+      bloc.appendChild(_ligneEssence(e, i));
+      bloc.appendChild(_ligneVerify(e));
+      hote.appendChild(bloc);
     });
+  }
+
+  // Vérification côté partenaire (Verify, 4 août) : où retrouver CETTE MÊME
+  // essence une fois publiée (endpoint + chemin dans la réponse), pour que le
+  // nœud Verify du Builder se pilote depuis ce manifeste au lieu d'une liste
+  // de checks figée par niveau. Optionnel — une essence sans `verifyPath`
+  // n'est simplement jamais recontrôlée (cohérent avec le réel : `title`/
+  // `episodic` sont livrés mais jamais revérifiés dans les 4 occurrences
+  // réelles auditées).
+  function _ligneVerify(essence) {
+    const ligne = document.createElement('div');
+    ligne.className = 'mf-essence-verify';
+
+    const label = document.createElement('span');
+    label.className = 'mf-essence-verify-label';
+    label.textContent = 'Vérification (optionnel)';
+
+    const endpoint = document.createElement('input');
+    endpoint.className = 'mf-essence-verify-endpoint';
+    endpoint.placeholder = 'endpoint, ex. /api/contents/{external_id}';
+    endpoint.value = essence.verifyEndpoint || '';
+    endpoint.addEventListener('input', function () { essence.verifyEndpoint = endpoint.value.trim(); });
+
+    const path = document.createElement('input');
+    path.className = 'mf-essence-verify-path';
+    path.placeholder = 'chemin dans la réponse, ex. images.amazon.cover_art';
+    path.value = essence.verifyPath || '';
+    path.addEventListener('input', function () { essence.verifyPath = path.value.trim(); });
+
+    ligne.appendChild(label);
+    ligne.appendChild(endpoint);
+    ligne.appendChild(path);
+    return ligne;
   }
 
   function _ligneEssence(essence, index) {

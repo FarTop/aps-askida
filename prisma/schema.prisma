@@ -33,6 +33,7 @@ model Organisation {
   palNodes     PalNode[]
   mappings     Mapping[]
   manifests    Manifest[]
+  endpoints    Endpoint[]
   builderFlows BuilderFlow[]
   nommages     Nommage[]
   scripts      Script[]
@@ -278,6 +279,23 @@ model Manifest {
   name          String
   niveau        String?      // serie | saison | episode | unitaire | * (applicabilité)
   essences      Json         @default("[]")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([orgId, name])
+}
+
+// Séquence de requêtes HTTP nommée (ressource d'org, comme Mapping/Manifest).
+// Remplace le tableau `steps` jusqu'ici recopié dans la config du nœud
+// http_sequence (façade vodfactory.partner) — même paradigme que Mapping pour
+// Lookup ou Manifest pour Deliver : le nœud ne référence qu'un `sequenceId`,
+// résolu en `steps` au moment de la conversion pivot → WFD (pivot-to-wfd.js).
+model Endpoint {
+  id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  name          String
+  steps         Json         @default("[]")
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 

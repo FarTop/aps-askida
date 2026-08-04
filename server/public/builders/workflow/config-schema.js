@@ -311,25 +311,56 @@ const ConfigSchema = (() => {
       s.push({ nature: 'variable', chemin: 'lkOutputVar', label: 'Store as', placeholder: '{vodFactoryPayload}' });
     }
 
-    // Transform : applique une transformation à une entrée. Mode pilote le reste
-    // (expression libre vs mapping de champs).
+    // Transform : applique UNE opération à UNE valeur. Réécrit le 4 août après
+    // lecture du handler réel (transform(), wfd-engine-handlers.js:365) — le
+    // schéma d'origine (`input`/`mode: expression|fields`/`fields[]`) ne
+    // correspondait à AUCUN nom réel : `input` n'est jamais lu (le handler lit
+    // `cfg.source`), `mode`/`fields` sont ignorés, et surtout `target` — le SEUL
+    // champ qui décide si quoi que ce soit est stocké — était absent du panneau.
+    // Un Transform construit dans le Builder avant cette passe ne faisait donc
+    // RIEN d'observable, même avec une expression valide dedans.
+    //
+    // Le handler a DEUX branches : si `cfg.rules[]` est présent, un mode
+    // "composition" (assembler plusieurs sources + séparateur + casse) hérité
+    // de l'ancien "Transformer designer" du WFD Designer
+    // (platforms/iconik/workflow/) — un outil séparé, pas ce Core. Zéro
+    // occurrence réelle de `family: transform` dans les flows VOD Factory (grep
+    // sur l'export complet) : rien à auditer contre du réel, donc le panneau
+    // cible l'autre branche, la plus générale ("mode simple" du handler — une
+    // opération sur une valeur), celle qui correspond au but affiché du Core.
     if (core === 'transform') {
-      s.push({ nature: 'variable', chemin: 'input', label: 'Input', placeholder: '{value}' });
-      s.push({ nature: 'choix', chemin: 'mode', label: 'Mode', reagit: true, options: [
-        { valeur: 'expression', libelle: 'Expression' },
-        { valeur: 'fields', libelle: 'Field mapping' }
+      s.push({ nature: 'variable', chemin: 'source', label: 'Value', placeholder: '{value}' });
+      s.push({ nature: 'choix', chemin: 'operation', label: 'Operation', reagit: true, options: [
+        { valeur: 'upper', libelle: 'Uppercase' },
+        { valeur: 'lower', libelle: 'Lowercase' },
+        { valeur: 'trim', libelle: 'Trim' },
+        { valeur: 'replace', libelle: 'Replace' },
+        { valeur: 'regex_replace', libelle: 'Replace (regex)' },
+        { valeur: 'slice', libelle: 'Slice' },
+        { valeur: 'pad_start', libelle: 'Pad start' },
+        { valeur: 'truncate', libelle: 'Truncate' },
+        { valeur: 'separator_join', libelle: 'Normalize separators' },
+        { valeur: 'expression', libelle: 'Expression' }
       ] });
-      s.push({ nature: 'texte', chemin: 'expression', label: 'Expression', placeholder: 'e.g. upper({value})',
-               visibleSi: function (m) { return (m.lire('mode') || 'expression') === 'expression'; } });
-      s.push({
-        nature: 'liste', chemin: 'fields', label: 'Fields', ajoutLabel: 'Add field',
-        itemDefaut: { from: '', to: '' },
-        itemSchema: [
-          { nature: 'variable', chemin: 'from', label: 'From', placeholder: '{source}' },
-          { nature: 'texte', chemin: 'to', label: 'To', placeholder: 'targetField' }
-        ],
-        visibleSi: function (m) { return m.lire('mode') === 'fields'; }
-      });
+      s.push({ nature: 'variable', chemin: 'find', label: 'Find', placeholder: 'texte ou {ref}',
+               visibleSi: function (m) { return ['replace', 'regex_replace'].indexOf(m.lire('operation')) !== -1; } });
+      s.push({ nature: 'variable', chemin: 'replace', label: 'Replace with', placeholder: 'texte ou {ref}',
+               visibleSi: function (m) { return ['replace', 'regex_replace'].indexOf(m.lire('operation')) !== -1; } });
+      s.push({ nature: 'nombre', chemin: 'start', label: 'Start', placeholder: '0',
+               visibleSi: function (m) { return m.lire('operation') === 'slice'; } });
+      s.push({ nature: 'nombre', chemin: 'end', label: 'End (optional — else to the end)',
+               visibleSi: function (m) { return m.lire('operation') === 'slice'; } });
+      s.push({ nature: 'nombre', chemin: 'length', label: 'Target length', placeholder: '2',
+               visibleSi: function (m) { return m.lire('operation') === 'pad_start'; } });
+      s.push({ nature: 'texte', chemin: 'char', label: 'Padding character', placeholder: '0',
+               visibleSi: function (m) { return m.lire('operation') === 'pad_start'; } });
+      s.push({ nature: 'nombre', chemin: 'maxLen', label: 'Max length', placeholder: '50',
+               visibleSi: function (m) { return m.lire('operation') === 'truncate'; } });
+      s.push({ nature: 'texte', chemin: 'separator', label: 'Separator', placeholder: '_',
+               visibleSi: function (m) { return m.lire('operation') === 'separator_join'; } });
+      s.push({ nature: 'texte', chemin: 'expression', label: 'Expression', placeholder: 'e.g. {value} > 1920 ? "HD" : "SD"',
+               visibleSi: function (m) { return m.lire('operation') === 'expression'; } });
+      s.push({ nature: 'variable', chemin: 'target', label: 'Store as', placeholder: '{result}' });
     }
 
     // Verify (→ famille WFD `checker`, cf. pivot-catalog-iconik.js familleWfd)
@@ -351,30 +382,21 @@ const ConfigSchema = (() => {
     // `continue_log`) mais AUCUN des deux n'est lu par checker() — le bloc
     // catch retourne { port: 2 } sans consulter cfg.onError, même règle que
     // op/method sur update_meta.
+    // Verify : réécrit le 4 août pour se piloter depuis le même Manifeste que
+    // Deliver, plutôt qu'une liste de checks figée et dupliquée par niveau.
+    // Vérifié contre les 4 occurrences réelles (Vérificateur Série/Saison/
+    // Episode/Unitaire) : mêmes rôles que les essences de livraison (cover,
+    // hero, poster, season_box, box, video, subtitle), juste vérifiés côté
+    // PARTENAIRE (endpoint/chemin propres à chaque rôle — `title`/`episodic`
+    // sont livrés mais jamais recontrôlés dans le réel, cohérent avec le fait
+    // que leur essence n'a pas de `verifyPath`). La résolution
+    // `manifestId -> checks` se fait dans pivot-to-wfd.js, comme
+    // `manifestId -> s3Mappings` pour Deliver ; le filtrage par niveau
+    // (`appliesTo`) se fait à l'exécution dans checker() (wfd-engine-
+    // handlers.js), comme aws_s3().
     if (core === 'verify') {
       s.push({ nature: 'connexion', chemin: 'connexionId', label: 'Connection (optional — falls back to the flow\'s platform)' });
-      s.push({
-        nature: 'liste', chemin: 'checks', label: 'Checks', ajoutLabel: 'Add check',
-        itemDefaut: { method: 'GET', endpoint: '', path: '', op: 'not_empty', value: '', label: '' },
-        itemSchema: [
-          { nature: 'texte', chemin: 'label', label: 'Label', placeholder: 'e.g. Vidéo' },
-          { nature: 'choix', chemin: 'method', label: 'Method', options: [
-            { valeur: 'GET', libelle: 'GET' },
-            { valeur: 'POST', libelle: 'POST' }
-          ] },
-          { nature: 'texte', chemin: 'endpoint', label: 'Endpoint', placeholder: '/api/contents/{external_id}' },
-          { nature: 'texte', chemin: 'path', label: 'Path in response', placeholder: 'results[0].url' },
-          { nature: 'operateur', chemin: 'op', label: 'Operator', options: [
-            { valeur: 'equals', libelle: 'equals' },
-            { valeur: 'not_equals', libelle: 'not equals' },
-            { valeur: 'not_empty', libelle: 'is not empty' },
-            { valeur: 'contains', libelle: 'contains' },
-            { valeur: 'starts_with', libelle: 'starts with' }
-          ] },
-          { nature: 'texte', chemin: 'value', label: 'Expected value',
-            visibleSi: function (m) { return m.lire('op') !== 'not_empty'; } }
-        ]
-      });
+      s.push({ nature: 'manifeste', chemin: 'manifestId', label: 'Manifest (checks the same essences it delivers)' });
     }
 
     // Wait : sonde un endpoint jusqu'à ce qu'un chemin de la réponse atteigne
@@ -411,103 +433,22 @@ const ConfigSchema = (() => {
       ] });
     }
 
-    // HTTP Sequence : une SUITE de requêtes, chacune en mode `simple` (une
-    // requête, corps depuis un template ou une variable) ou `foreach` (une
-    // requête PAR VALEUR d'une variable multi-valeur, ex. un réalisateur par
-    // film). Réécrit en profondeur après lecture de l'unique occurrence
-    // réelle (7 étapes : 5 foreach + 2 simple) et des handlers réels —
-    // chaque étape est déléguée par handleHttpSequence() à handleHttpRequest()
-    // (wfd-engine-handlers.js:3076/2287), qui elle-même délègue au mode au
-    // format `httpMode` : `_handleHttpForeach` (2820) pour foreach. L'ancien
-    // schéma (`request.method`/`request.url`/`storeAs`) ne correspondait à
-    // AUCUN nom réel.
-    //
-    // `onError` de SÉQUENCE (top-level, présent sur l'occurrence réelle)
-    // omis : handleHttpSequence() ne lève jamais d'exception elle-même (elle
-    // boucle sur ses étapes et retourne { port } explicitement) — ce champ
-    // n'atteint donc jamais le catch générique de l'exécuteur, même
-    // constat que checker/aps.registry/lookup. Le VRAI contrôle de flux vient
-    // du `onError` DE CHAQUE ÉTAPE (step.onError), lu directement par
-    // handleHttpSequence pour décider si un échec arrête la séquence.
-    //
-    // Seuls `simple`/`foreach` sont détaillés : ce sont les deux modes des 7
-    // étapes réelles. handleHttpRequest supporte aussi `action`/`verify`
-    // (mêmes mécanismes que les façades iconik.action/checker) — pas encore
-    // branchés ici, comme les 40 actionType non détaillés d'iconik.action.
+    // HTTP Sequence (façade vodfactory.partner, node "Partner" = Publication
+    // API de WFD) : une SUITE de requêtes, chacune en mode `simple` ou
+    // `foreach`. Portée le 4 août sur une ressource d'org dédiée (`Endpoint`,
+    // onglet "Endpoints" du Builder, admin/endpoints/) — même paradigme que
+    // Mapping pour Lookup ou Manifest pour Deliver : ~10 champs conditionnels
+    // PAR ÉTAPE (7 étapes réelles) étaient un fichier de config déguisé en
+    // formulaire canevas, pas un montage narratif "dix étapes qui se lisent
+    // comme une phrase". Le panneau ne porte plus que la référence
+    // (`sequenceId`), résolue en `cfg.steps` au moment de la conversion
+    // pivot → WFD (pivot-to-wfd.js), jamais recopiée ici. `connexionId` reste
+    // sur LE NŒUD (comme Deliver) : la séquence décrit CE QUI est appelé, pas
+    // OÙ — un même Endpoints doit pouvoir tourner contre QA ou prod selon la
+    // connexion choisie sur ce nœud.
     if (core === 'http_sequence') {
       s.push({ nature: 'connexion', chemin: 'connexionId', label: 'Connection' });
-      s.push({
-        nature: 'liste', chemin: 'steps', label: 'Requests', ajoutLabel: 'Add request',
-        itemDefaut: { name: '', httpMode: 'simple', method: 'POST', endpoint: '', onError: 'stop' },
-        itemSchema: [
-          { nature: 'texte', chemin: 'name', label: 'Step name', placeholder: 'e.g. Persons director' },
-          { nature: 'choix', chemin: 'httpMode', label: 'Mode', reagit: true, options: [
-            { valeur: 'simple', libelle: 'Single request' },
-            { valeur: 'foreach', libelle: 'One request per value' }
-          ] },
-          { nature: 'connexion', chemin: 'connexionId', label: 'Connection override (optional — else the sequence\'s)' },
-          { nature: 'choix', chemin: 'method', label: 'Method', options: [
-            { valeur: 'GET', libelle: 'GET' }, { valeur: 'POST', libelle: 'POST' },
-            { valeur: 'PUT', libelle: 'PUT' }, { valeur: 'DELETE', libelle: 'DELETE' }
-          ] },
-          { nature: 'texte', chemin: 'endpoint', label: 'Endpoint', placeholder: '/api/contents/{external_id}/videos' },
-          { nature: 'valeurTypee', chemin: 'skipIfEmpty', label: 'Skip this step unless set (optional)', placeholder: '{s3_video_url}' },
-
-          // Simple — une requête, corps depuis un template ou une variable.
-          { nature: 'texte', chemin: 'bodyTemplate', label: 'Body template (JSON, optional)', placeholder: '{"external_id":"{external_id}", "url":"{s3_video_url}"}',
-            visibleSi: function (m) { return m.lire('httpMode') === 'simple'; } },
-          { nature: 'variable', chemin: 'sourceVar', label: 'Body from variable (used if no template above)', placeholder: '{vodFactoryPayload}',
-            visibleSi: function (m) { return m.lire('httpMode') === 'simple'; } },
-          { nature: 'booleen', chemin: 'upsert', label: 'Retry as PUT on 422 (upsert)',
-            visibleSi: function (m) { return m.lire('httpMode') === 'simple'; } },
-          { nature: 'texte', chemin: 'ignoreCodes', label: 'HTTP codes to ignore (comma-separated)', placeholder: '409,422',
-            visibleSi: function (m) { return m.lire('httpMode') === 'simple'; } },
-          { nature: 'variable', chemin: 'resultVar', label: 'Store as', placeholder: '{vodFactoryPayload}',
-            visibleSi: function (m) { return m.lire('httpMode') === 'simple'; } },
-
-          // Foreach — une requête par valeur d'une variable multi-valeur (liste,
-          // ou tag cloud Iconik sérialisé en JSON). `feFields` construit le
-          // corps déclarativement (pas de JSON à écrire) : chaque ligne dit
-          // quelle partie de la valeur courante alimente quel champ.
-          { nature: 'variable', chemin: 'feSourceVar', label: 'Iterate over', placeholder: '{Realisateur}',
-            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
-          { nature: 'texte', chemin: 'feLocalName', label: 'Item variable name', placeholder: 'nom',
-            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
-          { nature: 'texte', chemin: 'feJob', label: 'Role tag (optional — available as "job" below)', placeholder: 'director',
-            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
-          { nature: 'liste', chemin: 'feFields', label: 'Body fields', ajoutLabel: 'Add field',
-            itemDefaut: { key: '', src: 'value' },
-            itemSchema: [
-              { nature: 'texte', chemin: 'key', label: 'Field', placeholder: 'external_id' },
-              { nature: 'choix', chemin: 'src', label: 'Value', options: [
-                { valeur: 'value', libelle: 'The item itself' },
-                { valeur: 'slug', libelle: 'Slug of the item' },
-                { valeur: 'index', libelle: 'Index (0, 1, 2…)' },
-                { valeur: 'job', libelle: 'Role tag (set above)' }
-              ] }
-            ],
-            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
-          { nature: 'texte', chemin: 'feBody', label: 'Raw body template (legacy — ignored if fields above are set)', placeholder: '{"name":"{{nom}}"}',
-            visibleSi: function (m) { return m.lire('httpMode') === 'foreach' && !(m.lire('feFields') || []).length; } },
-          { nature: 'texte', chemin: 'feCollectField', label: 'Field to collect from each response', placeholder: 'external_id',
-            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
-          { nature: 'texte', chemin: 'feIgnoreCodes', label: 'HTTP codes to ignore (comma-separated)', placeholder: '409,422',
-            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
-          { nature: 'choix', chemin: 'feOnError', label: 'On value error', options: [
-            { valeur: 'continue', libelle: 'Skip value, continue' },
-            { valeur: 'stop', libelle: 'Stop this step' }
-          ], visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
-          { nature: 'booleen', chemin: 'feAppend', label: 'Append to existing results (don\'t overwrite)',
-            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
-          { nature: 'variable', chemin: 'feResultVar', label: 'Store as', placeholder: '{personsResult}',
-            visibleSi: function (m) { return m.lire('httpMode') === 'foreach'; } },
-
-          { nature: 'choix', chemin: 'onError', label: 'On step error (sequence-level)', options: [
-            { valeur: 'stop', libelle: 'Stop the sequence' },
-            { valeur: 'continue', libelle: 'Continue to next step' }
-          ] }
-        ]
-      });
+      s.push({ nature: 'endpoints', chemin: 'sequenceId', label: 'Endpoints' });
     }
 
     // History : Core minimal et agnostique — "enregistrer un évènement", sans
@@ -720,6 +661,19 @@ const ConfigSchema = (() => {
           { nature: 'texte', chemin: 'expression', label: 'Raw expression (advanced)', placeholder: 'optional override' },
           { nature: 'nombre', chemin: 'limit', label: 'Limit', min: 1, placeholder: '500' },
           { nature: 'variable', chemin: 'resultVar', label: 'Store results as', placeholder: '{search_results}' },
+          // Technique (withFormats) : ajouté le 4 août, manquait à l'audit du
+          // 31 juillet/3 août. Le moteur (aps_search(), wfd-engine-handlers.js
+          // ~4250) le supporte déjà — "une recherche qui ramène UN asset doit
+          // pouvoir donner accès à sa durée, sa résolution ou son codec sans
+          // qu'on rebranche un Fetch derrière juste pour ça" (commentaire du
+          // moteur) — mais le panneau ne le posait pas, alors que l'occurrence
+          // réelle "Video" (PUBLISH, resultVar `episodeVideo`) l'utilise
+          // exactement ainsi, pour poser {duration}/{video_quality}/{width}/
+          // {height}/… lus ensuite par "Video Action" (Publication API). Sans
+          // ce champ, un Search reconstruit dans le Builder laisserait
+          // {duration} silencieusement vide. Mêmes garde-fous que le moteur :
+          // ignoré en mode Presence, et seulement pour des assets.
+          { nature: 'booleen', chemin: 'withFormats', label: 'Also fetch technical metadata (duration, resolution, codec…) for a single asset result' },
           { nature: 'choix', chemin: 'onError', label: 'On error', options: [
             { valeur: 'stop', libelle: 'Stop' },
             { valeur: 'continue_log', libelle: 'Continue (log)' },
@@ -953,6 +907,16 @@ const ConfigSchema = (() => {
               { valeur: '', libelle: '— None —' }
             ] },
           { nature: 'texteRepeint', chemin: 'whMessage', label: 'Message', placeholder: 'e.g. Delivered · {now(Europe/Paris)}' },
+          // Manifeste (4 août) : liste d'essences ✅/❌ ajoutée automatiquement
+          // à la fin de la ligne, filtrée par niveau (appliesTo/TypeCollection,
+          // même mécanisme que Deliver/Verify) — remplace ce qui était tapé à
+          // la main dans `whMessage` sur les 8 occurrences réelles
+          // (Histo Succès/Échec × Série/Saison/Episode/Unitaire), ex.
+          // "{s3_cover_url?Cover ✅|Cover ❌} {s3_poster_url?Poster ✅|Poster ❌}…" —
+          // le moteur supporte déjà ce conditionnel ({var?oui|non}, générique,
+          // wfd-engine-context.js), seule la liste d'essences était dupliquée.
+          // Optionnel : sans manifeste choisi, comportement inchangé.
+          { nature: 'manifeste', chemin: 'manifestId', label: 'Manifest (optional — appends a ✅/❌ essence checklist)' },
           { nature: 'variable', chemin: 'whSummaryVar', label: 'Auto-summarize', placeholder: '{path.to.results}',
             aide: 'Ex. {vfStatus.body.results.amazon.actions} → liste les sous-clés dont le statut n\'est pas complete/ready/sent/success. Résolu seulement à l\'exécution, absent de l\'aperçu ci-dessous.' },
           { nature: 'apercu', chemin: 'whApercuLigne', label: 'Aperçu de la ligne', calcule: function (m) {

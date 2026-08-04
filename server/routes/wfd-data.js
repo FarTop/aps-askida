@@ -326,8 +326,25 @@ router.get('/organisation', async (req, res) => {
 router.get('/builder-flows', async (req, res) => {
   try {
     const orgId = await getDefaultOrgId(req);
-    const items = await prisma.builderFlow.findMany({ where: { orgId }, orderBy: { updatedAt: 'desc' } });
-    res.json(items.map(f => ({ id: f.id, name: f.name, updatedAt: f.updatedAt })));
+    const items = await prisma.builderFlow.findMany({
+      where: { orgId },
+      orderBy: { updatedAt: 'desc' },
+      include: { versions: { orderBy: { version: 'desc' }, take: 1 } }
+    });
+    // Même calcul que le détail (GET /builder-flows/:id) : « publié » veut dire
+    // le brouillon courant EST la dernière version figée (présentation à
+    // part) — étendu à la liste (4 août) pour le badge Draft/Published sans
+    // ouvrir chaque workflow un par un.
+    res.json(items.map(f => {
+      const derniere = f.versions[0] || null;
+      const publie = !!derniere &&
+        JSON.stringify(_sansPresentation(f.document)) === JSON.stringify(derniere.document);
+      return {
+        id: f.id, name: f.name, updatedAt: f.updatedAt,
+        status: publie ? 'published' : 'draft',
+        publishedVersion: derniere ? derniere.version : null
+      };
+    }));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -340,6 +357,53 @@ function _sansPresentation(doc) {
   const { presentation, ...reste } = doc;
   return reste;
 }
+
+// Comptage de références (4 août) : où chaque ressource d'org (Mapping,
+// Manifest, Endpoint, ArboTemplate) est-elle utilisée ? Un seul scan de tous
+// les BuilderFlow de l'org, récursif dans les corps de boucle (une étape qui
+// référence un Mapping/Manifest/Endpoints/gabarit peut être dans le corps
+// d'un Loop, pas seulement au niveau racine) — pas un appel par ressource
+// (ce serait N+1 côté client à chaque affichage de liste). AVANT
+// `/builder-flows/:id` : sinon Express capture "usage" comme un id.
+function _referencesDeEtapes(etapes, refs) {
+  (etapes || []).forEach(function (etape) {
+    const p = etape && etape.params;
+    if (p) {
+      if (p.mappingId)  (refs.mappings[p.mappingId]  = refs.mappings[p.mappingId]  || []);
+      if (p.manifestId) (refs.manifests[p.manifestId] = refs.manifests[p.manifestId] || []);
+      if (p.sequenceId) (refs.endpoints[p.sequenceId] = refs.endpoints[p.sequenceId] || []);
+      if (p.templateId) (refs.arboTemplates[p.templateId] = refs.arboTemplates[p.templateId] || []);
+    }
+    if (etape && etape.core === 'loop' && etape.body) {
+      _referencesDeEtapes(etape.body.steps, refs);
+    }
+  });
+}
+
+router.get('/builder-flows/usage', async (req, res) => {
+  try {
+    const orgId = await getDefaultOrgId(req);
+    const flows = await prisma.builderFlow.findMany({
+      where: { orgId },
+      select: { id: true, name: true, document: true }
+    });
+    const refs = { mappings: {}, manifests: {}, endpoints: {}, arboTemplates: {} };
+    flows.forEach(function (f) {
+      // Scan local à CE flow (une map réutilisée juste pour collecter les ids
+      // qu'il référence, sans compter deux fois une même référence répétée
+      // sur plusieurs étapes du même flow).
+      const locales = { mappings: {}, manifests: {}, endpoints: {}, arboTemplates: {} };
+      _referencesDeEtapes((f.document || {}).steps, locales);
+      ['mappings', 'manifests', 'endpoints', 'arboTemplates'].forEach(function (type) {
+        Object.keys(locales[type]).forEach(function (id) {
+          refs[type][id] = refs[type][id] || [];
+          refs[type][id].push({ id: f.id, name: f.name });
+        });
+      });
+    });
+    res.json(refs);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 router.get('/builder-flows/:id', async (req, res) => {
   try {

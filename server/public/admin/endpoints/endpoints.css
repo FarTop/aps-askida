@@ -1,0 +1,142 @@
+/* APS — admin/endpoints/endpoints.css — 2026-08-04
+   Palette alignée sur les autres écrans Administration (mêmes tokens que
+   manifests.css/mappings.css, préfixe ep- propre à cet écran). */
+
+:root {
+  --adm-bg:      #0f1011;
+  --adm-surface: #151718;
+  --adm-surface2:#1a1d1f;
+  --adm-border:  #262a2e;
+  --adm-text:    #eef0f1;
+  --adm-dim:     #a6b0b8;
+  --adm-accent:  #d6d233;
+  --adm-danger:  #e74c3c;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--adm-bg);
+  color: var(--adm-text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.aps-header .breadcrumb { color: var(--adm-dim); font-size: 12.5px; }
+.aps-header .breadcrumb a { color: var(--adm-dim); text-decoration: none; }
+.aps-header .breadcrumb a:hover { color: var(--adm-text); }
+
+.ep-main { max-width: 1440px; margin: 0 auto; padding: 24px 20px 60px; }
+.ep-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ep-title { font-size: 20px; font-weight: 600; margin: 0; }
+.ep-intro { color: var(--adm-dim); font-size: 13px; margin: 0 0 20px; max-width: 720px; }
+.ep-intro strong { color: var(--adm-text); font-weight: 600; }
+.ep-note { color: var(--adm-dim); font-size: 12px; margin: 0 0 16px; }
+
+/* Boutons */
+.ep-btn {
+  background: var(--adm-surface2); color: var(--adm-text);
+  border: 1px solid var(--adm-border); border-radius: 7px;
+  padding: 7px 14px; font-size: 13px; cursor: pointer;
+}
+.ep-btn:hover { border-color: #3a4147; }
+.ep-btn-accent { background: rgba(214,210,51,.14); border-color: rgba(214,210,51,.4); color: var(--adm-accent); }
+.ep-btn-danger { background: rgba(231,76,60,.10); border-color: rgba(231,76,60,.35); color: #e88; }
+.ep-btn-petit { padding: 3px 8px; font-size: 11.5px; }
+
+/* Layout : liste + éditeur */
+.ep-layout { display: grid; grid-template-columns: 260px 1fr; gap: 18px; }
+.ep-liste {
+  background: var(--adm-surface); border: 1px solid var(--adm-border);
+  border-radius: 10px; padding: 8px; align-self: start;
+  position: sticky; top: 24px;
+}
+.ep-liste-item {
+  display: block; width: 100%; text-align: left;
+  background: transparent; border: none; border-radius: 7px;
+  padding: 10px 12px; cursor: pointer; color: var(--adm-text);
+}
+.ep-liste-item:hover { background: var(--adm-surface2); }
+.ep-liste-item-actif { background: var(--adm-surface2); box-shadow: inset 2px 0 0 var(--adm-accent); }
+.ep-liste-nom { font-size: 13.5px; font-weight: 500; }
+.ep-liste-meta { font-size: 11px; color: var(--adm-dim); margin-top: 2px; }
+.ep-liste-vide { padding: 16px; text-align: center; color: var(--adm-dim); font-size: 13px; }
+
+/* Éditeur */
+.ep-editeur, .ep-vide {
+  background: var(--adm-surface); border: 1px solid var(--adm-border);
+  border-radius: 10px; padding: 20px;
+}
+.ep-vide { color: var(--adm-dim); font-size: 13.5px; display: flex; align-items: center; justify-content: center; min-height: 200px; }
+
+.ep-champ-ligne { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.ep-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--adm-dim); }
+.ep-input {
+  background: #101213; color: var(--adm-text);
+  border: 1px solid var(--adm-border); border-radius: 7px;
+  padding: 8px 10px; font-size: 13.5px; font: inherit;
+}
+.ep-input:focus { outline: none; border-color: var(--adm-accent); }
+select.ep-input { cursor: pointer; }
+
+.ep-steps-tete { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 8px; }
+.ep-sous-titre { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--adm-dim); margin: 0; }
+
+/* Carte d'étape */
+.ep-step {
+  background: var(--adm-surface2); border: 1px solid var(--adm-border);
+  border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;
+}
+.ep-step-tete { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.ep-step-nom { flex: 1 1 auto; min-width: 0; }
+.ep-step-mode { flex: 0 0 190px; }
+.ep-step-reorder { display: flex; gap: 2px; }
+.ep-step-suppr {
+  background: transparent; border: none; color: var(--adm-dim);
+  font-size: 18px; cursor: pointer; line-height: 1; padding: 0 4px;
+}
+.ep-step-suppr:hover { color: var(--adm-danger); }
+
+.ep-step-grille {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px;
+}
+.ep-step-grille-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.ep-champ-mini { display: flex; flex-direction: column; gap: 3px; }
+.ep-champ-mini-label { font-size: 10px; color: var(--adm-dim); text-transform: uppercase; letter-spacing: .03em; }
+.ep-champ-mini input, .ep-champ-mini select {
+  background: #101213; color: var(--adm-text);
+  border: 1px solid var(--adm-border); border-radius: 6px;
+  padding: 6px 8px; font-size: 12.5px; font: inherit; width: 100%;
+}
+.ep-champ-mini input:focus, .ep-champ-mini select:focus { outline: none; border-color: var(--adm-accent); }
+.ep-champ-mini textarea {
+  background: #101213; color: var(--adm-text);
+  border: 1px solid var(--adm-border); border-radius: 6px;
+  padding: 6px 8px; font-size: 12px; font-family: ui-monospace, monospace;
+  resize: vertical; min-height: 50px; width: 100%;
+}
+.ep-champ-mini-check { flex-direction: row; align-items: center; gap: 6px; }
+.ep-champ-mini-check input { width: auto; }
+.ep-champ-mini-check .ep-champ-mini-label { text-transform: none; font-size: 12.5px; color: var(--adm-text); }
+
+.ep-step-bloc-tete {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--adm-dim); margin: 10px 0 6px;
+}
+
+/* Champs foreach (feFields) */
+.ep-fefields { margin-bottom: 6px; }
+.ep-fefield-ligne { display: grid; grid-template-columns: 1fr 150px 24px; gap: 6px; margin-bottom: 4px; }
+.ep-fefield-ligne input, .ep-fefield-ligne select {
+  background: #101213; color: var(--adm-text);
+  border: 1px solid var(--adm-border); border-radius: 6px;
+  padding: 5px 7px; font-size: 12px; font: inherit; width: 100%;
+}
+.ep-fefield-suppr {
+  background: transparent; border: none; color: var(--adm-dim);
+  font-size: 15px; cursor: pointer; padding: 0;
+}
+.ep-fefield-suppr:hover { color: var(--adm-danger); }
+
+.ep-actions { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+.ep-feedback { font-size: 12.5px; color: #79d093; }
+.ep-feedback-erreur { color: #e88; }

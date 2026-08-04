@@ -52,6 +52,7 @@ const ikonDataRouter       = require('./routes/ikon-data');
 const apsSearchRouter      = require('./routes/aps-search');
 const arboTemplatesRouter  = require('./routes/arbo-templates');
 const mappingRouter        = require('./routes/mapping');
+const endpointsRouter      = require('./routes/endpoints');
 const contextRouter        = require('./routes/context');
 const packageRouter        = require('./routes/package');
 
@@ -64,6 +65,7 @@ app.use('/api/ikon',         ikonDataRouter);
 app.use('/api/aps-search',   apsSearchRouter);
 app.use('/api/arbo-templates', arboTemplatesRouter);
 app.use('/api/mappings',    mappingRouter);
+app.use('/api/endpoints',   endpointsRouter);
 app.use('/api/jobs',         syncJobsRouter);
 app.use('/api/iconik',       iconikProxy);
 app.use('/api/package',    packageRouter);
