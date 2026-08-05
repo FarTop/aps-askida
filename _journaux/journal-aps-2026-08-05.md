@@ -152,21 +152,88 @@ corrigé, juste contourné proprement. Le compteur atomique du nouveau
 moteur recrée cette même table à la volée (`CREATE TABLE IF NOT EXISTS`),
 exactement comme le fait déjà WFD.
 
-## Reste ouvert, par priorité pour la suite
-1. **Reconstruire les autres workflows** — Créer Série/Saison/Episode/
-   Unitaire — peuvent maintenant être réellement exécutés et validés via
-   le nouveau moteur, pas seulement dessinés.
-2. **Panneaux Logs/Run** — débloqués (de vraies données existent), mais le
-   périmètre UI reste à cadrer. Contraintes déjà actées : modèle Jobs,
-   pas Assets/Action tels quels, tout texte copiable.
-3. **Webhook jamais essayé depuis une vraie Custom Action Iconik cliquée**
-   — seulement avec un payload construit à la main.
-4. Les deux imperfections de PUBLISH non corrigées (critère de recherche,
-   chemin de boucle) — cf. `builder-etat.md`.
-5. `Nommage` — route existante, jamais auditée ni éditée (reste ouvert
-   depuis le 3 août).
-6. Mark in/out des segments (`time_start`/`time_end`) — jamais vérifié.
-7. Famille média (Transcode…) — non conçue.
+## Suite de session — Recheck S3, versionnement, Tidy, animation des jobs
 
-**Tout commité et poussé sur `main` en fin de session** (commit
-`b292de1`, voir `git log`).
+> La session ne s'est pas arrêtée à `b292de1`. Repris directement sur le
+> point 2 ci-dessous (panneaux Logs/Run déjà construits entre-temps,
+> `6904000`) : fix du Recheck S3 de PUBLISH v2, puis l'utilisateur a
+> demandé un vrai moyen de revenir en arrière sur les versions publiées
+> avant de continuer à tester — construit dans la foulée (restaurer/
+> supprimer une version, dépublier/republier un workflow). En testant ces
+> nouveaux outils sur le VRAI flux PUBLISH, un incident réel a servi de
+> déclencheur pour le chantier suivant : restaurer une version a produit
+> une cascade diagonale illisible sur 16 nœuds — d'où le chantier Tidy
+> (disposition automatique, `dagre`). Enfin, demande explicite de
+> l'utilisateur : retrouver l'animation de jobs de WFD sur le canevas,
+> "pour me faciliter les tests" — construite en corrigeant délibérément le
+> bug le plus gênant de la version WFD (badge figé sur un nœud en erreur
+> qui pourtant continuait). État technique complet des quatre chantiers →
+> `builder-etat.md` (sections Versionnement, Canevas, "Recheck S3 de
+> PUBLISH v2", "Animation live des jobs").
+
+### Recheck S3 de PUBLISH v2
+`deliver()` défaultait sur `head_object` (HEAD sur une clé exacte, jamais
+capable de matcher un vrai fichier avec extension puisque `filebase()` la
+retire) alors que le schéma documente déjà `list_objects` comme défaut
+implicite, et que les 6 occurrences réelles de WFD le fixent toujours
+explicitement. Corrigé, vérifié contre les vrais fichiers déposés par
+l'export QA du jour.
+
+### Versionnement (restaurer/supprimer) + dépublier
+Demande directe : "j'aimerais pouvoir dépublier un workflow, et le
+supprimer avec toutes ses infos" — face au risque de se retrouver avec
+des versions accumulées juste par erreur de manipulation. Bouton
+Historique (🕘) construit (restaurer via commande annulable, supprimer
+une version), puis `BuilderFlow.active` (dépublier/republier,
+indépendant du statut brouillon/publié) — nécessaire pour que la bascule
+PUBLISH v1→v2 (décidée ce jour-là) ne déclenche jamais les deux flows à
+la fois sur un même clic Iconik réel (même Trigger/`customActionId`
+partagé). Piège vécu en le construisant, pas anticipé : le canevas
+auto-sauve sur tout changement — restaurer une version écrase donc le
+brouillon en base en quelques secondes ; confirmation ajoutée après coup.
+
+### Tidy — disposition automatique des nœuds
+`bpmn-auto-layout` (visé dans `builder-etat.md` avant même que le canevas
+existe) écarté après recherche — exige du XML BPMN complet. `@dagrejs/
+dagre` retenu, vendoré comme `docx`/`exceljs`. Remplace le repli en
+cascade partout (chargement, restauration, ouverture de corps de boucle)
++ bouton "Réorganiser" explicite.
+
+### Animation live des jobs
+Le morceau le plus gros de la journée. Diagnostic précis du bug WFD
+retrouvé dans le code avant d'écrire quoi que ce soit : le badge de statut
+restait figé sur un nœud en erreur même quand son port erreur menait à un
+nœud suivant réellement exécuté — `stay=true` fixé en dur dans
+`_wfdHandleEngineEvent`, jamais dérivé du port pris. Reconstruit
+correctement côté Builder : `BuilderRunEvent.port` suffit (déjà enregistré
+par le moteur), pas de nouveau champ nécessaire ; "Blocked" (orange) se
+déduit du statut global du run plutôt que d'un réglage par nœud
+(approche validée avec l'utilisateur avant de coder). Bug de fond trouvé
+et corrigé au passage, indépendant de ce chantier mais bloquant pour lui :
+les nœuds `decision` rendaient des ports `out-N` alors que le moteur route
+sur le libellé de la condition — 30 arêtes cassées trouvées en base, dont
+sur PUBLISH. Déclenchement manuel rendu asynchrone (nécessaire : il n'y
+avait sinon aucune fenêtre "en cours" à animer). Vérifié en direct via un
+vrai clic sur le bouton Run, pas juste `curl`.
+
+## Reste ouvert, par priorité pour la suite
+1. **Bascule PUBLISH v1 → v2** — décidée, outillée (dépublier + animation
+   live pour tester v2 en vrai), pas encore exécutée.
+2. **Reconstruire les autres workflows** — Créer Série/Saison/Episode/
+   Unitaire — peuvent être réellement exécutés et validés via le moteur
+   natif, pas seulement dessinés.
+3. **Webhook jamais essayé depuis une vraie Custom Action Iconik cliquée**
+   — le déclenchement manuel est maintenant testé à fond, pas le webhook.
+4. **Badge de boucle = dernière itération seulement** — un échec
+   intermédiaire sous `onError:'continue'` reste invisible sur le badge,
+   récupérable via l'onglet Debug (ouvrir l'événement précis).
+5. Les deux imperfections de PUBLISH non corrigées (critère de recherche,
+   chemin de boucle) — cf. `builder-etat.md`.
+6. `Nommage` — route existante, jamais auditée ni éditée (reste ouvert
+   depuis le 3 août).
+7. Mark in/out des segments (`time_start`/`time_end`) — jamais vérifié.
+8. Famille média (Transcode…) — non conçue.
+
+**Tout commité et poussé sur `main` en fin de session** (dernier commit
+`32e7464`, voir `git log` — cinq commits après `b292de1` : fix Recheck S3,
+versionnement, dépublier, Tidy, animation des jobs).

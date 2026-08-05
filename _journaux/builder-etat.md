@@ -7,8 +7,25 @@
 > écarté. Lire ce document suffit pour travailler ; lire le journal sert quand
 > on veut comprendre une décision ou la remettre en cause.
 >
-> Dernière mise à jour : 5 août 2026, fin de session (**moteur d'exécution
-> natif du pivot construit et vérifié en conditions réelles** —
+> Dernière mise à jour : 5 août 2026, fin de session (**animation live des
+> jobs sur le canevas** — badges/arêtes surlignées/onglet Debug — pour
+> faciliter les tests manuels, motivation directe de l'utilisateur. Corrige
+> le bug WFD le plus gênant vécu en production : un nœud en erreur qui
+> continue ne reste plus visuellement figé/confondu avec une pause — cf.
+> section "Animation live des jobs" tout en bas pour le diagnostic exact et
+> l'architecture. Trouvé et corrigé au passage : un vrai bug de fond sur les
+> nœuds `decision` (30 arêtes cassées en base, dont PUBLISH — toute arête de
+> décision dessinée depuis le canevas était silencieusement non-fonctionnelle
+> à l'exécution). Plus tôt le même jour : fix Recheck S3 sur PUBLISH v2,
+> versionnement complet (restaurer/supprimer une version, dépublier/
+> republier un workflow — `BuilderFlow.active`), et disposition automatique
+> des nœuds (Tidy, `dagre`) déclenchée par un incident réel en testant le
+> versionnement. Décision utilisateur actée : abandon de PUBLISH v1 au
+> profit de v2, bascule elle-même **pas encore faite** — cf. "Reste ouvert"
+> de la section Animation live des jobs pour le point de reprise exact.
+>
+> Historique : 5 août 2026, plus tôt (**moteur d'exécution natif du pivot
+> construit et vérifié en conditions réelles** —
 > `server/engine-builder/`, 12 Cores + 11 Facades, zéro dépendance runtime à
 > WFD. Décision de l'utilisateur en début de session : arrêter de valider des
 > workflows sans jamais pouvoir les exécuter pour de vrai — "je ne veux pas
@@ -18,10 +35,8 @@
 > moteurs produisent une trace **identique, étape par étape, port par port**,
 > sur les 14 étapes, avec de vrais appels Iconik/S3/API partenaire. Deux
 > bugs réels trouvés dans le document PUBLISH lui-même au passage (pas dans
-> le moteur, cf. section "Moteur d'exécution natif" tout en bas) et corrigés
-> en base. Cf. cette même section pour l'architecture complète et ce qui
-> reste ouvert (panneaux Logs/Run, webhook déjà câblé mais jamais essayé
-> depuis une vraie Custom Action Iconik).
+> le moteur, cf. section "Moteur d'exécution natif" plus bas) et corrigés
+> en base).
 >
 > Historique : 4 août 2026, fin de session (reconstruction PUBLISH
 > nœud par nœud poussée jusqu'à l'étape 12 — HTTP Sequence — avec deux
@@ -311,9 +326,29 @@ figé au moment de publier, et exclue de la comparaison qui déduit le statut
 ne le convertit ni ne l'active dans un moteur. Voir la clarification WFD
 ci-dessous — c'est délibéré, pas un oubli.
 
-**Reste à construire, pas fait le 3 août** : écran d'historique des versions
-(la route `GET /builder-flows/:id/versions` existe, aucun affichage), et
-rollback (republier une version antérieure — pas demandé, pas construit).
+**Construit le 5 août, plus tard le même jour** : écran d'historique
+(bouton 🕘, popover listant les versions), **restaurer** une version
+antérieure dans le brouillon (recharge le document choisi sur le canevas
+via une commande annulable — Ctrl+Z défait tout d'un coup — jamais
+d'écriture serveur directe), et **supprimer** une version (`DELETE
+/builder-flows/:id/versions/:version`, ne touche jamais au brouillon).
+Vérifié en direct sur le vrai flux PUBLISH (v1 à v6) : restaurer recharge
+bien l'ancien document, supprimer la dernière version repasse le badge en
+Draft. Piège trouvé en le vivant, pas en le lisant : le canevas auto-
+sauve sur tout changement du modèle — Restaurer écrase donc le brouillon
+en base en quelques secondes, pas juste à l'écran ; une confirmation
+explicite a été ajoutée après coup pour ça (absente du premier jet).
+
+**Aussi construit le 5 août : `BuilderFlow.active`** (dépublier/
+republier), indépendant du statut brouillon/publié. Répond à une question
+différente : ce flow doit-il encore réagir à un VRAI déclenchement Iconik
+(webhook `/api/builder-engine/action/:slug`) ? Nécessaire pour la
+migration v1→v2 de PUBLISH : les deux partagent le même Trigger Iconik
+(même `wfdSlug`/`customActionId`), donc publier v2 pendant que v1 est
+encore publiée aurait déclenché les deux à la fois sur un vrai clic
+Custom Action. Un flow désactivé reste publiable/testable en manuel/API —
+seul le webhook le filtre, avec un diagnostic dédié ("désactivé" vs "non
+publié" vs "aucun flow").
 
 **Collision de vocabulaire `draft`/`draft` — déjà résolue, pas le 3 août** :
 vérifié par `git log`, la séparation existe depuis le 24 juillet
@@ -751,7 +786,25 @@ Ce critère esthétique mesure en fait le couplage.
   ou annule, jamais une réécriture silencieuse.
 - **Le nombre de croisements devient un indicateur affiché.**
 
+**Construit le 5 août** (déclenché par un incident réel : restaurer une
+version sur le vrai PUBLISH a produit une cascade diagonale illisible sur
+16 nœuds). `bpmn-auto-layout` (visé ci-dessus) écarté après vérification —
+exige un aller-retour XML BPMN complet, mauvaise adéquation avec le
+graphe pivot brut. `@dagrejs/dagre` retenu à la place (fork activement
+maintenu, MIT), vendoré comme docx/exceljs (`_vendor/dagre/`, build UMD
+~48 Ko). Bouton "Réorganiser" (🧹) + repli automatique partout où le
+canevas se retrouvait sans positions (chargement initial, restauration de
+version, première ouverture d'un corps de boucle) — plus jamais de
+cascade. Pas de dialogue de prévisualisation accept/annule construit
+(contrairement à l'intention ci-dessus) : Ctrl+Z suffit, cohérent avec
+comment toute autre action structurelle du canevas fonctionne déjà. Le
+nombre de croisements comme indicateur affiché n'est **pas** construit —
+non demandé, dagre le minimise en interne mais rien ne l'expose côté UI.
+Cf. section "Animation live des jobs" plus bas pour la suite du même jour.
+
 L'algorithme de couches ne sera pas réécrit : `bpmn-auto-layout`, Apache 2.0.
+**Correction du 5 août : si, `bpmn-auto-layout` a été réécarté — voir
+paragraphe ci-dessus, `dagre` est ce qui tourne réellement.**
 
 **Interface** : canevas au centre, panneaux sur les côtés, **étiquettes de
 bord** qui révèlent le bon panneau — pas de bandeau surchargé de boutons.
@@ -2044,12 +2097,14 @@ partenaire (les deux tentatives ont été rejetées par une vraie validation
   (probablement `.objects` attendu) — la boucle ne fait donc jamais tourner
   son corps (Video Info / Check Asset / Action / Wait / Recheck) sur cette
   collection dans son état actuel.
-- Pas de panneau UI pour déclencher un run ou voir les résultats — tout se
-  fait par API (`curl`) pour l'instant. Cf. "Point de départ pour la
-  prochaine session" en tête de ce document.
-- Webhook (`POST /api/builder-engine/action/:slug`) jamais essayé depuis
-  une vraie Custom Action cliquée dans Iconik — seulement avec un payload
-  construit à la main.
+- ~~Pas de panneau UI pour déclencher un run ou voir les résultats~~ —
+  **construit plus tard le même jour** (panneaux Run/Jobs/Logs, puis Debug
+  + animation live des badges — cf. section "Animation live des jobs" tout
+  en bas).
+- Webhook (`POST /api/builder-engine/action/:slug`) **toujours** jamais
+  essayé depuis une vraie Custom Action cliquée dans Iconik — seulement
+  avec un payload construit à la main (déclenchement manuel testé à fond,
+  webhook réel non touché ce jour-là non plus).
 - Cron/planification pas construits (différé, comme pour WFD au départ).
 - Drift de base pré-existant découvert en passant (sans rapport avec ce
   chantier) : la table `ApsCounter` existe en production mais n'a jamais
@@ -2060,3 +2115,147 @@ partenaire (les deux tentatives ont été rejetées par une vraie validation
   moteur natif (`builder-iconik-shared.js`, `nextOrderNumber`) recrée cette
   même table à la volée (`CREATE TABLE IF NOT EXISTS`), comme le faisait
   déjà WFD — ne pas "corriger" ce gap sans en parler d'abord.
+
+---
+
+## Recheck S3 de PUBLISH v2 — bug de fond corrigé — 5 août (suite)
+
+Repris juste après la fin de session précédente. Le "Recheck" (deliver
+après l'export Iconik réel) restait bloqué en `miss` malgré un export qui
+réussissait vraiment (Action → Wait → succès). Cause réelle :
+`builder-handler-deliver.js` défaultait `operation` sur `'head_object'`
+(HEAD sur une clé exacte) alors que `config-schema.js` documente déjà
+`list_objects` comme défaut implicite (`(m.lire('operation') ||
+'list_objects')`), et les 6 occurrences réelles du flux WFD source fixent
+toujours `operation` explicitement à `list_objects` — jamais `head_object`.
+Comme `filebase()` retire l'extension du nom de fichier, un HEAD sur cette
+clé ne peut jamais matcher un vrai fichier (qui, lui, a une extension) :
+`miss` garanti, indépendamment du succès réel de l'export. Corrigé
+(défaut aligné sur `list_objects`), vérifié directement contre les vrais
+fichiers déposés ce jour-là par l'export QA — `port: 'out'`, bonnes URLs.
+Bug de fond, pas spécifique à PUBLISH : bénéficie à tout core `deliver`/
+`aws_s3.deliver` du catalogue.
+
+---
+
+## Versionnement et dépublier — 5 août (suite)
+
+Cf. section "Versionnement" plus haut, mise à jour sur place : restaurer/
+supprimer une version, et `BuilderFlow.active` (dépublier/republier),
+construits et vérifiés le même jour. Point réel vécu en le construisant :
+le canevas auto-sauve sur tout changement du modèle — restaurer une
+version écrase donc le brouillon en base en quelques secondes, pas
+seulement à l'écran. Confirmation ajoutée après coup, pas dans le premier
+jet.
+
+Décision utilisateur actée ce jour-là : **abandon de PUBLISH v1** au
+profit de v2 (export corrigé), une fois v2 testée. Bascule elle-même
+**pas encore faite** — dépend maintenant de l'animation live des jobs
+(section suivante), construite pour faciliter précisément ce test.
+
+---
+
+## Tidy — disposition automatique des nœuds — 5 août (suite)
+
+Cf. section "Canevas" plus haut, mise à jour sur place. Déclenché par un
+incident réel, pas une demande à froid : restaurer une version sur le
+vrai PUBLISH a produit une cascade diagonale sur 16 nœuds, illisible.
+`@dagrejs/dagre` vendoré (`_vendor/dagre/`), remplace le repli en cascade
+partout où il existait (chargement initial, restauration de version,
+première ouverture d'un corps de boucle) + bouton "Réorganiser" (🧹)
+explicite. Aucun dialogue de prévisualisation construit — Ctrl+Z suffit,
+cohérent avec le reste du canevas.
+
+---
+
+## Animation live des jobs — construit et vérifié — 5 août (suite)
+
+Motivation directe de l'utilisateur : "pour me faciliter les tests" —
+retrouver l'animation de jobs de WFD sur le canevas, mais sans reproduire
+son bug le plus gênant en production, vécu et décrit précisément avant
+d'y toucher : un nœud en erreur dont le port erreur est branché sur un
+nœud suivant restait quand même figé sur le canevas, visuellement
+confondu avec un vrai nœud de pause.
+
+**Diagnostic exact du bug WFD**, retrouvé dans le code plutôt que supposé :
+`_wfdHandleEngineEvent` (`script-workflow-designer.js`), cas `'node:error'`,
+fixait `stay=true` en dur — jamais dérivé du port pris ni de la présence
+d'une arête vers un nœud suivant réellement exécuté. Le cas voisin
+`'node:done'` le faisait pourtant correctement (`stay` dérivé de
+`ev.warn`) : la bonne logique existait déjà dans le même fichier, juste
+pas appliquée à la branche erreur.
+
+**Bonne nouvelle côté Builder** : `BuilderRunEvent.port` enregistre déjà
+quel port chaque étape a pris, y compris pour une erreur qui continue —
+aucun nouveau champ moteur nécessaire. Règle retenue avec l'utilisateur
+pour "Blocked" (orange) : si le run entier s'est arrêté (`onError` du
+workflow réglé sur `"stop"`), le nœud dont l'erreur est fatale devient
+Blocked ; sinon un nœud qui a erroré mais dont le run a continué ailleurs
+reste simplement rouge (honnête sur son propre passé), le badge "actif"
+avançant normalement vers la suite.
+
+**Prérequis corrigé en premier, bug de fond indépendant de cette
+fonctionnalité** : les nœuds `decision` rendaient leurs ports de sortie
+avec des ids `out-0`/`out-1` (`portsWfd()`, `pivot-catalog-iconik.js`),
+alors que le moteur (`builder-handler-decision.js`) route sur le
+**libellé** de la condition (`{port: cond.label}`), tout comme le
+validateur. Conséquence réelle trouvée en base avant de coder quoi que ce
+soit : **30 arêtes de décision cassées** sur des flows publiés, dont
+PUBLISH (plusieurs versions) et CREER SAISON — toute arête de décision
+dessinée depuis le canevas actuel était déjà silencieusement non-
+fonctionnelle à l'exécution, indépendamment de ce chantier. Corrigé
+(`portsWfd` utilise le libellé) + réparation automatique au chargement
+(`normaliserAretesDecision`, sans script de migration en base ni toucher
+aux versions figées, qui restent des instantanés immuables).
+
+**Construit** (`server/public/builders/workflow/`) :
+- `wf-run-status.js` — dérivation pure du statut par étape + arêtes
+  empruntées, à partir du document + des événements d'un run. Arêtes
+  matchées par **signature de contenu** (`from.step`+`from.port`+`to.step`),
+  pas par id — `wf-scope.js` retire les ids (valeurs de session) en
+  réécrivant le document, un document récupéré via l'API n'en a aucun de
+  stable.
+- `wf-run-poll.js` — sondage partagé unique (1500ms, incrémental via
+  `?since=seq`) pour "le run actuellement ouvert", diffuse `aps:run-tick`
+  sur `root` ; met en cache le document exécuté par run.
+- `wf-run-overlay.js` — applique le statut sur les nœuds (`data-run-
+  status`) et surligne les arêtes empruntées ; survit à un rendu
+  structurel (edit/undo/navigation de portée) sans souscription à
+  `model.onChange`.
+- Nouvel onglet **Debug** (dock droit) — cliquer un nœud pendant/après un
+  run affiche son historique complet d'événements (toutes les itérations
+  si le nœud est dans une boucle — le badge, lui, ne reflète que la
+  dernière), `ctxSnapshot` inclus.
+- Backend : le déclenchement manuel devient **asynchrone** (répond
+  immédiatement avec le `runId`, exécute en tâche de fond) — c'était
+  auparavant synchrone, donc aucune fenêtre "en cours" n'existait à
+  animer pour un déclenchement manuel, exactement le cas d'usage visé.
+- `jobs-logs-panel.js` affiche désormais le libellé du nœud (ex. "Get
+  Collection ID") au lieu des ids bruts.
+
+**Vérifié en direct** (flux jetables + le vrai flux PUBLISH en lecture
+seule) : badge honnête sur le nœud qui erreure (rouge) + badge qui avance
+correctement sur le nœud suivant (vert) + arête empruntée surlignée ;
+distinction `blocked` (orange, run arrêté) vs `error` (rouge, run
+continue) ; routage réel par libellé de décision bout en bout via un vrai
+clic sur le bouton Run (pas juste `curl`) ; onglet Debug + libellés Logs
+corrects ; zéro erreur console partout, y compris en rechargeant le vrai
+PUBLISH (16 nœuds, aucune régression).
+
+### Reste ouvert
+- **Badge de boucle = dernière itération seulement** — un échec
+  intermédiaire sous `onError:'continue'` reste invisible sur le badge,
+  récupérable uniquement via l'onglet Debug en ouvrant l'événement précis
+  de cette itération. Compromis assumé, pas construit autrement.
+- **Pas de test en vraie boucle multi-itérations** — vérifié par test
+  unitaire sur `wf-run-status.js` (données simulées), pas en conditions
+  réelles faute d'un moyen simple de seeder un tableau de test pendant
+  cette session.
+- **Bascule PUBLISH v1 → v2 toujours pas faite** — outillage prêt
+  (dépublier, animation live pour tester v2 en vrai), décision de
+  l'utilisateur actée, mais l'exécution elle-même reste à faire.
+- Webhook réel (vrai clic Custom Action Iconik) toujours jamais essayé —
+  seulement le déclenchement manuel, maintenant testé à fond.
+- Les deux imperfections de PUBLISH non corrigées (critère de recherche
+  `field:"_"`, chemin de boucle `loopVariablePath`) — toujours ouvertes,
+  cf. section "Moteur d'exécution natif" plus haut.
