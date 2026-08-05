@@ -765,6 +765,20 @@
       if (!portee) return;
       const s = portee.courant();
       model = s.model; history = s.history; selection = s.selection;
+      // `centrer` n'est vrai qu'en ENTRANT dans un corps (jamais pour la
+      // racine, jamais en sortant) — s.layoutManquant (posé par wf-scope.js)
+      // ne peut donc désigner qu'un corps de boucle ouvert pour la première
+      // fois, sans aucune position connue. Tidy AVANT le premier rendu (pas
+      // de flash cascade-puis-saut), en application directe (pas de commande
+      // annulable : ouvrir un corps n'est pas une édition). Ré-ouvrir le même
+      // corps une deuxième fois ne re-tidy pas : sortir() écrit déjà les
+      // positions dans layouts[loopId] via _ecrireCorps.
+      if (centrer && s.layoutManquant && window.WfTidy && model.noeuds().length) {
+        const positionsTidy = window.WfTidy.calculerDisposition(model.noeuds(), model.aretes());
+        Object.keys(positionsTidy).forEach(function (id) {
+          model.deplacerNoeud(id, positionsTidy[id].x, positionsTidy[id].y);
+        });
+      }
       root._wfModel = model; root._wfHistory = history; root._wfSelection = selection;
       _reScope.forEach(function (fn) { fn(); });
       rendreDepuisModele();
@@ -1111,6 +1125,22 @@
         });
       }
 
+      // ── Tidy (🧹) — réorganise le modèle de la portée COURANTE (racine ou
+      // corps de boucle ouvert : model/history visent déjà la bonne portée,
+      // cf. _surChangementDePortee) via WfTidy (dagre), en une seule commande
+      // annulable (Ctrl+Z revient à l'état d'avant en un geste).
+      const tidyBtn = root.querySelector('[data-role="tidy-flow"]');
+      if (tidyBtn) {
+        tidyBtn.addEventListener('click', function () {
+          const noeuds = model.noeuds();
+          if (!noeuds.length || !window.WfTidy) return;
+          const positions = window.WfTidy.calculerDisposition(noeuds, model.aretes());
+          history.executer(history.cmdReorganiser(positions));
+          root.setAttribute('data-dirty', '1');
+          _centrerSurContenu();
+        });
+      }
+
       if (publishBtn) {
         publishBtn.addEventListener('click', function () {
           if (!flowId) { _afficherErreur('Enregistrer le workflow avant de publier.'); return; }
@@ -1166,6 +1196,18 @@
           aretes: model.aretes().slice()
         };
         const apres = WfPersistence.initialDepuisDocument(document_);
+        // Une version figée n'a jamais de presentation (retirée avant le gel) :
+        // layoutManquant est toujours vrai ici. Tidy AVANT de construire
+        // faire/défaire, pour que tout tienne dans la même commande — un seul
+        // Ctrl+Z défait la restauration ET la disposition en un geste (la
+        // garantie que le commentaire ci-dessus promet déjà).
+        if (apres.layoutManquant && window.WfTidy) {
+          const positionsTidy = window.WfTidy.calculerDisposition(apres.nodes, apres.edges);
+          apres.nodes.forEach(function (n) {
+            const p = positionsTidy[n.id];
+            if (p) { n.x = p.x; n.y = p.y; }
+          });
+        }
         return {
           label: 'restore-version',
           faire: function () {
@@ -1298,6 +1340,20 @@
           _afficherOrg(res.orgName);
           _majStatut(res.status, res.publishedVersion, res.active);
           const initial = WfPersistence.initialDepuisDocument(res.document);
+          // Aucune position enregistrée du tout (import JSON sans presentation,
+          // ou document jamais sauvé depuis ce canevas) : Tidy plutôt que la
+          // cascade diagonale, directement sur initial.nodes AVANT l'ajout au
+          // modèle (évite un cycle ajout-puis-déplacement). Pas de
+          // history.executer : un chargement n'est pas une édition, rien à
+          // annuler (même principe que le repli qu'il remplace) — data-dirty
+          // est remis à '0' juste après ce bloc.
+          if (initial.layoutManquant && window.WfTidy) {
+            const positionsTidy = window.WfTidy.calculerDisposition(initial.nodes, initial.edges);
+            initial.nodes.forEach(function (n) {
+              const p = positionsTidy[n.id];
+              if (p) { n.x = p.x; n.y = p.y; }
+            });
+          }
           // `modeleRacine` explicitement (pas `model`) : au chargement, aucun
           // corps n'est encore ouvert, mais autant ne pas dépendre de cet
           // invariant temporel — un chargement doit toujours remplir la racine.

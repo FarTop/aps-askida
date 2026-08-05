@@ -141,9 +141,34 @@ const WfHistory = (() => {
       };
     }
 
+    // Réorganiser (Tidy) : applique un ensemble de nouvelles positions
+    // {id: {x,y}} (typiquement calculées par WfTidy) en une seule commande
+    // annulable. Ne touche que les nœuds présents dans `nouvellesPositions` —
+    // un nœud du modèle absent de la map garde sa position.
+    function cmdReorganiser(nouvellesPositions) {
+      const avant = {};
+      Object.keys(nouvellesPositions).forEach(function (id) {
+        const n = model.noeud(id);
+        if (n) avant[id] = { x: n.x, y: n.y };
+      });
+      return {
+        label: 'tidy',
+        faire: function () {
+          Object.keys(avant).forEach(function (id) {
+            model.deplacerNoeud(id, nouvellesPositions[id].x, nouvellesPositions[id].y);
+          });
+        },
+        defaire: function () {
+          Object.keys(avant).forEach(function (id) {
+            model.deplacerNoeud(id, avant[id].x, avant[id].y);
+          });
+        }
+      };
+    }
+
     return {
       onChange, executer, annuler, refaire,
-      cmdDeplacer, cmdSupprimerNoeuds, cmdAjouterNoeuds, cmdAjouterArete, cmdSupprimerArete
+      cmdDeplacer, cmdSupprimerNoeuds, cmdAjouterNoeuds, cmdAjouterArete, cmdSupprimerArete, cmdReorganiser
     };
   }
 

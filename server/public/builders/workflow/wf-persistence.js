@@ -54,8 +54,11 @@ const WfPersistence = (() => {
   function initialDepuisDocument(doc) {
     const layout = (doc && doc.presentation && doc.presentation.layout) || {};
     let i = 0;
+    let aUneVraiePosition = false;
     const nodes = ((doc && doc.steps) || []).map(function (etape) {
-      const pos = layout[etape.id] || { x: 80 + (i * 40), y: 80 + (i * 40) };
+      const connue = layout[etape.id];
+      if (connue) aUneVraiePosition = true;
+      const pos = connue || { x: 80 + (i * 40), y: 80 + (i * 40) };
       i++;
       return { id: etape.id, etape: etape, x: pos.x, y: pos.y };
     });
@@ -66,7 +69,15 @@ const WfPersistence = (() => {
     // les positions des corps de boucle déjà édités, plutôt que de tout
     // redisposer par défaut à chaque entrée.
     const bodyLayout = (doc && doc.presentation && doc.presentation.bodyLayout) || {};
-    return { nodes: nodes, edges: edges, bodyLayout: bodyLayout };
+    // true seulement si AUCUN nœud n'avait de position enregistrée (version
+    // figée — presentation retirée avant le gel — ou import JSON sans
+    // presentation) : signal pour l'appelant, qui décide de lancer WfTidy à
+    // la place du repli en cascade ci-dessus. Cette fonction reste une pure
+    // conversion document<->modèle, sans dépendance à dagre/DOM (cf. WfTidy).
+    // Un repli PARTIEL (certains nœuds ont une position, pas tous) reste sur
+    // le comportement par-nœud existant, volontairement — cas non rencontré.
+    const layoutManquant = nodes.length > 0 && !aUneVraiePosition;
+    return { nodes: nodes, edges: edges, bodyLayout: bodyLayout, layoutManquant: layoutManquant };
   }
 
   // Charge un workflow existant : { id, name, document }.

@@ -99,6 +99,11 @@ const WfScope = (() => {
       const WfModelLocal = WfModel;
       const body = etapeBoucle.body || { steps: [], edges: [] };
       const layout = layouts[etapeBoucle.id] || {};
+      // true si ce corps n'a ENCORE JAMAIS eu de position enregistrée (première
+      // ouverture) : simple SIGNAL renvoyé à l'appelant (workflow-canvas.js),
+      // qui décide s'il lance WfTidy à la place du repli linéaire ci-dessous —
+      // ce fichier reste logique pure, sans dépendance à dagre/DOM (cf. en-tête).
+      const layoutManquant = Object.keys(layout).length === 0 && (body.steps || []).length > 0;
       let i = 0;
       const nodes = (body.steps || []).map(function (etape) {
         const pos = layout[etape.id] || { x: 80 + (i * 220), y: 80 };
@@ -112,7 +117,8 @@ const WfScope = (() => {
         etape: etapeBoucle,
         model: model,
         history: WfHistory.creer(model),
-        selection: WfSelection.creer()
+        selection: WfSelection.creer(),
+        layoutManquant: layoutManquant
       };
     }
 
