@@ -26,6 +26,7 @@ const WfScope = (() => {
     const WfModel     = (typeof window !== 'undefined') ? window.WfModel     : require('./wf-model.js');
     const WfHistory   = (typeof window !== 'undefined') ? window.WfHistory   : require('./wf-history.js');
     const WfSelection = (typeof window !== 'undefined') ? window.WfSelection : require('./wf-selection.js');
+    const CAT         = (typeof window !== 'undefined') ? window.PivotCatalogIconik : require('./pivot-catalog-iconik.js');
 
     // layouts[loopId] = { stepId: {x,y} } — connu au chargement (presentation
     // .bodyLayout) puis tenu à jour à chaque sortie/flush d'un corps édité.
@@ -110,7 +111,11 @@ const WfScope = (() => {
         i++;
         return { id: etape.id, etape: etape, x: pos.x, y: pos.y };
       });
-      const edges = (body.edges || []).map(function (e) { return { from: e.from, to: e.to }; });
+      // Répare au passage les arêtes de décision écrites avant le correctif
+      // de portsWfd() (id 'out-N' au lieu du libellé réel de la condition) —
+      // même raisonnement que wf-persistence.js pour les arêtes racine.
+      const edgesBrutes = CAT ? CAT.normaliserAretesDecision(body.steps || [], body.edges || []) : (body.edges || []);
+      const edges = edgesBrutes.map(function (e) { return { from: e.from, to: e.to }; });
       const model = WfModelLocal.creer({ nodes: nodes, edges: edges });
       return {
         loopId: etapeBoucle.id,

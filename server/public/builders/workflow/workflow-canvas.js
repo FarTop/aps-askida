@@ -22,7 +22,7 @@
   const MIN = px(styles.getPropertyValue('--bd-panel-min'));
   const MAX = px(styles.getPropertyValue('--bd-panel-max'));
 
-  const TITRE = { jobs: 'Jobs', logs: 'Logs', config: 'Config', variables: 'Variables', run: 'Run', api: 'API ops' };
+  const TITRE = { jobs: 'Jobs', logs: 'Logs', config: 'Config', variables: 'Variables', run: 'Run', debug: 'Debug', api: 'API ops' };
 
   // ── Ouverture / fermeture des volets ──────────────────────────────────────
   // data-open porte la liste des bords ouverts ("left right"). Le CSS fait
@@ -240,6 +240,10 @@
       _marquerSelection();
       retracerAretes();
       _majCompteurs();
+      // Survit à un rendu structurel (edit/undo/navigation de portée) sans
+      // que wf-run-overlay.js ait besoin de sa propre souscription à
+      // model.onChange — rejoue simplement le dernier statut de run connu.
+      if (window.WfRunOverlay) WfRunOverlay.reappliquer(nodesHost);
     }
 
     // Retrace des arêtes, COALESCÉ : un seul rAF en vol à la fois. Sans ça, un
@@ -365,6 +369,13 @@
       if (!drag) return;
       if (nodesHost.hasPointerCapture(e.pointerId)) nodesHost.releasePointerCapture(e.pointerId);
       const d = drag; drag = null;
+      // Simple clic (pas un glissé) sur UN SEUL nœud : signale son id, pour
+      // que debug-panel.js (s'il écoute) affiche les événements de run de
+      // ce step. Inoffensif si personne n'écoute — aucune dépendance
+      // inverse, même principe que tous les autres événements sur `root`.
+      if (!d.moved && d.ids.length === 1) {
+        root.dispatchEvent(new CustomEvent('aps:node-clicked', { detail: { stepId: d.ids[0] } }));
+      }
       if (!d.moved || !history) return;
       // Remet d'abord les nœuds à leur départ, puis rejoue le delta comme UNE
       // commande annulable (les mouvements directs n'étaient pas dans l'historique).
@@ -787,6 +798,24 @@
       _rendreVarsPanel();
       _majFilDAriane();
     }
+
+    // ── Animation live des jobs (wf-run-poll.js émet, ici on applique) ──────
+    // Câblé ICI (pas dans un module indépendant comme run-panel.js/
+    // jobs-logs-panel.js) parce que le surlignage des arêtes a besoin du
+    // WfModel VIVANT de la portée courante (model.aretes(), avec ses ids de
+    // session) — WfModel n'est jamais exposé sur `root`, et ça doit le
+    // rester (cf. en-tête wf-scope.js). Seule dérogation volontaire au
+    // principe "modules indépendants, seulement des événements sur root".
+    // Un seul abonnement pour toute la durée de vie du canevas (pas par
+    // portée) : `model`/`nodesHost`/`svgEdges` sont lus depuis la fermeture
+    // à chaque déclenchement, donc reflètent toujours la portée courante.
+    root.addEventListener('aps:run-tick', function (e) {
+      const d = e.detail;
+      if (window.WfRunOverlay) {
+        WfRunOverlay.appliquer(nodesHost, d.stepStatus);
+        WfRunOverlay.marquerAretes(svgEdges, model.aretes(), d.takenEdges);
+      }
+    });
 
     // ── Fil d'Ariane : navigation entre les portées ouvertes ────────────────
     (function () {

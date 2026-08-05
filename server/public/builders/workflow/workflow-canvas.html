@@ -236,6 +236,18 @@
               </div>
             </div>
           </div>
+
+          <!-- Vue Debug : détails d'UN nœud pour le run actuellement ouvert
+               (sélectionné dans Jobs, ou déclenché depuis Run) — cliquer un
+               nœud sur le canevas y affiche son historique d'événements.
+               Indépendant de workflow-canvas.js (aps:run-tick / aps:node-
+               clicked sur root), même principe que run-panel.js. -->
+          <div class="bd-view bd-view-debug">
+            <div class="bd-panel-bd">
+              <p class="bd-empty" data-role="debug-empty">Open a run (Jobs) and click a node to inspect it.</p>
+              <div data-role="debug-content" hidden></div>
+            </div>
+          </div>
         </aside>
         <div class="bd-grip" data-side="right"
              role="separator" aria-orientation="vertical" tabindex="0"
@@ -245,6 +257,7 @@
           <button class="bd-tab" data-panel="config" data-side="right">Config</button>
           <button class="bd-tab" data-panel="variables" data-side="right">Variables</button>
           <button class="bd-tab" data-panel="run" data-side="right">Run</button>
+          <button class="bd-tab" data-panel="debug" data-side="right">Debug</button>
         </div>
       </div>
 
@@ -276,6 +289,7 @@
   <script src="wf-persistence.js"></script>
   <script src="wf-history.js"></script>
   <script src="wf-tidy.js"></script>
+  <script src="wf-run-status.js"></script>
   <script src="wf-selection.js"></script>
   <script src="wf-scope.js"></script>
   <script src="wf-clipboard.js"></script>
@@ -283,6 +297,7 @@
   <script src="wf-palette-drag.js"></script>
   <script src="wf-connect.js"></script>
   <script src="wf-context-menu.js"></script>
+  <script src="wf-run-overlay.js"></script>
   <script src="config-sources.js"></script>
   <script src="config-model.js"></script>
   <script src="config-renderer.js"></script>
@@ -290,6 +305,8 @@
   <script src="wf-shortcuts.js"></script>
   <script src="run-panel.js"></script>
   <script src="jobs-logs-panel.js"></script>
+  <script src="wf-run-poll.js"></script>
+  <script src="debug-panel.js"></script>
   <script src="workflow-canvas.js"></script>
 </body>
 </html>

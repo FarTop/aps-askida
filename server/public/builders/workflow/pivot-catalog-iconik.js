@@ -61,6 +61,30 @@ const PivotCatalogIconik = (() => {
     return p;
   }
 
+  // Répare au chargement les arêtes de décision écrites avant le correctif
+  // de portsWfd() (id de port 'out-N' au lieu du libellé réel de la
+  // condition) — trouvé en base sur des flows publiés (PUBLISH, CREER
+  // SAISON, 30 arêtes cassées au total le 2026-08-05). Une telle arête
+  // n'a jamais pu être empruntée à l'exécution (le moteur renvoie le
+  // libellé, jamais 'out-N') : la réparer ici ne casse rien qui marchait,
+  // elle rend juste fonctionnel ce qui était déjà silencieusement mort.
+  // Si l'index ne correspond plus à une condition existante, l'arête reste
+  // inchangée (déjà morte, visible telle quelle plutôt que supprimée).
+  function normaliserAretesDecision(steps, edges) {
+    const parId = {};
+    (steps || []).forEach(function (s) { parId[s.id] = s; });
+    return (edges || []).map(function (e) {
+      const m = e.from && typeof e.from.port === 'string' && e.from.port.match(/^out-(\d+)$/);
+      if (!m) return e;
+      const source = parId[e.from.step];
+      if (!source || source.core !== 'decision') return e;
+      const conds = ((source.params || {}).conditions) || [];
+      const cond = conds[Number(m[1])];
+      if (!cond || !cond.label) return e;
+      return Object.assign({}, e, { from: Object.assign({}, e.from, { port: cond.label }) });
+    });
+  }
+
   // Décoration des ports pour la régénération WFD : label et couleur, que le
   // pivot ne stocke pas. Propriétés stables de la famille, relevées sur les
   // flows de production. Le validateur, lui, ne consulte que les id ci-dessus ;
@@ -378,7 +402,14 @@ const PivotCatalogIconik = (() => {
     if (etape.core === 'decision') {
       const conds = ((etape.params || {}).conditions) || [];
       const outs = conds.map(function (cond, i) {
-        return { id: 'out-' + i, label: (cond && cond.label) || ('Branche ' + i),
+        // id = libellé réel de la condition — même règle que portsDecision()
+        // (le validateur) et builder-handler-decision.js (le moteur, qui
+        // renvoie {port: cond.label} à l'exécution). Utiliser 'out-'+i ici
+        // aurait produit des ports DOM qui ne correspondent jamais à ce que
+        // le moteur emprunte réellement — bug réel trouvé en base (30 arêtes
+        // decision cassées sur des flows publiés, dont PUBLISH).
+        const id = (cond && cond.label) || ('out-' + i);
+        return { id: id, label: (cond && cond.label) || ('Branche ' + i),
                  color: COULEUR_DECISION[i % COULEUR_DECISION.length] };
       });
       // Libellé réel, configurable (defaultLabel) — vérifié sur les 7 nœuds
@@ -432,7 +463,7 @@ const PivotCatalogIconik = (() => {
     portsDe, ports: portsDe,
     servicesDe, services: servicesDe,
     facadeConnue, coreConnu,
-    portsDecision,
+    portsDecision, normaliserAretesDecision,
     familleWfd, portsWfd, indexPort,
     variablesDe, aplatitMetadonnees
   };

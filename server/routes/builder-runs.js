@@ -1,8 +1,8 @@
 // APS — server/routes/builder-runs.js — créé le 2026-08-05
-// Lecture seule de l'historique de runs du moteur natif du Builder — pensé
-// pour la vérification par curl (pas de SSE, pas d'UI, cf. plan
-// abstract-honking-map.md, §7 — les panneaux Logs/Run du canevas sont un
-// chantier séparé, pas encore cadré).
+// Lecture seule de l'historique de runs du moteur natif du Builder. Sert
+// aussi de source de sondage pour l'animation live des jobs sur le canevas
+// (wf-run-poll.js) — pas de SSE, du sondage simple avec `?since=seq` pour
+// n'envoyer que les nouveaux événements sur les ticks suivants.
 'use strict';
 
 const express = require('express');
@@ -32,13 +32,17 @@ router.get('/', async (req, res) => {
   finally { await prisma.$disconnect(); }
 });
 
-// GET /api/builder-runs/:runId — détail + events
+// GET /api/builder-runs/:runId?since=seq — détail + events (seq > since si fourni)
+// Sans `since` : historique complet (premier sondage). Avec `since` : seulement
+// les événements nouveaux depuis le dernier tick — évite de re-télécharger un
+// ctxSnapshot complet par événement à chaque sondage sur un run long/en boucle.
 router.get('/:runId', async (req, res) => {
   const prisma = getPrisma();
   try {
+    const since = req.query.since != null ? Number(req.query.since) : null;
     const run = await prisma.builderRun.findUnique({
       where: { id: req.params.runId },
-      include: { events: { orderBy: { seq: 'asc' } } },
+      include: { events: { where: since != null ? { seq: { gt: since } } : undefined, orderBy: { seq: 'asc' } } },
     });
     if (!run) return res.status(404).json({ error: 'Run non trouvé' });
     res.json(run);

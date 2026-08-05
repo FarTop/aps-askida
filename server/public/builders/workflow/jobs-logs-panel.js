@@ -31,6 +31,25 @@
   let flowId = root._flowId || null;
   let runSelectionne = null;
   let pollTimer = null;
+  let dernierRunAffiche = null;
+
+  // Index plat stepId -> step (étiquette lisible), en descendant dans les
+  // corps de boucle — alimenté par wf-run-poll.js via aps:run-tick (document
+  // mis en cache une fois par run, partagé avec les badges/l'onglet Debug).
+  // Reste vide tant qu'aucun tick n'est arrivé : repli sur l'affichage brut
+  // existant (stepCore/stepFacade/stepId), jamais un libellé inventé.
+  let indexEtapes = {};
+  function _indexerEtapes(document_) {
+    const out = {};
+    function marcher(steps) {
+      (steps || []).forEach(function (s) {
+        out[s.id] = s;
+        if (s.core === 'loop' && s.body) marcher(s.body.steps);
+      });
+    }
+    if (document_) marcher(document_.steps);
+    return out;
+  }
 
   // ── Formatage ─────────────────────────────────────────────────────────────
   const ETAT_DOT = { running: 'warn', success: 'ok', partial: 'warn', failed: 'err' };
@@ -124,6 +143,7 @@
   // ── Logs : timeline d'événements d'un run sélectionné ────────────────────
   function _selectionnerRun(runId, basculerVersLogs) {
     runSelectionne = runId;
+    if (window.WfRunPoll) WfRunPoll.suivre(runId);
     jobsListe.querySelectorAll('.jb-row').forEach(function (row) {
       row.setAttribute('data-selected', row.getAttribute('data-run-id') === runId ? '1' : '0');
     });
@@ -140,6 +160,7 @@
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (run) {
         if (!run) { if (logsEmpty) logsEmpty.textContent = 'Run not found.'; return; }
+        dernierRunAffiche = run;
         _rendreLogs(run);
       })
       .catch(function (e) {
@@ -206,7 +227,13 @@
     if (ev.stepId) {
       const step = document.createElement('span');
       step.className = 'lg-step';
-      step.textContent = (ev.stepCore || '') + (ev.stepFacade ? ' · ' + ev.stepFacade : '') + ' (' + ev.stepId + ')' + (ev.port ? ' → ' + ev.port : '');
+      // Libellé lisible du nœud (ex. "Get Collection ID") si le document est
+      // en cache (aps:run-tick) — sinon repli sur l'affichage brut existant,
+      // jamais un libellé inventé.
+      const etape = indexEtapes[ev.stepId];
+      step.textContent = etape
+        ? etape.label + (ev.port ? ' → ' + ev.port : '')
+        : (ev.stepCore || '') + (ev.stepFacade ? ' · ' + ev.stepFacade : '') + ' (' + ev.stepId + ')' + (ev.port ? ' → ' + ev.port : '');
       ligneHd.appendChild(step);
     }
     const at = document.createElement('span');
@@ -239,6 +266,18 @@
     ligne.appendChild(corps);
     return ligne;
   }
+
+  // Document mis en cache par wf-run-poll.js (une fois par run, partagé avec
+  // les badges/l'onglet Debug) — alimente indexEtapes dès qu'il arrive, et
+  // rejoue le rendu de Logs pour que les libellés (et les événements les
+  // plus récents d'un run encore en cours) apparaissent sans action.
+  root.addEventListener('aps:run-tick', function (e) {
+    if (e.detail.document) indexEtapes = _indexerEtapes(e.detail.document);
+    if (e.detail.runId !== runSelectionne || !dernierRunAffiche) return;
+    const runPourRendu = Object.assign({}, dernierRunAffiche, e.detail.run, { events: e.detail.allEvents });
+    dernierRunAffiche = runPourRendu;
+    _rendreLogs(runPourRendu);
+  });
 
   // ── Câblage : flowId, refresh manuel, run frais depuis Run ──────────────
   root.addEventListener('aps:flow-ready', function (e) {

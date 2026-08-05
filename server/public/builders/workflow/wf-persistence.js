@@ -62,7 +62,13 @@ const WfPersistence = (() => {
       i++;
       return { id: etape.id, etape: etape, x: pos.x, y: pos.y };
     });
-    const edges = ((doc && doc.edges) || []).map(function (e) {
+    // Répare au passage les arêtes de décision écrites avant le correctif de
+    // portsWfd() (id 'out-N' au lieu du libellé réel) — cf. commentaire de
+    // normaliserAretesDecision (pivot-catalog-iconik.js). Trouvé en base sur
+    // des flows publiés (30 arêtes cassées, 2026-08-05).
+    const CAT = (typeof window !== 'undefined') ? window.PivotCatalogIconik : null;
+    const edgesBrutes = CAT ? CAT.normaliserAretesDecision((doc && doc.steps) || [], (doc && doc.edges) || []) : ((doc && doc.edges) || []);
+    const edges = edgesBrutes.map(function (e) {
       return { from: e.from, to: e.to };
     });
     // bodyLayout suit tel quel — WfScope.creer() en a besoin pour retrouver

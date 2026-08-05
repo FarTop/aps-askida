@@ -12,6 +12,7 @@ const { PrismaPg }     = require('@prisma/adapter-pg');
 
 const { getOrgContext, whereOrg } = require('../lib/org-context');
 const { executeRun } = require('../engine-builder/builder-engine.js');
+const RunStore = require('../engine-builder/builder-run-store.js');
 
 function getPrisma() {
   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
@@ -24,6 +25,12 @@ function getPrisma() {
 // Avec `version` : exécute cette BuilderFlowVersion figée (ex: pour rejouer
 // exactement ce qui a été publié, indépendamment des modifications du
 // brouillon depuis).
+// Asynchrone : répond immédiatement avec le runId (créé avant la réponse,
+// pas dans executeRun) puis exécute en tâche de fond — même forme que
+// _dispatchCustomAction (webhook, plus bas), avec une différence assumée :
+// ce chemin-ci a besoin d'un runId réel synchrone pour que le client puisse
+// sonder /api/builder-runs/:runId en direct (cf. wf-run-poll.js côté
+// canevas), alors que le webhook n'a jamais personne pour le sonder.
 router.post('/trigger/:flowId', async (req, res) => {
   const prisma = getPrisma();
   try {
@@ -31,7 +38,7 @@ router.post('/trigger/:flowId', async (req, res) => {
     const flow = await prisma.builderFlow.findUnique({
       where: { id: req.params.flowId, ...whereOrg(ctx) },
     });
-    if (!flow) return res.status(404).json({ error: 'BuilderFlow non trouvé' });
+    if (!flow) { await prisma.$disconnect(); return res.status(404).json({ error: 'BuilderFlow non trouvé' }); }
 
     let document = flow.document;
     let flowVersion = null;
@@ -39,12 +46,18 @@ router.post('/trigger/:flowId', async (req, res) => {
       const version = await prisma.builderFlowVersion.findUnique({
         where: { flowId_version: { flowId: flow.id, version: Number(req.body.version) } },
       });
-      if (!version) return res.status(404).json({ error: `Version ${req.body.version} non trouvée` });
+      if (!version) { await prisma.$disconnect(); return res.status(404).json({ error: `Version ${req.body.version} non trouvée` }); }
       document = version.document;
       flowVersion = version.version;
     }
 
-    const result = await executeRun(document, {
+    const run = await RunStore.startRun(prisma, {
+      orgId: flow.orgId, flowId: flow.id, flowVersion,
+      triggerType: 'manual', triggerRef: null,
+    });
+    res.json({ runId: run.id, status: 'running' });
+
+    executeRun(document, {
       orgId: flow.orgId,
       flowId: flow.id,
       flowVersion,
@@ -52,11 +65,14 @@ router.post('/trigger/:flowId', async (req, res) => {
       triggerType: 'manual',
       triggerRef: null,
       prisma,
-    });
-
-    res.json(result);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-  finally { await prisma.$disconnect(); }
+      existingRun: run,
+    })
+      .catch(err => console.error(`[Builder Engine] Erreur run manuel "${flow.name}" :`, err.message))
+      .finally(() => prisma.$disconnect());
+  } catch (e) {
+    if (!res.headersSent) res.status(500).json({ error: e.message });
+    await prisma.$disconnect();
+  }
 });
 
 // ── Normalisation du payload Iconik (Custom Action) ──────────────

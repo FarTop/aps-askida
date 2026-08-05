@@ -7,11 +7,15 @@
  * workflow (flowId, orgId) exposé sur root par l'événement `aps:flow-ready`
  * (root._flowId), ne connaît rien du reste du canevas.
  *
- * Un run déclenché ici est TOUJOURS synchrone côté serveur (le déclenchement
- * manuel attend `executeRun` avant de répondre — cf. builder-engine.js) : pas
- * de polling nécessaire pour SON propre run, juste afficher le résultat reçu.
- * Émet `aps:run-finished` pour que jobs-logs-panel.js rafraîchisse Jobs sans
- * dépendance inverse.
+ * Le déclenchement manuel est ASYNCHRONE côté serveur (2026-08-05, pour
+ * l'animation live des jobs) : la réponse arrive avec un runId dès que la
+ * ligne BuilderRun existe, le run tourne encore en tâche de fond derrière —
+ * WfRunPoll.suivre(runId) prend le relais pour suivre sa progression
+ * (badges/arêtes sur le canevas, onglet Debug, Logs), affiché ici via
+ * `aps:run-tick` plutôt que le corps de la réponse HTTP. `aps:run-finished`
+ * reste émis, mais seulement une fois le run réellement terminé (statut
+ * terminal reçu via le tick), pour que jobs-logs-panel.js rafraîchisse Jobs
+ * au bon moment — pas juste après la réponse HTTP, qui n'est plus la fin.
  */
 (function () {
   'use strict';
@@ -29,6 +33,8 @@
   if (!formEl || !triggerBtn) return;
 
   let flowId = root._flowId || null;
+  let runIdEnAttente = null; // runId qu'on vient de déclencher, en attente de son statut terminal
+  const ETATS_TERMINAUX = { success: 1, partial: 1, failed: 1 };
 
   function _majDisponibilite() {
     const dispo = !!flowId;
@@ -110,15 +116,35 @@
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
       .then(function (res) {
         if (!res.ok) throw new Error(res.data.error || ('HTTP error'));
-        _afficherResultat(JSON.stringify(res.data, null, 2), res.data.status || 'success');
-        root.dispatchEvent(new CustomEvent('aps:run-finished', { detail: { flowId: flowId, runId: res.data.runId } }));
+        // Réponse immédiate = juste un runId, le run tourne encore en tâche
+        // de fond. WfRunPoll prend le relais (badges/arêtes/Debug/Logs) ;
+        // ce panneau affiche son propre résultat final au prochain tick
+        // terminal pour CE runId (cf. listener aps:run-tick plus bas).
+        runIdEnAttente = res.data.runId;
+        if (window.WfRunPoll) WfRunPoll.suivre(res.data.runId);
       })
       .catch(function (e) {
+        runIdEnAttente = null;
         _afficherResultat('Error: ' + e.message, 'failed');
-      })
-      .then(function () {
         triggerBtn.disabled = false;
         triggerBtn.textContent = '▶ Run';
       });
+  });
+
+  // Le run qu'ON vient de déclencher atteint un statut terminal : affiche le
+  // résultat final et redonne la main au bouton. Ignore les ticks des runs
+  // d'AUTRES origines (sélectionnés dans Jobs) — ce panneau ne réagit qu'à
+  // ses propres déclenchements, Jobs/Debug/les badges suivent tout le reste.
+  root.addEventListener('aps:run-tick', function (e) {
+    if (!runIdEnAttente || e.detail.runId !== runIdEnAttente) return;
+    if (!e.detail.run || !ETATS_TERMINAUX[e.detail.run.status]) return;
+    // events du tick = seulement les NOUVEAUX (since=), on réaffiche la
+    // liste complète accumulée par WfRunPoll pour le résultat final.
+    const runComplet = Object.assign({}, e.detail.run, { events: e.detail.allEvents });
+    _afficherResultat(JSON.stringify(runComplet, null, 2), e.detail.run.status);
+    triggerBtn.disabled = false;
+    triggerBtn.textContent = '▶ Run';
+    root.dispatchEvent(new CustomEvent('aps:run-finished', { detail: { flowId: flowId, runId: runIdEnAttente } }));
+    runIdEnAttente = null;
   });
 })();

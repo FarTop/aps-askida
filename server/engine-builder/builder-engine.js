@@ -104,6 +104,11 @@ async function executeRun(doc, options) {
     prisma,
     iconikClient: iconikClientOverride = null,
     resolved: resolvedOverride = null,
+    // Ligne BuilderRun déjà créée par l'appelant (ex. le déclenchement manuel,
+    // qui a besoin d'un runId réel AVANT de répondre au client pour permettre
+    // le sondage live — cf. server/routes/builder-engine.js). Si absent,
+    // comportement inchangé : la ligne est créée ici, comme avant.
+    existingRun = null,
   } = options;
 
   const steps = (doc && doc.steps) || [];
@@ -131,7 +136,7 @@ async function executeRun(doc, options) {
     || await resolveIconikClient(prisma, orgId, doc.workflow && doc.workflow.environment)
     || buildClientFromAuth(ctx._iconikAuth);
 
-  const run = await RunStore.startRun(prisma, { orgId, flowId, flowVersion, triggerType, triggerRef });
+  const run = existingRun || await RunStore.startRun(prisma, { orgId, flowId, flowVersion, triggerType, triggerRef });
 
   let seq = 0;
   const emit = async (type, step, ctxAtEvent, extra) => {

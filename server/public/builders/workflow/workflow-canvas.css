@@ -214,6 +214,21 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+/* Statut de run live (wf-run-overlay.js) — indépendant de data-selected,
+   les deux peuvent coexister. `running` réutilise cfg-pulse tel quel (déjà
+   le langage visuel "quelque chose se passe en direct" de cette app, cf.
+   .cfg-bille[data-etat="test"] plus bas) ; `blocked` prend un tempo plus
+   lent (2s vs 1s) — c'est la correction directe du bug WFD : un état
+   VRAIMENT figé (run arrêté ici) ne doit jamais se confondre visuellement
+   avec une erreur qui a simplement continué ailleurs (`error`, statique). */
+.bd-node-canvas[data-run-status="running"] { border-color: var(--info); box-shadow: 0 0 0 1px var(--info); animation: cfg-pulse 1s ease-in-out infinite; }
+.bd-node-canvas[data-run-status="success"] { border-color: var(--ok);   box-shadow: 0 0 0 1px var(--ok); }
+.bd-node-canvas[data-run-status="error"]   { border-color: var(--err);  box-shadow: 0 0 0 1px var(--err); }
+.bd-node-canvas[data-run-status="blocked"] { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn); animation: cfg-pulse 2s ease-in-out infinite; }
+
+/* Arête réellement empruntée par le run affiché (wf-run-overlay.js). */
+.cnv-edge-run-taken .cnv-edge-line { filter: drop-shadow(0 0 3px var(--info)); stroke-width: 3; }
+
 .nc-head { display: flex; gap: 10px; padding: 12px 14px 10px; }
 .nc-badge {
   width: 30px; height: 30px; border-radius: 8px; flex: none;
@@ -343,6 +358,7 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 .bd-dock-right[data-panel="config"]    .bd-view-config    { display: flex; }
 .bd-dock-right[data-panel="variables"] .bd-view-variables { display: flex; }
 .bd-dock-right[data-panel="run"]       .bd-view-run       { display: flex; }
+.bd-dock-right[data-panel="debug"]     .bd-view-debug     { display: flex; }
 /* Même bascule pour le dock gauche (Jobs / Logs). */
 .bd-dock-left[data-panel="jobs"] .bd-view-jobs { display: flex; }
 .bd-dock-left[data-panel="logs"] .bd-view-logs { display: flex; }
