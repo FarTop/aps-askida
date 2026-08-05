@@ -171,6 +171,18 @@
         lien.appendChild(badge);
       }
 
+      // Inactif = dépublié pour le webhook (server/routes/wfd-data.js,
+      // BuilderFlow.active) — affiché EN PLUS du badge Draft/Published
+      // ci-dessus, pas à sa place : les deux répondent à des questions
+      // différentes (voir commentaire du schéma sur BuilderFlow.active).
+      if (opts.outils && item.active === false) {
+        const badgeInactif = document.createElement('span');
+        badgeInactif.className = 'wb-badge wb-badge-inactive';
+        badgeInactif.title = 'Ne répond plus au vrai déclenchement Iconik (webhook)';
+        badgeInactif.textContent = 'Inactive';
+        lien.appendChild(badgeInactif);
+      }
+
       if (item.niveau && item.niveau !== '*') {
         const meta = document.createElement('span');
         meta.className = 'wb-item-meta';

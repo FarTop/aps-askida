@@ -41,7 +41,7 @@
        l'API ops (lecture gauche->droite). Chaque volet et ses onglets forment
        une piece solidaire qui coulisse EN SUPERPOSITION par-dessus le canevas
        fixe : le canevas ne bouge jamais quand un volet s'ouvre. -->
-  <div class="bd-canvas-root" data-open="" data-dirty="0">
+  <div class="bd-canvas-root" data-open="" data-dirty="0" data-active="1">
 
     <!-- Bandeau d'état — informe, ne commande pas. Trois zones hiérarchisées :
          identité (gauche) · contexte (centre) · technique (droite). Le sapin de
@@ -57,12 +57,14 @@
       <div class="bd-seg">
         <span class="bd-wf-name" data-role="wf-name">— no workflow —</span>
         <span class="bd-badge" data-role="statut" data-state="idle">—</span>
+        <span class="bd-inactive-badge" data-role="inactive-badge" title="Ne répond plus au vrai déclenchement Iconik (webhook)">INACTIVE</span>
         <span class="bd-dirty" data-role="dirty">
           <span class="bd-dot bd-dot-warn"></span>unsaved
         </span>
         <button class="bd-icon-btn" data-role="save-flow" title="Save workflow" type="button">💾 Save</button>
         <button class="bd-icon-btn" data-role="publish-flow" title="Figer une version publiée" type="button">📌</button>
         <button class="bd-icon-btn" data-role="history-flow" title="Historique des versions publiées" type="button">🕘</button>
+        <button class="bd-icon-btn" data-role="toggle-active" title="Désactiver (arrêter le déclenchement Iconik)" type="button">⏸</button>
         <span class="bd-save-error" data-role="save-error" hidden></span>
       </div>
 

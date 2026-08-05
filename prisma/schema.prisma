@@ -314,6 +314,15 @@ model BuilderFlow {
   organisation  Organisation @relation(fields: [orgId], references: [id])
   name          String
   document      Json         @default("{}")
+  // Indépendant du statut brouillon/publié (qui reste calculé, jamais
+  // stocké — cf. commentaire de BuilderFlowVersion). `active` répond à une
+  // question différente : ce flow doit-il encore réagir à un VRAI
+  // déclenchement Iconik (webhook /action/:slug) ? Un flow inactif reste
+  // publiable, testable en manuel/API, éditable — seul le webhook le
+  // filtre. Ajouté pour permettre de dépublier proprement un flow (ex. une
+  // migration v1 -> v2 partageant le même Custom Action Iconik) sans avoir
+  // à trafiquer son Trigger ni à le supprimer.
+  active        Boolean      @default(true)
   versions      BuilderFlowVersion[]
   runs          BuilderRun[]
   createdAt     DateTime     @default(now())
@@ -349,7 +358,10 @@ model BuilderRun {
   orgId         String
   organisation  Organisation      @relation(fields: [orgId], references: [id])
   flowId        String
-  flow          BuilderFlow       @relation(fields: [flowId], references: [id])
+  // onDelete: Cascade déjà en base (table créée par SQL brut, comme
+  // ApsCounter — cf. reference_prisma_db_drift) ; déclaré ici pour que le
+  // texte du schéma dise la vérité, aucun changement de DB nécessaire.
+  flow          BuilderFlow       @relation(fields: [flowId], references: [id], onDelete: Cascade)
   flowVersion   Int?              // version publiée exécutée, null si contre le brouillon
   status        String            // running | success | partial | failed
   triggerType   String            // manual | custom_action

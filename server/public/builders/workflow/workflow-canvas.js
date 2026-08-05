@@ -1060,20 +1060,55 @@
       // production, pas un cadenas d'édition.
       const statutEl = root.querySelector('[data-role="statut"]');
       const publishBtn = root.querySelector('[data-role="publish-flow"]');
+      const toggleActiveBtn = root.querySelector('[data-role="toggle-active"]');
 
-      function _majStatut(status, version) {
-        if (!statutEl) return;
-        statutEl.setAttribute('data-state', status || 'idle');
-        statutEl.textContent = status === 'published' ? ('published · v' + version)
-          : status === 'draft' ? 'draft' : '—';
+      // `active` optionnel : undefined = ne touche pas au badge/bouton actif
+      // (cas du succès de Publier, qui ne change pas cet état). Indépendant
+      // de status/version — voir commentaire du schéma sur BuilderFlow.active.
+      function _majStatut(status, version, active) {
+        if (statutEl) {
+          statutEl.setAttribute('data-state', status || 'idle');
+          statutEl.textContent = status === 'published' ? ('published · v' + version)
+            : status === 'draft' ? 'draft' : '—';
+        }
+        if (active === undefined) return;
+        root.setAttribute('data-active', active === false ? '0' : '1');
+        if (toggleActiveBtn) {
+          toggleActiveBtn.textContent = active === false ? '▶' : '⏸';
+          toggleActiveBtn.title = active === false
+            ? 'Réactiver (répondre de nouveau au vrai déclenchement Iconik)'
+            : 'Désactiver (arrêter le déclenchement Iconik)';
+        }
       }
 
       function _rafraichirStatut() {
         if (!flowId) { _majStatut(null, null); return; }
         fetch('/api/builder-flows/' + encodeURIComponent(flowId))
           .then(function (r) { return r.ok ? r.json() : null; })
-          .then(function (res) { if (res) _majStatut(res.status, res.publishedVersion); })
+          .then(function (res) { if (res) _majStatut(res.status, res.publishedVersion, res.active); })
           .catch(function () { /* badge non critique : silencieux */ });
+      }
+
+      if (toggleActiveBtn) {
+        toggleActiveBtn.addEventListener('click', function () {
+          if (!flowId) { _afficherErreur('Enregistrer le workflow avant de l\'activer/désactiver.'); return; }
+          const desactiverMaintenant = root.getAttribute('data-active') !== '0';
+          const action = desactiverMaintenant ? 'deactivate' : 'activate';
+          if (desactiverMaintenant && !window.confirm('Désactiver ce workflow ? Il ne répondra plus au vrai déclenchement Iconik (webhook Custom Action) tant qu\'il ne sera pas réactivé. Les déclenchements manuels/API restent possibles.')) return;
+          fetch('/api/builder-flows/' + encodeURIComponent(flowId) + '/' + action, { method: 'POST' })
+            .then(function (r) {
+              if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || ('HTTP ' + r.status)); });
+              return r.json();
+            })
+            .then(function () {
+              // Re-fetch complet plutôt que reconstruire localement : status
+              // et version doivent rester affichés tels quels, seul `active`
+              // change — plus simple et sûr de tout redemander ensemble.
+              _rafraichirStatut();
+              if (errEl) errEl.hidden = true;
+            })
+            .catch(function (e) { _afficherErreur('Erreur : ' + e.message); });
+        });
       }
 
       if (publishBtn) {
@@ -1261,7 +1296,7 @@
           flowName = res.name;
           orgIdWorkflow = res.orgId || null;
           _afficherOrg(res.orgName);
-          _majStatut(res.status, res.publishedVersion);
+          _majStatut(res.status, res.publishedVersion, res.active);
           const initial = WfPersistence.initialDepuisDocument(res.document);
           // `modeleRacine` explicitement (pas `model`) : au chargement, aucun
           // corps n'est encore ouvert, mais autant ne pas dépendre de cet

@@ -91,6 +91,15 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 .bd-dirty { display: none; align-items: center; gap: 5px; color: var(--warn); font-size: 11.5px; }
 .bd-canvas-root[data-dirty="1"] .bd-dirty { display: flex; }
 
+/* Badge « INACTIVE » : indépendant de draft/published (bd-badge), masqué
+   sauf si la racine le signale — ne répond plus au webhook Iconik. */
+.bd-inactive-badge {
+  display: none; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px; font-weight: 700;
+  background: var(--err); color: #fff;
+}
+.bd-canvas-root[data-active="0"] .bd-inactive-badge { display: inline-block; }
+
 .bd-env-select {
   appearance: none; cursor: pointer;
   background: #151718; color: var(--bd-text, #eef0f1);

@@ -342,7 +342,8 @@ router.get('/builder-flows', async (req, res) => {
       return {
         id: f.id, name: f.name, updatedAt: f.updatedAt,
         status: publie ? 'published' : 'draft',
-        publishedVersion: derniere ? derniere.version : null
+        publishedVersion: derniere ? derniere.version : null,
+        active: f.active
       };
     }));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -430,7 +431,8 @@ router.get('/builder-flows/:id', async (req, res) => {
       orgId: item.orgId, orgName: item.organisation ? item.organisation.name : null,
       status: publie ? 'published' : 'draft',
       publishedVersion: derniere ? derniere.version : null,
-      publishedAt: derniere ? derniere.createdAt : null
+      publishedAt: derniere ? derniere.createdAt : null,
+      active: item.active
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -496,6 +498,26 @@ router.post('/builder-flows/:id/publish', async (req, res) => {
       data: { flowId: flow.id, version: prochaineVersion, document }
     });
     res.status(201).json({ version: version.version, createdAt: version.createdAt });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Dépublier / republier — indépendant du statut brouillon/publié (calculé,
+// jamais stocké, cf. /publish). Répond à une question différente : ce flow
+// doit-il encore réagir à un VRAI déclenchement Iconik (webhook
+// /api/builder-engine/action/:slug) ? Ne touche ni au document ni aux
+// versions figées ; désactiver reste réversible en un clic et n'empêche pas
+// de continuer à tester en manuel/API (seul le webhook filtre `active`).
+router.post('/builder-flows/:id/deactivate', async (req, res) => {
+  try {
+    const item = await prisma.builderFlow.update({ where: { id: req.params.id }, data: { active: false } });
+    res.json({ id: item.id, active: item.active });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/builder-flows/:id/activate', async (req, res) => {
+  try {
+    const item = await prisma.builderFlow.update({ where: { id: req.params.id }, data: { active: true } });
+    res.json({ id: item.id, active: item.active });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -159,9 +159,14 @@ router.post('/action/:slug', async (req, res) => {
       return out;
     }
 
+    // `active` filtre ICI seulement (jamais /trigger/:flowId, le déclenchement
+    // manuel/API doit rester possible même désactivé) — c'est ce qui permet de
+    // dépublier proprement un flow (ex. migration v1 -> v2 partageant le même
+    // Custom Action Iconik) sans toucher au Trigger ni le supprimer.
     const matches = flows
       .map(f => ({ flow: f, version: f.versions[0] || null }))
       .filter(({ flow, version }) => {
+        if (!flow.active) return false;
         if (!version) return false;
         const trigger = (version.document.steps || []).find(s => s.core === 'trigger');
         if (!trigger) return false;
@@ -169,18 +174,24 @@ router.post('/action/:slug', async (req, res) => {
       });
 
     if (!matches.length) {
-      // Distinguer "aucun flow ne correspond" de "le flow existe mais n'a
-      // jamais été publié" — un webhook ne doit jamais exécuter un brouillon.
-      // Le brouillon (flow.document) est comparé ici uniquement pour ce
-      // diagnostic, jamais pour exécuter quoi que ce soit.
-      const flowNonPublie = flows.find(f => {
-        if (f.versions[0]) return false; // a une version publiée → aurait matché plus haut si pertinent
+      // Distingue "aucun flow ne correspond", "existe mais jamais publié"
+      // (un webhook ne doit jamais exécuter un brouillon) et "publié mais
+      // désactivé" — trois diagnostics différents pour ne pas laisser croire
+      // à une erreur de config quand c'est en fait un dépublier volontaire.
+      // Le brouillon (flow.document) n'est comparé ici que pour distinguer
+      // ces cas, jamais pour exécuter quoi que ce soit.
+      const cible = flows.find(f => {
         if (f.id === slug) return true;
-        const trigger = (f.document.steps || []).find(s => s.core === 'trigger');
-        return trigger ? _slugsDuTrigger(trigger).indexOf(slug) !== -1 : false;
+        const triggerPublie = f.versions[0] && (f.versions[0].document.steps || []).find(s => s.core === 'trigger');
+        if (triggerPublie && _slugsDuTrigger(triggerPublie).indexOf(slug) !== -1) return true;
+        const triggerBrouillon = (f.document.steps || []).find(s => s.core === 'trigger');
+        return triggerBrouillon ? _slugsDuTrigger(triggerBrouillon).indexOf(slug) !== -1 : false;
       });
-      if (flowNonPublie) {
-        return res.status(409).json({ error: `BuilderFlow "${flowNonPublie.name}" non publié — aucune version disponible pour un déclenchement webhook` });
+      if (cible && !cible.active) {
+        return res.status(409).json({ error: `BuilderFlow "${cible.name}" désactivé — aucun déclenchement webhook tant qu'il n'est pas réactivé` });
+      }
+      if (cible && !cible.versions[0]) {
+        return res.status(409).json({ error: `BuilderFlow "${cible.name}" non publié — aucune version disponible pour un déclenchement webhook` });
       }
       return res.status(404).json({ error: `Aucun BuilderFlow publié pour le slug "${slug}"` });
     }

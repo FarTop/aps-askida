@@ -91,6 +91,9 @@ body {
 }
 .wb-badge-draft     { background: rgba(166,176,184,.14); border: 1px solid rgba(166,176,184,.35); color: var(--wb-dim); }
 .wb-badge-published { background: rgba(214,210,51,.14); border: 1px solid rgba(214,210,51,.4); color: var(--wb-accent); }
+/* Inactif = dépublié pour le webhook (BuilderFlow.active) — indépendant du
+   badge Draft/Published ci-dessus, affiché en plus, pas à la place. */
+.wb-badge-inactive  { background: rgba(231,76,60,.14); border: 1px solid rgba(231,76,60,.4); color: var(--wb-danger); }
 
 /* Usage — "utilisé dans N workflow(s)" (4 août) : même style que les autres
    compteurs (.wb-item-meta), pas de bloc à part — ne pas polluer la
