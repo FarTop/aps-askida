@@ -73,7 +73,21 @@ async function wait(step, ctx, deps) {
 
       const failValues = (p.failValues || 'FAILED,ERROR,ABORTED').split(',').map(v => v.trim());
       if (failValues.includes(String(val))) {
-        BuilderContext.addError(ctx, step.id, 'wait : valeur d\'échec détectée — ' + val, 'warn');
+        // La vraie raison (ex. "File <...> present on destination storage
+        // '...'") vit souvent sur un JOB ENFANT chez Iconik (has_children),
+        // jamais sur le job parent qu'on interroge — vérifié en direct sur
+        // un vrai export en échec : error_message du parent est null, celui
+        // de l'enfant contient le texte exploitable. Best-effort, ne bloque
+        // jamais le résultat si l'appel enfant échoue à son tour.
+        let detail = (body && body.error_message) || '';
+        if (!detail && body && body.has_children && useIconik && body.id) {
+          try {
+            const kids = await deps.iconikClient.get('/API/jobs/v1/jobs/?parent_id=' + encodeURIComponent(body.id));
+            const kidAvecMsg = (kids.objects || []).find(k => k.error_message);
+            if (kidAvecMsg) detail = kidAvecMsg.error_message;
+          } catch (_) { /* diagnostic best-effort */ }
+        }
+        BuilderContext.addError(ctx, step.id, 'wait : valeur d\'échec détectée — ' + val + (detail ? ' — ' + detail : ''), 'warn');
         return { port: 'error' };
       }
 
