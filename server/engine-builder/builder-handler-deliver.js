@@ -38,7 +38,12 @@ function _s3MappingsFromManifest(manifest) {
 async function deliver(step, ctx, deps) {
   const p = step.params || {};
   const connexionId = p.connexionId || '';
-  const operation   = p.operation   || 'head_object';
+  // Défaut aligné sur config-schema.js (aws_s3.deliver, visibleSi) : les
+  // occurrences réelles omettent toutes `operation`, et le formulaire les
+  // traite comme `list_objects` implicite — le moteur doit faire pareil
+  // (divergeait vers `head_object`, qui échoue toujours car objectKey via
+  // filebase() n'a jamais d'extension : c'était le bug du Recheck PUBLISH).
+  const operation   = p.operation   || 'list_objects';
   const objectKey   = r(p.objectKey || '', ctx);
   const resultVar   = p.resultVar   || 'awsResult';
 
