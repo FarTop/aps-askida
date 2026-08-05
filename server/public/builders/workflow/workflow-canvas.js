@@ -861,6 +861,18 @@
         if (nomEl) nomEl.textContent = flowName || '— no workflow —';
       }
 
+      // Annonce flowId/orgId aux modules indépendants du dock gauche/droit
+      // (run-panel.js, jobs-logs-panel.js) — même principe que root._envSlug
+      // pour config-sources.js : pas de dépendance inverse, ce fichier ne
+      // connaît pas leur contenu, il expose juste l'état sur root.
+      function _annoncerFlow() {
+        root._flowId = flowId;
+        root._orgId = orgIdWorkflow;
+        root.dispatchEvent(new CustomEvent('aps:flow-ready', {
+          detail: { flowId: flowId, orgId: orgIdWorkflow, name: flowName }
+        }));
+      }
+
       // ── Organisation : INFORMATION en lecture seule (pas un sélecteur) ─────
       // Un workflow appartient à une org FIXE (décidée à sa création). On
       // affiche celle du workflow chargé, ou celle du contexte global pour un
@@ -1014,6 +1026,7 @@
               root.setAttribute('data-dirty', '0');
               if (errEl) errEl.hidden = true;
               _rafraichirStatut();
+              _annoncerFlow();
             })
             .catch(function (e) {
               // Silencieux : pas d'alerte à chaque tentative auto, mais
@@ -1094,6 +1107,7 @@
           initial.edges.forEach(function (e) { modeleRacine.ajouterArete(e); });
           if (portee) portee.importerLayouts(initial.bodyLayout);
           _majEntete();
+          _annoncerFlow();
           const envDejaChoisi = res.document && res.document.workflow && res.document.workflow.environment;
           return _peuplerEnvironnements(envDejaChoisi);
         }).catch(function (e) {
@@ -1110,6 +1124,7 @@
           .then(function (ctx) {
             orgIdWorkflow = (ctx && ctx.org && ctx.org.id) || null;
             _afficherOrg(ctx && ctx.org && ctx.org.name);
+            _annoncerFlow();
             return _peuplerEnvironnements(null);
           }).catch(function () { _peuplerEnvironnements(null); });
       }
@@ -1135,6 +1150,7 @@
             root.setAttribute('data-dirty', '0');
             if (errEl) errEl.hidden = true;
             _rafraichirStatut();
+            _annoncerFlow();
           }).catch(function (e) {
             _afficherErreur('Erreur d\'enregistrement : ' + e.message);
           });

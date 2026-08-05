@@ -115,11 +115,28 @@
         </div>
       </main>
 
-      <!-- Dock gauche : observation. Volet + onglets solidaires + poignée. -->
+      <!-- Dock gauche : observation. Volet + onglets solidaires + poignée.
+           Jobs = liste des runs (BuilderRun) de CE workflow ; cliquer un run
+           l'ouvre dans Logs (timeline d'événements, BuilderRunEvent). Même
+           bascule de vue que le dock droit (.bd-view + data-panel du dock). -->
       <div class="bd-dock bd-dock-left" data-side="left">
         <aside class="bd-panel">
-          <div class="bd-panel-hd" data-role="title">Jobs</div>
-          <div class="bd-panel-bd"></div>
+          <div class="bd-panel-hd">
+            <span data-role="title">Jobs</span>
+            <button class="bd-icon-btn" data-role="jobs-refresh" title="Refresh" type="button">↻</button>
+          </div>
+
+          <div class="bd-view bd-view-jobs">
+            <div class="bd-panel-bd" data-role="jobs-liste"></div>
+            <p class="bd-empty" data-role="jobs-empty" data-hidden="1">No runs yet for this workflow — trigger one from the Run tab.</p>
+          </div>
+
+          <div class="bd-view bd-view-logs">
+            <div class="bd-panel-bd">
+              <p class="bd-empty" data-role="logs-empty">Select a run in Jobs to see its event timeline.</p>
+              <div data-role="logs-liste"></div>
+            </div>
+          </div>
         </aside>
         <div class="bd-grip" data-side="left"
              role="separator" aria-orientation="vertical" tabindex="0"
@@ -189,6 +206,32 @@
               <p class="bd-empty" data-role="vars-empty" data-hidden="1">No variables found.</p>
             </div>
           </div>
+
+          <!-- Vue Run : déclenche le moteur natif (server/engine-builder/) sur
+               CE workflow — brouillon courant ou une version publiée figée.
+               Un run terminé rafraîchit Jobs (dock gauche) automatiquement. -->
+          <div class="bd-view bd-view-run">
+            <div class="bd-panel-bd">
+              <p class="bd-empty" data-role="run-no-flow">Save this workflow before running it.</p>
+
+              <div data-role="run-form" hidden>
+                <div class="cfg-field">
+                  <label class="cfg-label" for="run-version">Version to run</label>
+                  <select class="cfg-input cfg-select" id="run-version" data-role="run-version"></select>
+                </div>
+
+                <div class="cfg-field">
+                  <label class="cfg-label" for="run-payload">Trigger payload (JSON)</label>
+                  <textarea class="cfg-input rn-payload" id="run-payload" data-role="run-payload" rows="8" spellcheck="false">{}</textarea>
+                  <p class="cfg-aide rn-error" data-role="run-payload-error" hidden></p>
+                </div>
+
+                <button class="bd-btn-loop-body" data-role="run-trigger" type="button">▶ Run</button>
+
+                <div class="rn-result" data-role="run-result" hidden></div>
+              </div>
+            </div>
+          </div>
         </aside>
         <div class="bd-grip" data-side="right"
              role="separator" aria-orientation="vertical" tabindex="0"
@@ -239,6 +282,8 @@
   <script src="config-renderer.js"></script>
   <script src="config-schema.js"></script>
   <script src="wf-shortcuts.js"></script>
+  <script src="run-panel.js"></script>
+  <script src="jobs-logs-panel.js"></script>
   <script src="workflow-canvas.js"></script>
 </body>
 </html>
