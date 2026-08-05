@@ -23,6 +23,12 @@
 .at-desc { font-size: 13px; color: var(--wb-dim); }
 
 .at-actions { display: flex; align-items: center; gap: 10px; }
+.at-env-label { font-size: 12px; color: var(--wb-dim); }
+.at-env-select {
+  appearance: none; cursor: pointer;
+  background: var(--wb-surface); border: 1px solid var(--wb-border);
+  color: var(--wb-text); border-radius: 6px; padding: 5px 9px; font: inherit; font-size: 12.5px;
+}
 .at-etat { font-size: 12px; color: var(--wb-dim); }
 .at-etat[data-etat="enregistre"] { color: #35c46a; }
 .at-etat[data-etat="erreur"] { color: var(--wb-danger); }
@@ -78,6 +84,19 @@
   width: 62px;
   background: var(--wb-surface2); border: 1px solid var(--wb-border);
   color: var(--wb-text); border-radius: 6px; padding: 6px 7px;
+  font: inherit; font-size: 13px;
+}
+/* Aperçu du résultat réel du padding (ex. "→ 01") — un <input type="number">
+   ne peut pas afficher le zéro devant, cet aperçu évite la confusion. */
+.at-champ-numapercu {
+  font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
+  color: var(--wb-accent); align-self: center; white-space: nowrap;
+}
+.at-champ-vue {
+  appearance: none; cursor: pointer;
+  width: 220px;
+  background: var(--wb-surface2); border: 1px solid var(--wb-border);
+  color: var(--wb-text); border-radius: 6px; padding: 6px 9px;
   font: inherit; font-size: 13px;
 }
 

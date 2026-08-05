@@ -98,7 +98,11 @@ router.get('/context', async (req, res) => {
       org: org,
       role: ctx.role,
       filtre: ctx.filtre,          // false pour superadmin/admin (voient tout)
-      explicite: ctx.explicite     // false = repli (aucun contexte choisi)
+      explicite: ctx.explicite,    // false = repli (aucun contexte choisi)
+      // Domaine public fixe (ex. tunnel cloudflared) — permet au client de
+      // reconstruire une URL absolue correcte (ex. endpoint webhook du
+      // Builder) même quand APS est ouvert via localhost en dev.
+      publicUrl: process.env.APS_PUBLIC_URL || null
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

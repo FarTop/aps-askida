@@ -30,6 +30,34 @@ const ConfigRenderer = (() => {
 
   function _el(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
 
+  // Copie presse-papier robuste : `navigator.clipboard` n'existe QUE dans un
+  // contexte sécurisé (HTTPS ou localhost) — undefined sinon (constaté en
+  // direct : tunnel cloudflared accédé en http:// simple). Repli sur le vieux
+  // `execCommand('copy')` via un textarea hors-écran, qui lui ne dépend pas
+  // du contexte sécurisé. Retourne une Promise pour garder un seul appelant.
+  function _copierPressePapier(texte) {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      return navigator.clipboard.writeText(texte);
+    }
+    return new Promise(function (resolve, reject) {
+      const zone = document.createElement('textarea');
+      zone.value = texte;
+      zone.style.position = 'fixed';
+      zone.style.left = '-9999px';
+      document.body.appendChild(zone);
+      zone.focus();
+      zone.select();
+      try {
+        const ok = document.execCommand('copy');
+        document.body.removeChild(zone);
+        if (ok) resolve(); else reject(new Error('execCommand(copy) refusé'));
+      } catch (e) {
+        document.body.removeChild(zone);
+        reject(e);
+      }
+    });
+  }
+
   // Sélecteur de variables (étape 4, Ordre de construction — builder-etat.md,
   // « Modèle de données ») : « montrer, pas déclarer ». Un run réel et un
   // contexte de test n'existent pas encore pour un BuilderFlow (aucun pont
@@ -953,13 +981,45 @@ const ConfigRenderer = (() => {
 
     // Aperçu : texte calculé en LECTURE SEULE, projection d'autres champs du
     // modèle (`descr.calcule(model)`) — n'écrit jamais. Ex. l'URL de routage
-    // complète d'un trigger, reconstruite depuis son slug.
+    // complète d'un trigger, reconstruite depuis son slug. Bouton Copy à
+    // côté : ce texte est justement fait pour être collé ailleurs (l'URL
+    // webhook dans une Custom Action Iconik, par ex.) — copier à la main
+    // depuis un <span> non éditable est pénible, autant le proposer partout
+    // où un aperçu existe plutôt que de le réserver au seul endpoint.
+    //
+    // `calculeCopie` (optionnel) : valeur COPIÉE si différente de la valeur
+    // AFFICHÉE (`calcule`). Cas d'usage : l'endpoint n'affiche que le chemin
+    // (pas de domaine public configuré dans ce projet, cf. config-schema.js),
+    // mais ce qu'il faut coller dans Iconik est l'URL ABSOLUE — reconstruite
+    // ici via `window.location.origin`, jamais un domaine en dur, pour rester
+    // correct quel que soit l'hôte depuis lequel le canevas est ouvert.
     apercu: function (descr, model) {
       const wrap = _el('div', 'cfg-field cfg-field-inline');
       wrap.appendChild(_champLabel(descr));
+      const ligne = _el('div', 'cfg-apercu-ligne');
       const val = _el('span', 'cfg-apercu');
-      val.textContent = (typeof descr.calcule === 'function' && descr.calcule(model)) || '—';
-      wrap.appendChild(val);
+      const texte = (typeof descr.calcule === 'function' && descr.calcule(model)) || '—';
+      val.textContent = texte;
+      ligne.appendChild(val);
+
+      if (texte !== '—') {
+        const texteCopie = (typeof descr.calculeCopie === 'function' && descr.calculeCopie(model)) || texte;
+        const copier = _el('button', 'cfg-apercu-copie');
+        copier.type = 'button';
+        copier.textContent = 'Copy';
+        copier.addEventListener('click', function () {
+          _copierPressePapier(texteCopie).then(function () {
+            copier.textContent = 'Copied';
+            setTimeout(function () { copier.textContent = 'Copy'; }, 1200);
+          }).catch(function () {
+            copier.textContent = 'Failed';
+            setTimeout(function () { copier.textContent = 'Copy'; }, 1200);
+          });
+        });
+        ligne.appendChild(copier);
+      }
+
+      wrap.appendChild(ligne);
       return wrap;
     }
   };

@@ -48,7 +48,15 @@ async function createTree(step, ctx, deps) {
   const tpl = templateRow.config;
 
   const rootParentId = r(p.parentId || '{collection.id}', ctx);
-  const viewId        = r(p.metadataViewId || '', ctx);
+  // Vue de repli, pour la racine et tout niveau qui ne déclare pas la
+  // sienne. UNE SEULE vue au niveau de l'étape ne suffit pas dès qu'un
+  // gabarit imbrique des types différents (ex. Créer Série pose aussi un
+  // placeholder Saison + Episode) : chaque type Iconik a ses propres champs
+  // de vue (VUE|SERIE|COLLECTION n'a pas NumeroSaison/NumeroEpisode, par
+  // exemple), donc écrire un niveau Saison/Episode avec la vue Série ferait
+  // silencieusement disparaître ces champs. `nodeDef.metadataViewId`
+  // (Tree Builder, arbo-canvas.js) permet de la surcharger par niveau.
+  const viewIdParDefaut = r(p.metadataViewId || '', ctx);
   const orgId         = ctx.vars?.orgId || 'default';
   const idLength      = Math.max(1, Math.min(64, parseInt(p.idLength) || 8));
   const idFieldName     = p.idFieldName     || 'BayardID';
@@ -115,8 +123,9 @@ async function createTree(step, ctx, deps) {
       fields[nodeDef.numberField] = { field_values: [{ value: numeroValue }] };
     }
 
-    if (viewId && Object.keys(fields).length) {
-      await iconikClient.put(`/API/metadata/v1/collections/${col.id}/views/${viewId}/`, { metadata_values: fields });
+    const viewIdNiveau = r(nodeDef.metadataViewId || '', ctx) || viewIdParDefaut;
+    if (viewIdNiveau && Object.keys(fields).length) {
+      await iconikClient.put(`/API/metadata/v1/collections/${col.id}/views/${viewIdNiveau}/`, { metadata_values: fields });
     }
 
     created.push({ id: col.id, title, parentIconikId, bayardId: generatedHere, collectionType: nodeDef.collectionType || null });

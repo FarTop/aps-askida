@@ -493,12 +493,18 @@ const ConfigSchema = (() => {
       // possibles, avant même d'être un orchestrateur d'exécution.
       //
       // État d'exécution vérifié (pas supposé) : `wfdSlug` est ce que la route
-      // POST /wfd/action/:slug (wfd-engine-express.js) matche pour trouver quel
-      // flow lancer — et ce matching ne regarde QUE le slug, jamais eventType.
-      // Concrètement : Custom Action est prouvé de bout en bout (Iconik agit
-      // dessus nativement). Les 11 autres types passeraient par la MÊME route
-      // si un vrai webhook/évènement Iconik était configuré pour l'appeler —
-      // Iconik a un vrai système de webhooks (vérifié en direct,
+      // POST /api/builder-engine/action/:slug (server/routes/builder-engine.js)
+      // matche pour trouver quel BuilderFlow lancer — le nom du champ reste
+      // `wfdSlug` par traçabilité avec WFD (dont il est repris), mais depuis le
+      // 2026-08-05 c'est le moteur natif du Builder qui l'écoute, plus WFD (la
+      // route WFD existe toujours mais concerne le Flow WFD d'origine, un
+      // modèle distinct — jamais ce BuilderFlow-ci). Le matching accepte aussi
+      // le `customActionId` brut ou l'id du BuilderFlow lui-même, mais le slug
+      // reste la forme la plus lisible à coller dans Iconik. Concrètement :
+      // Custom Action est prouvé de bout en bout (Iconik agit dessus
+      // nativement). Les 11 autres types passeraient par la MÊME route si un
+      // vrai webhook/évènement Iconik était configuré pour l'appeler — Iconik a
+      // un vrai système de webhooks (vérifié en direct,
       // /API/notifications/v1/webhooks/, avec event_type/operation/realm/query)
       // mais aucun, dans cet environnement, n'est actif ni pointé vers cette
       // route aujourd'hui. Catalogue fidèle à l'intention, pas une promesse
@@ -506,14 +512,25 @@ const ConfigSchema = (() => {
       case 'iconik.trigger':
         return [
           { nature: 'texteRepeint', chemin: 'wfdSlug', label: 'Slug (routing)', placeholder: 'e.g. publish' },
-          // Chemin réel écouté par le moteur (wfd-engine-express.js,
-          // POST /wfd/action/:slug) — c'est CETTE URL (préfixée du domaine de
-          // l'instance APS) qu'il faut coller dans la Custom Action Iconik.
-          // Pas de domaine affiché : aucune config d'URL publique n'existe
-          // dans ce projet, même convention que l'ancien designer WFD
-          // (wfd-config-panel.js) qui n'affichait déjà que le chemin.
+          // Chemin réel écouté par le moteur natif du Builder
+          // (server/routes/builder-engine.js, POST /api/builder-engine/
+          // action/:slug). Affiché en chemin nu (pas de domaine en dur dans ce
+          // projet, même convention que l'ancien designer WFD qui n'affichait
+          // déjà que le chemin) — mais COPIÉ en URL absolue (`calculeCopie`).
+          // Domaine : APS_PUBLIC_URL (ConfigSources.publicUrl(), exposé via
+          // /api/context) en priorité — window.location.origin en repli si le
+          // réglage serveur est absent. Sans ça, ouvrir le canevas via
+          // localhost en dev copierait une URL injoignable par Iconik.
           { nature: 'apercu', chemin: 'wfdEndpointApercu', label: 'Endpoint',
-            calcule: function (m) { const s = m.lire('wfdSlug'); return s ? '/wfd/action/' + s : null; } },
+            calcule: function (m) { const s = m.lire('wfdSlug'); return s ? '/api/builder-engine/action/' + s : null; },
+            calculeCopie: function (m) {
+              const s = m.lire('wfdSlug');
+              if (!s) return null;
+              const src = (typeof window !== 'undefined') ? window.ConfigSources : null;
+              const base = (src && src.publicUrl())
+                || ((typeof window !== 'undefined' && window.location) ? window.location.origin : '');
+              return base + '/api/builder-engine/action/' + s;
+            } },
           { nature: 'choix', chemin: 'eventType', label: 'Event', reagit: true, options: [
             { valeur: 'custom_action', libelle: '⚡ Custom Action' },
             { valeur: 'webhook', libelle: '🔔 Webhook Iconik' },

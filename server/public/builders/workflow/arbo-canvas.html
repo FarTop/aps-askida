@@ -16,7 +16,7 @@
   <header class="aps-header">
     <div class="aps-header-left">
       <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
-      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="workflow.html">Workflow Builder</a> › Tree Builder</span>
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="workflow.html">Workflow Builder</a> › <a href="workflow.html#arbos">Tree Builder</a></span>
     </div>
     <div class="aps-header-center">
       <div data-role="org-context"></div>
@@ -36,6 +36,16 @@
         <input class="at-input at-desc" id="at-desc" type="text" placeholder="Description (optionnel)" />
       </div>
       <div class="at-actions">
+        <!-- Sert UNIQUEMENT à interroger les vues de métadonnées réelles pour
+             le champ "Vue (override)" de chaque niveau — jamais enregistré
+             dans le gabarit (ArboTemplate n'est pas scopé par environnement).
+             Un placeholder d'un même gabarit peut légitimement être utilisé
+             contre plusieurs environnements ; ce sélecteur ne fait que
+             choisir depuis LEQUEL prévisualiser la liste des vues. -->
+        <span class="at-env-label">Vues depuis</span>
+        <select class="at-env-select" id="at-env-select">
+          <option value="">— environment —</option>
+        </select>
         <span class="at-etat" id="at-etat"></span>
         <a class="wb-btn" href="workflow.html">Annuler</a>
         <button class="wb-btn wb-btn-accent" id="at-save" type="button">Enregistrer</button>
@@ -52,7 +62,17 @@
       numéro suivant est recalculé à chaque création en regardant les collections
       déjà présentes sous le même parent (pas un compteur qui ne fait qu'avancer) :
       si « Saison 02 » a été supprimée et qu'il ne reste que « Saison 01 », la
-      prochaine création redonnera 02, pas 03.
+      prochaine création redonnera 02, pas 03. Le petit champ à côté prend un
+      <strong>nombre de chiffres</strong> (2, 3…), pas le motif lui-même —
+      tape <strong>2</strong> pour obtenir 01, 02… l'aperçu à droite du champ
+      montre le résultat tout de suite.<br />
+      « Vue (override) » : la vue de métadonnées utilisée pour ÉCRIRE les champs
+      de ce niveau (ID généré, numéro, champs additionnels…), si elle diffère de
+      la vue choisie sur l'étape Create Tree du workflow. Nécessaire dès qu'un
+      gabarit imbrique plusieurs types (ex. un placeholder Saison sous une
+      Série) : chaque type a sa propre vue Iconik, et un champ absent de la vue
+      utilisée ne s'écrit tout simplement pas. Laisser vide hérite de la vue de
+      l'étape.
     </div>
 
     <div id="at-arbre" class="at-arbre"></div>
@@ -70,6 +90,7 @@
   </main>
 
   <script src="../../_shared/js/org-context-selector.js"></script>
+  <script src="config-sources.js"></script>
   <script src="arbo-canvas.js"></script>
 </body>
 </html>

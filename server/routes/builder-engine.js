@@ -144,15 +144,28 @@ router.post('/action/:slug', async (req, res) => {
       include: { versions: { orderBy: { version: 'desc' }, take: 1 } },
     });
 
+    // Trois façons de viser le même flow dans l'URL webhook, de la plus
+    // lisible à la plus robuste : `wfdSlug` (nom court choisi à la main,
+    // ex. "createserie" — hérité du champ WFD du même nom, gardé tel quel
+    // par traçabilité, pas une dépendance à WFD), `customActionId` (l'UUID
+    // qu'Iconik génère pour le Custom Action), ou l'id du BuilderFlow
+    // lui-même. Iconik n'imposant qu'UNE url par Custom Action, mettre le
+    // slug lisible dans l'url est la config la plus simple à relire.
+    function _slugsDuTrigger(trigger) {
+      const p = (trigger && trigger.params) || {};
+      const out = [];
+      if (p.wfdSlug) out.push(String(p.wfdSlug).trim());
+      if (trigger && trigger.facade === 'iconik.trigger' && p.customActionId) out.push(String(p.customActionId).trim());
+      return out;
+    }
+
     const matches = flows
       .map(f => ({ flow: f, version: f.versions[0] || null }))
       .filter(({ flow, version }) => {
         if (!version) return false;
         const trigger = (version.document.steps || []).find(s => s.core === 'trigger');
         if (!trigger) return false;
-        const p = trigger.params || {};
-        const customActionSlug = (p.customActionId || '').trim();
-        return (trigger.facade === 'iconik.trigger' && customActionSlug === slug) || flow.id === slug;
+        return _slugsDuTrigger(trigger).indexOf(slug) !== -1 || flow.id === slug;
       });
 
     if (!matches.length) {
@@ -164,8 +177,7 @@ router.post('/action/:slug', async (req, res) => {
         if (f.versions[0]) return false; // a une version publiée → aurait matché plus haut si pertinent
         if (f.id === slug) return true;
         const trigger = (f.document.steps || []).find(s => s.core === 'trigger');
-        const customActionSlug = trigger && trigger.facade === 'iconik.trigger' ? (trigger.params?.customActionId || '').trim() : '';
-        return customActionSlug === slug;
+        return trigger ? _slugsDuTrigger(trigger).indexOf(slug) !== -1 : false;
       });
       if (flowNonPublie) {
         return res.status(409).json({ error: `BuilderFlow "${flowNonPublie.name}" non publié — aucune version disponible pour un déclenchement webhook` });

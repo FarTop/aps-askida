@@ -723,6 +723,13 @@
     hote.appendChild(p);
   }
 
+  // Onglet initial depuis l'URL (#arbos, #mappings…) — permet à un lien
+  // externe (ex. le fil d'Ariane d'arbo-canvas.html) d'atterrir directement
+  // sur le bon onglet plutôt que de rouvrir "Workflows" par défaut à chaque
+  // fois. Sans correspondance : comportement inchangé (Workflows, déjà actif
+  // par défaut dans le HTML).
+  const ONGLETS_VALIDES = ['workflows', 'manifests', 'arbos', 'mappings', 'endpoints'];
+
   function init() {
     document.querySelectorAll('.wb-tab').forEach(function (t) {
       t.addEventListener('click', function () { activerOnglet(t.getAttribute('data-tab')); });
@@ -748,6 +755,9 @@
     chargerGabarits();
     chargerMappings();
     chargerEndpoints();
+
+    const ongletDepuisHash = (window.location.hash || '').replace('#', '');
+    if (ONGLETS_VALIDES.indexOf(ongletDepuisHash) !== -1) activerOnglet(ongletDepuisHash);
 
     // Retour arrière depuis arbo-canvas.html / workflow-canvas.html : le
     // navigateur peut restaurer cette page depuis son cache (bfcache) SANS

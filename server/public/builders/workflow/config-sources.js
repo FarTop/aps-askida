@@ -327,6 +327,21 @@ const ConfigSources = (() => {
     return cacheCustomActions[envSlug];
   }
 
+  // Domaine public fixe (APS_PUBLIC_URL, exposé via /api/context), pour
+  // reconstruire une URL absolue CORRECTE même quand le canevas est ouvert
+  // via localhost (dev) — sinon window.location.origin donnerait une URL
+  // injoignable par Iconik. Chargé tout de suite (pas à la demande) : le
+  // panneau Config d'un Trigger doit pouvoir l'afficher dès son ouverture,
+  // sans dépendre d'un premier appel à une autre ressource. Lecture
+  // SYNCHRONE (publicUrl()) — null tant que non résolu, l'appelant retombe
+  // alors sur window.location.origin (cf. config-schema.js).
+  let publicUrlResolu = null;
+  (function () {
+    fetch('/api/context').then(function (r) { return r.ok ? r.json() : {}; })
+      .then(function (ctx) { publicUrlResolu = ctx.publicUrl || null; })
+      .catch(function () { /* repli sur window.location.origin, silencieux */ });
+  })();
+
   // Invalide le cache (après création/édition en Administration, ou clic sur
   // Refresh dans le canvas). Ne touche PAS dernierRafraichissement : l'ancien
   // horodatage reste affiché jusqu'à ce qu'un nouvel appel aboutisse
@@ -345,7 +360,8 @@ const ConfigSources = (() => {
     connexions, manifests, arboTemplates, mappings, endpoints, metadonnees, metadonneesChargees, vuesMetadonnees, champsDeVue,
     exportLocations, customActions, rafraichir,
     dernierRafraichissement: function () { return dernierRafraichissement; },
-    onRafraichi
+    onRafraichi,
+    publicUrl: function () { return publicUrlResolu; }
   };
 
 })();
