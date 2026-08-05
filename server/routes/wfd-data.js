@@ -448,6 +448,35 @@ router.get('/builder-flows/:id/versions', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Document complet d'UNE version figée — pour la restaurer dans le brouillon
+// (le canevas la recharge comme n'importe quel document pivot, cf. Restaurer
+// côté client) ou l'inspecter avant de la supprimer. Distinct de la liste
+// ci-dessus (métadonnées seules) pour ne pas alourdir l'historique affiché.
+router.get('/builder-flows/:id/versions/:version', async (req, res) => {
+  try {
+    const version = await prisma.builderFlowVersion.findUnique({
+      where: { flowId_version: { flowId: req.params.id, version: Number(req.params.version) } }
+    });
+    if (!version) return res.status(404).json({ error: 'Version non trouvée' });
+    res.json({ version: version.version, document: version.document, createdAt: version.createdAt });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Supprime UNE version figée (ménage d'historique — ex. publications faites
+// par erreur). N'affecte jamais le brouillon courant (BuilderFlow.document) :
+// supprimer une version, y compris la plus récente, ne fait que changer la
+// version suivante que /publish attribuera et, potentiellement, laquelle est
+// considérée « la dernière » pour le badge Draft/Published et le webhook
+// Custom Action (toujours la dernière version restante, jamais le brouillon).
+router.delete('/builder-flows/:id/versions/:version', async (req, res) => {
+  try {
+    await prisma.builderFlowVersion.delete({
+      where: { flowId_version: { flowId: req.params.id, version: Number(req.params.version) } }
+    });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Geste explicite qui fige le brouillon courant en nouvelle version. Append-
 // only : n'écrit jamais une version existante, ne touche pas `document` (le
 // brouillon continue de vivre sa vie, éditable librement après publication —

@@ -1092,6 +1092,169 @@
         });
       }
 
+      // ── Historique des versions (🕘) — restaurer ou supprimer une version
+      // figée. Restaurer ne touche PAS le brouillon en base : ça recharge le
+      // document de la version choisie DANS le canevas (comme un import), via
+      // une commande annulable unique (Ctrl+Z défait tout d'un coup) — il faut
+      // ensuite Save (et Publier si voulu) comme pour toute édition. Supprimer
+      // retire juste la ligne d'historique ; n'affecte jamais le brouillon.
+      const historyBtn = root.querySelector('[data-role="history-flow"]');
+      let historyMenu = null;
+
+      function _fermerHistoryMenu() {
+        if (historyMenu && historyMenu.parentNode) historyMenu.parentNode.removeChild(historyMenu);
+        historyMenu = null;
+        document.removeEventListener('pointerdown', _surClicAilleursHistory, true);
+        document.removeEventListener('keydown', _surEchapHistory, true);
+      }
+      function _surClicAilleursHistory(e) {
+        if (historyMenu && !historyMenu.contains(e.target) && e.target !== historyBtn) _fermerHistoryMenu();
+      }
+      function _surEchapHistory(e) { if (e.key === 'Escape') _fermerHistoryMenu(); }
+
+      // Ramène le canevas à la portée racine avant de manipuler modeleRacine —
+      // restaurer une version DANS un corps de boucle ouvert n'aurait aucun
+      // sens (le document restauré est toujours la racine complète).
+      function _forcerPorteeRacine() {
+        if (!portee) return;
+        while (portee.profondeur() > 0) portee.sortir();
+        _surChangementDePortee();
+      }
+
+      // Commande unique (undo/redo en un seul geste) : retire tous les nœuds
+      // racine actuels, ajoute ceux du document restauré. Même primitives que
+      // cmdSupprimerNoeuds/cmdAjouterNoeuds (wf-history.js), fusionnées pour
+      // qu'un seul Ctrl+Z revienne à l'état d'avant restauration.
+      function _cmdRestaurerDocument(document_) {
+        const avant = {
+          noeuds: model.noeuds().map(function (n) { return { id: n.id, etape: n.etape, x: n.x, y: n.y }; }),
+          aretes: model.aretes().slice()
+        };
+        const apres = WfPersistence.initialDepuisDocument(document_);
+        return {
+          label: 'restore-version',
+          faire: function () {
+            avant.noeuds.forEach(function (n) { model.retirerNoeud(n.id); });
+            apres.nodes.forEach(function (n) { model.ajouterNoeud(n); });
+            apres.edges.forEach(function (e) { model.ajouterArete(e); });
+          },
+          defaire: function () {
+            apres.edges.forEach(function (e) { model.retirerArete(e.id); });
+            apres.nodes.forEach(function (n) { model.retirerNoeud(n.id); });
+            avant.noeuds.forEach(function (n) { model.ajouterNoeud(n); });
+            avant.aretes.forEach(function (e) { model.ajouterArete(e); });
+          }
+        };
+      }
+
+      function _restaurerVersion(version) {
+        // Confirmation nécessaire : le canevas auto-sauve (cf. plus haut,
+        // AUTO_SAVE_DELAI sur tout changement du modèle) — restaurer écrase
+        // donc le brouillon en base en quelques secondes, silencieusement,
+        // pas seulement à l'écran. Ctrl+Z reste possible juste après, mais
+        // seulement si on réagit avant l'auto-save ou avant de quitter la
+        // page (vécu en vérifiant cette fonctionnalité : restaurer v1 sur le
+        // flux PUBLISH réel a réellement écrasé son brouillon en quelques
+        // secondes, sans clic sur Save).
+        if (!window.confirm('Restaurer v' + version + ' ? Le brouillon actuel de ce workflow sera remplacé (auto-enregistré en quelques secondes). Ctrl+Z annule juste après, si vous êtes encore sur cette page.')) return;
+        fetch('/api/builder-flows/' + encodeURIComponent(flowId) + '/versions/' + version)
+          .then(function (r) {
+            if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || ('HTTP ' + r.status)); });
+            return r.json();
+          })
+          .then(function (res) {
+            // Une version figée n'a jamais de `presentation` (exclue avant
+            // gel, cf. `_sansPresentation` côté serveur) : ni les positions
+            // racine (repli en cascade dans initialDepuisDocument) ni les
+            // bodyLayout des boucles ne sont dans le document restauré —
+            // rien à importer, les corps de boucle repartiront sur leur
+            // propre repli en cascade à la prochaine ouverture.
+            _forcerPorteeRacine();
+            history.executer(_cmdRestaurerDocument(res.document));
+            root.setAttribute('data-dirty', '1');
+            _centrerSurContenu();
+            if (errEl) errEl.hidden = true;
+          })
+          .catch(function (e) { _afficherErreur('Erreur de restauration : ' + e.message); })
+          .then(_fermerHistoryMenu);
+      }
+
+      function _supprimerVersion(version, estLaDerniere) {
+        const msg = estLaDerniere
+          ? 'Supprimer v' + version + ' ? C\'est la dernière version publiée : la version précédente (ou aucune) deviendra la référence pour le badge Published et le webhook Custom Action.'
+          : 'Supprimer v' + version + ' ?';
+        if (!window.confirm(msg)) return;
+        fetch('/api/builder-flows/' + encodeURIComponent(flowId) + '/versions/' + version, { method: 'DELETE' })
+          .then(function (r) {
+            if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || ('HTTP ' + r.status)); });
+            _rafraichirStatut();
+            _ouvrirHistoryMenu();
+          })
+          .catch(function (e) { _afficherErreur('Erreur de suppression : ' + e.message); });
+      }
+
+      function _ouvrirHistoryMenu() {
+        _fermerHistoryMenu();
+        if (!flowId || !historyBtn) return;
+        historyMenu = document.createElement('div');
+        historyMenu.className = 'bd-ctx-menu bd-history-menu';
+        const rect = historyBtn.getBoundingClientRect();
+        historyMenu.style.setProperty('--cx', rect.left + 'px');
+        historyMenu.style.setProperty('--cy', (rect.bottom + 4) + 'px');
+        const titre = document.createElement('div');
+        titre.className = 'bd-history-title';
+        titre.textContent = 'Versions publiées';
+        historyMenu.appendChild(titre);
+        document.body.appendChild(historyMenu);
+        document.addEventListener('pointerdown', _surClicAilleursHistory, true);
+        document.addEventListener('keydown', _surEchapHistory, true);
+
+        fetch('/api/builder-flows/' + encodeURIComponent(flowId) + '/versions')
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (versions) {
+            if (!historyMenu) return; // fermé entre-temps
+            if (!versions.length) {
+              const vide = document.createElement('div');
+              vide.className = 'bd-history-empty';
+              vide.textContent = 'Aucune version publiée pour l\'instant.';
+              historyMenu.appendChild(vide);
+              return;
+            }
+            const derniere = versions[0].version; // liste triée desc côté serveur
+            versions.forEach(function (v) {
+              const row = document.createElement('div');
+              row.className = 'bd-history-row';
+              const label = document.createElement('span');
+              label.className = 'bd-history-label';
+              label.textContent = 'v' + v.version + ' · ' + new Date(v.createdAt).toLocaleString();
+              row.appendChild(label);
+              const restaurerBtn = document.createElement('button');
+              restaurerBtn.type = 'button';
+              restaurerBtn.className = 'bd-history-action';
+              restaurerBtn.title = 'Restaurer dans le brouillon (canevas)';
+              restaurerBtn.textContent = '↺';
+              restaurerBtn.addEventListener('click', function () { _restaurerVersion(v.version); });
+              row.appendChild(restaurerBtn);
+              const supprimerBtn = document.createElement('button');
+              supprimerBtn.type = 'button';
+              supprimerBtn.className = 'bd-history-action bd-ctx-danger';
+              supprimerBtn.title = 'Supprimer cette version';
+              supprimerBtn.textContent = '🗑';
+              supprimerBtn.addEventListener('click', function () { _supprimerVersion(v.version, v.version === derniere); });
+              row.appendChild(supprimerBtn);
+              historyMenu.appendChild(row);
+            });
+          })
+          .catch(function (e) { _afficherErreur('Erreur de chargement des versions : ' + e.message); });
+      }
+
+      if (historyBtn) {
+        historyBtn.addEventListener('click', function () {
+          if (!flowId) { _afficherErreur('Enregistrer le workflow avant de consulter l\'historique.'); return; }
+          if (historyMenu) { _fermerHistoryMenu(); } else { _ouvrirHistoryMenu(); }
+        });
+      }
+
       if (flowId) {
         chargementEnCours = true;
         WfPersistence.charger(flowId).then(function (res) {
