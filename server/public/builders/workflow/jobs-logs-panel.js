@@ -40,11 +40,15 @@
 
   let flowId = root._flowId || null;
   let runSelectionne = null;
+  // true SEULEMENT sur un choix explicite (clic dans Jobs, ou son propre
+  // ▶ Run) — jamais posé par un auto-suivi lui-même, sinon le tout premier
+  // auto-suivi de la session bloque tous les suivants (bug trouvé le
+  // 2026-08-06 : badges/Run vides pour tout run réel après le premier tant
+  // qu'on ne repasse pas manuellement par Jobs → clic → Logs).
+  let runChoisiParUtilisateur = false;
   let pollTimer = null;
   let dernierRunAffiche = null;
-  let idsConnus = {}; // runId déjà vu dans un fetch précédent — détecte un run tout NOUVEAU (déclenché hors canevas, ex. webhook Iconik réel)
   let runIdEnAttente = null; // run qu'ON vient de déclencher depuis ce formulaire, en attente de son statut terminal
-  let premierChargement = true; // reste vrai jusqu'au premier _rendreJobs() de CE flow — déclenche l'auto-suivi initial ci-dessous
   const ETATS_TERMINAUX = { success: 1, partial: 1, failed: 1 };
 
   // Index plat stepId -> step (étiquette lisible), en descendant dans les
@@ -147,7 +151,6 @@
           // de fond — animation live sur le canevas via WfRunPoll, résultat
           // final affiché ici au prochain tick terminal pour CE runId.
           runIdEnAttente = res.data.runId;
-          idsConnus[res.data.runId] = true; // pas la peine que le poll Jobs le re-détecte comme "nouveau"
           _chargerJobs();
           // `true` : CE navigateur vient de déclencher ce run à l'instant —
           // même son tout premier fetch (qui peut déjà contenir plusieurs
@@ -185,29 +188,18 @@
     jobsListe.textContent = '';
     if (jobsEmpty) jobsEmpty.setAttribute('data-hidden', runs.length ? '1' : '0');
 
-    // Un run "running" jamais vu jusqu'ici (pas déclenché depuis CE canevas,
-    // ex. un vrai webhook Iconik) suit automatiquement dès qu'on le repère —
-    // seulement si rien d'autre n'est déjà suivi, pour ne pas arracher
-    // l'utilisateur d'un run qu'il inspecte volontairement.
+    // Suit automatiquement le run le plus récent (API triée startedAt desc)
+    // tant que l'utilisateur n'a rien choisi lui-même — pas seulement au
+    // premier chargement de CE flow : un run court (webhook Iconik réel,
+    // souvent fini en quelques secondes) peut ne jamais être vu au statut
+    // "running" entre deux sondages Jobs (4s), donc une règle limitée au
+    // tout premier chargement + "running seulement" le laissait invisible
+    // pour tout run réel suivant (retour utilisateur 2026-08-06 : badges/Run
+    // vides tant qu'on ne repasse pas manuellement par Jobs → clic → Logs).
     let aSuivreAuto = null;
-    runs.forEach(function (run) {
-      const estNouveau = !idsConnus[run.id];
-      idsConnus[run.id] = true;
-      if (estNouveau && run.status === 'running' && !runSelectionne && !aSuivreAuto) {
-        aSuivreAuto = run.id;
-      }
-    });
-
-    // Premier chargement de CE flow (arrivée sur le canevas, ou changement
-    // de flow) : suit le run le plus récent (API triée startedAt desc) même
-    // s'il est déjà terminé — sinon Run reste vide tant qu'on n'est pas
-    // explicitement passé par un clic dans Jobs, ce qui n'est pas évident
-    // (retour utilisateur : cliquer un nœud "à froid" doit déjà montrer
-    // quelque chose, pas exiger un détour par Jobs d'abord).
-    if (premierChargement && runs.length && !aSuivreAuto) {
+    if (runs.length && !runChoisiParUtilisateur && runs[0].id !== runSelectionne) {
       aSuivreAuto = runs[0].id;
     }
-    premierChargement = false;
 
     runs.forEach(function (run) {
       const row = document.createElement('div');
@@ -270,6 +262,10 @@
   // ── Logs : timeline d'événements d'un run sélectionné ────────────────────
   function _selectionnerRun(runId, basculerVersLogs) {
     runSelectionne = runId;
+    // `basculerVersLogs` n'est true QUE sur les appels utilisateur (clic
+    // Jobs, fin de son propre ▶ Run) — jamais sur l'auto-suivi ci-dessus,
+    // donc réutilisable tel quel comme marqueur "choix explicite".
+    if (basculerVersLogs) runChoisiParUtilisateur = true;
     if (window.WfRunPoll) WfRunPoll.suivre(runId);
     jobsListe.querySelectorAll('.jb-row').forEach(function (row) {
       row.setAttribute('data-selected', row.getAttribute('data-run-id') === runId ? '1' : '0');
@@ -430,7 +426,8 @@
     if (runForm) runForm.hidden = !flowId;
     if (change) {
       runSelectionne = null;
-      idsConnus = {}; premierChargement = true; _peuplerVersions(); _chargerJobs();
+      runChoisiParUtilisateur = false;
+      _peuplerVersions(); _chargerJobs();
     }
   });
   if (runForm) runForm.hidden = !flowId;
