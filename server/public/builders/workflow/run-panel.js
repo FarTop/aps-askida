@@ -325,6 +325,36 @@
       }
       wrap.appendChild(port);
 
+      // Avertissements non fatals (BuilderContext.addError) : le moteur
+      // n'émet AUCUN événement step:error pour eux (builder-executor.js:84
+      // ne le fait que sur une exception levée) — ils ne vivent que dans
+      // ctx.errors, donc ils n'apparaissaient nulle part en clair, seulement
+      // enfouis dans le JSON du "Context snapshot". C'est pourtant là que se
+      // trouve la vraie cause d'un échec quand le nœud renvoie malgré tout
+      // un port de succès (ex. le motif d'un refus partenaire derrière un
+      // upsert qui retombe en 404). On ne montre que ceux APPARUS pendant CE
+      // passage (diff sur ctx.errors), jamais tout l'historique du run.
+      const errAvant = (occ.start && occ.start.ctxSnapshot && occ.start.ctxSnapshot.errors) || [];
+      const errApres = (fin && fin.ctxSnapshot && fin.ctxSnapshot.errors) || [];
+      const nouveauxWarns = errApres.slice(errAvant.length).filter(function (e) {
+        if (!e || !e.message) return false;
+        // `node` vaut l'id du step, ou "<stepId>_step_N" pour une sous-étape
+        // de séquence HTTP — les deux appartiennent à CE nœud.
+        return !e.node || !step || e.node === step.id || e.node.indexOf(step.id + '_') === 0;
+      });
+      if (nouveauxWarns.length) {
+        const secWarn = document.createElement('div');
+        secWarn.className = 'rp-section';
+        nouveauxWarns.forEach(function (e) {
+          const ligne = document.createElement('div');
+          ligne.className = 'rp-warn';
+          ligne.setAttribute('data-severity', e.severity || 'warn');
+          ligne.textContent = (e.severity === 'fatal' ? '✕ ' : '⚠ ') + e.message;
+          secWarn.appendChild(ligne);
+        });
+        wrap.appendChild(secWarn);
+      }
+
       // Enrichissement dédié Decision — cheap et à forte valeur pour un core
       // qui ne PRODUIT rien dans vars/results (il ne fait que router).
       if (step && step.core === 'decision' && step.params && fin && fin.ctxSnapshot) {
