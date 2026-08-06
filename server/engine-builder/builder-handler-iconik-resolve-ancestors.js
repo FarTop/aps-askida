@@ -21,8 +21,28 @@ async function resolveAncestors(step, ctx, deps) {
   const type     = ctx.vars?.TypeCollection || '';
   const univers  = ctx.vars?.Univers  || '';
   const bayardId = ctx.vars?.BayardID || '';
-  const title    = ctx.vars?.title    || '';
   let   parentId = ctx.vars?.ParentID || '';
+
+  // `title` n'est PAS une variable nue du contexte : le nœud Search ne pose
+  // que la forme préfixée (`<resultVar>.title`, cf. builder-handler-iconik-
+  // search.js — seules les MÉTADONNÉES sont exposées sous leur nom nu, et le
+  // titre est un champ système). Lire `ctx.vars.title` seul donnait donc
+  // toujours une chaîne vide, d'où un segment de chemin amputé de son nom :
+  // « Galactica_17500196/_40209885 » au lieu de
+  // « Galactica_17500196/Saison_01_40209885 » (constaté le 2026-08-06 sur la
+  // première publication d'une Saison). Invisible au niveau Série, qui
+  // compose son segment à partir de `Univers`, une vraie métadonnée. Aurait
+  // été pire au niveau Episode, dont le segment est le SEUL slug du titre :
+  // il aurait été entièrement vide. Même méprise que le repli mort
+  // `{collectionCheck.title}` corrigé le même jour dans la correspondance.
+  // `search_results` est le resultVar par défaut de la façade iconik.search —
+  // même convention de nommage que TypeCollection/Univers/BayardID/ParentID
+  // déjà codés en dur ici.
+  const title = ctx.vars?.title
+             || ctx.vars?.['search_results.title']
+             || ctx.collection?.title
+             || ctx.asset?.title
+             || '';
 
   const NIVEAUX = { 'Série': 0, 'Saison': 1, 'Episode': 2, 'Unitaire': 0 };
   const n = NIVEAUX[type];
