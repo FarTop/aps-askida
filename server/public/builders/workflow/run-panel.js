@@ -505,6 +505,86 @@
     return parts.length ? parts.join(' | ') : JSON.stringify(body).slice(0, 300);
   }
 
+  // ── Séquence HTTP (Partner) ───────────────────────────────────────────────
+  // Une séquence est une boîte noire vue de l'extérieur : un seul port pour
+  // N appels. On déplie donc chaque sous-étape — endpoint appelé, ce qui a
+  // été ENVOYÉ (valeurs résolues, pas le gabarit), et son issue.
+  function _resumeSequence(step, snap) {
+    const trace = snap.results && snap.results['_seq_trace_' + step.id];
+    if (!Array.isArray(trace) || !trace.length) return null;
+    const sec = _section();
+    const faites = trace.filter(function (t) { return t.statut === 'ok'; }).length;
+    sec.appendChild(_titre(faites + ' étape(s) réussie(s) sur ' + trace.length));
+
+    trace.forEach(function (t) {
+      const gauche = t.rang + '. ' + t.nom;
+      const cible = t.methode + ' ' + t.endpoint;
+
+      const droite = t.statut === 'ignore'
+        ? (t.motif || 'ignorée')
+        : (t.httpStatut !== undefined
+            ? 'HTTP ' + t.httpStatut + (t.upsert ? ' (upsert)' : '')
+            : (t.motif || (t.statut === 'ok' ? 'OK' : 'échec')));
+      // Neutre — et non vert — quand l'étape n'a rien eu à faire : « ignorée »
+      // ou « aucune valeur à envoyer » n'est pas une réussite, seulement une
+      // absence d'échec.
+      const etat = (t.statut === 'ignore' || (t.statut === 'ok' && t.motif && !(t.valeurs || []).length))
+        ? null : (t.statut === 'ok' ? 'ok' : 'ko');
+      const row = _ligne(gauche, droite, etat);
+      const note = document.createElement('span');
+      note.className = 'rp-ligne-note';
+      note.textContent = cible;
+      row.querySelector('.rp-ligne-g').appendChild(note);
+      sec.appendChild(row);
+      if (t.statut === 'ignore') return;
+
+      // Le refus d'origine masqué derrière un upsert retombé en 404 — la
+      // cause, pas la conséquence (cf. builder-handler-http-request.js).
+      if (t.postOrigine) {
+        sec.appendChild(_ligne('   ↳ refus initial (POST ' + t.postOrigine.status + ')',
+          _motifHttp(t.postOrigine.body), 'ko'));
+      } else if (t.statut === 'echec' && t.reponse !== undefined && t.reponse !== null) {
+        sec.appendChild(_ligne('   ↳ motif', _motifHttp(t.reponse), 'ko'));
+      }
+
+      // Valeurs envoyées : c'est la question « qu'a-t-on demandé au
+      // partenaire ? », jusqu'ici sans réponse dans l'interface.
+      if (t.envoye !== undefined && t.envoye !== null) {
+        _aplatirEnvoi(t.envoye, '').forEach(function (e) {
+          sec.appendChild(_ligne('   ' + e.cle, e.valeur, 'ok'));
+        });
+      }
+      (t.valeurs || []).forEach(function (v) {
+        sec.appendChild(_ligne('   ' + String(v.valeur),
+          (v.externalId ? v.externalId + ' · ' : '') + 'HTTP ' + v.statut, 'ok'));
+      });
+      (t.echecs || []).forEach(function (e) {
+        sec.appendChild(_ligne('   ' + String(e.val), 'HTTP ' + e.status + ' — ' + e.error, 'ko'));
+      });
+    });
+    return sec;
+  }
+
+  // Aplatit un corps JSON en lignes « a.b.c = valeur » — un bloc JSON brut
+  // serait exactement ce qu'on cherche à ne plus imposer.
+  function _aplatirEnvoi(v, prefixe) {
+    const out = [];
+    if (v === null || v === undefined) return out;
+    if (typeof v !== 'object') { out.push({ cle: prefixe || 'corps', valeur: String(v) }); return out; }
+    Object.keys(v).forEach(function (k) {
+      const val = v[k];
+      const cle = prefixe ? prefixe + '.' + k : k;
+      if (val && typeof val === 'object' && !Array.isArray(val)) {
+        _aplatirEnvoi(val, cle).forEach(function (x) { out.push(x); });
+      } else if (Array.isArray(val)) {
+        out.push({ cle: cle, valeur: val.length + ' élément(s)' });
+      } else {
+        out.push({ cle: cle, valeur: String(val) });
+      }
+    });
+    return out.slice(0, 40);
+  }
+
   // ── Wait ──────────────────────────────────────────────────────────────────
   function _resumeWait(step, snap) {
     const rv = (step.params && step.params.resultVar) || 'waitResults';
@@ -778,8 +858,8 @@
         case 'loop':          return _resumeLoop(step, snap) || _resumeEcritures(ecrits);
         case 'transform':     return _resumeTransform(step, snap, ecrits);
         case 'trigger':       return _resumeTrigger(step, snap) || _resumeEcritures(ecrits);
-        case 'http_request':
-        case 'http_sequence': return _resumeHttp(step, snap, avant) || _resumeEcritures(ecrits);
+        case 'http_sequence': return _resumeSequence(step, snap) || _resumeHttp(step, snap, avant) || _resumeEcritures(ecrits);
+        case 'http_request':  return _resumeHttp(step, snap, avant) || _resumeEcritures(ecrits);
         default:              return _resumeEcritures(ecrits);
       }
     } catch (_) {
@@ -878,7 +958,9 @@
         // `_lk_trace_*` : matière première du résumé Lookup ci-dessus, déjà
         // restituée en clair — l'afficher aussi en brut serait du bruit.
         const resultsChanges = _diffMap(avant.results, apres.results)
-          .filter(function (d) { return d.key.indexOf('_lk_trace_') !== 0; });
+          .filter(function (d) {
+            return d.key.indexOf('_lk_trace_') !== 0 && d.key.indexOf('_seq_trace_') !== 0;
+          });
         if (varsChanges.length || resultsChanges.length) {
           // Brut relégué derrière un dépliant : consultable à la demande,
           // jamais imposé comme seule lecture possible.

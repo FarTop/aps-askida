@@ -22,6 +22,14 @@ function _wfdSlugify(str) {
     .replace(/^-+|-+$/g, '');
 }
 
+// Aperçu borné du corps d'une requête, pour la trace lisible du panneau Run.
+function _apercuCorps(body) {
+  if (body === undefined || body === null || body === '') return null;
+  const brut = typeof body === 'string' ? body : JSON.stringify(body);
+  if (brut.length > 4000) return brut.slice(0, 4000) + '… (tronqué)';
+  try { return JSON.parse(brut); } catch (_) { return brut; }
+}
+
 function _connFor(p, deps) {
   const connexionId = p.connexionId;
   const conn = connexionId && deps.resolved && deps.resolved.connexions
@@ -226,7 +234,12 @@ async function _simple(step, ctx, deps) {
     throw new Error('Erreur réseau : ' + e.message + ' → ' + url);
   }
 
-  const result = { status: response.status, ok: response.ok, url, method, body: responseBody };
+  // `envoye` : le corps RÉELLEMENT transmis, gabarits déjà résolus. Seule la
+  // réponse était conservée jusqu'ici — impossible de vérifier ce qu'on avait
+  // demandé au partenaire, alors que c'est la première question quand il
+  // refuse. Borné pour ne pas gonfler chaque ctxSnapshot ; jamais les
+  // en-têtes (ils portent les identifiants d'authentification).
+  const result = { status: response.status, ok: response.ok, url, method, body: responseBody, envoye: _apercuCorps(body) };
   BuilderContext.storeResult(ctx, resultVar, result);
   BuilderContext.setVar(ctx, resultVar + '_status', String(response.status));
   BuilderContext.setVar(ctx, resultVar + '_ok', response.ok ? 'true' : 'false');
