@@ -17,7 +17,7 @@ function _essencesFromManifest(manifest) {
   return essences
     .filter(e => e.role && e.sortie)
     .map(e => {
-      const eh = { role: e.role, sortie: e.sortie };
+      const eh = { role: e.role, sortie: e.sortie, cardinalite: e.cardinalite || '' };
       if (Array.isArray(e.appliesTo) && e.appliesTo.length && e.appliesTo.indexOf('*') === -1) {
         eh.appliesTo = e.appliesTo;
       }
@@ -52,10 +52,23 @@ async function workflowHistory(step, ctx, deps) {
       if (!Array.isArray(e.appliesTo) || !e.appliesTo.length || !niveauCourant) return true;
       return e.appliesTo.indexOf(niveauCourant) !== -1;
     });
-    const gabarit = essencesPortee
-      .map(e => '{' + e.sortie + '?' + _libelle(e.role) + ' ✅|' + _libelle(e.role) + ' ❌}')
-      .join(' ');
-    essenceChecklist = r(gabarit, ctx);
+    // Un essence "optionnel" absent n'est pas un échec (➖, neutre) — seul un
+    // essence requis (au_moins_un/exactement_un/au_plus_n) absent est un vrai
+    // ❌. Cette distinction manquait jusqu'ici : tout absent affichait ❌,
+    // optionnel ou pas (retour utilisateur 2026-08-06 : Title, marqué
+    // `cardinalite: "optionnel"` dans le Manifest, ne devrait pas s'afficher
+    // en échec s'il est simplement absent).
+    essenceChecklist = essencesPortee.map(function (e) {
+      // resolvePath (pas resolve()) : resolve() renvoie le `{placeholder}`
+      // brut inchangé quand la variable est absente (utile pour ne pas
+      // casser un texte libre), ce qui rendrait tout essence "présent" ici.
+      const val = BuilderContext.resolvePath(e.sortie, ctx);
+      const present = val !== undefined && val !== null && val !== '';
+      const label = _libelle(e.role);
+      if (present) return label + ' ✅';
+      if (e.cardinalite === 'optionnel') return label + ' ➖';
+      return label + ' ❌';
+    }).join(' ');
   }
 
   if (!targetId || !mdField) throw new Error('Workflow History : targetId et mdField requis');
