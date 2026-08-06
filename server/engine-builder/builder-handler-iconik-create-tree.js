@@ -108,13 +108,33 @@ async function createTree(step, ctx, deps) {
       fields[typeFieldName] = { field_values: [{ value: r(nodeDef.collectionType, ctx) }] };
     }
 
+    // Écrire SON identifiant et écrire SA parenté sont deux gestes distincts.
+    // Ils étaient liés dans un seul `if (generateId)`, ce qui rendait
+    // impossible le cas « ce niveau est rattaché à son parent mais ne porte
+    // pas d'identifiant propre » — exactement celui de la collection Episode
+    // (décision produit du 2026-07-16 : pas de BayardID sur Episode/Unitaire,
+    // seul l'asset vidéo en génère un à la publication, pour qu'une
+    // resoumission crée un objet distinct chez VOD Factory). Résultat : la
+    // parenté disparaissait avec l'identifiant, et PUBLISH ne pouvait plus
+    // remonter la hiérarchie (resolve_ancestors exige ParentID).
+    //
+    // Compatibilité : un gabarit existant n'a pas la clé `writeParentId` —
+    // on retombe alors sur `generateId`, soit exactement l'ancien couplage.
+    const ecrireParent = nodeDef.writeParentId !== undefined
+      ? !!nodeDef.writeParentId
+      : !!nodeDef.generateId;
+
     if (nodeDef.generateId) {
       const seedId = String(Math.floor(Math.pow(10, idLength - 1) + Math.random() * (Math.pow(10, idLength) * 0.9)));
       generatedHere = await bayardIdFor(deps.prisma, col.id, 'collection', orgId, idLength, seedId);
       fields[idFieldName] = { field_values: [{ value: generatedHere }] };
-      if (lastGeneratedId) fields[parentFieldName] = { field_values: [{ value: lastGeneratedId }] };
-      lastGeneratedId = generatedHere;
     }
+    // AVANT la mise à jour de lastGeneratedId : la parenté d'un niveau est
+    // l'identifiant du dernier ancêtre qui en porte un, jamais le sien.
+    if (ecrireParent && lastGeneratedId) {
+      fields[parentFieldName] = { field_values: [{ value: lastGeneratedId }] };
+    }
+    if (generatedHere) lastGeneratedId = generatedHere;
 
     if (orderField && orderValue !== null) {
       fields[orderField] = { field_values: [{ value: orderValue }] };

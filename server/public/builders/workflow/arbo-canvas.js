@@ -8,13 +8,24 @@
 // à positions/arêtes libres comme workflow-canvas, une liste imbriquée
 // suffit — l'indentation EST la hiérarchie, rien à déduire d'un tracé.
 //
-// Forme d'un nœud, identique à ce que create_tree() (wfd-engine-handlers.js)
-// lit : { name, collectionType, generateId, children: [...] }. `generateId`
-// est le badge historique du Designer : ce niveau reçoit un identifiant
-// unique, ET porte le Parent ID du dernier ancêtre qui a aussi ce badge —
-// pas forcément son parent direct. Reproduit tel quel pour l'instant (cf.
-// discussion du 3 août sur la parenté) ; l'aide affichée à l'écran le dit
-// explicitement plutôt que de le laisser surprendre à l'exécution.
+// Forme d'un nœud, identique à ce que create_tree() lit :
+// { name, collectionType, generateId, writeParentId, children: [...] }.
+// `generateId` = ce niveau reçoit un identifiant unique. `writeParentId` =
+// ce niveau porte l'identifiant du dernier ancêtre qui en a un — pas
+// forcément son parent direct.
+//
+// Les deux étaient un SEUL badge (« Génère un ID ») jusqu'au 6 août : la
+// parenté était écrite dans le même `if` que l'identifiant, donc décocher
+// l'un faisait tomber l'autre. Cela rendait impossible « rattaché à son
+// parent, mais sans identifiant propre » — précisément le cas de la
+// collection Episode (décision produit du 16 juillet : pas de BayardID sur
+// Episode/Unitaire, seul l'asset vidéo en génère un à la publication, pour
+// qu'une resoumission crée un objet distinct chez VOD Factory). Séparés en
+// deux cases sur proposition de l'utilisateur, ce qui évite de toucher au
+// workflow PUBLISH, dont resolve_ancestors exige ParentID.
+//
+// Un gabarit antérieur n'a pas la clé `writeParentId` : elle est alors
+// initialisée à la valeur de `generateId`, soit l'ancien couplage exact.
 //
 // Discipline : aucun inline, event listeners, création DOM.
 
@@ -32,7 +43,7 @@
   let vuesDisponibles = [];
 
   function nouveauNoeud() {
-    return { name: '', collectionType: '', generateId: false, numberField: '', numberPad: 2, metadataViewId: '', children: [] };
+    return { name: '', collectionType: '', generateId: false, writeParentId: false, numberField: '', numberPad: 2, metadataViewId: '', children: [] };
   }
 
   // Retire un nœud de l'arbre en cherchant son parent par référence — pas
@@ -99,6 +110,29 @@
     badge.appendChild(cb);
     badge.appendChild(document.createTextNode('Génère un ID'));
     corps.appendChild(badge);
+
+    // Matérialisé dès le rendu plutôt que laissé implicite : les deux cases
+    // deviennent alors réellement indépendantes, et basculer « Génère un ID »
+    // ne modifie plus silencieusement la parenté. La valeur retenue est celle
+    // qu'avait le gabarit avant la séparation (cf. en-tête), donc ouvrir puis
+    // réenregistrer un gabarit existant ne change rien à son comportement.
+    if (noeud.writeParentId === undefined) noeud.writeParentId = !!noeud.generateId;
+    const parentActif = !!noeud.writeParentId;
+    const badgeParent = document.createElement('label');
+    badgeParent.className = 'at-badge-id';
+    badgeParent.setAttribute('data-actif', parentActif ? '1' : '0');
+    badgeParent.title = "Écrit dans ce niveau l'identifiant du dernier ancêtre qui en porte un "
+                      + '— pas forcément son parent direct.';
+    const cbParent = document.createElement('input');
+    cbParent.type = 'checkbox';
+    cbParent.checked = parentActif;
+    cbParent.addEventListener('change', function () {
+      noeud.writeParentId = cbParent.checked;
+      badgeParent.setAttribute('data-actif', cbParent.checked ? '1' : '0');
+    });
+    badgeParent.appendChild(cbParent);
+    badgeParent.appendChild(document.createTextNode('Écrit le Parent ID'));
+    corps.appendChild(badgeParent);
 
     // Numérotation : sur N'IMPORTE QUEL niveau (pas réservée à la racine,
     // contrairement à l'ancien réglage de workflow orderFieldName). Le champ
