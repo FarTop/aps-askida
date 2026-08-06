@@ -8,7 +8,7 @@
 'use strict';
 
 const BuilderContext = require('./builder-context.js');
-const { requireIconik } = require('./builder-iconik-shared.js');
+const { requireIconik, metadataValuesDepuisReponse } = require('./builder-iconik-shared.js');
 
 function r(val, ctx) { return BuilderContext.resolve(val, ctx); }
 
@@ -141,7 +141,7 @@ async function workflowHistory(step, ctx, deps) {
   let existing = {};
   try {
     const current = await iconikClient.get(endpoint);
-    existing = current?.metadata_values || {};
+    existing = metadataValuesDepuisReponse(current);
   } catch (e) { /* vue non initialisée — traiter comme vide */ }
 
   const currentVal = (existing[mdField]?.field_values?.[0]?.value || '').trim();

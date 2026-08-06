@@ -7,6 +7,7 @@
 
 const BuilderContext = require('./builder-context.js');
 const iconikAction    = require('./builder-handler-iconik-action.js');
+const { metadataValuesDepuisReponse } = require('./builder-iconik-shared.js');
 
 function r(val, ctx) { return BuilderContext.resolve(val, ctx); }
 
@@ -29,7 +30,7 @@ async function setMetadata(step, ctx, deps) {
     let existing = {};
     try {
       const current = await iconikClient.get(endpoint);
-      existing = current?.metadata_values || {};
+      existing = metadataValuesDepuisReponse(current);
     } catch (_) {}
     const fields = { ...existing };
     (p.fields || []).forEach(f => {

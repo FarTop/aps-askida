@@ -105,6 +105,35 @@ async function extractTechnical(assetId, varName, ctx, iconikClient) {
   }
 }
 
+// GET /API/metadata/v1/{collections|assets}/{id}/ renvoie un dict PLAT
+// ({Champ: {name, type, values:[{value}]}}) — PAS la forme
+// {metadata_values: {Champ: {field_values:[...]}}} qu'attend le PUT, et que
+// le code de relecture supposait. `reponse.metadata_values` était donc
+// TOUJOURS undefined : toute relecture repartait d'un objet vide. Conséquence
+// principale (trouvée le 2026-08-06 en comparant la vraie réponse Iconik au
+// code) : History ne retrouvait jamais le contenu précédent du champ — son
+// historique ne s'accumulait pas (chaque ligne écrasait toutes les
+// précédentes) et le mode "update" ne retrouvait jamais la ligne du run en
+// cours, donc la ligne "🔄 En cours" ne survivait à aucune écriture suivante.
+function metadataValuesDepuisReponse(reponse) {
+  if (!reponse || typeof reponse !== 'object') return {};
+  if (reponse.metadata_values && typeof reponse.metadata_values === 'object') {
+    return reponse.metadata_values;
+  }
+  const out = {};
+  Object.entries(reponse).forEach(([cle, champ]) => {
+    if (!champ || typeof champ !== 'object') return;
+    const valeurs = champ.field_values || champ.values;
+    if (!Array.isArray(valeurs)) return;
+    out[cle] = {
+      field_values: valeurs.map(v =>
+        (v && typeof v === 'object' && 'value' in v) ? { value: v.value } : { value: v }
+      ),
+    };
+  });
+  return out;
+}
+
 // Fenêtre de rafale du compteur atomique — voir _nextOrderNumber ci-dessous.
 const _ORDER_BURST_MINUTES = 5;
 
@@ -166,4 +195,4 @@ async function bayardIdFor(prisma, objectId, objectType, orgId, length, fallback
   return id;
 }
 
-module.exports = { requireIconik, resolveByName, extractTechnical, nextOrderNumber, bayardIdFor };
+module.exports = { requireIconik, resolveByName, extractTechnical, metadataValuesDepuisReponse, nextOrderNumber, bayardIdFor };

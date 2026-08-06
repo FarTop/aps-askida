@@ -15,7 +15,7 @@
 'use strict';
 
 const BuilderContext = require('./builder-context.js');
-const { requireIconik } = require('./builder-iconik-shared.js');
+const { requireIconik, metadataValuesDepuisReponse } = require('./builder-iconik-shared.js');
 
 function r(val, ctx) { return BuilderContext.resolve(val, ctx); }
 
@@ -106,7 +106,7 @@ async function iconikAction(step, ctx, deps) {
       let existing = {};
       try {
         const current = await iconikClient.get(endpoint);
-        existing = current?.metadata_values || {};
+        existing = metadataValuesDepuisReponse(current);
       } catch (_) {}
       const fields = { ...existing };
       (p.fields || []).forEach(f => {
