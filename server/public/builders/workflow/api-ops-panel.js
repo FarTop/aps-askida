@@ -448,6 +448,21 @@
     hote.appendChild(_sectionTimeline());
     hote.appendChild(_sectionVariables());
     hote.appendChild(_sectionDetail());
+    _amenerDansLeChamp();
+  }
+
+  // Le rendu est intégralement reconstruit à chaque sélection : sans cela, les
+  // deux pistes horizontales repartiraient à zéro et la carte retenue pourrait
+  // rester hors écran. `block:'nearest'` pour ne jamais faire défiler la page
+  // verticalement — seules les pistes doivent bouger.
+  function _amenerDansLeChamp() {
+    if (!etapeActive) return;
+    ['.ao-carte[data-actif="1"]', '.ao-vcarte[data-actif="1"]'].forEach(function (sel) {
+      const el = hote.querySelector(sel);
+      if (el && el.scrollIntoView) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    });
   }
 
   // 1. Timeline — une carte par opération, dans l'ordre d'exécution.
@@ -500,6 +515,7 @@
       const source = _source(nd.famille, conn);
 
       const carte = _el('div', 'ao-vcarte');
+      carte.setAttribute('data-actif', nd.stepId === etapeActive ? '1' : '0');
       const tete = _el('div', 'ao-vcarte-hd');
       tete.appendChild(_el('span', 'ao-vcarte-nom', nd.nom));
       const badge = _el('span', 'ao-src', source.label);

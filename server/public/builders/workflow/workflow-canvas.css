@@ -963,9 +963,38 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   flex: 0 0 auto; min-width: 132px; max-width: 200px; cursor: pointer;
   background: var(--bd-panel-bg); border: 1px solid var(--bd-panel-border);
   border-radius: 5px; padding: 6px 8px;
+  transition: border-color .15s, background .15s, box-shadow .15s;
 }
-.ao-carte:hover { border-color: var(--accent); }
-.ao-carte[data-actif="1"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.ao-carte:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--bd-panel-bg));
+}
+/* Sélection : fond teinté + liseré, comme .api-op-card.active de WFD, plus
+   une pulsation brève — l'animation attire l'oeil sur la carte retenue quand
+   la timeline est longue et défile horizontalement. */
+.ao-carte[data-actif="1"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bd-panel-bg));
+  box-shadow: 0 0 0 1px var(--accent);
+  animation: ao-pulse .9s ease-out;
+}
+.ao-carte[data-actif="1"] .ao-carte-nom,
+.ao-carte[data-actif="1"] .ao-ep { color: var(--bd-text); }
+@keyframes ao-pulse {
+  0%   { box-shadow: 0 0 0 1px var(--accent), 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
+  70%  { box-shadow: 0 0 0 1px var(--accent), 0 0 0 9px transparent; }
+  100% { box-shadow: 0 0 0 1px var(--accent), 0 0 0 0 transparent; }
+}
+/* La carte correspondante du flux de données se surligne en même temps :
+   c'est la MÊME étape vue sous deux angles, la lier évite de la chercher. */
+.ao-vcarte[data-actif="1"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bd-panel-bg));
+  animation: ao-pulse .9s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ao-carte[data-actif="1"], .ao-vcarte[data-actif="1"] { animation: none; }
+}
 .ao-carte[data-imbrique="1"] { border-left-width: 3px; border-left-color: var(--accent); }
 .ao-carte-nom {
   font-size: 10.5px; color: var(--bd-text); margin-bottom: 4px;
