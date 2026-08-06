@@ -7,7 +7,23 @@
 > écarté. Lire ce document suffit pour travailler ; lire le journal sert quand
 > on veut comprendre une décision ou la remettre en cause.
 >
-> Dernière mise à jour : 6 août 2026, soir (**PUBLISH v2 mené jusqu'à une
+> Dernière mise à jour : 6 août 2026, fin de soirée (**les quatre niveaux du
+> manifeste publiés pour de vrai** — Série, Saison, Épisode, Unitaire, chacun
+> révélant des chemins de code jamais parcourus. Sept correctifs, dont trois
+> trouvés parce que l'utilisateur a contesté mon diagnostic et avait raison :
+> le registre d'identifiants n'était branché que sur le mode numérique (moitié
+> manquante de la décision du 29 juillet), le format `timestamp` ne pouvait
+> pas entrer dans un champ Iconik entier (d'où `timestamp_numeric`), et
+> « Génère un ID » emprisonnait l'écriture de la parenté (dédoublé dans le
+> Tree Builder sur proposition de l'utilisateur). Plus : segment de chemin
+> amputé sur les niveaux non-racine, un chemin non résolu qui devenait une
+> vraie destination S3 chez le partenaire, et `.mxf` absent du repli
+> d'essences. La chaîne s'arrête désormais sur un **refus de VOD Factory**
+> — qui n'accepte pas le `.mxf` — et non plus sur un défaut de notre côté.
+> Cf. section « Les quatre niveaux publiés » tout en bas, et le point de
+> départ ci-dessus, réorganisé en bloquants / dette / chantiers.)
+>
+> Historique : 6 août 2026, soir (**PUBLISH v2 mené jusqu'à une
 > publication réussie de bout en bout** sur de vrais clics Custom Action
 > Iconik — Partner HTTP 201, Verify 3/3, History "✅ Succès" — après avoir
 > remonté une chaîne de **cinq causes empilées** dont aucune n'était celle
@@ -111,40 +127,72 @@
 
 ## Point de départ pour la prochaine session
 
-> Mis à jour le 6 août au soir. Les points 0. et 2. de la liste du matin
-> sont **résolus** : le webhook réel Iconik a été cliqué toute la session
-> (PUBLISH v2 mené jusqu'à une publication réussie de bout en bout), et les
-> échecs d'itérations individuelles d'une boucle sont désormais lisibles
-> dans Run › Action. Liste du matin conservée en historique juste en
-> dessous. Nouveaux points de reprise :
+> Mis à jour le 6 août, fin de soirée. Les quatre niveaux du manifeste ont
+> été publiés pour de vrai ; les points 0. et 2. de la liste précédente sont
+> résolus. Ce qui reste se répartit en trois familles : **bloquants côté
+> partenaire** (hors code), **dette de conception connue**, et **chantiers
+> non commencés**.
 
-0. **Vérifier le prochain run de PUBLISH v2** — l'utilisateur devait le
-   contrôler après son absence. Trois correctifs de fin de session n'ont
-   PAS encore été vus sur un run réel : la sévérité `info` (un run
-   intégralement réussi doit maintenant finir `success` et non `partial`),
-   la trace Lookup et la trace de séquence Partner dans Run › Action
-   (elles n'existent qu'à partir des runs exécutés après ce chantier — les
-   runs antérieurs n'ont rien à déplier). Vérifiés en isolation et sur des
-   runs jetables, jamais sur un vrai déclenchement.
-1. **Chantier Statuses non commencé** (`BAYARD|CHECK|STATUSES|VODFACTORY`,
-   11 nœuds incl. boucle/checker/history×3) — complexité comparable à
-   PUBLISH, différé depuis le 5 août. C'est le plus gros morceau restant.
-2. **Saison et Épisode jamais publiés** — seul le niveau Série a été mené
-   au bout. Le manifeste est par niveau (`appliesTo`) et le payload d'une
-   Série est volontairement minimal ; les niveaux inférieurs exerceront
-   des essences (`season_box`, `episodic`, `video`, `subtitle`) et des
-   replis (`{s3_season_url}`…) jamais déclenchés à ce jour — plusieurs
-   sont d'ailleurs signalés « repli non résolu » par la nouvelle trace
-   Lookup au niveau Série, ce qui est normal à ce niveau mais devra être
-   revérifié au bon niveau.
-3. **`iconik.create_tree` sans résumé spécialisé** dans Run › Action (il
-   retombe sur le repli lisible « valeurs écrites ») — seule famille du
-   registre à ne pas avoir sa vue dédiée. À traiter avec les workflows
-   Créer, qui l'utilisent comme nœud central.
-4. **Résolution de nom Iconik limitée aux collections/assets hors boucle**
-   — inchangé depuis le matin : la plomberie est branchée pour le cas
-   `loopInfo`, mais les assets de recherche portent déjà un titre en
-   pratique, donc ce chemin n'a jamais été vu se déclencher.
+### Bloquants — à lever avec Bayard / VOD Factory (hors code)
+
+0. **VOD Factory refuse le `.mxf`** — réponse littérale de leur API :
+   « must be one of the followings : mp4, mov, ts, mpeg, mpg ». Le contrat
+   tacite qui met le transcodage à leur charge n'est pas implémenté côté
+   validation. Trois issues possibles : ils élargissent, le master est
+   transcodé avant livraison, ou un `.mp4` accompagne le `.mxf`. Tant que ce
+   n'est pas tranché, **aucun Unitaire ni Épisode ne peut aboutir**.
+1. **Aucune correspondance `Unitaire` dans la table `ContenuPrime`** du
+   mapping VOD Factory — le partenaire répond « The selected type is
+   invalid ». Série/Saison/Episode ont la leur (`serie`/`season`/`episode`).
+   Il faut savoir quel type ils attendent (`program` ? `movie` ?) puis
+   ajouter la ligne dans la correspondance.
+
+### Dette de conception identifiée
+
+2. **Le manifeste n'est pas consulté dans le corps de boucle** —
+   `Check Asset` et `Recheck` n'ont pas de `manifestId` et retombent sur des
+   filtres codés en dur. Conséquence directe : **toute extension ajoutée à
+   `reconnu_par` y restera sans effet** (c'est ce qui a masqué le `.mxf`).
+   Leur attacher le manifeste est la correction de fond, mais elle ferait
+   tourner la vérification de cardinalité sur un listing réduit à un seul
+   fichier — port `miss` au lieu de `out`, plus des lignes d'information à
+   chaque itération. À trancher avant de la faire.
+3. **L'identifiant de l'Épisode reste sur la collection** — `Set Bayard ID`
+   écrit le `BayardID` généré sur la collection, ce qui la rend stable et
+   fait qu'une resoumission METTRA À JOUR l'épisode chez VOD Factory au lieu
+   d'en créer un nouveau. C'est l'inverse de l'intention du 16 juillet
+   (« resoumission = nouvel asset = nouvel ID = objet distinct »). Piste :
+   porter l'identifiant sur l'asset vidéo plutôt que sur la collection —
+   ce qui change aussi la source de l'`external_id` dans le Lookup.
+4. **Une republication ne repasse pas par la boucle** quand les fichiers sont
+   déjà livrés (`Check Collection` → `out`) : tout ce qui y est calculé
+   (`duration`, infos techniques) manque au second passage. La clé est alors
+   omise du corps de requête, pas corrompue — donc silencieux. À surveiller
+   si le partenaire rend un de ces champs obligatoire.
+5. **Formats d'identifiants mixtes en base** — les collections déjà créées
+   gardent leurs 8 chiffres (le registre les réutilise), les nouvelles
+   prendront 14 chiffres si `timestamp_numeric` est sélectionné. Cohabitation
+   volontaire ; purger le registre est possible mais n'a pas été fait.
+   Les 4 nœuds Créer sont **encore en `numeric`** — seul PUBLISH est passé en
+   `timestamp_numeric`.
+
+### Chantiers non commencés
+
+6. **Statuses** (`BAYARD|CHECK|STATUSES|VODFACTORY`, 11 nœuds incl.
+   boucle/checker/history×3) — complexité comparable à PUBLISH, différé
+   depuis le 5 août. Le plus gros morceau restant.
+7. **`iconik.create_tree` sans résumé spécialisé** dans Run › Action (repli
+   lisible « valeurs écrites ») — seule famille du registre sans vue dédiée.
+   À traiter avec les workflows Créer, qui l'utilisent comme nœud central.
+8. **Bug d'affichage non reproduit** — « clic sur un nœud → API Ops s'ouvre,
+   sorte de zoom, partie du canevas inatteignable ». Vérifié : le clic
+   n'ouvre pas le volet, le zoom ne change pas, le cadre ne rétrécit pas.
+   Mesuré en revanche : le volet fait 240px pour 1281px de contenu, et il
+   SUPERPOSE le canevas. Capture attendue de l'utilisateur.
+9. **Résolution de nom Iconik limitée aux collections/assets hors boucle** —
+   la plomberie est branchée pour `loopInfo`, mais les assets de recherche
+   portent déjà un titre en pratique : ce chemin n'a jamais été vu se
+   déclencher.
 
 <details>
 <summary>Historique — points de reprise du 6 août au matin (résolus depuis)</summary>
@@ -2687,3 +2735,95 @@ fichiers valides.
   Confirmé conforme par l'utilisateur (le manifeste est par niveau ;
   Saison et Épisode compléteront). Les URLs `s3://` sont voulues : VOD
   Factory tire les sources du bucket avec ses propres credentials.
+
+---
+
+## Les quatre niveaux publiés — 6 août (soirée)
+
+Série, Saison, Épisode, Unitaire ont tous été exécutés sur de vrais clics
+Custom Action. Sept correctifs, presque tous sur des chemins de code que
+seuls les niveaux inférieurs empruntent.
+
+### Identifiants : format, registre, parenté
+
+**Le registre ne s'appliquait qu'au mode numérique.** `bayardIdFor()`
+n'était appelé que sous `if (type === 'numeric')` — la décision du 29
+juillet (« calcul lisible **MAIS** relation Iconik↔APS stockée dans
+BayardRegistry ») n'était donc implémentée qu'à moitié : un identifiant
+timestamp n'était enregistré nulle part, et rien ne garantissait qu'un même
+objet retrouve le sien.
+
+Il n'y a jamais eu à choisir entre portabilité et registre. Le **format**
+est calculable partout ; le **registre** est une table de correspondance
+exportable qui apporte l'unicité et la stabilité. La note du 3 août
+(« mode Numeric = non portable ») visait à côté : ce n'est pas le registre
+qui lie à APS, c'est le tirage aléatoire, non reproductible ailleurs. Les
+notes de portabilité de l'écran Config sont réécrites sur ce critère.
+
+- `genererIdentifiant()` devient une **fabrique partagée** : le Générateur
+  d'ID et `create_tree` produisaient des formats étrangers l'un à l'autre
+  (8 chiffres vs horodatage) sur le MÊME champ Iconik.
+- Le registre s'applique à tous les types, et son repli anti-collision
+  rejoue le format d'origine au lieu de tirer un nombre.
+- `create_tree` expose `idType` (absent = numérique, comportement d'origine).
+- **`timestamp_numeric`** ajouté : `AAMMJJhhmmss` + 2 chiffres d'aléa = 14
+  chiffres. Le champ Iconik `BayardID` est un ENTIER — le format `timestamp`
+  historique (tirets + hexadécimal, ≈85 % des tirages contiennent une
+  lettre) ne peut structurellement pas y entrer, d'où la valeur négative
+  constatée. Borne Iconik portée à `99999999999999` par l'utilisateur.
+
+**Tree Builder : « Génère un ID » dédoublé.** `create_tree` écrivait la
+parenté à l'intérieur du `if (generateId)`, rendant inexprimable le cas
+« rattaché à son parent, sans identifiant propre » — celui de la collection
+Episode (décision du 16 juillet). Deux cases indépendantes désormais ;
+gabarit sans la clé = ancien couplage exact.
+
+### Chemins et essences
+
+- **Segment de niveau non-racine amputé** : `resolveAncestors()` lisait
+  `ctx.vars.title`, inexistant (le Search ne pose que `<resultVar>.title`).
+  `Galactica_17500196/_40209885` au lieu de `…/Saison_01_40209885` ; le
+  niveau Episode aurait eu un segment entièrement vide.
+- **Un chemin non résolu ne doit pas devenir réel** : `ancestorPath` vide, le
+  nettoyage du nom de fichier retirant les accolades, Iconik a livré 3
+  fichiers dans un dossier S3 nommé `ancestorPath` chez le partenaire. Le
+  listing, lui, gardait les accolades — d'où un Recheck en `miss` alors que
+  l'export venait de réussir : les deux nœuds ne visaient pas le même
+  endroit. Export et listing échouent désormais franchement.
+- **`.mxf` absent du repli d'essences** : `Check Asset`/`Recheck` n'ont aucun
+  manifeste attaché et retombent sur des filtres codés en dur. Le filtre
+  sous-titre matchait, pas le filtre vidéo — d'où une vidéo « manquante »
+  alors qu'elle était en S3.
+
+### Ce que les runs ont prouvé
+
+| Niveau | Essences | Verify | Résultat |
+|---|---|---|---|
+| Série | cover, poster, hero, title | 3/3 | ✅ `success` |
+| Saison | + season_box | 4/4 | ✅ `success` |
+| Épisode | episodic, video, subtitle | 2/2 | ✅ `success`, Video Action 201 |
+| Unitaire | les 6 | 4/6 | ❌ refus partenaire sur le `.mxf` |
+
+Le filtrage par niveau (`appliesTo`) est validé de bout en bout : chaque
+niveau n'affiche que ses essences, et un optionnel absent donne `➖`.
+
+### Reste ouvert
+- **VOD Factory refuse le `.mxf`** — `must be one of : mp4, mov, ts, mpeg,
+  mpg`. Le contrat tacite (transcodage à leur charge) n'est pas implémenté
+  dans leur API. Point contractuel, hors code.
+- **Pas de correspondance `Unitaire` dans la table `ContenuPrime`** du
+  mapping VOD Factory — le partenaire répond « The selected type is
+  invalid ». Série/Saison/Episode ont la leur.
+- **Le manifeste n'est pas consulté dans le corps de boucle** : toute
+  extension ajoutée à `reconnu_par` y restera sans effet. Leur attacher le
+  manifeste ferait tourner la cardinalité sur un listing réduit à un seul
+  fichier (port `miss`, lignes d'information) — à trancher avant de le faire.
+- **Une republication ne repasse pas par la boucle** quand les fichiers sont
+  déjà livrés : tout ce qui y est calculé (durée, infos techniques) manque
+  au second passage. La clé est alors omise du corps, pas corrompue.
+- **Bug d'affichage non reproduit** : « clic sur un nœud → API Ops s'ouvre,
+  sorte de zoom, partie du canevas inatteignable ». Vérifié que le clic
+  n'ouvre pas le volet, que le zoom ne change pas et que le cadre ne
+  rétrécit pas. Mesuré en revanche : le volet fait 240px pour un contenu de
+  1281px, et il SUPERPOSE le canevas — la bande basse est masquée tant qu'il
+  est ouvert. Capture attendue.

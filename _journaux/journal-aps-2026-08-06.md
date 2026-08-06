@@ -213,3 +213,130 @@ autrement (traces absentes des runs antérieurs) ont utilisé des runs
 jetables injectés puis supprimés — jamais un appel Iconik ou S3 réel.
 `node --check` sur chaque fichier touché ; `git status` propre à chaque
 étape. Quatorze commits poussés sur `main`.
+
+---
+
+# Journal APS — 2026-08-06 (soirée)
+
+> Suite directe : les quatre niveaux du manifeste — Série, Saison, Épisode,
+> Unitaire — ont été publiés pour de vrai, chacun révélant des chemins de
+> code jamais parcourus. Sept correctifs, dont trois trouvés parce que
+> l'utilisateur a contesté mon diagnostic et avait raison à chaque fois. La
+> soirée se termine sur un refus du partenaire qui n'est plus un bug de
+> notre côté mais un point contractuel.
+
+## Fil de la soirée
+
+### Saison : un nom de dossier amputé
+
+Premier vrai run de Saison : `success`, mais le chemin S3 valait
+`Galactica_17500196/_40209885` au lieu de `…/Saison_01_40209885`.
+`resolveAncestors()` composait le segment avec `ctx.vars.title` — une
+variable qui n'existe pas : le nœud Search ne pose que la forme préfixée
+`<resultVar>.title`, seules les MÉTADONNÉES étant exposées sous leur nom nu.
+**Exactement la même méprise que le repli mort `{collectionCheck.title}`
+corrigé l'après-midi.** Invisible au niveau Série, qui compose son segment à
+partir de `Univers`, une vraie métadonnée ; et le niveau Épisode aurait été
+pire, son segment étant le SEUL slug du titre — entièrement vide.
+
+Signalé à l'utilisateur avant correction, parce que changer `ancestorPath`
+change l'arborescence de destination : les artworks déjà livrés devenaient
+orphelins.
+
+### « Il n'y a toujours pas d'URL Season » — et j'avais analysé le mauvais document
+
+Rapport suivant : `URLSeasonArt` absent d'Iconik. J'ai enquêté longuement
+sur les vues de métadonnées, construit une théorie cohérente (« le point
+d'entrée sans vue ne peut que mettre à jour un champ existant »), et
+proposé une modification de configuration Iconik plus quatre nœuds.
+
+L'utilisateur a tiqué : *« je suis surpris, jusqu'ici on a bypassé la vue »*.
+Vérification : sa remarque était juste, et ma théorie fausse — `URLCoverArt`,
+`StatutPrime`, `StatutPublication` étaient tous ABSENTS avant le premier run
+Saison et ont bien été créés par ce même appel.
+
+La vraie cause : **le run exécute une version publiée** (v13), et j'avais lu
+les champs dans le BROUILLON. Mes trois ajouts n'étaient jamais partis.
+Iconik s'était comporté parfaitement du début à la fin. Leçon consignée :
+une analyse doit lire le document de `run.flowVersion`, jamais le brouillon —
+c'est ce que fait le panneau Run, mes scripts ponctuels prenaient le
+raccourci.
+
+### Épisode : cinq causes, dont un ID stable qu'on ne voulait pas
+
+Premier run Épisode en échec, quatre constats :
+- une **coquille de configuration** jamais atteinte : `targetId:
+  "collection.id"` sans accolades sur « Set Bayard ID », donc un appel
+  littéral à `/collections/collection.id/` → 404. Ce nœud n'est emprunté que
+  sur la branche « Bayard ID vide » — Série et Saison en avaient un ;
+- la collection Épisode sans `ParentID` ;
+- un **vrai trou de robustesse** : `ancestorPath` vide, le chemin est resté
+  le texte brut, et le nettoyage du nom de fichier retirant les accolades,
+  Iconik a réellement livré 3 fichiers dans un dossier S3 nommé
+  `ancestorPath`, chez le partenaire. Corrigé — un chemin d'écriture
+  incomplet échoue désormais franchement ;
+- le filtrage par niveau, lui, parfait : `Episodic ➖ Video ❌ Subtitle ❌`,
+  ni Cover ni Poster ni Hero, et l'optionnel en ➖.
+
+### La contradiction de conception, tranchée par l'utilisateur
+
+`resolve_ancestors` exige `ParentID`, mais une décision produit du 16 juillet
+dit « pas de BayardID sur Episode/Unitaire ». Or `create_tree` écrivait les
+deux dans le même `if (generateId)` : appliquer la décision privait PUBLISH
+de la parenté.
+
+Proposition de l'utilisateur, retenue : **dédoubler la case du Tree Builder**
+en « Génère un ID » / « Écrit le Parent ID ». La correction se fait dans le
+gabarit, sans toucher au workflow. Vérifié aussitôt par lui : une Épisode
+créée porte bien `ParentID` et **pas** de `BayardID`.
+
+L'Épisode est ensuite passé de bout en bout — Video Action en HTTP 201 pour
+la première fois, sous-titre rattaché, Verify 2/2.
+
+### L'identifiant : deux fois corrigé à l'envers
+
+Le `BayardID` s'affichait NÉGATIF dans Iconik. Cause : le champ est un
+ENTIER borné à 1e8, et le format `timestamp` produit tirets et hexadécimal
+(≈85 % des tirages contiennent une lettre). J'ai « corrigé » en basculant en
+mode numérique — l'utilisateur m'a arrêté : le timestamp était un choix
+délibéré de portabilité multi-orchestrateur.
+
+Vérifié : c'est documenté deux fois (29 juillet, 3 août). J'ai restauré.
+
+Puis il s'est souvenu d'un registre de correspondance Iconik↔APS,
+exportable. Vérifié : `BayardRegistry` existe exactement ainsi — **et
+`bayardIdFor()` n'était appelé que sous `if (type === 'numeric')`**. La
+décision du 29 juillet était « calcul lisible MAIS relation stockée » : seule
+la première moitié avait été implémentée.
+
+Ça réconcilie tout : il n'y a jamais eu à choisir entre portabilité et
+registre. Le FORMAT est calculable partout ; le registre est une table
+exportable qui apporte l'unicité et la stabilité. Ma note du 3 août
+(« mode Numeric = non portable ») visait à côté : ce n'est pas le registre
+qui liait à APS, c'est le tirage aléatoire, non reproductible ailleurs.
+
+### Unitaire : le partenaire refuse le MXF
+
+Dernier niveau, le plus riche (6 essences). Vidéo introuvable alors que le
+fichier était en S3 : les nœuds `Check Asset`/`Recheck` n'ont AUCUN manifeste
+attaché et retombent sur des filtres codés en dur, sans `.mxf`. Le filtre
+sous-titre `.srt,.vtt` matchait — d'où l'asymétrie observée.
+
+Corrigé, et le run suivant a obtenu la vraie réponse, de VOD Factory :
+
+> `url : The url "…/Le_Mag.mxf" has not a valid video extension and must be
+> one of the followings : mp4, mov, ts, mpeg, mpg.`
+
+Le contrat tacite (transcodage à la charge du partenaire) n'est pas
+implémenté dans leur API. Notre repli codé en dur reprenait d'ailleurs
+exactement leur liste — ce n'était pas un oubli. Le correctif déplace le
+refus d'un cran sans le résoudre : c'est désormais un point contractuel.
+
+## Méthode
+
+Sept runs réels sur la soirée, tous par clic Custom Action Iconik. Chaque
+diagnostic remonté aux événements et snapshots en base, aux réponses Iconik
+interrogées en direct, ou par rejeu du vrai handler sur le contexte réel
+d'un run. Trois fois, l'utilisateur a contesté une conclusion et avait
+raison — les journaux ont tranché à chaque fois, ce qui justifie a
+posteriori l'effort de les tenir.
