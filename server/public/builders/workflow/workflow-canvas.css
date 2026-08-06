@@ -903,5 +903,10 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   border-left: 3px solid var(--warn); background: rgba(255, 176, 32, .08); color: var(--bd-text);
 }
 .rp-warn[data-severity="fatal"] { border-left-color: var(--err); background: rgba(255, 90, 90, .08); }
+/* 'info' : constat de diagnostic, jamais un échec (cf. computeStatus) —
+   neutre visuellement pour ne pas se lire comme un problème. */
+.rp-warn[data-severity="info"] {
+  border-left-color: var(--bd-text-dim); background: rgba(255, 255, 255, .04); color: var(--bd-text-dim);
+}
 .rp-empty { color: var(--bd-text-dim); font-size: 12px; padding: 16px 0; text-align: center; }
 .bd-subtab-count { opacity: .65; font-size: 10.5px; margin-left: 2px; }

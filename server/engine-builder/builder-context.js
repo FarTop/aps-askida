@@ -28,7 +28,7 @@ function createContext(triggerPayload = {}) {
     results : {},
 
     status   : 'running',  // running | success | partial | failed
-    errors   : [],         // [{ node, message, severity: 'warn'|'fatal', at }]
+    errors   : [],         // [{ node, message, severity: 'info'|'warn'|'fatal', at }] — cf. computeStatus
     startedAt: new Date().toISOString(),
     flowId   : triggerPayload._flowId || '',
     runId    : triggerPayload._runId  || generateRunId(),
@@ -201,10 +201,19 @@ function addError(ctx, stepId, message, severity = 'warn') {
   ctx.status = computeStatus(ctx);
 }
 
+// `info` : constat consigné pour le diagnostic, JAMAIS un échec — un step
+// qui renvoie un port routable normal (ex. le `miss` d'un deliver : « pas
+// encore là, va le chercher ») décrit un chemin nominal, pas une erreur.
+// C'est le GRAPHE qui décide si ce port est un problème, pas le handler.
+// Sans cette distinction, une première publication parfaitement réussie
+// restait marquée `partial` à jamais : le pré-contrôle S3 initial ne PEUT
+// pas trouver les fichiers avant leur upload, et ce constat attendu
+// polluait le verdict final (constaté le 2026-08-06 sur un run PUBLISH
+// intégralement réussi — Partner 201, Verify 3/3, History ✅ Succès).
 function computeStatus(ctx) {
   if (ctx.status === 'failed') return 'failed';
   if (ctx.errors.some(e => e.severity === 'fatal')) return 'failed';
-  if (ctx.errors.length > 0) return 'partial';
+  if (ctx.errors.some(e => e.severity !== 'info')) return 'partial';
   return 'running';
 }
 

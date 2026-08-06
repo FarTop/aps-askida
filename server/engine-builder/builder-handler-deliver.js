@@ -182,7 +182,15 @@ async function deliver(step, ctx, deps) {
     BuilderContext.setVar(ctx, resultVar + '_count', String(count));
 
     if (cardinaliteErreurs.length) {
-      BuilderContext.addError(ctx, step.id, 'Cardinalité non respectée — ' + cardinaliteErreurs.join(' ; '), 'warn');
+      // 'info' et non 'warn' : ce listing est un PRÉ-CONTRÔLE technique
+      // (« est-ce déjà livré ? ») dont le port `miss` est un chemin nominal
+      // — c'est lui qui déclenche l'upload. Sur une première publication,
+      // le bucket est forcément vide : la cardinalité ne PEUT pas être
+      // satisfaite, et la consigner comme erreur marquait définitivement en
+      // `partial` un run par ailleurs intégralement réussi. Le constat reste
+      // consigné (visible dans Run › Action) ; c'est le graphe, via le
+      // routage du port `miss`, qui décide si c'est un problème.
+      BuilderContext.addError(ctx, step.id, 'Cardinalité non respectée — ' + cardinaliteErreurs.join(' ; '), 'info');
       return { port: 'miss' };
     }
     return count > 0 ? { port: 'out' } : { port: 'miss' };
