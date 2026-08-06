@@ -149,8 +149,13 @@
     const envSlug = root._envSlug;
     if (!envSlug) return;
     resolutionsEnCours[id] = true;
+    // Le chemin d'une collection unique est sous /API/assets/v1/collections/
+    // (pas /API/collections/v1/, qui 404 systématiquement — confirmé en
+    // direct le 6 août : la recherche trouve bien la collection, mais ce
+    // chemin-ci ne l'a jamais résolue depuis la construction de cette
+    // fonction, "nulle part" comme rapporté, pas une régression du jour).
     const chemin = type === 'collection'
-      ? '/API/collections/v1/' + encodeURIComponent(id) + '/'
+      ? '/API/assets/v1/collections/' + encodeURIComponent(id) + '/'
       : '/API/assets/v1/' + encodeURIComponent(id) + '/';
     fetch('/api/iconik/' + encodeURIComponent(envSlug) + chemin, { headers: { 'X-Force-Live': '1' } })
       .then(function (r) { return r.ok ? r.json() : null; })
