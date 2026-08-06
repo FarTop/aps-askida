@@ -141,7 +141,15 @@ async function deliver(step, ctx, deps) {
     const mappings = (p.s3Mappings && p.s3Mappings.length) ? p.s3Mappings
       : derivedMappings && derivedMappings.length ? derivedMappings
       : [
-          { type: 'video', filter: '.mp4,.mov,.ts,.mpeg,.mpg', variable: p.s3VarVideo || 's3_video_url' },
+          // `.mxf` ajouté le 2026-08-06 : c'est le format de livraison réel
+          // (contrat tacite Bayard/VOD Factory — le transcodage est à la
+          // charge du partenaire, donc le master part tel quel). Son absence
+          // ici rendait la vidéo invisible alors qu'elle était bien dans S3 :
+          // constaté sur un Unitaire où le listing voyait
+          // « Le_Mag.mxf » ET « Le_Mag.srt », ne reconnaissait que le second,
+          // et concluait à une vidéo manquante. Aligné sur `reconnu_par` du
+          // manifeste réel, qui liste déjà .mp4/.mov/.ts/.mxf.
+          { type: 'video', filter: '.mp4,.mov,.ts,.mpeg,.mpg,.mxf', variable: p.s3VarVideo || 's3_video_url' },
           { type: 'image', filter: '_poster,.jpg,.jpeg,.png',  variable: p.s3VarImage || 's3_image_url' },
           { type: 'subtitle', filter: '.srt,.vtt',             variable: p.s3VarSrt   || 's3_srt_url' },
         ];
