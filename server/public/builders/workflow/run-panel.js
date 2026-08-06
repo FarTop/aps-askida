@@ -518,13 +518,255 @@
     return sec;
   }
 
+  // ── Set Variable ──────────────────────────────────────────────────────────
+  function _resumeSetVariable(step, snap, ecrits) {
+    const sec = _section();
+    const assignations = (step.params && step.params.assignments) || [];
+    assignations.forEach(function (a) {
+      const cle = a.key || a.name || a.var || '';
+      if (!cle) return;
+      const valeur = snap.vars ? snap.vars[cle] : undefined;
+      // Le gabarit à gauche, sa valeur RÉSOLUE à droite — l'intérêt est
+      // justement de voir ce que « {x}/{y} » a donné une fois évalué.
+      const gabarit = a.value !== undefined ? String(a.value) : '';
+      sec.appendChild(_ligne(cle + (gabarit && gabarit !== String(valeur) ? '  ⟵ ' + gabarit : ''),
+        valeur === undefined ? '(non défini)' : String(valeur),
+        valeur === undefined ? 'ko' : 'ok'));
+    });
+    return assignations.length ? sec : _resumeEcritures(ecrits);
+  }
+
+  // ── Recherche Iconik ──────────────────────────────────────────────────────
+  function _resumeRecherche(step, snap) {
+    const rv = (step.params && step.params.resultVar) || 'search_results';
+    const res = snap.results && snap.results[rv];
+    if (!res) return null;
+    const sec = _section();
+    const objets = res.objects || [];
+    sec.appendChild(_ligne('Résultats trouvés', String(res.total !== undefined ? res.total : objets.length),
+      objets.length ? 'ok' : 'ko'));
+    objets.slice(0, 10).forEach(function (o) {
+      sec.appendChild(_ligne('', (o.title || o.original_name || o.id || ''), 'ok'));
+    });
+    if (objets.length > 10) sec.appendChild(_ligne('', '… et ' + (objets.length - 10) + ' autre(s)', null));
+    return sec;
+  }
+
+  // ── Écriture de métadonnées Iconik ────────────────────────────────────────
+  function _resumeSetMetadata(step, snap) {
+    const champs = (step.params && step.params.fields) || [];
+    if (!champs.length) return null;
+    const sec = _section();
+    sec.appendChild(_titre('Champs écrits sur ' + ((step.params.target === 'collection') ? 'la collection' : "l'asset")));
+    champs.forEach(function (f) {
+      if (!f.key) return;
+      const rendu = _valeurEcrite(f.value, snap);
+      sec.appendChild(_ligne(f.key, rendu.texte, rendu.etat));
+    });
+    return sec;
+  }
+
+  // ── Action Iconik (export, transcode, création…) ──────────────────────────
+  function _resumeAction(step, snap, ecrits) {
+    const sec = _section();
+    const type = (step.params && step.params.actionType) || '';
+    if (type) sec.appendChild(_ligne('Action', type, null));
+    const res = snap.results && snap.results['_action_' + step.id];
+    if (res && typeof res === 'object') {
+      if (res.job_id) sec.appendChild(_ligne('Job Iconik déclenché', String(res.job_id), 'ok'));
+      if (res.id && !res.job_id) sec.appendChild(_ligne('Objet', String(res.id), 'ok'));
+      if (res.status) sec.appendChild(_ligne('Statut', String(res.status), null));
+    }
+    ecrits.forEach(function (d) { sec.appendChild(_ligne(d.key, String(d.value), 'ok')); });
+    return sec.childNodes.length ? sec : null;
+  }
+
+  // ── Résolution des collections parentes ───────────────────────────────────
+  function _resumeAncetres(step, snap) {
+    const nom = (step.params && step.params.varName) || 'ancestorPath';
+    const val = snap.vars && snap.vars[nom];
+    if (val === undefined) return null;
+    const sec = _section();
+    sec.appendChild(_ligne('Niveau', String((snap.vars && snap.vars.TypeCollection) || '—'), null));
+    sec.appendChild(_ligne('Chemin reconstruit', String(val), 'ok'));
+    return sec;
+  }
+
+  // ── Générateur d'identifiant ──────────────────────────────────────────────
+  function _resumeIdGenerator(step, snap) {
+    const g = snap.results && snap.results._id_generator;
+    if (!g) return null;
+    const sec = _section();
+    if (g.type) sec.appendChild(_ligne('Type', String(g.type), null));
+    sec.appendChild(_ligne('Identifiant généré', String(g.id), 'ok'));
+    if (g.varName) sec.appendChild(_ligne('Écrit dans', '{' + g.varName + '}', null));
+    return sec;
+  }
+
+  // ── Fetch Iconik ──────────────────────────────────────────────────────────
+  function _resumeFetch(step, snap, ecrits) {
+    const sec = _section();
+    const p = step.params || {};
+    if (p.fetchSubType) sec.appendChild(_ligne('Type', String(p.fetchSubType), null));
+    const cible = p.fetchValue !== undefined ? r_resolu(String(p.fetchValue), snap) : null;
+    if (cible) sec.appendChild(_ligne('Objet demandé', cible, null));
+    const rv = p.fetchVar || p.storeAs;
+    const res = rv && snap.results ? snap.results[rv] : null;
+    if (res && typeof res === 'object') {
+      const titre = res.title || res.original_name || res.name;
+      if (titre) sec.appendChild(_ligne('Récupéré', String(titre), 'ok'));
+    }
+    ecrits.slice(0, 12).forEach(function (d) { sec.appendChild(_ligne(d.key, String(d.value), 'ok')); });
+    return sec.childNodes.length ? sec : null;
+  }
+
+  // ── Transform ─────────────────────────────────────────────────────────────
+  function _resumeTransform(step, snap, ecrits) {
+    const p = step.params || {};
+    const sec = _section();
+    if (p.operation) sec.appendChild(_ligne('Opération', String(p.operation), null));
+    if (p.source) sec.appendChild(_ligne('Entrée', r_resolu(String(p.source), snap) || String(p.source), null));
+    ecrits.forEach(function (d) { sec.appendChild(_ligne(d.key, String(d.value), 'ok')); });
+    return sec.childNodes.length ? sec : null;
+  }
+
+  // ── Loop ──────────────────────────────────────────────────────────────────
+  function _resumeLoop(step, snap) {
+    const p = step.params || {};
+    const lv = p.loopVar || 'item';
+    const sec = _section();
+    if (p.loopVariablePath) {
+      // Le chemin ET le nombre réel d'éléments : « {assetsAExporter.objects} »
+      // seul ne dit pas si la boucle a tourné 0 ou 40 fois.
+      const chemin = String(p.loopVariablePath).replace(/^\{|\}$/g, '');
+      const src = _lireChemin(snap.results, chemin) || _lireChemin(snap.vars, chemin);
+      const n = Array.isArray(src) ? src.length : null;
+      sec.appendChild(_ligne('Source parcourue',
+        chemin + (n !== null ? ' — ' + n + ' élément(s)' : ''), n ? 'ok' : null));
+    }
+    const idx = snap.vars && snap.vars[lv + '_index'];
+    if (idx !== undefined) sec.appendChild(_ligne('Itérations', String(Number(idx) + 1), 'ok'));
+    const nbErr = snap.vars && snap.vars[lv + '_error_count'];
+    if (nbErr !== undefined) {
+      sec.appendChild(_ligne('Itérations en échec', String(nbErr), Number(nbErr) > 0 ? 'ko' : 'ok'));
+    }
+    // Les échecs individuels sous onError:'continue' ne sont visibles NULLE
+    // PART ailleurs sur ce nœud (le badge ne reflète que la dernière
+    // itération) — c'est ici qu'il faut les lire.
+    let details = snap.vars && snap.vars[lv + '_errors'];
+    if (typeof details === 'string') { try { details = JSON.parse(details); } catch (_) { details = null; } }
+    (Array.isArray(details) ? details : []).slice(0, 10).forEach(function (e) {
+      sec.appendChild(_ligne('Itération ' + ((e.index !== undefined ? e.index + 1 : '?')), String(e.message || ''), 'ko'));
+    });
+    return sec.childNodes.length ? sec : null;
+  }
+
+  // ── Trigger ───────────────────────────────────────────────────────────────
+  function _resumeTrigger(step, snap) {
+    const sec = _section();
+    const c = snap.collection, a = snap.asset;
+    // Nom résolu en direct depuis Iconik quand le contexte ne porte que l'id
+    // (cas normal : ctx.collection = {id}) — même mécanisme que l'onglet
+    // Assets, pour ne jamais afficher un identifiant brut à un opérateur.
+    if (c && c.id) {
+      sec.appendChild(_ligne('Collection déclenchante',
+        _nomOuResolution(c.title, c.id, 'collection') || String(c.id), 'ok'));
+    }
+    if (a && a.id) {
+      sec.appendChild(_ligne('Asset déclenchant',
+        _nomOuResolution(a.title, a.id, 'asset') || String(a.id), 'ok'));
+    }
+    const u = snap.user && (snap.user.name || snap.user.email || snap.user.id);
+    if (u) sec.appendChild(_ligne('Déclenché par', String(u), null));
+    return sec.childNodes.length ? sec : null;
+  }
+
+  // Rend la valeur RÉELLEMENT écrite par un gabarit de champ, et qualifie
+  // honnêtement les trois cas distincts — les confondre induit en erreur :
+  //  - variable connue du contexte      → sa valeur (vert) ;
+  //  - fonction évaluée à l'exécution   → `{now}`, `{slug(x)}`… : la valeur
+  //    n'est PAS récupérable depuis le snapshot, mais elle a bien été
+  //    calculée ; l'afficher en rouge « non résolu » serait un faux
+  //    négatif (constaté sur DatedePublication = {now}) ;
+  //  - variable absente du contexte     → vraiment non résolu (rouge).
+  const FONCTIONS_GABARIT = /^\{(now|slug|upper|lower|trim|add|pad|filebase)\b/;
+  function _valeurEcrite(gabarit, snap) {
+    const brut = String(gabarit === undefined || gabarit === null ? '' : gabarit).trim();
+    const m = brut.match(/^\{([^}]+)\}$/);
+    if (!m) return { texte: brut, etat: 'ok' };            // littéral
+    if (snap.vars && snap.vars[m[1]] !== undefined) {
+      return { texte: String(snap.vars[m[1]]), etat: 'ok' };
+    }
+    if (FONCTIONS_GABARIT.test(brut) || brut.indexOf('(') !== -1) {
+      return { texte: brut + ' — calculé à l’exécution', etat: null };
+    }
+    return { texte: brut + ' (non résolu)', etat: 'ko' };
+  }
+
+  // Lit un chemin pointé (« a.b.c ») dans un objet du snapshot.
+  function _lireChemin(racine, chemin) {
+    if (!racine || !chemin) return undefined;
+    return String(chemin).split('.').reduce(function (o, k) {
+      return (o === null || o === undefined) ? undefined : o[k];
+    }, racine);
+  }
+
+  // Résout « {x} » depuis le contexte capturé, sinon rend le gabarit tel quel.
+  function r_resolu(gabarit, snap) {
+    const m = String(gabarit || '').trim().match(/^\{([^}]+)\}$/);
+    if (m && snap.vars && snap.vars[m[1]] !== undefined) return String(snap.vars[m[1]]);
+    return String(gabarit || '');
+  }
+
+  // ── Repli universel : « ce que ce nœud a écrit » ──────────────────────────
+  // Aucun nœud ne doit rester muet : à défaut d'un résumé spécialisé, on
+  // rend le diff en clair (clé = valeur lisible) plutôt que rien. C'est la
+  // différence entre « famille non prévue » et « rien à dire ».
+  function _resumeEcritures(ecrits) {
+    if (!ecrits.length) return null;
+    const sec = _section();
+    sec.appendChild(_titre(ecrits.length + ' valeur(s) écrite(s)'));
+    ecrits.slice(0, 25).forEach(function (d) {
+      sec.appendChild(_ligne(d.key, String(d.value), 'ok'));
+    });
+    if (ecrits.length > 25) sec.appendChild(_ligne('', '… et ' + (ecrits.length - 25) + ' autre(s)', null));
+    return sec;
+  }
+
   function _resume(step, occ) {
     if (!step) return null;
     const fin = occ.done || occ.error;
     const snap = fin && fin.ctxSnapshot;
     if (!snap) return null;
     const avant = occ.start && occ.start.ctxSnapshot;
+
+    // Ce que CE passage a écrit dans les variables — matière première du
+    // repli universel, et complément de plusieurs résumés spécialisés.
+    let ecrits = [];
+    if (avant) {
+      ecrits = _diffMap(avant.vars, snap.vars).filter(function (d) {
+        if (String(d.key).indexOf('_') === 0) return false;      // interne au moteur
+        if (step.core === 'loop') {
+          const lv = (step.params && step.params.loopVar) || 'item';
+          return d.key !== lv + '_errors' && d.key !== lv + '_error_count';
+        }
+        return true;
+      });
+    }
+
     try {
+      // Dispatch par FAÇADE d'abord : le core `http_request` héberge des
+      // façades très différentes (recherche, écriture de métadonnées,
+      // action, résolution d'ancêtres) qu'un seul résumé ne peut pas servir.
+      switch (step.facade) {
+        case 'iconik.search':            return _resumeRecherche(step, snap);
+        case 'iconik.set_metadata':      return _resumeSetMetadata(step, snap) || _resumeEcritures(ecrits);
+        case 'iconik.action':            return _resumeAction(step, snap, ecrits);
+        case 'iconik.resolve_ancestors': return _resumeAncetres(step, snap) || _resumeEcritures(ecrits);
+        case 'iconik.fetch':             return _resumeFetch(step, snap, ecrits);
+        case 'aps.registry':             return _resumeIdGenerator(step, snap) || _resumeEcritures(ecrits);
+        case 'iconik.trigger':           return _resumeTrigger(step, snap) || _resumeEcritures(ecrits);
+      }
       switch (step.core) {
         case 'decision':      return _resumeDecision(step, snap);
         case 'lookup':        return _resumeLookup(step, snap);
@@ -532,9 +774,13 @@
         case 'verify':        return _resumeVerify(step, snap);
         case 'history':       return _resumeHistory(step, snap);
         case 'wait':          return _resumeWait(step, snap);
+        case 'set_variable':  return _resumeSetVariable(step, snap, ecrits);
+        case 'loop':          return _resumeLoop(step, snap) || _resumeEcritures(ecrits);
+        case 'transform':     return _resumeTransform(step, snap, ecrits);
+        case 'trigger':       return _resumeTrigger(step, snap) || _resumeEcritures(ecrits);
         case 'http_request':
-        case 'http_sequence': return _resumeHttp(step, snap, avant);
-        default:              return null;
+        case 'http_sequence': return _resumeHttp(step, snap, avant) || _resumeEcritures(ecrits);
+        default:              return _resumeEcritures(ecrits);
       }
     } catch (_) {
       // Un résumé ne doit JAMAIS casser le panneau : à défaut, le dépliant
