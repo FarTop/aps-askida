@@ -155,11 +155,23 @@
   // transition de statut, juste un rendu qui a bougé le décor). Même
   // principe que WfRunOverlay.reappliquer(), câblé au même endroit
   // (workflow-canvas.js, rendreDepuisModele()).
+  //
+  // Un nœud hors de la portée actuellement rendue (ex. on vient d'entrer
+  // dans le corps d'une Loop dont le badge est sur le nœud Loop lui-même,
+  // au niveau racine) ne doit PAS effacer le badge — juste le laisser
+  // détaché en mémoire (`badges[stepId]` conservé) pour qu'il réapparaisse
+  // tel quel au retour à cette portée. Le supprimer ici (comportement
+  // d'avant ce correctif) cassait la traçabilité : le VRAI step:done de ce
+  // nœud, arrivant plus tard, ne trouvait alors plus de badge existant et
+  // retombait sur le repli `_afficher()` de `_deplacer()` — un badge
+  // "success" flambant neuf, réapparaissant à un moment sans rapport avec
+  // le déroulé réel (retour utilisateur 2026-08-06 : "je vois un badge
+  // réapparaître sur la Loop" après la fin du run dans les Logs).
   function reappliquer(nodesHost) {
     Object.keys(badges).forEach(function (stepId) {
-      const nodeEl = _noeud(nodesHost, stepId);
       const badge = badges[stepId];
-      if (!nodeEl || !badge) { _supprimerEl(stepId); return; }
+      const nodeEl = _noeud(nodesHost, stepId);
+      if (!nodeEl) return; // hors de la portée actuellement rendue — badge conservé, pas effacé
       nodesHost.appendChild(badge);
       badge.classList.remove('entering', 'exiting', 'transit');
       _positionner(badge, nodeEl);
