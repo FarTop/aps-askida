@@ -26,6 +26,8 @@
   let timer = null;
   let evenementsAccumules = [];
   let docCache = {}; // clé `${flowId}:${flowVersion}` -> document
+  let flowIdActuel = root._flowId || null;
+  let liveDepuisDebutActuel = false;
 
   function _clePourRun(run) {
     return run.flowId + ':' + (run.flowVersion == null ? '' : run.flowVersion);
@@ -56,6 +58,15 @@
         runId: runId, run: run, document: document_,
         newEvents: nouveaux, allEvents: evenementsAccumules,
         stepStatus: stats.stepStatus, stepEvent: stats.stepEvent, takenEdges: stats.takenEdges,
+        // Vrai seulement quand CE navigateur vient de déclencher le run
+        // (bouton ▶ Run) — le tout premier fetch peut alors déjà contenir
+        // plusieurs événements (le serveur a eu le temps d'avancer entre la
+        // réponse HTTP du trigger et ce premier sondage), mais ils sont
+        // tous authentiquement "du direct" puisque personne ne regardait
+        // avant l'instant du clic. Faux pour un run rejoint en cours
+        // (sélectionné dans Jobs, ou auto-suivi) : là, le premier fetch est
+        // un vrai historique déjà écoulé, pas du direct.
+        liveDepuisDebut: liveDepuisDebutActuel,
       }
     }));
   }
@@ -92,13 +103,18 @@
   // affiché de l'ancien run AVANT le premier fetch (jamais un fondu — un
   // badge d'un AUTRE run serait trompeur, pire qu'un vide passager) : un
   // tick "vide" est émis en synchrone, la vraie donnée arrive juste après.
-  function suivre(runId) {
+  // `liveDepuisDebut` (voir _emettreTick) : à passer `true` uniquement par
+  // l'appelant qui vient de déclencher CE run lui-même (jobs-logs-panel.js,
+  // juste après la réponse du POST /trigger) — jamais par un simple
+  // rejoint/sélection d'un run déjà en cours.
+  function suivre(runId, liveDepuisDebut) {
     if (!runId || runId === runIdSuivi) return;
     if (timer) { clearTimeout(timer); timer = null; }
     runIdSuivi = runId;
     evenementsAccumules = [];
+    liveDepuisDebutActuel = !!liveDepuisDebut;
     root.dispatchEvent(new CustomEvent('aps:run-tick', {
-      detail: { runId: runId, run: null, document: null, newEvents: [], allEvents: [], stepStatus: {}, stepEvent: {}, takenEdges: new Set() }
+      detail: { runId: runId, run: null, document: null, newEvents: [], allEvents: [], stepStatus: {}, stepEvent: {}, takenEdges: new Set(), liveDepuisDebut: liveDepuisDebutActuel }
     }));
     _tick();
   }
@@ -112,7 +128,16 @@
   window.WfRunPoll = { suivre: suivre, arreter: arreter };
 
   // Changer de flow arrête le suivi en cours — le run d'un autre workflow
-  // n'a plus de sens à animer ici.
-  root.addEventListener('aps:flow-ready', function () { arreter(); });
+  // n'a plus de sens à animer ici. `aps:flow-ready` se redéclenche aussi
+  // après CHAQUE sauvegarde (y compris l'auto-save silencieux sur toute
+  // édition) du MÊME flow — arrêter le suivi à CE moment coupait le
+  // sondage live d'un run encore en cours (webhook réel) à la moindre
+  // édition du canevas pendant qu'on l'observait. Ne réagir qu'à un vrai
+  // changement de flowId.
+  root.addEventListener('aps:flow-ready', function (e) {
+    const change = e.detail.flowId !== flowIdActuel;
+    flowIdActuel = e.detail.flowId;
+    if (change) arreter();
+  });
 
 })();

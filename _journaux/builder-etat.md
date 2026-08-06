@@ -7,12 +7,30 @@
 > écarté. Lire ce document suffit pour travailler ; lire le journal sert quand
 > on veut comprendre une décision ou la remettre en cause.
 >
-> Dernière mise à jour : 5 août 2026, fin de session (**animation live des
+> Dernière mise à jour : 6 août 2026, fin de session (**panneau Run refondu
+> en inspecteur à 3 onglets Assets/Action/Debug**, **badges de job
+> flottants réellement animés sur le canevas** — port fidèle de WFD après
+> deux tentatives en CSS refusées par l'utilisateur —, **noms Iconik
+> résolus en direct** pour les collections dans Assets, et **deux points
+> d'entrée supplémentaires pour ouvrir le corps d'un Loop** (clic sur le
+> badge "N steps", clic droit → "Open loop body"). Cf. section "Panneau Run
+> refondu" et "Badges de job flottants" tout en bas pour le détail complet,
+> les bugs réels trouvés (double-comptage Assets, deux bugs d'auto-save qui
+> effaçaient l'état du panneau, un vrai bug de clipping CSS confondu deux
+> fois avec un connecteur de fil avant d'être compris) et la méthode de
+> vérification. Bascule PUBLISH v1→v2 constatée déjà faite en début de
+> session (le premier "reste ouvert" de la note du 5 août) — sans doute une
+> manip directe de l'utilisateur entre les deux sessions, pas quelque chose
+> construit ici. Webhook réel Iconik : testé une fois indirectement (badges
+> vus lors d'un déclenchement manuel), **jamais encore depuis un vrai clic
+> Custom Action** — prochain test annoncé par l'utilisateur.
+>
+> Historique : 5 août 2026, fin de session (**animation live des
 > jobs sur le canevas** — badges/arêtes surlignées/onglet Debug — pour
 > faciliter les tests manuels, motivation directe de l'utilisateur. Corrige
 > le bug WFD le plus gênant vécu en production : un nœud en erreur qui
 > continue ne reste plus visuellement figé/confondu avec une pause — cf.
-> section "Animation live des jobs" tout en bas pour le diagnostic exact et
+> section "Animation live des jobs" pour le diagnostic exact et
 > l'architecture. Trouvé et corrigé au passage : un vrai bug de fond sur les
 > nœuds `decision` (30 arêtes cassées en base, dont PUBLISH — toute arête de
 > décision dessinée depuis le canevas était silencieusement non-fonctionnelle
@@ -21,8 +39,8 @@
 > republier un workflow — `BuilderFlow.active`), et disposition automatique
 > des nœuds (Tidy, `dagre`) déclenchée par un incident réel en testant le
 > versionnement. Décision utilisateur actée : abandon de PUBLISH v1 au
-> profit de v2, bascule elle-même **pas encore faite** — cf. "Reste ouvert"
-> de la section Animation live des jobs pour le point de reprise exact.
+> profit de v2, bascule elle-même **pas encore faite à l'époque** — faite
+> depuis, cf. paragraphe du 6 août ci-dessus.
 >
 > Historique : 5 août 2026, plus tôt (**moteur d'exécution natif du pivot
 > construit et vérifié en conditions réelles** —
@@ -83,36 +101,50 @@
 
 ## Point de départ pour la prochaine session
 
-> Mis à jour le 5 août — les points 1-2 ci-dessous (étape 12 HTTP Sequence,
-> Verify/History pilotés par Manifeste) sont **résolus** depuis la fin du 4
-> août ; conservés en historique juste en dessous. Nouveaux points de reprise :
+> Mis à jour le 6 août. Le point "0." du 5 août est **résolu** (moteur natif
+> exploité toute la session : Créer Série/Saison/Episode/Unitaire
+> reconstruits et validés fin de session du 5, PUBLISH v1→v2 basculé,
+> déclenchement manuel testé à fond, panneau Run/Jobs entièrement refondu —
+> cf. bandeau tout en haut) — conservé en historique juste en dessous.
+> Nouveaux points de reprise :
 
-0. **Le moteur natif existe maintenant** (`server/engine-builder/`, cf.
-   section "Moteur d'exécution natif" tout en bas) — priorité déclarée par
-   l'utilisateur pour la suite :
-   - **Reconstruire les autres workflows Créer** (Série/Saison/Episode/
-     Unitaire, `BAYARD | CREER | COLLECTION | *`) dans le Builder — ils
-     peuvent maintenant être **réellement exécutés et validés** via `POST
-     /api/builder-engine/trigger/:flowId`, pas seulement dessinés.
-   - **Panneaux Logs/Run du canevas** — désormais débloqués (de vraies
-     données `BuilderRun`/`BuilderRunEvent` existent), mais le périmètre
-     UI n'est toujours pas cadré. Contrainte déjà actée : ne pas reproduire
-     les tabs Assets/Action du vieux panel WFD (Assets jamais alimenté,
-     Action trop large) — le tab Jobs est le bon modèle ; tout texte doit
-     être copiable.
-   - **Webhook jamais essayé en conditions réelles** — `POST
-     /api/builder-engine/action/:slug` existe et est câblé (dernière
-     version publiée uniquement, 409 sinon), mais n'a été testé qu'avec un
-     payload construit à la main, jamais depuis une vraie Custom Action
-     cliquée dans Iconik.
-   - **Deux imperfections trouvées dans PUBLISH pendant la vérification,
-     non corrigées** (hors périmètre de la session engine) : l'étape
-     "Search" (assets à exporter) utilise `field:"_"` au lieu de
-     `"__collection__"` (l'opérateur `in_collection` n'est reconnu nulle
-     part, la requête part sans filtre de collection) ; la Boucle utilise
-     `loopVariablePath: "assetsAExporter.object_type"`, qui ne résout
-     jamais vers un tableau (probablement `.objects` attendu) — la boucle
-     ne s'exécute donc jamais en pratique sur cette collection.
+0. **Webhook réel Iconik jamais encore cliqué depuis Iconik lui-même** —
+   testé uniquement via déclenchement manuel (▶ Run) jusqu'ici ; les badges
+   flottants fonctionnent pour ce cas (`liveDepuisDebut`, cf. section
+   "Badges de job flottants" tout en bas), mais un vrai clic Custom Action
+   passe par le chemin `liveDepuisDebut: false` (auto-suivi Jobs), jamais
+   vérifié en conditions réelles avec la nouvelle animation.
+1. **Chantier Statuses non commencé** (`BAYARD|CHECK|STATUSES|VODFACTORY`,
+   11 nœuds incl. boucle/checker/history×3) — complexité comparable à
+   PUBLISH, explicitement différé depuis la session Créer workflows du 5
+   août.
+2. **Badge de boucle = dernière itération seulement** (limite assumée,
+   inchangée depuis le 5 août — cf. section "Animation live des jobs",
+   "Reste ouvert") — un échec intermédiaire sous `onError:'continue'` reste
+   invisible sur le badge de statut du nœud (mais PAS sur le badge flottant
+   animé, construit le 6 août, qui montre chaque passage individuellement).
+3. **Résolution de nom Iconik (6 août) limitée aux collections/assets
+   hors boucle** — le cas dans une boucle (`loopInfo`) a la même
+   plomberie de résolution branchée, mais les assets de recherche portent
+   déjà un titre dans `ctxSnapshot.vars` en pratique ; jamais vu le
+   chemin de résolution se déclencher réellement pour ce cas précis.
+
+<details>
+<summary>Historique — points de reprise du 5 août (résolus depuis)</summary>
+
+- ~~Reconstruire les workflows Créer~~ — fait le 5 août (confirmé par
+  l'utilisateur, cf. mémoire projet).
+- ~~Panneaux Logs/Run du canevas~~ — refondus le 6 août (cf. section
+  "Panneau Run refondu" tout en bas) après un premier jet le 5 août jugé
+  trop proche de l'ancien panel WFD.
+- ~~Webhook jamais essayé~~ — partiellement fait : déclenchement manuel
+  testé à fond le 6 août, vrai clic Iconik toujours ouvert (point 0.
+  ci-dessus).
+- ~~Deux imperfections PUBLISH (`field:"_"`, `loopVariablePath`)~~ —
+  fixées avant la fin de la session du 5 août (cf. section "Recheck S3 de
+  PUBLISH v2").
+
+</details>
 
 <details>
 <summary>Historique — points de reprise du 4 août (résolus depuis)</summary>
@@ -2259,3 +2291,167 @@ PUBLISH (16 nœuds, aucune régression).
 - Les deux imperfections de PUBLISH non corrigées (critère de recherche
   `field:"_"`, chemin de boucle `loopVariablePath`) — toujours ouvertes,
   cf. section "Moteur d'exécution natif" plus haut.
+
+---
+
+## Panneau Run refondu (Assets/Action/Debug) — 6 août
+
+Suite directe de la session du 5 : le panneau Run/Debug construit ce
+jour-là a été testé pour de vrai par l'utilisateur sur PUBLISH v2 (webhook
+Iconik réel — l'écran de jobs Iconik montrait 4 assets "Failed" + 3
+"Finished") et rejeté à l'usage : "le nœud clignote mais rien n'indique
+combien de passages ont eu lieu", et l'onglet Debug "n'est qu'un extrait
+de Logs... répétitif, sans valeur ajoutée".
+
+**Refonte actée avec l'utilisateur** : un seul panneau Run, 3 onglets au
+rôle strictement distinct — Assets (quels assets, combien, sont passés
+par CE nœud), Action (ce que CE nœud a produit, rien d'autre), Debug
+(peut être bavard, c'est un debug). Le formulaire de déclenchement
+manuel (jusqu'ici dans Run) déménage dans Jobs, replié — Jobs déclenche
+ET liste, Run n'est QUE l'inspecteur d'un nœud pour le run suivi.
+
+**Assets** : regroupe les événements d'un nœud en passages réels
+(start→erreur?→done, jamais un décompte d'événements bruts — un
+`continue_log` émet error PUIS done pour LA MÊME itération, compter les
+deux séparément double le total, bug réel trouvé et corrigé pendant la
+vérification). Résout l'identité par itération : variable de boucle du
+document si le nœud est dans une Loop, sinon `ctx.asset`/`ctx.collection`
+du contexte. Le décompte manquant ("je ne vois pas le nombre de jobs")
+vit directement sur le libellé de l'onglet ("Assets (3)").
+
+**Action** : diff générique entre le `ctxSnapshot` du `step:start` et du
+`step:done`/`step:error` d'un nœud — isole ce que CE nœud a réellement
+écrit dans `ctx.vars`/`ctx.results`, pour n'importe quel core, sans
+connaître son détail interne (contrairement au vieux panel WFD, qui avait
+besoin d'un switch par famille de nœud). Un seul enrichissement dédié :
+`decision` ne produit rien à differ (il route seulement), donc lit
+`step.params.field`/`.conditions` pour afficher la condition testée en
+une phrase lisible.
+
+**Debug** : inchangé dans l'esprit — historique brut complet, verbeux,
+juste relocalisé en sous-onglet.
+
+**Deux bugs réels trouvés après coup, sur des rapports utilisateur
+distincts, tous deux liés à `aps:flow-ready`** :
+1. *"Run se vide tout seul après un moment"* — `aps:flow-ready` se
+   redéclenche après CHAQUE sauvegarde, y compris l'auto-save silencieux
+   sur n'importe quelle édition (déplacer un nœud, etc.), pas seulement à
+   l'ouverture d'un autre flow. `run-panel.js`/`jobs-logs-panel.js`/
+   `wf-run-poll.js` réinitialisaient tout leur état à CHAQUE réception de
+   cet événement au lieu de seulement sur un vrai changement de `flowId` —
+   corrigé dans les trois fichiers.
+2. *"Run vide tant que je ne suis pas passé par Jobs"* — Run ne suivait
+   un run automatiquement que pour un run flambant neuf détecté en cours
+   de session ; un flow dont tous les runs sont déjà terminés au
+   chargement de la page n'était jamais auto-suivi. Corrigé : premier
+   chargement de Jobs pour un flow → auto-suit le run le plus récent
+   (`startedAt desc`), quel que soit son statut.
+
+**Vérifié** : sur des runs jetables (créés/exercés/supprimés via l'API,
+zéro appel Iconik/S3 réel), et sur le vrai run le plus récent de PUBLISH
+v2 pour confirmer les identités/diffs contre de vraies données.
+
+---
+
+## Badges de job flottants — trois tentatives, port fidèle de WFD accepté — 6 août (suite)
+
+Le décompte affiché sur l'onglet Assets (ci-dessus) ne suffisait pas à
+l'utilisateur : *"toujours pas de badges flottants sur les nœuds pendant
+le run"*. Trois passes, corrigées une à une par les retours directs de
+l'utilisateur — nommées ici pour ne pas les refaire :
+
+**Tentative 1 (rejetée sans le dire, silencieusement invisible)** : badge
+en pseudo-élément CSS (`::after` sur `.bd-node-canvas`), en surplomb
+au-dessus du nœud (`top:-10px`). Invisible sur la plupart des nœuds :
+`.cnv-frame` (le cadre du canevas) a lui aussi un `overflow:hidden`, et
+tout nœud de la première rangée voit son badge coupé net par cette
+frontière — ne restait qu'un fin croissant, confondu à l'œil avec un
+connecteur de fil. Diagnostiqué en scannant les pixels d'une vraie
+capture d'écran (Python/PIL) plutôt qu'en zoomant le canevas en direct
+(la transformation pan/zoom du canevas, recalculée à la main, a produit
+plusieurs captures trompeuses avant cette méthode).
+
+**Tentative 2 (techniquement corrigée, rejetée quand même)** : badge
+inséré À L'INTÉRIEUR de la boîte du nœud (`top:3px`), qui ne dépend plus
+d'aucun ancêtre — fonctionnait, vérifié pixel par pixel. Rejet net de
+l'utilisateur malgré tout : *"Tu improvises encore. Ça marchait dans
+WFD. Cette idée ne me plaît pas. Je préfère que tu la retires."* Pas une
+demande de correction — une demande de retrait. Retiré intégralement
+(attribut, CSS, calcul de décompte, plomberie dans 3 fichiers) ; `git
+status` confirme `wf-run-status.js`/`wf-run-overlay.js` revenus à l'état
+commité, diff nul.
+
+**Tentative 3 (acceptée) — port fidèle, pas une réinvention.** Consigne
+explicite : *"comment on peut avoir la même animation que WFD... pas
+d'invention."* Cette fois, le vrai code de WFD lu avant d'écrire une
+ligne (`script-workflow-designer.js`, section badges + son CSS
+`.wfd-job-badge`). Nouveau fichier `wf-run-badges.js` : un vrai `<div>`
+flottant (pas un pseudo-élément), même cycle de vie (apparition →
+déplacement/recoloration → disparition), mêmes durées d'animation
+(200ms/350ms, disparition auto après 1.5s si l'état n'est pas "à
+garder"), mêmes couleurs par statut (jetons de cette app plutôt que le
+hex de WFD, seule adaptation), même contenu (un chiffre — nombre de
+passages). Positionné via `--nx`/`--ny` (la vraie position du nœud dans
+ce canevas, `node-renderer.js`), donc hérite du pan/zoom sans recalcul
+manuel — contrairement à WFD (`offsetLeft`/`offsetTop`, positions en
+`left`/`top` direct côté nœud, pas de transform CSS à ce niveau).
+
+Piloté par les `newEvents` de chaque sondage (ce moteur interroge toutes
+les 1.5s, WFD recevait un flux poussé en direct) comme s'il s'agissait
+d'événements live. Ne rejoue jamais l'historique complet d'un run rejoint
+après coup (sélectionné dans Jobs, ou auto-suivi) — WFD n'a jamais ce cas,
+ses badges n'existent que pour un job réellement en vol au moment où on
+regarde.
+
+**Deux bugs réels trouvés en vérifiant** :
+1. Le sondage émet un tick synchrone VIDE dès l'appel à `suivre()`, avant
+   le premier vrai fetch — ce tick vide consommait le garde-fou "ne pas
+   rejouer le premier tick", si bien que le VRAI premier tick (qui porte
+   l'historique) arrivait avec le garde-fou déjà épuisé et se faisait
+   animer par erreur. Corrigé : le garde-fou ne se consomme que sur un
+   tick portant de vraies données.
+2. *"Si je fais un run de test sans Iconik, je suis censé voir les
+   badges ?"* — question qui a révélé un vrai trou : un run déclenché
+   depuis CE navigateur (▶ Run) peut échouer plus vite que le premier
+   sondage (connexion Iconik absente/en échec immédiat) ; le premier
+   fetch peut alors DÉJÀ contenir tout l'historique, traité à tort comme
+   "rejoint après coup" et jamais animé. Corrigé : `WfRunPoll.suivre(id,
+   liveDepuisDebut)` — vrai uniquement quand CE navigateur vient de
+   déclencher le run lui-même (jobs-logs-panel.js, juste après la réponse
+   du POST /trigger) — dans ce cas, même le premier fetch est
+   authentiquement du direct, jamais sauté.
+
+**Vérifié** : traçage console direct dans le code réel (pas une
+supposition externe) confirmant le cycle de vie complet dans l'ordre
+(apparition → transit succès → maintien 1.5s → disparition), plus
+capture d'écran d'un vrai badge bleu flottant au-dessus d'un nœud.
+Confirmé ensuite par l'utilisateur lui-même en conditions réelles
+("J'ai vu des badges").
+
+---
+
+## Noms Iconik résolus en direct + points d'entrée du corps de Loop — 6 août (suite)
+
+Deux demandes UX une fois les badges validés.
+
+**Noms de collection dans Assets** : `ctx.collection` ne porte que `{id}`
+dans le contexte d'un run, jamais de titre. `run-panel.js` résout
+maintenant le nom en direct via le proxy Iconik déjà utilisé ailleurs
+dans l'app (`/api/iconik/:envSlug/API/collections|assets/v1/:id/`,
+`X-Force-Live`, même mécanisme que `config-sources.js`) — l'id reste
+affiché immédiatement, remplacé par le nom dès qu'il arrive, mis en
+cache par id pour ne jamais re-résoudre.
+
+**Corps de Loop plus direct à ouvrir** : *"je pense que Loop est trop
+abstrait"*. Un bouton "Edit body →" existait déjà dans le panneau Config
+(ajouté le 4 août pour la découvrabilité) mais nécessitait de
+sélectionner le nœud puis ouvrir Config — jugé encore trop indirect.
+Recommandation actée avec l'utilisateur : ne pas construire de rendu
+imbriqué (mini-canevas dans la boîte du nœud) ni de fenêtre/iframe — trop
+de complexité réelle pour probablement moins lisible, et une fenêtre
+casserait la logique "que des volets plats" de cette app. Garder la
+navigation de portée existante (`portee.entrer()`, fil d'Ariane déjà
+éprouvé), juste ajouter des points d'entrée plus directs vers la MÊME
+mécanique : le badge "N steps", déjà visible sur le nœud, est maintenant
+cliquable ; "Open loop body" apparaît aussi au clic droit sur un nœud
+Loop, avant les actions génériques (Duplicate/Copy/Delete).

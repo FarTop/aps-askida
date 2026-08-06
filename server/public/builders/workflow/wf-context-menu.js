@@ -14,7 +14,7 @@
 const WfContextMenu = (() => {
 
   function brancher(ctx) {
-    const { root, nodesHost, model, history, selection, clipboard } = ctx;
+    const { root, nodesHost, model, history, selection, clipboard, portee, surChangementDePortee } = ctx;
     if (!root || !nodesHost || !history || !selection) return function () {};
 
     let menu = null;
@@ -62,12 +62,23 @@ const WfContextMenu = (() => {
       selection.vider();
     }
 
-    function _ouvrir(x, y) {
+    function _ouvrir(x, y, idCible) {
       _fermer();
       menu = document.createElement('div');
       menu.className = 'bd-ctx-menu';
       menu.style.setProperty('--cx', x + 'px');
       menu.style.setProperty('--cy', y + 'px');
+      // "Ouvrir le corps de la boucle" : uniquement sur le nœud VISÉ par le
+      // clic droit (pas sur toute la sélection), même action que le double-
+      // clic/le badge "N steps" — un second point d'entrée, pas une
+      // troisième mécanique. En premier : c'est l'action la plus probable
+      // pour un Loop, avant les actions génériques.
+      const noeudCible = idCible && model ? model.noeud(idCible) : null;
+      if (portee && noeudCible && noeudCible.etape && noeudCible.etape.core === 'loop') {
+        menu.appendChild(_entree('Open loop body', function () {
+          if (portee.entrer(idCible) && surChangementDePortee) surChangementDePortee(true);
+        }));
+      }
       menu.appendChild(_entree('Duplicate', _dupliquer));
       menu.appendChild(_entree('Copy', _copier));
       menu.appendChild(_entree('Delete', _supprimer, true));
@@ -84,7 +95,7 @@ const WfContextMenu = (() => {
       const id = nodeEl.getAttribute('data-step-id');
       // Sélectionne le nœud visé s'il n'est pas déjà dans la sélection.
       if (!selection.contient(id)) selection.selectionner(id);
-      _ouvrir(e.clientX, e.clientY);
+      _ouvrir(e.clientX, e.clientY, id);
     }
 
     nodesHost.addEventListener('contextmenu', onContext);

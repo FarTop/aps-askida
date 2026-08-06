@@ -131,8 +131,27 @@
           </div>
 
           <div class="bd-view bd-view-jobs">
+            <details class="rn-trigger" data-role="run-form" hidden>
+              <summary>▶ Trigger a test run</summary>
+              <div class="rn-trigger-body">
+                <div class="cfg-field">
+                  <label class="cfg-label" for="run-version">Version to run</label>
+                  <select class="cfg-input cfg-select" id="run-version" data-role="run-version"></select>
+                </div>
+
+                <div class="cfg-field">
+                  <label class="cfg-label" for="run-payload">Trigger payload (JSON)</label>
+                  <textarea class="cfg-input rn-payload" id="run-payload" data-role="run-payload" rows="6" spellcheck="false">{}</textarea>
+                  <p class="cfg-aide rn-error" data-role="run-payload-error" hidden></p>
+                </div>
+
+                <button class="bd-btn-loop-body" data-role="run-trigger" type="button">▶ Run</button>
+
+                <div class="rn-result" data-role="run-result" hidden></div>
+              </div>
+            </details>
             <div class="bd-panel-bd" data-role="jobs-liste"></div>
-            <p class="bd-empty" data-role="jobs-empty" data-hidden="1">No runs yet for this workflow — trigger one from the Run tab.</p>
+            <p class="bd-empty" data-role="jobs-empty" data-hidden="1">No runs yet for this workflow — trigger one above.</p>
           </div>
 
           <div class="bd-view bd-view-logs">
@@ -211,41 +230,27 @@
             </div>
           </div>
 
-          <!-- Vue Run : déclenche le moteur natif (server/engine-builder/) sur
-               CE workflow — brouillon courant ou une version publiée figée.
-               Un run terminé rafraîchit Jobs (dock gauche) automatiquement. -->
+          <!-- Vue Run : inspecteur d'UN nœud pour le run actuellement suivi
+               (sélectionné dans Jobs — le déclenchement lui-même vit là-bas,
+               pas ici, Run n'est QUE l'inspecteur). Cliquer un nœud sur le
+               canevas peuple les 3 onglets : Assets (quels assets/combien
+               sont passés par ce nœud), Action (ce que CE nœud a produit,
+               strictement — diff avant/après de son exécution), Debug
+               (données brutes complètes, verbeux par nature). -->
           <div class="bd-view bd-view-run">
             <div class="bd-panel-bd">
-              <p class="bd-empty" data-role="run-no-flow">Save this workflow before running it.</p>
-
-              <div data-role="run-form" hidden>
-                <div class="cfg-field">
-                  <label class="cfg-label" for="run-version">Version to run</label>
-                  <select class="cfg-input cfg-select" id="run-version" data-role="run-version"></select>
+              <p class="bd-empty" data-role="run-empty">Open a run (Jobs) and click a node to inspect it.</p>
+              <div data-role="run-content" hidden>
+                <div class="lg-run-hd" data-role="run-node-hd"></div>
+                <div class="bd-subtabs" data-role="run-subtabs">
+                  <button class="bd-subtab bd-subtab-active" data-pane="assets">Assets</button>
+                  <button class="bd-subtab" data-pane="action">Action</button>
+                  <button class="bd-subtab" data-pane="debug">Debug</button>
                 </div>
-
-                <div class="cfg-field">
-                  <label class="cfg-label" for="run-payload">Trigger payload (JSON)</label>
-                  <textarea class="cfg-input rn-payload" id="run-payload" data-role="run-payload" rows="8" spellcheck="false">{}</textarea>
-                  <p class="cfg-aide rn-error" data-role="run-payload-error" hidden></p>
-                </div>
-
-                <button class="bd-btn-loop-body" data-role="run-trigger" type="button">▶ Run</button>
-
-                <div class="rn-result" data-role="run-result" hidden></div>
+                <div class="bd-pane bd-pane-active" data-pane="assets" data-role="run-pane-assets"></div>
+                <div class="bd-pane" data-pane="action" data-role="run-pane-action"></div>
+                <div class="bd-pane" data-pane="debug" data-role="run-pane-debug"></div>
               </div>
-            </div>
-          </div>
-
-          <!-- Vue Debug : détails d'UN nœud pour le run actuellement ouvert
-               (sélectionné dans Jobs, ou déclenché depuis Run) — cliquer un
-               nœud sur le canevas y affiche son historique d'événements.
-               Indépendant de workflow-canvas.js (aps:run-tick / aps:node-
-               clicked sur root), même principe que run-panel.js. -->
-          <div class="bd-view bd-view-debug">
-            <div class="bd-panel-bd">
-              <p class="bd-empty" data-role="debug-empty">Open a run (Jobs) and click a node to inspect it.</p>
-              <div data-role="debug-content" hidden></div>
             </div>
           </div>
         </aside>
@@ -257,7 +262,6 @@
           <button class="bd-tab" data-panel="config" data-side="right">Config</button>
           <button class="bd-tab" data-panel="variables" data-side="right">Variables</button>
           <button class="bd-tab" data-panel="run" data-side="right">Run</button>
-          <button class="bd-tab" data-panel="debug" data-side="right">Debug</button>
         </div>
       </div>
 
@@ -298,6 +302,7 @@
   <script src="wf-connect.js"></script>
   <script src="wf-context-menu.js"></script>
   <script src="wf-run-overlay.js"></script>
+  <script src="wf-run-badges.js"></script>
   <script src="config-sources.js"></script>
   <script src="config-model.js"></script>
   <script src="config-renderer.js"></script>
@@ -306,7 +311,6 @@
   <script src="run-panel.js"></script>
   <script src="jobs-logs-panel.js"></script>
   <script src="wf-run-poll.js"></script>
-  <script src="debug-panel.js"></script>
   <script src="workflow-canvas.js"></script>
 </body>
 </html>

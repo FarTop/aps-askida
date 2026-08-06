@@ -22,7 +22,7 @@
   const MIN = px(styles.getPropertyValue('--bd-panel-min'));
   const MAX = px(styles.getPropertyValue('--bd-panel-max'));
 
-  const TITRE = { jobs: 'Jobs', logs: 'Logs', config: 'Config', variables: 'Variables', run: 'Run', debug: 'Debug', api: 'API ops' };
+  const TITRE = { jobs: 'Jobs', logs: 'Logs', config: 'Config', variables: 'Variables', run: 'Run', api: 'API ops' };
 
   // ── Ouverture / fermeture des volets ──────────────────────────────────────
   // data-open porte la liste des bords ouverts ("left right"). Le CSS fait
@@ -244,6 +244,7 @@
       // que wf-run-overlay.js ait besoin de sa propre souscription à
       // model.onChange — rejoue simplement le dernier statut de run connu.
       if (window.WfRunOverlay) WfRunOverlay.reappliquer(nodesHost);
+      if (window.WfRunBadges) WfRunBadges.reappliquer(nodesHost);
     }
 
     // Retrace des arêtes, COALESCÉ : un seul rAF en vol à la fois. Sans ça, un
@@ -331,6 +332,19 @@
       if (e.target.closest('.nc-dot')) return;
 
       const id = nodeEl.getAttribute('data-step-id');
+
+      // Clic direct sur le badge "N steps" d'un Loop : ouvre son corps —
+      // même action que le double-clic sur le nœud (portee.entrer()), juste
+      // un point d'entrée plus visible/direct (retour utilisateur : le
+      // bouton "Edit body →" du panneau Config, ajouté pour la
+      // découvrabilité, ne suffisait pas). Ni sélection ni déplacement dans
+      // ce cas — retourne avant la logique de sélection ci-dessous.
+      if (e.target.closest('.nc-loop-badge')) {
+        e.stopPropagation();
+        if (portee && portee.entrer(id)) _surChangementDePortee(true);
+        return;
+      }
+
       if (!selection) return;
 
       if (e.ctrlKey || e.metaKey) {
@@ -370,7 +384,7 @@
       if (nodesHost.hasPointerCapture(e.pointerId)) nodesHost.releasePointerCapture(e.pointerId);
       const d = drag; drag = null;
       // Simple clic (pas un glissé) sur UN SEUL nœud : signale son id, pour
-      // que debug-panel.js (s'il écoute) affiche les événements de run de
+      // que run-panel.js (s'il écoute) affiche les événements de run de
       // ce step. Inoffensif si personne n'écoute — aucune dépendance
       // inverse, même principe que tous les autres événements sur `root`.
       if (!d.moved && d.ids.length === 1) {
@@ -458,7 +472,8 @@
       _reabonnable(function () {
         return window.WfContextMenu.brancher({
           root: root, nodesHost: nodesHost, model: model, history: history,
-          selection: selection, clipboard: clipboard
+          selection: selection, clipboard: clipboard,
+          portee: portee, surChangementDePortee: _surChangementDePortee
         });
       });
     }

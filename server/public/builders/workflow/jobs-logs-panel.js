@@ -2,12 +2,15 @@
  * jobs-logs-panel.js — Dock gauche, vues Jobs + Logs
  *
  * Jobs liste les BuilderRun du workflow ouvert (GET /api/builder-runs,
- * lecture seule — server/routes/builder-runs.js) ; cliquer un run l'ouvre
- * dans Logs (timeline des BuilderRunEvent, GET /api/builder-runs/:runId).
- * Indépendant de workflow-canvas.js (même principe que config-sources.js et
- * run-panel.js) : lit flowId via `aps:flow-ready` sur root, se rafraîchit
- * aussi sur `aps:run-finished` (émis par run-panel.js après un déclenchement
- * manuel), sans dépendance inverse.
+ * lecture seule — server/routes/builder-runs.js), avec un déclencheur de
+ * test repliable en haut de la liste (POST /api/builder-engine/trigger/
+ * :flowId) — Jobs est le seul endroit qui déclenche un run ; le panneau
+ * Run (run-panel.js) n'en est que l'INSPECTEUR, jamais un formulaire de
+ * test (retour utilisateur du 2026-08-05 : "un panneau Debug qui n'a rien
+ * à faire à droite selon la logique"). Cliquer un run l'ouvre dans Logs
+ * (timeline des BuilderRunEvent, GET /api/builder-runs/:runId).
+ * Indépendant de workflow-canvas.js (même principe que config-sources.js) :
+ * lit flowId via `aps:flow-ready` sur root, sans dépendance inverse.
  *
  * UX bâtie sur la critique de l'ancien panneau Jobs/Debug de WFD
  * (feedback-run-jobs-panel-ux) : Jobs est le modèle qui marchait déjà — liste
@@ -28,14 +31,25 @@
   const logsListe  = root.querySelector('[data-role="logs-liste"]');
   if (!jobsListe || !logsListe) return;
 
+  const runForm     = root.querySelector('[data-role="run-form"]');
+  const runVersionSel = root.querySelector('[data-role="run-version"]');
+  const runPayloadEl  = root.querySelector('[data-role="run-payload"]');
+  const runPayloadErr = root.querySelector('[data-role="run-payload-error"]');
+  const runTriggerBtn = root.querySelector('[data-role="run-trigger"]');
+  const runResultEl   = root.querySelector('[data-role="run-result"]');
+
   let flowId = root._flowId || null;
   let runSelectionne = null;
   let pollTimer = null;
   let dernierRunAffiche = null;
+  let idsConnus = {}; // runId déjà vu dans un fetch précédent — détecte un run tout NOUVEAU (déclenché hors canevas, ex. webhook Iconik réel)
+  let runIdEnAttente = null; // run qu'ON vient de déclencher depuis ce formulaire, en attente de son statut terminal
+  let premierChargement = true; // reste vrai jusqu'au premier _rendreJobs() de CE flow — déclenche l'auto-suivi initial ci-dessous
+  const ETATS_TERMINAUX = { success: 1, partial: 1, failed: 1 };
 
   // Index plat stepId -> step (étiquette lisible), en descendant dans les
   // corps de boucle — alimenté par wf-run-poll.js via aps:run-tick (document
-  // mis en cache une fois par run, partagé avec les badges/l'onglet Debug).
+  // mis en cache une fois par run, partagé avec les badges/le panneau Run).
   // Reste vide tant qu'aucun tick n'est arrivé : repli sur l'affichage brut
   // existant (stepCore/stepFacade/stepId), jamais un libellé inventé.
   let indexEtapes = {};
@@ -66,6 +80,91 @@
     return (ms / 1000).toFixed(1) + ' s';
   }
 
+  // ── Déclencheur de test ──────────────────────────────────────────────────
+  function _peuplerVersions() {
+    if (!runVersionSel || !flowId) return;
+    runVersionSel.textContent = '';
+    const draft = document.createElement('option');
+    draft.value = ''; draft.textContent = 'Draft (current)';
+    runVersionSel.appendChild(draft);
+
+    fetch('/api/builder-flows/' + encodeURIComponent(flowId) + '/versions')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        (Array.isArray(list) ? list : []).forEach(function (v) {
+          const o = document.createElement('option');
+          o.value = String(v.version);
+          o.textContent = 'v' + v.version + ' · ' + new Date(v.createdAt).toLocaleString();
+          runVersionSel.appendChild(o);
+        });
+      }).catch(function () { /* liste vide, non bloquant */ });
+  }
+
+  function _afficherResultat(texte, etat) {
+    if (!runResultEl) return;
+    runResultEl.textContent = '';
+    runResultEl.setAttribute('data-etat', etat || '');
+    const pre = document.createElement('pre');
+    pre.className = 'rn-result-texte';
+    pre.textContent = texte;
+    runResultEl.appendChild(pre);
+    runResultEl.hidden = false;
+  }
+
+  if (runTriggerBtn) {
+    runTriggerBtn.addEventListener('click', function () {
+      if (!flowId) return;
+
+      let payload = {};
+      const brut = runPayloadEl ? runPayloadEl.value.trim() : '';
+      if (brut) {
+        try {
+          payload = JSON.parse(brut);
+        } catch (e) {
+          if (runPayloadErr) { runPayloadErr.textContent = 'Invalid JSON: ' + e.message; runPayloadErr.hidden = false; }
+          return;
+        }
+      }
+      if (runPayloadErr) runPayloadErr.hidden = true;
+
+      const body = { payload: payload };
+      const version = runVersionSel ? runVersionSel.value : '';
+      if (version) body.version = Number(version);
+
+      runTriggerBtn.disabled = true;
+      runTriggerBtn.textContent = '… Running';
+      _afficherResultat('Running…', 'running');
+
+      fetch('/api/builder-engine/trigger/' + encodeURIComponent(flowId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          if (!res.ok) throw new Error(res.data.error || ('HTTP error'));
+          // Réponse immédiate = juste un runId, le run tourne encore en tâche
+          // de fond — animation live sur le canevas via WfRunPoll, résultat
+          // final affiché ici au prochain tick terminal pour CE runId.
+          runIdEnAttente = res.data.runId;
+          idsConnus[res.data.runId] = true; // pas la peine que le poll Jobs le re-détecte comme "nouveau"
+          _chargerJobs();
+          // `true` : CE navigateur vient de déclencher ce run à l'instant —
+          // même son tout premier fetch (qui peut déjà contenir plusieurs
+          // événements, le serveur ayant eu le temps d'avancer) est
+          // authentiquement du direct, à animer sans le sauter (cf.
+          // wf-run-badges.js / wf-run-poll.js `liveDepuisDebut`).
+          if (window.WfRunPoll) WfRunPoll.suivre(res.data.runId, true);
+        })
+        .catch(function (e) {
+          runIdEnAttente = null;
+          _afficherResultat('Error: ' + e.message, 'failed');
+          runTriggerBtn.disabled = false;
+          runTriggerBtn.textContent = '▶ Run';
+        });
+    });
+  }
+
   // ── Jobs : liste des runs du workflow ────────────────────────────────────
   function _chargerJobs() {
     if (!flowId) {
@@ -85,6 +184,30 @@
   function _rendreJobs(runs) {
     jobsListe.textContent = '';
     if (jobsEmpty) jobsEmpty.setAttribute('data-hidden', runs.length ? '1' : '0');
+
+    // Un run "running" jamais vu jusqu'ici (pas déclenché depuis CE canevas,
+    // ex. un vrai webhook Iconik) suit automatiquement dès qu'on le repère —
+    // seulement si rien d'autre n'est déjà suivi, pour ne pas arracher
+    // l'utilisateur d'un run qu'il inspecte volontairement.
+    let aSuivreAuto = null;
+    runs.forEach(function (run) {
+      const estNouveau = !idsConnus[run.id];
+      idsConnus[run.id] = true;
+      if (estNouveau && run.status === 'running' && !runSelectionne && !aSuivreAuto) {
+        aSuivreAuto = run.id;
+      }
+    });
+
+    // Premier chargement de CE flow (arrivée sur le canevas, ou changement
+    // de flow) : suit le run le plus récent (API triée startedAt desc) même
+    // s'il est déjà terminé — sinon Run reste vide tant qu'on n'est pas
+    // explicitement passé par un clic dans Jobs, ce qui n'est pas évident
+    // (retour utilisateur : cliquer un nœud "à froid" doit déjà montrer
+    // quelque chose, pas exiger un détour par Jobs d'abord).
+    if (premierChargement && runs.length && !aSuivreAuto) {
+      aSuivreAuto = runs[0].id;
+    }
+    premierChargement = false;
 
     runs.forEach(function (run) {
       const row = document.createElement('div');
@@ -132,12 +255,16 @@
       jobsListe.appendChild(row);
     });
 
-    // Un run encore en cours (webhook async) justifie un nouveau sondage —
-    // le déclenchement manuel, lui, revient déjà terminé (cf. run-panel.js).
+    // Sondage continu tant que le flow est ouvert — pas seulement quand un
+    // run était DÉJÀ en cours au tick précédent, sinon un run déclenché hors
+    // canevas (webhook Iconik réel) démarré pendant une accalmie n'est
+    // jamais détecté. Coût faible (4 s, un seul flow ouvert à la fois).
     clearTimeout(pollTimer);
-    if (runs.some(function (r) { return r.status === 'running'; })) {
+    if (flowId) {
       pollTimer = setTimeout(_chargerJobs, 4000);
     }
+
+    if (aSuivreAuto) _selectionnerRun(aSuivreAuto, false);
   }
 
   // ── Logs : timeline d'événements d'un run sélectionné ────────────────────
@@ -268,31 +395,46 @@
   }
 
   // Document mis en cache par wf-run-poll.js (une fois par run, partagé avec
-  // les badges/l'onglet Debug) — alimente indexEtapes dès qu'il arrive, et
+  // les badges/le panneau Run) — alimente indexEtapes dès qu'il arrive, et
   // rejoue le rendu de Logs pour que les libellés (et les événements les
-  // plus récents d'un run encore en cours) apparaissent sans action.
+  // plus récents d'un run encore en cours) apparaissent sans action. Gère
+  // aussi le résultat final du DERNIER run déclenché DEPUIS ce formulaire.
   root.addEventListener('aps:run-tick', function (e) {
     if (e.detail.document) indexEtapes = _indexerEtapes(e.detail.document);
+
+    if (runIdEnAttente && e.detail.runId === runIdEnAttente && e.detail.run && ETATS_TERMINAUX[e.detail.run.status]) {
+      const runComplet = Object.assign({}, e.detail.run, { events: e.detail.allEvents });
+      _afficherResultat(JSON.stringify(runComplet, null, 2), e.detail.run.status);
+      if (runTriggerBtn) { runTriggerBtn.disabled = false; runTriggerBtn.textContent = '▶ Run'; }
+      runIdEnAttente = null;
+      _chargerJobs().then(function () { _selectionnerRun(e.detail.runId, true); });
+    }
+
     if (e.detail.runId !== runSelectionne || !dernierRunAffiche) return;
     const runPourRendu = Object.assign({}, dernierRunAffiche, e.detail.run, { events: e.detail.allEvents });
     dernierRunAffiche = runPourRendu;
     _rendreLogs(runPourRendu);
   });
 
-  // ── Câblage : flowId, refresh manuel, run frais depuis Run ──────────────
+  // ── Câblage : flowId, refresh manuel ─────────────────────────────────────
+  // `aps:flow-ready` se redéclenche après CHAQUE sauvegarde (y compris
+  // l'auto-save silencieux sur toute édition, cf. workflow-canvas.js
+  // `_declencherAutoSave`/`_annoncerFlow`), pas seulement à l'ouverture d'un
+  // flow différent — un premier bug ici effaçait le run/nœud suivi à chaque
+  // auto-save du MÊME flow (ex. après un Tidy ou tout autre edit), ce qui se
+  // manifestait comme "le panneau Run se vide tout seul après un moment".
+  // Ne réinitialiser QUE sur un vrai changement de flowId.
   root.addEventListener('aps:flow-ready', function (e) {
     const change = e.detail.flowId !== flowId;
     flowId = e.detail.flowId;
-    runSelectionne = null;
-    if (change) _chargerJobs();
+    if (runForm) runForm.hidden = !flowId;
+    if (change) {
+      runSelectionne = null;
+      idsConnus = {}; premierChargement = true; _peuplerVersions(); _chargerJobs();
+    }
   });
-
-  root.addEventListener('aps:run-finished', function (e) {
-    if (e.detail.flowId !== flowId) return;
-    _chargerJobs().then(function () {
-      if (e.detail.runId) _selectionnerRun(e.detail.runId, true);
-    });
-  });
+  if (runForm) runForm.hidden = !flowId;
+  if (flowId) _peuplerVersions();
 
   if (jobsRefresh) {
     jobsRefresh.addEventListener('click', function () {
