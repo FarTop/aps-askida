@@ -19,17 +19,23 @@
  * _wfdHandleEngineEvent(). Le TOUT PREMIER tick reçu pour un run REJOINT
  * après coup (sélectionné dans Jobs, ou auto-suivi) contient son
  * historique COMPLET (pas seulement les événements "nouveaux depuis la
- * dernière fois") — délibérément ignoré pour l'animation (silencieux,
- * juste comptabilisé) : sans ça, rejoindre un run déjà bien avancé ferait
- * défiler tout son historique d'un coup. WFD n'a jamais ce problème : ses
- * badges n'existent QUE pour un job réellement en vol au moment où on
- * regarde, jamais rejoué après coup. EXCEPTION : un run que CE navigateur
- * vient de déclencher lui-même (▶ Run) est marqué `liveDepuisDebut` par
- * wf-run-poll.js — même son tout premier fetch est authentiquement du
- * direct (personne ne l'a manqué en cours de route), donc jamais sauté,
- * même s'il contient déjà plusieurs événements (le serveur a pu avancer
- * vite entre la réponse HTTP du trigger et ce premier sondage — un
- * échec rapide sans connexion Iconik réelle, par exemple).
+ * dernière fois") — filtré par ÂGE plutôt que sauté en bloc (cf.
+ * `SEUIL_RECENT_MS` plus bas) : un run VRAIMENT ancien (sélectionné dans
+ * Jobs depuis longtemps déjà fini) ne rejoue pas son historique, mais un
+ * run qui vient tout juste de se produire — typiquement un vrai webhook
+ * Iconik plus rapide que notre fenêtre de détection (sondage Jobs 4s +
+ * wf-run-poll 1.5s, cf. jobs-logs-panel.js) — n'est plus invisible pour
+ * autant : trouvé le 6 août sur un vrai run PUBLISH v2 déclenché par
+ * Custom Action, terminé en 5,3s, donc entièrement capté dans ce "premier
+ * tick" et donc entièrement (et à tort) muet côté badges avant ce correctif,
+ * alors que la surbrillance des arêtes (alimentée séparément par
+ * WfRunStatus.calculer() sur CHAQUE tick, jamais concernée par ce filtre)
+ * s'affichait correctement. WFD n'a jamais ce problème : ses badges
+ * n'existent QUE pour un job réellement en vol au moment où on regarde,
+ * jamais rejoué après coup. EXCEPTION toujours valable : un run que CE
+ * navigateur vient de déclencher lui-même (▶ Run) est marqué
+ * `liveDepuisDebut` par wf-run-poll.js — même son tout premier fetch est
+ * authentiquement du direct, aucun filtre d'âge à lui appliquer.
  */
 (function () {
   'use strict';
@@ -42,6 +48,18 @@
   const enErreur = {};  // stepId -> un step:error est arrivé depuis le dernier step:start (hasWarn WFD)
   let runIdActuel = null;
   let premierTickDuRun = true;
+
+  // Fenêtre de détection connue : sondage Jobs 4s (jobs-logs-panel.js,
+  // pire cas si le tick tombe juste après le début d'une accalmie) +
+  // cadence wf-run-poll 1.5s + un chargement de page à froid (plusieurs
+  // fetch séquentiels avant que Jobs ne parte : context, builder-flow,
+  // versions, environments, runs — mesuré ~10-12s en conditions réelles
+  // le 6 août, cas typique quand on ouvre le canevas APRÈS avoir cliqué la
+  // Custom Action dans Iconik, pas avant) — un événement plus récent que
+  // ça, même reçu dans le "premier tick" d'un run rejoint après coup, vient
+  // très probablement de se produire pendant qu'on n'avait pas encore
+  // commencé à regarder, pas d'un historique manqué depuis longtemps.
+  const SEUIL_RECENT_MS = 20000;
 
   function _hote() {
     return document.querySelector('.cnv-nodes');
@@ -171,7 +189,15 @@
     // (sélectionné dans Jobs, ou auto-suivi) — voir en-tête du fichier.
     if (premierTickDuRun && !d.liveDepuisDebut) {
       premierTickDuRun = false;
-      return; // historique complet du premier VRAI tick — jamais animé (cf. en-tête)
+      // Historique du premier VRAI tick — filtré par âge, pas sauté en
+      // bloc (cf. en-tête et SEUIL_RECENT_MS) : seuls les événements assez
+      // récents pour être quasi certainement survenus pendant qu'on
+      // n'avait pas encore commencé à sonder sont animés.
+      const maintenant = Date.now();
+      (d.newEvents || []).forEach(function (ev) {
+        if (maintenant - new Date(ev.at).getTime() <= SEUIL_RECENT_MS) _traiterEvenement(ev);
+      });
+      return;
     }
     premierTickDuRun = false;
     (d.newEvents || []).forEach(_traiterEvenement);
