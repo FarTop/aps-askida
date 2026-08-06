@@ -246,7 +246,18 @@ async function _simple(step, ctx, deps) {
     const patchText = await patchResponse.text();
     let patchBody;
     try { patchBody = JSON.parse(patchText); } catch (_) { patchBody = patchText; }
-    const patchResult = { status: patchResponse.status, ok: patchResponse.ok, url, method: 'PUT', body: patchBody, upserted: true };
+    // Conserve la réponse du POST d'origine : c'est ELLE qui porte le détail
+    // de validation (« The given data was invalid. » + le champ fautif), et
+    // elle était jusqu'ici purement écrasée par le résultat du PUT. Quand
+    // l'upsert échoue en 404 (« Content not found »), le seul message
+    // remonté décrivait donc la conséquence, jamais la cause — impossible
+    // de savoir POURQUOI la création avait été refusée (constaté le
+    // 2026-08-06 en remontant la chaîne d'un run PUBLISH réel).
+    const patchResult = {
+      status: patchResponse.status, ok: patchResponse.ok, url, method: 'PUT',
+      body: patchBody, upserted: true,
+      postOrigine: { status: response.status, body: responseBody },
+    };
     BuilderContext.storeResult(ctx, resultVar, patchResult);
     BuilderContext.setVar(ctx, resultVar + '_status', String(patchResponse.status));
     BuilderContext.setVar(ctx, resultVar + '_ok', patchResponse.ok ? 'true' : 'false');
@@ -255,7 +266,18 @@ async function _simple(step, ctx, deps) {
         ? (patchBody.message || patchBody.error || JSON.stringify(patchBody).slice(0, 200))
         : String(patchBody).slice(0, 200);
       const _patchWarn = patchResponse.status === 404 || (patchResponse.status >= 500);
-      BuilderContext.addError(ctx, step.id, `PUT HTTP ${patchResponse.status} — ${errMsg}`, 'warn');
+      // Message combiné cause → conséquence : le PUT n'a été tenté QUE parce
+      // que le POST a renvoyé 422, donc le motif du refus initial doit
+      // apparaître, sinon un 404 « Content not found » se lit à tort comme
+      // « le partenaire est injoignable / a perdu le contenu ».
+      const _msgPost = typeof responseBody === 'object'
+        ? (responseBody.message || responseBody.error || JSON.stringify(responseBody).slice(0, 200))
+        : String(responseBody).slice(0, 200);
+      BuilderContext.addError(
+        ctx, step.id,
+        `POST HTTP ${response.status} — ${_msgPost} → upsert PUT HTTP ${patchResponse.status} — ${errMsg}`,
+        'warn'
+      );
       return { port: _patchWarn ? 'out' : 'error' };
     }
     return { port: 'out' };
