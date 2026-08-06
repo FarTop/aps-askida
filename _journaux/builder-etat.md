@@ -7,23 +7,33 @@
 > écarté. Lire ce document suffit pour travailler ; lire le journal sert quand
 > on veut comprendre une décision ou la remettre en cause.
 >
-> Dernière mise à jour : 6 août 2026, fin de session (**panneau Run refondu
-> en inspecteur à 3 onglets Assets/Action/Debug**, **badges de job
-> flottants réellement animés sur le canevas** — port fidèle de WFD après
-> deux tentatives en CSS refusées par l'utilisateur —, **noms Iconik
-> résolus en direct** pour les collections dans Assets, et **deux points
-> d'entrée supplémentaires pour ouvrir le corps d'un Loop** (clic sur le
-> badge "N steps", clic droit → "Open loop body"). Cf. section "Panneau Run
-> refondu" et "Badges de job flottants" tout en bas pour le détail complet,
-> les bugs réels trouvés (double-comptage Assets, deux bugs d'auto-save qui
-> effaçaient l'état du panneau, un vrai bug de clipping CSS confondu deux
-> fois avec un connecteur de fil avant d'être compris) et la méthode de
-> vérification. Bascule PUBLISH v1→v2 constatée déjà faite en début de
-> session (le premier "reste ouvert" de la note du 5 août) — sans doute une
-> manip directe de l'utilisateur entre les deux sessions, pas quelque chose
-> construit ici. Webhook réel Iconik : testé une fois indirectement (badges
-> vus lors d'un déclenchement manuel), **jamais encore depuis un vrai clic
-> Custom Action** — prochain test annoncé par l'utilisateur.
+> Dernière mise à jour : 6 août 2026, soir (**PUBLISH v2 mené jusqu'à une
+> publication réussie de bout en bout** sur de vrais clics Custom Action
+> Iconik — Partner HTTP 201, Verify 3/3, History "✅ Succès" — après avoir
+> remonté une chaîne de **cinq causes empilées** dont aucune n'était celle
+> qu'on croyait : port inversé sur la Search, arêtes dupliquées faisant
+> tourner la branche aval deux fois, chemin S3 sans le préfixe de l'Export
+> Location, repli mort `{collectionCheck.title}` privant le payload de son
+> titre, et un upsert qui **masquait** le refus d'origine (422) derrière sa
+> conséquence (404). Plus : la relecture des métadonnées Iconik était
+> **toujours vide** (dict plat vs `metadata_values`), d'où un historique
+> qui ne s'accumulait jamais ; une publication réussie ne pouvait jamais
+> être rapportée `success` (nouvelle sévérité `info`) ; **Run › Action
+> entièrement refondu** en résumé lisible par famille — les 23 entrées du
+> registre couvertes, brut relégué derrière un dépliant — avec deux
+> instrumentations du moteur (trace par règle du Lookup, trace par
+> sous-étape des séquences HTTP, corps *envoyé* enfin conservé) ; et le
+> **volet API ops porté de WFD**. Cf. les trois sections datées du 6 août
+> tout en bas.
+>
+> Historique : 6 août 2026, matin (**panneau Run refondu en inspecteur à 3
+> onglets Assets/Action/Debug**, **badges de job flottants réellement
+> animés sur le canevas** — port fidèle de WFD après deux tentatives en CSS
+> refusées par l'utilisateur —, **noms Iconik résolus en direct** pour les
+> collections dans Assets, et **deux points d'entrée supplémentaires pour
+> ouvrir le corps d'un Loop**. Bugs réels trouvés : double-comptage Assets,
+> deux bugs d'auto-save qui effaçaient l'état du panneau, un vrai bug de
+> clipping CSS confondu deux fois avec un connecteur de fil.)
 >
 > Historique : 5 août 2026, fin de session (**animation live des
 > jobs sur le canevas** — badges/arêtes surlignées/onglet Debug — pour
@@ -101,33 +111,51 @@
 
 ## Point de départ pour la prochaine session
 
-> Mis à jour le 6 août. Le point "0." du 5 août est **résolu** (moteur natif
-> exploité toute la session : Créer Série/Saison/Episode/Unitaire
-> reconstruits et validés fin de session du 5, PUBLISH v1→v2 basculé,
-> déclenchement manuel testé à fond, panneau Run/Jobs entièrement refondu —
-> cf. bandeau tout en haut) — conservé en historique juste en dessous.
-> Nouveaux points de reprise :
+> Mis à jour le 6 août au soir. Les points 0. et 2. de la liste du matin
+> sont **résolus** : le webhook réel Iconik a été cliqué toute la session
+> (PUBLISH v2 mené jusqu'à une publication réussie de bout en bout), et les
+> échecs d'itérations individuelles d'une boucle sont désormais lisibles
+> dans Run › Action. Liste du matin conservée en historique juste en
+> dessous. Nouveaux points de reprise :
 
-0. **Webhook réel Iconik jamais encore cliqué depuis Iconik lui-même** —
-   testé uniquement via déclenchement manuel (▶ Run) jusqu'ici ; les badges
-   flottants fonctionnent pour ce cas (`liveDepuisDebut`, cf. section
-   "Badges de job flottants" tout en bas), mais un vrai clic Custom Action
-   passe par le chemin `liveDepuisDebut: false` (auto-suivi Jobs), jamais
-   vérifié en conditions réelles avec la nouvelle animation.
+0. **Vérifier le prochain run de PUBLISH v2** — l'utilisateur devait le
+   contrôler après son absence. Trois correctifs de fin de session n'ont
+   PAS encore été vus sur un run réel : la sévérité `info` (un run
+   intégralement réussi doit maintenant finir `success` et non `partial`),
+   la trace Lookup et la trace de séquence Partner dans Run › Action
+   (elles n'existent qu'à partir des runs exécutés après ce chantier — les
+   runs antérieurs n'ont rien à déplier). Vérifiés en isolation et sur des
+   runs jetables, jamais sur un vrai déclenchement.
 1. **Chantier Statuses non commencé** (`BAYARD|CHECK|STATUSES|VODFACTORY`,
    11 nœuds incl. boucle/checker/history×3) — complexité comparable à
-   PUBLISH, explicitement différé depuis la session Créer workflows du 5
-   août.
-2. **Badge de boucle = dernière itération seulement** (limite assumée,
-   inchangée depuis le 5 août — cf. section "Animation live des jobs",
-   "Reste ouvert") — un échec intermédiaire sous `onError:'continue'` reste
-   invisible sur le badge de statut du nœud (mais PAS sur le badge flottant
-   animé, construit le 6 août, qui montre chaque passage individuellement).
-3. **Résolution de nom Iconik (6 août) limitée aux collections/assets
-   hors boucle** — le cas dans une boucle (`loopInfo`) a la même
-   plomberie de résolution branchée, mais les assets de recherche portent
-   déjà un titre dans `ctxSnapshot.vars` en pratique ; jamais vu le
-   chemin de résolution se déclencher réellement pour ce cas précis.
+   PUBLISH, différé depuis le 5 août. C'est le plus gros morceau restant.
+2. **Saison et Épisode jamais publiés** — seul le niveau Série a été mené
+   au bout. Le manifeste est par niveau (`appliesTo`) et le payload d'une
+   Série est volontairement minimal ; les niveaux inférieurs exerceront
+   des essences (`season_box`, `episodic`, `video`, `subtitle`) et des
+   replis (`{s3_season_url}`…) jamais déclenchés à ce jour — plusieurs
+   sont d'ailleurs signalés « repli non résolu » par la nouvelle trace
+   Lookup au niveau Série, ce qui est normal à ce niveau mais devra être
+   revérifié au bon niveau.
+3. **`iconik.create_tree` sans résumé spécialisé** dans Run › Action (il
+   retombe sur le repli lisible « valeurs écrites ») — seule famille du
+   registre à ne pas avoir sa vue dédiée. À traiter avec les workflows
+   Créer, qui l'utilisent comme nœud central.
+4. **Résolution de nom Iconik limitée aux collections/assets hors boucle**
+   — inchangé depuis le matin : la plomberie est branchée pour le cas
+   `loopInfo`, mais les assets de recherche portent déjà un titre en
+   pratique, donc ce chemin n'a jamais été vu se déclencher.
+
+<details>
+<summary>Historique — points de reprise du 6 août au matin (résolus depuis)</summary>
+
+- ~~Webhook réel Iconik jamais cliqué~~ — fait toute la journée du 6 août
+  (cf. section "PUBLISH v2 mené jusqu'à une publication réussie").
+- ~~Badge de boucle = dernière itération seulement~~ — les échecs
+  individuels sous `onError:'continue'` sont désormais listés dans le
+  résumé Loop de Run › Action.
+
+</details>
 
 <details>
 <summary>Historique — points de reprise du 5 août (résolus depuis)</summary>
@@ -2455,3 +2483,207 @@ navigation de portée existante (`portee.entrer()`, fil d'Ariane déjà
 mécanique : le badge "N steps", déjà visible sur le nœud, est maintenant
 cliquable ; "Open loop body" apparaît aussi au clic droit sur un nœud
 Loop, avant les actions génériques (Duplicate/Copy/Delete).
+
+---
+
+## PUBLISH v2 mené jusqu'à une publication réussie — 6 août (après-midi)
+
+Session de bout en bout sur un vrai workflow, déclenché par de vrais clics
+Custom Action Iconik. Chaque correction est partie d'un symptôme constaté
+par l'utilisateur, pas d'une lecture de code — et plusieurs de mes
+premières explications se sont révélées fausses, corrigées en allant
+chercher la donnée réelle (événements en base, réponse Iconik en direct).
+
+### Chaîne d'échecs de PUBLISH, remontée jusqu'à la cause racine
+
+Le symptôme final était « Verify échoue en 404, on n'arrive pas à joindre
+VOD Factory ». C'était faux à chaque étage :
+
+1. **Le port branché sur la Loop était inversé.** `found` (des assets à
+   exporter) contournait la boucle, `empty` y entrait. Le seul mécanisme
+   d'export du workflow ne s'exécutait donc jamais quand il y avait
+   quelque chose à exporter.
+2. **Quatre arêtes dupliquées** (`Programme ? → Bayard ID ?`, chaque port
+   défini deux fois). L'exécuteur ne déduplique pas : toute la branche
+   aval tournait deux fois, d'où « 4 jobs OK et 4 en failed » côté Iconik
+   — la seconde passe rejouait des exports déjà faits. Invisible à l'œil,
+   les arêtes se superposant exactement sur le canevas.
+3. **Le chemin S3 ne correspondait pas au bucket.** Le listing cherchait
+   `{ancestorPath}/`, les fichiers étaient sous `AmazonPrime/{ancestorPath}/`.
+   Le préfixe `AmazonPrime/` est ajouté par l'Export Location Iconik à
+   l'écriture — mais le listing S3 est un appel direct qui n'en hérite
+   pas. Fausse piste au passage : le message d'échec d'Iconik affiche ce
+   chemin en minuscules, ce qui m'a fait écrire `{lower(ancestorPath)}` ;
+   la capture du bucket par l'utilisateur a montré la casse d'origine.
+4. **Le Lookup n'envoyait pas de titre.** La règle `Titre → title` existait
+   bien, mais cherchait une métadonnée Iconik `Titre` qui n'existe pas sur
+   ces collections (le titre est un champ *système*), et son repli
+   `{collectionCheck.title}` ne résolvait nulle part — vérifié : aucun
+   workflow de la base ne produit cette variable, vestige d'une version
+   antérieure. `builder-handler-lookup.js:114` saute toute ligne dont le
+   repli reste un placeholder, donc `title` était absent du payload.
+   VOD Factory répondait `422 — The title field is required.`
+5. **L'upsert masquait ce 422.** Sur un POST refusé en 422, il retente en
+   `PUT /{external_id}` et **écrasait le résultat du POST**. Le seul
+   message remonté était le 404 du PUT (« Content not found ») — la
+   conséquence, jamais la cause. D'où la lecture « VOD Factory est
+   injoignable » alors qu'il répondait parfaitement.
+
+Après correction : POST 201, Verify 3/3, History « ✅ Succès », 4 uploads
+confirmés. Repli du `Titre` repointé sur `{search_results.title}`.
+
+### Relecture des métadonnées Iconik : toujours vide
+
+`GET /API/metadata/v1/{collections|assets}/{id}/` renvoie un dict **plat**
+(`{Champ: {name, type, values:[…]}}`), pas la forme
+`{metadata_values: {Champ: {field_values: […]}}}` attendue par le PUT et
+supposée par les trois points de relecture du moteur. `existing` valait
+donc **toujours `{}`**.
+
+Conséquence principale, rapportée comme « la notif En cours ne s'inscrit
+pas dans history » : History ne lisait jamais le contenu précédent, donc
+chaque écriture produisait une ligne unique écrasant les précédentes, et
+le mode `update` ne retrouvait jamais la ligne de son propre run.
+Normalisé via `metadataValuesDepuisReponse()` (builder-iconik-shared.js).
+
+### Sémantique des statuts
+
+- **Checklist artworks** : calculée depuis les variables S3 (`s3_cover_url`…)
+  alors que le listing S3 n'est qu'un pré-contrôle technique. Un run
+  affichait « ❌ Échec » global ET « Cover ✅ Poster ✅ Hero ✅ ». Elle
+  reflète désormais le résultat **Partner** (`checkerResult`) pour tout
+  essence réellement vérifié ; repli sur S3 seulement pour ceux que Verify
+  n'interroge pas. *« La vérif VOD Factory est celle qui importe à
+  l'utilisateur. »*
+- **Essence optionnel absent** → `➖` et non `❌` (Title sur une Série).
+- **`partial` perpétuel** : `computeStatus()` bascule dès UNE entrée dans
+  `ctx.errors`, et le pré-contrôle S3 initial en écrivait systématiquement
+  une. Or sur une première publication le bucket est vide par définition :
+  la cardinalité ne *peut pas* être satisfaite. Une publication
+  intégralement réussie ne pouvait donc jamais être rapportée `success`.
+  Nouvelle sévérité **`info`** : consignée et affichée, exclue du calcul de
+  statut. Principe : un handler qui renvoie un port routable normal décrit
+  un *chemin*, pas une erreur — c'est le graphe qui décide.
+
+### Animation des badges, suite et fin
+
+- **Runs webhook courts jamais animés** : le « premier tick » d'un run
+  rejoint après coup sautait tout son historique en bloc. Un run de 5 s
+  y tombait intégralement. Remplacé par un filtre sur l'âge de chaque
+  événement (20 s, calibré sur un chargement de page à froid mesuré).
+- **Auto-suivi bloqué après le premier run de la session** : `runSelectionne`
+  servait à la fois d'« affiché » et de garde-fou contre l'auto-suivi, que
+  l'auto-suivi posait lui-même. Séparé en `runChoisiParUtilisateur`, posé
+  uniquement sur un choix explicite. C'était la vraie cause du « rien ne
+  s'affiche tant qu'on ne passe pas par Jobs → clic → Logs », que le
+  correctif du matin n'avait traité qu'à moitié.
+- **Badge effacé en entrant dans un corps de boucle**, puis recréé au
+  mauvais moment : `reappliquer()` supprimait tout badge hors de la portée
+  rendue ; le vrai `step:done` ne retrouvait alors plus rien et repartait
+  sur un badge neuf. Les badges hors-champ sont désormais conservés.
+- **Résolution de nom de collection** : `/API/collections/v1/{id}/` 404 en
+  permanence — le bon chemin est `/API/assets/v1/collections/{id}/`. Cette
+  fonction n'avait donc jamais marché depuis sa construction.
+
+---
+
+## Run › Action refondu : lire ce que le nœud a FAIT — 6 août (suite)
+
+Le diff générique vars/results du 6 août au matin montrait une charge utile
+brute là où un opérateur attend une phrase. Sur une Decision, la seule
+information affichée était le JSON `_decision`. Refonte demandée, alignée
+sur l'ancien panneau WFD (`wfd-run-panel.js:480` et `:692`, qui procédait
+déjà par famille) : **résumé lisible d'abord, brut derrière un dépliant
+« Détail technique » — accessible, jamais imposé.**
+
+Deux choix de structure, pour ne pas empiler 23 cas particuliers :
+- **dispatch par façade puis par core** — `http_request` héberge des
+  façades sans rapport (recherche, écriture de métadonnées, action,
+  résolution d'ancêtres, fetch) ;
+- **le cas par défaut n'est plus vide** : il rend en clair ce que le nœud a
+  écrit. Différence entre « famille non prévue » et « rien à dire ».
+
+Couverture vérifiée par script sur les 23 entrées du registre.
+
+**Deux instrumentations du moteur** ont été nécessaires — le résultat final
+ne permettait pas de reconstituer le déroulé après coup :
+- `builder-handler-lookup.js` trace chaque règle (`_lk_trace_<id>`) :
+  origine de la valeur (champ / métadonnée / variable / repli), valeur
+  résolue, traduction appliquée, et le motif quand rien n'a pu être fait.
+  Mapping inchangé — vérifié par rejeu sur le contexte réel d'un run,
+  payload identique au bit près.
+- `builder-handler-http-sequence.js` trace chaque sous-étape
+  (`_seq_trace_<id>`), et `http_request` conserve enfin le corps **envoyé**
+  (`envoye`) : seule la réponse l'était, alors que « qu'a-t-on demandé au
+  partenaire ? » est la première question quand il refuse.
+
+Rendu : Lookup affiche ses 30 règles en vert/rouge avec les valeurs
+résolues (`Série → serie`, `BayardID → external_id · 17500196`) ; la
+séquence Partner déplie ses 7 étapes avec le corps envoyé aplati en
+« clé = valeur », les valeurs `foreach` et leurs échecs individuels, et le
+refus d'origine masqué derrière un upsert. Loop liste enfin les échecs
+d'itérations individuelles sous `onError:'continue'` — invisibles partout
+ailleurs jusqu'ici, le badge ne reflétant que la dernière itération
+(limite « assumée » du 5 août, comblée).
+
+Justesses d'affichage : un gabarit `{now}`/`{slug(x)}` est qualifié
+« calculé à l'exécution » et non « non résolu » en rouge (sa valeur n'est
+pas récupérable depuis le snapshot, mais elle a bien été calculée) ; une
+étape ignorée ou sans rien à envoyer est neutre, pas verte.
+
+**Debug** : ce que le nœud a signalé remonte en haut et en clair, avec la
+NATURE de l'erreur — `_motifHttp()` extrait `{errors:{champ:[motif]}}`
+plutôt que le message d'enveloppe. Les erreurs non fatales n'émettent
+aucun événement `step:error` (l'exécuteur ne le fait que sur exception
+levée) : elles ne vivaient que dans `ctx.errors`, donc uniquement dans le
+JSON du snapshot.
+
+---
+
+## Volet API ops — port du tiroir de WFD — 6 août (suite)
+
+Le volet bas existait, vide. Port fidèle de `wfd-api-ops.js` : mêmes trois
+sections (timeline des opérations dans l'ordre d'exécution, flux de
+données par étape, détail avec corps de requête) et mêmes trois exports
+(Postman, HTML imprimable, Python).
+
+Source = le **document pivot enregistré**, pas un run : le volet décrit ce
+que le workflow VA appeler. `aps:flow-ready` ne portant que
+`{flowId, orgId, name}`, le brouillon est relu via
+`GET /api/builder-flows/:id` ; l'auto-save relançant l'événement, la liste
+suit l'édition — équivalent du `refreshApiOps()` branché sur
+`sauvegarderConfig` côté WFD.
+
+Écarts assumés, documentés en tête de fichier : rendu par création
+d'éléments et classes CSS (pas d'`innerHTML` ni de styles en ligne — règle
+dure du dépôt), ressources lues via les routes REST (`endpoints` et
+`manifests` chargés directement : `config-sources.js` n'expose
+délibérément qu'identité + décompte, alors que décrire une séquence exige
+ses `steps` et un Verify ses `essences`), et **le corps d'une boucle est
+inséré juste après elle** dans l'ordre topologique — ses appels sont de
+vraies opérations API, les omettre donnerait une liste fausse (même piège
+que WFD avait corrigé pour `aps_search` et `create_tree`). L'upsert PUT
+est listé comme opération distincte : c'est un vrai second appel HTTP.
+
+Vérifié sur BAYARD | PUBLISH | VODFACTORY : 38 opérations, 24 cartes de
+flux (19 étapes racine + les 5 du corps de boucle), le nœud Partner
+listant ses 7 étapes plus 2 upserts, et les trois exports produisant des
+fichiers valides.
+
+### Reste ouvert
+- **Les traces Lookup et Séquence n'existent qu'à partir des runs
+  exécutés après ce chantier** — les runs antérieurs n'ont rien à déplier
+  (vérifié en rejouant le vrai Lookup sur le contexte réel d'un run et en
+  injectant un run jetable, supprimé depuis).
+- **`iconik.create_tree` n'a pas de résumé spécialisé** dans Run › Action :
+  il retombe sur le repli lisible « valeurs écrites ». Suffisant, mais
+  moins précis que les autres familles.
+- **Le statut `partial` des runs déjà en base n'est pas recalculé** — il
+  est figé à la fin du run. Seuls les prochains runs bénéficient de la
+  sévérité `info`.
+- **Payload VOD Factory minimal pour une Série** : titre, type,
+  external_id et 4 images ; synopsis, genres, droits, pays restent vides
+  faute de métadonnées correspondantes sur la collection Iconik.
+  Confirmé conforme par l'utilisateur (le manifeste est par niveau ;
+  Saison et Épisode compléteront). Les URLs `s3://` sont voulues : VOD
+  Factory tire les sources du bucket avec ses propres credentials.

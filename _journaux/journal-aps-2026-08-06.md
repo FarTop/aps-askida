@@ -108,3 +108,108 @@ confirmation finale des badges par l'utilisateur en conditions réelles.
 `node --check` systématique sur chaque fichier touché. `git status`
 propre avant chaque étape de nettoyage. Commité et poussé sur `main` en
 fin de session — état complet dans `builder-etat.md`.
+
+---
+
+# Journal APS — 2026-08-06 (après-midi et soir)
+
+> Longue session sur PUBLISH v2, menée par l'utilisateur à coups de vrais
+> déclenchements Custom Action Iconik. Partie d'un « les badges ne
+> s'affichent pas », elle a fini par déboucher sur la **première
+> publication réussie de bout en bout** (Partner 201, Verify 3/3, History
+> ✅ Succès) — après avoir remonté une chaîne de cinq causes empilées, dont
+> aucune n'était celle qu'on croyait. Puis refonte complète de l'onglet
+> Run › Action en « ce que le nœud a FAIT », et port du volet API ops de
+> WFD. État technique complet → `builder-etat.md`.
+
+## Fil de la session
+
+### Cinq causes empilées, et autant de fausses pistes
+
+Le symptôme affiché était « Verify échoue en 404, on n'arrive pas à
+joindre VOD Factory ». Faux à chaque étage — et il a fallu, à chaque fois,
+aller chercher la donnée réelle plutôt que raisonner sur le code :
+
+Un **port inversé** sur la Search précédant la boucle (`found` contournait
+l'export, `empty` y entrait) — repéré par l'utilisateur au canevas, confirmé
+sur les événements en base. Puis **quatre arêtes dupliquées**, invisibles
+parce que superposées à l'écran, qui faisaient tourner toute la branche
+aval deux fois : c'était l'explication des « 4 jobs OK et 4 en failed »
+côté Iconik. Puis un **chemin S3 qui ne correspondait pas au bucket** — et
+là je me suis trompé une première fois en recopiant la casse du message
+d'erreur d'Iconik ; la capture du bucket par l'utilisateur a tranché.
+
+Puis le vrai blocage : **le payload partait sans titre**. La règle existait
+pourtant dans la correspondance. Son repli pointait sur une variable
+`{collectionCheck.title}` qui n'existe dans aucun workflow de la base —
+vestige d'une version antérieure. Enfin, ce refus (`422 — The title field
+is required.`) était **masqué par l'upsert**, qui écrasait le résultat du
+POST par celui du PUT : on ne lisait que la conséquence (404 « Content not
+found »), jamais la cause. C'est ce dernier point qui rendait le
+diagnostic impossible depuis l'interface — corrigé avant tout le reste.
+
+### « Ça ne s'explique pas » — deux fois, et deux vrais bugs derrière
+
+À deux reprises l'utilisateur a rejeté mon explication (« ça n'explique
+pas, je regardais l'interface pendant le job »), et à deux reprises il
+avait raison :
+
+- La notification « En cours » ne s'inscrivait pas : `GET
+  /API/metadata/v1/...` renvoie un dict **plat**, pas la forme
+  `metadata_values` supposée par le moteur. La relecture était donc
+  **toujours vide** — History n'a jamais pu accumuler son historique ni
+  retrouver la ligne de son propre run.
+- Le nœud « Set Metadata (URLs) » ne écrivait rien : il tournait bien,
+  mais **placé trop tôt**, avant que la boucle n'ait uploadé quoi que ce
+  soit. Prouvé sur les snapshots (aucune variable `s3_*` à cet instant,
+  les quatre présentes après la boucle), puis déplacé.
+
+Leçon consignée : quand l'utilisateur dit « ça ne colle pas », arrêter
+d'argumenter et aller chercher la mesure.
+
+### Sémantique : ce que le système DIT vs ce qu'il a fait
+
+Trois incohérences signalées, toutes réelles. La checklist artworks
+affichait des ✅ tirés du listing S3 pendant que le statut global disait
+❌ — or S3 n'est qu'un pré-contrôle technique, *« la vérif VOD Factory est
+celle qui importe à l'utilisateur »*. Un essence *optionnel* absent
+s'affichait en échec comme un requis. Et surtout : **une publication
+parfaitement réussie ne pouvait jamais être rapportée `success`**, parce
+que le pré-contrôle S3 initial — qui ne PEUT pas trouver les fichiers
+avant leur upload — inscrivait une erreur définitive. D'où une sévérité
+`info`, consignée mais exclue du verdict.
+
+### « Un opérateur ne s'en sortira jamais avec cette UX »
+
+Reproche répété, et fondé : pour comprendre un échec il fallait déplier un
+JSON. Refonte de Run › Action sur le modèle de l'ancien panneau WFD —
+résumé lisible d'abord, brut derrière un dépliant. La demande a été
+explicitement élargie : *« il faut que ce soit élargi partout »* — ma
+première passe ne couvrait que 8 familles sur 23.
+
+Deux instrumentations du moteur ont été nécessaires, parce que le résultat
+final ne permet pas de reconstituer le déroulé après coup : le Lookup
+trace chaque règle (origine, valeur résolue, traduction, motif d'échec), et
+la séquence HTTP trace chaque sous-étape — `http_request` ne conservait
+que la réponse, jamais le corps envoyé. Vérifié que le mapping produit
+reste identique au bit près en rejouant le vrai Lookup sur le contexte
+réel d'un run.
+
+### Fermeture : API ops
+
+Dernière demande avant absence : récupérer le tiroir API Ops de WFD, « la
+même chose, les mêmes données ». Port fidèle — trois sections, trois
+exports — avec trois écarts assumés et documentés (rendu en classes CSS et
+non en `innerHTML` avec styles en ligne, ressources via les routes REST,
+et le corps des boucles inséré dans l'ordre topologique, sans quoi la
+liste des appels serait fausse).
+
+## Méthode
+
+Tout vérifié en conditions réelles : événements et snapshots relus en
+base, réponses Iconik interrogées en direct via le proxy, canevas piloté
+dans le navigateur. Les vérifications d'affichage impossibles à obtenir
+autrement (traces absentes des runs antérieurs) ont utilisé des runs
+jetables injectés puis supprimés — jamais un appel Iconik ou S3 réel.
+`node --check` sur chaque fichier touché ; `git status` propre à chaque
+étape. Quatorze commits poussés sur `main`.
