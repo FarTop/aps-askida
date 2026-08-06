@@ -249,13 +249,6 @@
   }
 
   // ── Onglet Action : ce que CE nœud a produit, strictement ────────────────
-  const DECISION_OPS = {
-    equals: 'equals', not_equals: 'is not', is_empty: 'is empty', not_empty: 'is not empty',
-    contains: 'contains', not_contains: 'does not contain',
-    starts_with: 'starts with', ends_with: 'ends with',
-    gt: '>', gte: '>=', lt: '<', lte: '<=',
-  };
-
   function _diffMap(before, after) {
     const b = before || {}; const a = after || {};
     return Object.keys(a)
@@ -287,6 +280,267 @@
     row.appendChild(k);
     row.appendChild(v);
     return row;
+  }
+
+  // ══ Résumé lisible ════════════════════════════════════════════════════════
+  // Traduit ce que le nœud A FAIT en langage d'opérateur. Choix assumé
+  // (demande utilisateur du 2026-08-06, alignée sur l'ancien panneau WFD
+  // wfd-run-panel.js:480-720 qui procédait déjà par famille) : le diff
+  // générique vars/results construit le 6 août ne suffit pas — il montre une
+  // charge utile brute là où il faut lire « BayardID n'est pas vide → sortie
+  // Par défaut ». Le brut n'est pas supprimé pour autant : il passe dans un
+  // dépliant « Détail technique », consultable mais jamais imposé.
+
+  const OPS_FR = {
+    equals: 'est égal à', not_equals: 'est différent de',
+    is_empty: 'est vide', not_empty: "n'est pas vide",
+    contains: 'contient', not_contains: 'ne contient pas',
+    starts_with: 'commence par', ends_with: 'se termine par',
+    not_starts_with: 'ne commence pas par', not_ends_with: 'ne se termine pas par',
+    matches_regex: 'correspond au motif', not_matches_regex: 'ne correspond pas au motif',
+    gt: 'est supérieur à', gte: 'est supérieur ou égal à',
+    lt: 'est inférieur à', lte: 'est inférieur ou égal à',
+    in_list: 'est dans la liste', not_in_list: "n'est pas dans la liste",
+    present: 'est renseigné', absent: 'est absent',
+  };
+
+  const ORIGINE_FR = {
+    'champ': 'via le champ source', 'métadonnée': 'via une métadonnée',
+    'variable': 'via une variable', 'repli': 'via le repli', 'expression': 'via une expression',
+  };
+
+  function _titre(txt) {
+    const el = document.createElement('div');
+    el.className = 'rp-section-title';
+    el.textContent = txt;
+    return el;
+  }
+
+  // Ligne « gauche → droite » avec un état visuel (ok / ko / neutre).
+  function _ligne(gauche, droite, etat) {
+    const row = document.createElement('div');
+    row.className = 'rp-ligne';
+    if (etat) row.setAttribute('data-etat', etat);
+    const g = document.createElement('span');
+    g.className = 'rp-ligne-g';
+    g.textContent = gauche;
+    const d = document.createElement('span');
+    d.className = 'rp-ligne-d';
+    d.textContent = droite;
+    row.appendChild(g);
+    row.appendChild(d);
+    return row;
+  }
+
+  function _section() {
+    const s = document.createElement('div');
+    s.className = 'rp-section';
+    return s;
+  }
+
+  // ── Decision ──────────────────────────────────────────────────────────────
+  function _resumeDecision(step, snap) {
+    const d = snap.results && snap.results._decision;
+    if (!d) return null;
+    const sec = _section();
+    const champ = d.field || '';
+    const valeur = (d.actual === null || d.actual === undefined || d.actual === '')
+      ? '(vide)' : String(d.actual);
+    sec.appendChild(_ligne(champ, valeur, null));
+
+    // Chaque condition avec son verdict réel. Le moteur renvoie la PREMIÈRE
+    // qui correspond (builder-handler-decision.js) : celles d'avant ont donc
+    // été évaluées et refusées, celles d'après n'ont jamais été testées —
+    // distinction affichée telle quelle plutôt que devinée.
+    const conditions = (step.params && step.params.conditions) || [];
+    const iMatch = conditions.findIndex(function (c) { return c.label === d.matchedLabel; });
+    conditions.forEach(function (c, i) {
+      const libelle = (OPS_FR[c.op] || c.op) + (c.value ? ' « ' + c.value + ' »' : '');
+      let etat, suffixe;
+      if (i === iMatch) { etat = 'ok'; suffixe = 'oui'; }
+      else if (iMatch === -1 || i < iMatch) { etat = 'ko'; suffixe = 'non'; }
+      else { etat = null; suffixe = 'non évaluée'; }
+      sec.appendChild(_ligne('« ' + champ + ' » ' + libelle + ' ?', suffixe, etat));
+    });
+
+    sec.appendChild(_ligne('Sortie empruntée',
+      '→ ' + d.matchedLabel + (d.matchedOp === 'default' ? ' (aucune condition remplie)' : ''),
+      d.matchedOp === 'default' ? null : 'ok'));
+    return sec;
+  }
+
+  // ── Lookup ────────────────────────────────────────────────────────────────
+  function _resumeLookup(step, snap) {
+    const trace = snap.results && snap.results['_lk_trace_' + step.id];
+    if (!Array.isArray(trace) || !trace.length) return null;
+    const ok = trace.filter(function (t) { return t.statut === 'ok'; });
+    const sec = _section();
+    sec.appendChild(_titre(ok.length + ' correspondance(s) sur ' + trace.length + ' règle(s)'));
+
+    trace.forEach(function (t) {
+      const fleche = t.de + ' → ' + t.vers;
+      if (t.statut === 'ok') {
+        // Valeur RÉSOLUE, jamais le nom de la variable — le point même de
+        // cette vue (« quand la correspondance est faite via une variable,
+        // je veux le contenu de la variable affiché »).
+        let droite = t.valeurFinale === null ? '(vide)' : String(t.valeurFinale);
+        if (t.traduction && t.traduction.vers !== null) {
+          droite = t.traduction.de + ' → ' + t.traduction.vers;
+        }
+        const row = _ligne(fleche, droite, 'ok');
+        const marques = [];
+        if (t.origine && t.origine !== 'champ') marques.push(ORIGINE_FR[t.origine] || t.origine);
+        if (t.traduction && t.traduction.vers === null) marques.push('hors table de correspondance');
+        if (marques.length) {
+          const note = document.createElement('span');
+          note.className = 'rp-ligne-note';
+          note.textContent = marques.join(' · ');
+          row.querySelector('.rp-ligne-g').appendChild(note);
+        }
+        sec.appendChild(row);
+      } else {
+        sec.appendChild(_ligne(fleche, t.motif || 'non renseigné', 'ko'));
+      }
+    });
+    return sec;
+  }
+
+  // ── Deliver (listing S3) ──────────────────────────────────────────────────
+  function _resumeDeliver(step, snap, occ) {
+    const rv = (step.params && step.params.resultVar) || 'awsResult';
+    const res = snap.results && snap.results[rv];
+    if (!res) return null;
+    const sec = _section();
+    if (res.prefix !== undefined) sec.appendChild(_ligne('Préfixe S3', String(res.prefix), null));
+    else if (res.key !== undefined) sec.appendChild(_ligne('Clé S3', String(res.key), null));
+    if (res.count !== undefined) {
+      sec.appendChild(_ligne('Objets trouvés', String(res.count), res.count > 0 ? 'ok' : 'ko'));
+      (res.keys || []).forEach(function (k) { sec.appendChild(_ligne('', k, 'ok')); });
+    }
+    (res.cardinaliteErreurs || []).forEach(function (c) {
+      sec.appendChild(_ligne('Cardinalité', c, 'ko'));
+    });
+    const port = occ.done && occ.done.port;
+    if (port === 'miss') sec.appendChild(_ligne('Conclusion', 'pas (encore) livré → déclenche la suite', null));
+    if (port === 'out')  sec.appendChild(_ligne('Conclusion', 'déjà livré', 'ok'));
+    return sec;
+  }
+
+  // ── Verify (contrôle partenaire) ──────────────────────────────────────────
+  function _resumeVerify(step, snap) {
+    const cr = snap.results && snap.results.checkerResult;
+    if (!cr) return null;
+    const sec = _section();
+    sec.appendChild(_titre(cr.passed + ' contrôle(s) réussi(s) sur ' + cr.total));
+    const echecs = {};
+    (cr.failures || []).forEach(function (f) { echecs[f.label] = f; });
+    (cr.failures || []).forEach(function (f) {
+      sec.appendChild(_ligne(f.label, f.error || ('attendu non vide, reçu « ' + (f.actual || '') + ' »'), 'ko'));
+    });
+    if (!(cr.failures || []).length) {
+      sec.appendChild(_ligne('Résultat', 'le partenaire confirme tous les contrôles', 'ok'));
+    }
+    return sec;
+  }
+
+  // ── History (ligne de notification) ───────────────────────────────────────
+  function _resumeHistory(step, snap) {
+    const h = snap.results && snap.results._workflow_history;
+    if (!h) return null;
+    const sec = _section();
+    sec.appendChild(_ligne('Champ Iconik', h.field || '', null));
+    sec.appendChild(_ligne('Mode', h.mode === 'update' ? 'remplace la ligne de ce run' : 'ajoute une ligne', null));
+    sec.appendChild(_ligne('Ligne écrite', h.line || '', 'ok'));
+    return sec;
+  }
+
+  // ── HTTP (request / sequence) ─────────────────────────────────────────────
+  function _resumeHttp(step, snap, avant) {
+    const sec = _section();
+    let vu = false;
+    const cles = Object.keys((snap.results) || {});
+    cles.forEach(function (k) {
+      if (k.indexOf('_') === 0) return;
+      const v = snap.results[k];
+      if (!v || typeof v !== 'object') return;
+      const avantV = avant && avant.results && avant.results[k];
+      if (avantV !== undefined && JSON.stringify(avantV) === JSON.stringify(v)) return;
+      if (v.status !== undefined) {
+        vu = true;
+        sec.appendChild(_ligne(String(v.method || 'HTTP') + ' ' + (v.url || k),
+          String(v.status), v.ok === false ? 'ko' : 'ok'));
+        if (v.postOrigine) {
+          sec.appendChild(_ligne('Refus initial (POST ' + v.postOrigine.status + ')',
+            _motifHttp(v.postOrigine.body), 'ko'));
+        }
+        if (v.ok === false) sec.appendChild(_ligne('Motif', _motifHttp(v.body), 'ko'));
+      } else if (v.objects !== undefined) {
+        vu = true;
+        sec.appendChild(_ligne('Résultats trouvés (' + k + ')',
+          String(v.total !== undefined ? v.total : v.objects.length),
+          (v.objects || []).length ? 'ok' : 'ko'));
+      }
+    });
+    return vu ? sec : null;
+  }
+
+  // Extrait la NATURE d'une erreur HTTP plutôt que son enveloppe : une API
+  // renvoie typiquement {errors:{champ:["motif"]}} — c'est le motif qui
+  // renseigne, pas le message générique ("The given data was invalid.").
+  function _motifHttp(body) {
+    if (body === null || body === undefined) return '(aucun corps de réponse)';
+    if (typeof body !== 'object') return String(body).slice(0, 300);
+    const parts = [];
+    const errs = body.errors;
+    if (errs && typeof errs === 'object' && !Array.isArray(errs)) {
+      Object.keys(errs).forEach(function (champ) {
+        const motifs = Array.isArray(errs[champ]) ? errs[champ].join(', ') : String(errs[champ]);
+        parts.push(champ + ' : ' + motifs);
+      });
+    } else if (Array.isArray(errs) && errs.length) {
+      parts.push(errs.map(String).join(', '));
+    }
+    if (!parts.length && body.message) parts.push(String(body.message));
+    if (!parts.length && body.error) parts.push(String(body.error));
+    return parts.length ? parts.join(' | ') : JSON.stringify(body).slice(0, 300);
+  }
+
+  // ── Wait ──────────────────────────────────────────────────────────────────
+  function _resumeWait(step, snap) {
+    const rv = (step.params && step.params.resultVar) || 'waitResults';
+    const w = snap.results && snap.results[rv];
+    if (!w) return null;
+    const sec = _section();
+    Object.keys(w).forEach(function (k) {
+      const v = w[k];
+      sec.appendChild(_ligne(k, typeof v === 'object' ? JSON.stringify(v).slice(0, 200) : String(v), null));
+    });
+    return sec;
+  }
+
+  function _resume(step, occ) {
+    if (!step) return null;
+    const fin = occ.done || occ.error;
+    const snap = fin && fin.ctxSnapshot;
+    if (!snap) return null;
+    const avant = occ.start && occ.start.ctxSnapshot;
+    try {
+      switch (step.core) {
+        case 'decision':      return _resumeDecision(step, snap);
+        case 'lookup':        return _resumeLookup(step, snap);
+        case 'deliver':       return _resumeDeliver(step, snap, occ);
+        case 'verify':        return _resumeVerify(step, snap);
+        case 'history':       return _resumeHistory(step, snap);
+        case 'wait':          return _resumeWait(step, snap);
+        case 'http_request':
+        case 'http_sequence': return _resumeHttp(step, snap, avant);
+        default:              return null;
+      }
+    } catch (_) {
+      // Un résumé ne doit JAMAIS casser le panneau : à défaut, le dépliant
+      // « Détail technique » reste disponible et porte la même information.
+      return null;
+    }
   }
 
   function _rendreAction(step, occurrences, loopInfo) {
@@ -355,18 +609,9 @@
         wrap.appendChild(secWarn);
       }
 
-      // Enrichissement dédié Decision — cheap et à forte valeur pour un core
-      // qui ne PRODUIT rien dans vars/results (il ne fait que router).
-      if (step && step.core === 'decision' && step.params && fin && fin.ctxSnapshot) {
-        const field = step.params.field;
-        const val = fin.ctxSnapshot.vars ? fin.ctxSnapshot.vars[field] : undefined;
-        const cond = (step.params.conditions || []).find(function (c) { return c.label === (occ.done && occ.done.port); });
-        const section = document.createElement('div');
-        section.className = 'rp-section';
-        section.appendChild(_kv(field, val !== undefined ? val : '(unresolved)'));
-        if (cond) section.appendChild(_kv('Condition', (DECISION_OPS[cond.op] || cond.op) + (cond.value ? ' ' + cond.value : '')));
-        wrap.appendChild(section);
-      }
+      // Résumé lisible d'abord — c'est LUI l'information principale.
+      const resume = _resume(step, occ);
+      if (resume) wrap.appendChild(resume);
 
       // Diff générique start → done/error : ce que CE nœud a réellement
       // écrit dans vars/results pendant son exécution, quel que soit son
@@ -384,13 +629,24 @@
           }
           return true;
         });
-        const resultsChanges = _diffMap(avant.results, apres.results);
+        // `_lk_trace_*` : matière première du résumé Lookup ci-dessus, déjà
+        // restituée en clair — l'afficher aussi en brut serait du bruit.
+        const resultsChanges = _diffMap(avant.results, apres.results)
+          .filter(function (d) { return d.key.indexOf('_lk_trace_') !== 0; });
         if (varsChanges.length || resultsChanges.length) {
+          // Brut relégué derrière un dépliant : consultable à la demande,
+          // jamais imposé comme seule lecture possible.
+          const det = document.createElement('details');
+          det.className = 'rp-verbose';
+          const sum = document.createElement('summary');
+          sum.textContent = 'Détail technique (' + (varsChanges.length + resultsChanges.length) + ')';
+          det.appendChild(sum);
           const section = document.createElement('div');
           section.className = 'rp-section';
           resultsChanges.forEach(function (d) { section.appendChild(_kv(d.key, d.value)); });
           varsChanges.forEach(function (d) { section.appendChild(_kv(d.key, d.value)); });
-          wrap.appendChild(section);
+          det.appendChild(section);
+          wrap.appendChild(det);
         }
       }
 
@@ -462,6 +718,51 @@
       paneDebug.appendChild(_vide('No recorded event for this node in this run.'));
       return;
     }
+
+    // Ce que le nœud a signalé, EN HAUT et en clair. Auparavant il fallait
+    // déplier un « Context snapshot » et lire le JSON pour retrouver un 404
+    // — retour utilisateur du 2026-08-06 : « j'aurais dû voir dans le debug
+    // l'erreur 404, et elle ne suffit pas : il faut la nature de l'erreur ».
+    // D'où `_motifHttp`, qui extrait le motif de validation ({errors:{champ:
+    // [...]}}) plutôt que le message d'enveloppe générique.
+    const dernier = evenements[evenements.length - 1];
+    const snap = dernier && dernier.ctxSnapshot;
+    const signals = [];
+    (snap && snap.errors ? snap.errors : []).forEach(function (e) {
+      if (!e || !e.message) return;
+      if (e.node && step && e.node !== step.id && e.node.indexOf(step.id + '_') !== 0) return;
+      signals.push(e);
+    });
+    // Corps de réponse HTTP en échec, quel que soit le résultat qui le porte.
+    const detailsHttp = [];
+    Object.keys((snap && snap.results) || {}).forEach(function (k) {
+      const v = snap.results[k];
+      if (!v || typeof v !== 'object' || v.ok !== false) return;
+      if (v.postOrigine) detailsHttp.push('POST ' + v.postOrigine.status + ' — ' + _motifHttp(v.postOrigine.body));
+      detailsHttp.push(String(v.method || 'HTTP') + ' ' + v.status + ' — ' + _motifHttp(v.body));
+    });
+
+    if (signals.length || detailsHttp.length) {
+      const bloc = document.createElement('div');
+      bloc.className = 'rp-section';
+      bloc.appendChild(_titre('Signalé par ce nœud'));
+      signals.forEach(function (e) {
+        const l = document.createElement('div');
+        l.className = 'rp-warn';
+        l.setAttribute('data-severity', e.severity || 'warn');
+        l.textContent = (e.severity === 'fatal' ? '✕ ' : e.severity === 'info' ? 'ℹ ' : '⚠ ') + e.message;
+        bloc.appendChild(l);
+      });
+      detailsHttp.forEach(function (t) {
+        const l = document.createElement('div');
+        l.className = 'rp-warn';
+        l.setAttribute('data-severity', 'warn');
+        l.textContent = '⚠ ' + t;
+        bloc.appendChild(l);
+      });
+      paneDebug.appendChild(bloc);
+    }
+
     evenements.forEach(function (ev) { paneDebug.appendChild(_ligneEvenement(ev)); });
   }
 

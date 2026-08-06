@@ -10,6 +10,15 @@ const BuilderContext = require('./builder-context.js');
 
 function r(val, ctx) { return BuilderContext.resolve(val, ctx); }
 
+// Aperçu court et toujours affichable d'une valeur, pour la trace destinée à
+// l'onglet Action — borné pour ne pas gonfler chaque ctxSnapshot du run.
+function _apercu(v) {
+  if (v === undefined || v === null) return null;
+  if (Array.isArray(v)) return v.map(x => String(x)).join(', ').slice(0, 200);
+  if (typeof v === 'object') { try { return JSON.stringify(v).slice(0, 200); } catch (_) { return '[objet]'; } }
+  return String(v).slice(0, 200);
+}
+
 function _isUnresolvedPlaceholder(v) {
   return typeof v === 'string' && /^\{[A-Za-z_][A-Za-z0-9_.]*\}$/.test(v.trim());
 }
@@ -84,6 +93,7 @@ async function lookup(step, ctx, deps) {
 
   if (isObject) {
     const mapped  = {};
+    const trace   = [];
     let   matched = 0;
 
     rows.forEach(row => {
@@ -92,33 +102,72 @@ async function lookup(step, ctx, deps) {
       const children = row.children || [];
       if (!fromKey || !toKey) return;
 
-      let val;
+      // `origine` : d'OÙ la valeur a réellement été tirée. Tracé au fil des
+      // replis successifs plutôt que déduit après coup — c'est la seule
+      // façon de dire honnêtement « champ », « métadonnée », « variable » ou
+      // « repli », et de montrer le CONTENU résolu plutôt que le nom de la
+      // variable (demande utilisateur du 2026-08-06 : l'onglet Action doit
+      // montrer ce que le nœud a fait, pas répéter son gabarit).
+      let val, origine = null;
       if (fromKey.includes('{') || fromKey.includes('://') || fromKey.includes('{{')) {
         val = r(fromKey, ctx);
+        origine = 'expression';
       } else {
         val = inputRaw[fromKey];
+        if (val !== undefined) origine = 'champ';
       }
 
       if (val === undefined && inputRaw.metadata_values) {
         const fv = inputRaw.metadata_values[fromKey]?.field_values;
-        if (fv?.length) val = fv.length === 1 ? fv[0].value : fv.map(f => f.value);
+        if (fv?.length) { val = fv.length === 1 ? fv[0].value : fv.map(f => f.value); origine = 'métadonnée'; }
       }
 
-      if (val === undefined) val = ctx.vars?.[fromKey];
+      if (val === undefined) {
+        val = ctx.vars?.[fromKey];
+        if (val !== undefined) origine = 'variable';
+      }
 
+      const valeurDirecte = val;
+      let repliUtilise = false;
       if ((val === undefined || val === null || val === '') && row.fallback) {
         const fbKey = row.fallback.replace(/^\{|\}$/g, '');
         val = ctx.vars?.[fbKey] ?? r(row.fallback, ctx);
+        repliUtilise = true;
+        origine = 'repli';
       }
 
-      if (_isUnresolvedPlaceholder(val)) return;
-      if (val === undefined || val === null || val === '') return;
+      if (_isUnresolvedPlaceholder(val)) {
+        trace.push({
+          de: fromKey, vers: toKey, statut: 'non_resolu', origine: origine,
+          repli: row.fallback || null,
+          motif: 'repli non résolu — la variable ' + String(val) + " n'existe pas dans ce contexte",
+        });
+        return;
+      }
+      if (val === undefined || val === null || val === '') {
+        trace.push({
+          de: fromKey, vers: toKey, statut: 'vide', origine: null,
+          repli: row.fallback || null,
+          motif: row.fallback
+            ? (repliUtilise ? 'source absente, et le repli est vide' : 'source absente')
+            : 'source absente (aucun repli défini)',
+        });
+        return;
+      }
 
+      const valeurAvantTraduction = val;
+      let traduction = null;
       if (children.length) {
         const valStr = String(val);
         const child  = children.find(c => (c.key || c.src || '').trim() === valStr);
         if (child) {
           val = (child.value || child.tgt || '').trim();
+          traduction = { de: valStr, vers: val };
+        } else {
+          // Valeur hors table de correspondance : transmise telle quelle
+          // (comportement d'origine), mais signalée — c'est typiquement un
+          // libellé que personne n'a encore traduit.
+          traduction = { de: valStr, vers: null };
         }
       }
       if (row.list === true || row.list === 'true' || row.type === 'list') {
@@ -156,8 +205,20 @@ async function lookup(step, ctx, deps) {
       }
       _setNestedValue(mapped, toKey, val);
       matched++;
+      trace.push({
+        de: fromKey, vers: toKey, statut: 'ok', origine: origine,
+        repli: repliUtilise ? (row.fallback || null) : null,
+        valeurSource: _apercu(repliUtilise ? valeurAvantTraduction : valeurDirecte),
+        traduction: traduction ? { de: _apercu(traduction.de), vers: traduction.vers } : null,
+        valeurFinale: _apercu(val),
+      });
     });
 
+    // Trace de ce que CE nœud a réellement fait, ligne par ligne — consommée
+    // par l'onglet Action (run-panel.js). Clé préfixée `_` : exclue des
+    // variables publiques, et repérable par id de step (plusieurs Lookup
+    // possibles dans un même run).
+    BuilderContext.storeResult(ctx, '_lk_trace_' + step.id, trace);
     BuilderContext.storeResult(ctx, target, mapped);
     BuilderContext.setVar(ctx, target, JSON.stringify(mapped));
     Object.entries(mapped).forEach(([k, v]) => {
