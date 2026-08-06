@@ -170,21 +170,83 @@ async function nextOrderNumber(prisma, scope, key, seed) {
   return Number(rows?.[0]?.value);
 }
 
+// Fabrique d'identifiants, PARTAGÉE par le nœud Générateur d'ID
+// (aps.registry) et par Créer arborescence (iconik.create_tree) — les deux
+// produisaient jusqu'ici des formats étrangers l'un à l'autre : timestamp
+// d'un côté, tirage numérique de l'autre, sur le MÊME champ Iconik.
+//
+// `timestamp_numeric` : ajouté le 2026-08-06 parce que le champ Iconik
+// BayardID est un ENTIER. Le format `timestamp` historique
+// (YYYYMMDD-HHMMSS-RRRR) ne peut structurellement pas y entrer : tirets, et
+// suffixe hexadécimal (≈85 % des tirages contiennent une lettre A-F). D'où
+// YYMMDDHHMMSS + 2 chiffres d'aléa = 14 chiffres exactement — l'année sur 2
+// chiffres libère la place de l'aléa, et le tout reste très en deçà de la
+// limite de précision entière de JavaScript.
+function genererIdentifiant(type, length, prefix) {
+  const l = Math.max(1, Math.min(64, parseInt(length) || 8));
+  const pad = n => String(n).padStart(2, '0');
+  switch (type) {
+    case 'uuid':
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const rnd = Math.random() * 16 | 0;
+        return (c === 'x' ? rnd : (rnd & 0x3 | 0x8)).toString(16);
+      });
+    case 'hex':
+      return new Array(l).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
+    case 'alphanumeric':
+    case 'prefixed': {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      const body = new Array(l).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
+      return (type === 'prefixed' ? (prefix || '') : '') + body;
+    }
+    case 'timestamp': {
+      const now = new Date();
+      const ts = now.getFullYear().toString() + pad(now.getMonth() + 1) + pad(now.getDate())
+               + '-' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+      return ts + '-' + Math.floor(Math.random() * 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+    }
+    case 'timestamp_numeric': {
+      const now = new Date();
+      return String(now.getFullYear() % 100).padStart(2, '0')
+           + pad(now.getMonth() + 1) + pad(now.getDate())
+           + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds())
+           + pad(Math.floor(Math.random() * 100));
+    }
+    default: {
+      const min = Math.pow(10, l - 1);
+      const max = Math.pow(10, l) - 1;
+      return String(Math.floor(min + Math.random() * (max - min + 1)));
+    }
+  }
+}
+
 // Port de _bayardIdFor(), wfd-engine-handlers.js:210-244 — réutilise un
 // BayardID existant pour cet objet (BayardRegistry.assetId) ou en génère un
 // nouveau, garanti unique par vérification directe.
-async function bayardIdFor(prisma, objectId, objectType, orgId, length, fallbackId) {
+//
+// `regenerer` (2026-08-06) : sans lui, le repli anti-collision tirait
+// TOUJOURS un nombre, ce qui aurait cassé le format au premier conflit dès
+// que le registre s'applique à autre chose que le mode numérique. L'appelant
+// fournit désormais de quoi rejouer SON format. Absent = ancien
+// comportement, à l'identique.
+async function bayardIdFor(prisma, objectId, objectType, orgId, length, fallbackId, regenerer) {
   let id = fallbackId;
   const existing = objectId ? await prisma.bayardRegistry.findFirst({ where: { assetId: objectId } }) : null;
   if (existing) return existing.bayardId;
+
+  const refaire = typeof regenerer === 'function'
+    ? regenerer
+    : function () {
+        const min = Math.pow(10, length - 1);
+        const max = Math.pow(10, length) - 1;
+        return String(Math.floor(min + Math.random() * (max - min + 1)));
+      };
 
   let attempts = 0;
   while (attempts < 10) {
     const conflict = await prisma.bayardRegistry.findUnique({ where: { bayardId: id } });
     if (!conflict) break;
-    const min = Math.pow(10, length - 1);
-    const max = Math.pow(10, length) - 1;
-    id = String(Math.floor(min + Math.random() * (max - min + 1)));
+    id = refaire();
     attempts++;
   }
   if (objectId) {
@@ -195,4 +257,4 @@ async function bayardIdFor(prisma, objectId, objectType, orgId, length, fallback
   return id;
 }
 
-module.exports = { requireIconik, resolveByName, extractTechnical, metadataValuesDepuisReponse, nextOrderNumber, bayardIdFor };
+module.exports = { requireIconik, resolveByName, extractTechnical, metadataValuesDepuisReponse, nextOrderNumber, genererIdentifiant, bayardIdFor };

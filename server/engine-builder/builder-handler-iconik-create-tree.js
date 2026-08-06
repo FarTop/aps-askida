@@ -11,7 +11,7 @@
 'use strict';
 
 const BuilderContext = require('./builder-context.js');
-const { requireIconik, bayardIdFor, nextOrderNumber } = require('./builder-iconik-shared.js');
+const { requireIconik, bayardIdFor, genererIdentifiant, nextOrderNumber } = require('./builder-iconik-shared.js');
 
 function r(val, ctx) { return BuilderContext.resolve(val, ctx); }
 
@@ -59,6 +59,7 @@ async function createTree(step, ctx, deps) {
   const viewIdParDefaut = r(p.metadataViewId || '', ctx);
   const orgId         = ctx.vars?.orgId || 'default';
   const idLength      = Math.max(1, Math.min(64, parseInt(p.idLength) || 8));
+  const idType        = p.idType || 'numeric';
   const idFieldName     = p.idFieldName     || 'BayardID';
   const parentFieldName = p.parentFieldName || 'ParentID';
   const typeFieldName   = p.typeFieldName   || 'TypeCollection';
@@ -125,8 +126,13 @@ async function createTree(step, ctx, deps) {
       : !!nodeDef.generateId;
 
     if (nodeDef.generateId) {
-      const seedId = String(Math.floor(Math.pow(10, idLength - 1) + Math.random() * (Math.pow(10, idLength) * 0.9)));
-      generatedHere = await bayardIdFor(deps.prisma, col.id, 'collection', orgId, idLength, seedId);
+      // Même fabrique que le nœud Générateur d'ID (aps.registry) : les deux
+      // écrivent dans le MÊME champ Iconik et alimentent le MÊME registre, ils
+      // ne peuvent pas produire des formats différents. `idType` absent = mode
+      // numérique, soit le comportement d'origine à l'identique.
+      const seedId = genererIdentifiant(idType, idLength, '');
+      generatedHere = await bayardIdFor(deps.prisma, col.id, 'collection', orgId, idLength, seedId,
+        function () { return genererIdentifiant(idType, idLength, ''); });
       fields[idFieldName] = { field_values: [{ value: generatedHere }] };
     }
     // AVANT la mise à jour de lastGeneratedId : la parenté d'un niveau est

@@ -1076,7 +1076,20 @@ const ConfigSchema = (() => {
           { nature: 'texte', chemin: 'idFieldName', label: 'Generated id field', placeholder: 'BayardID' },
           { nature: 'texte', chemin: 'parentFieldName', label: 'Parent id field', placeholder: 'ParentID' },
           { nature: 'texte', chemin: 'typeFieldName', label: 'Collection type field', placeholder: 'TypeCollection' },
-          { nature: 'nombre', chemin: 'idLength', label: 'Generated id length', min: 1, placeholder: '8' },
+          // Même liste que le nœud Générateur d'ID : les deux écrivent dans le
+          // MÊME champ Iconik et alimentent le MÊME registre — ils ne peuvent
+          // pas produire des formats différents (constaté le 2026-08-06 :
+          // Créer produisait 8 chiffres, PUBLISH un horodatage).
+          { nature: 'choix', chemin: 'idType', label: 'Generated id type', reagit: true, options: [
+            { valeur: 'numeric', libelle: 'Numeric' },
+            { valeur: 'timestamp', libelle: 'Timestamp-based (lisible)' },
+            { valeur: 'timestamp_numeric', libelle: 'Timestamp-based (entier, 14 chiffres)' },
+            { valeur: 'uuid', libelle: 'UUID v4' },
+            { valeur: 'hex', libelle: 'Hex' },
+            { valeur: 'alphanumeric', libelle: 'Alphanumeric' }
+          ] },
+          { nature: 'nombre', chemin: 'idLength', label: 'Generated id length', min: 1, placeholder: '8',
+            visibleSi: function (m) { return ['uuid', 'timestamp', 'timestamp_numeric'].indexOf(m.lire('idType')) === -1; } },
           { nature: 'valeurTypee', chemin: 'parentBayardId', label: 'Parent generated id (seed from a previous run, e.g. the Série when creating a Saison)', placeholder: '{serieMetadata.BayardID}' },
           { nature: 'texte', chemin: 'orderFieldName', label: 'Order number field (optional)', placeholder: 'e.g. NumeroSaison' },
           { nature: 'nombre', chemin: 'orderPad', label: 'Order number padding', min: 0, placeholder: '2' },
@@ -1178,29 +1191,40 @@ const ConfigSchema = (() => {
           // vu la longueur/l'aléatoire), mais aucune dépendance APS non plus
           // : n'importe quel moteur sachant faire `now()` + aléatoire les
           // reproduit à l'identique.
+          // Notes de portabilité revues le 2026-08-06 : le registre
+          // BayardRegistry s'applique désormais à TOUS les types, plus au seul
+          // mode numérique. Ce n'est pas une entrave — c'est une table de
+          // correspondance Iconik↔APS exportable (décision du 29 juillet :
+          // « calcul lisible MAIS relation stockée »). Ce qui distingue
+          // réellement les types, c'est donc si le FORMAT est reproductible
+          // ailleurs, pas s'il touche à la base.
           { nature: 'choix', chemin: 'idType', label: 'Type', reagit: true, options: [
             { valeur: 'numeric', libelle: 'Numeric',
-              portabilite: '⚠ APS only — la formule est portable, mais l\'unicité garantie dépend de BayardRegistry (base d\'APS). Un autre moteur générerait des collisions.' },
+              portabilite: '⚠ Format non reproductible ailleurs — tirage purement aléatoire, rien à recalculer depuis les données. Unicité et réutilisation garanties par BayardRegistry.' },
             { valeur: 'alphanumeric', libelle: 'Alphanumeric',
-              portabilite: '✅ Portable — calcul local, aucune dépendance APS. Pas de garantie d\'unicité (juste une collision improbable).' },
+              portabilite: '⚠ Format non reproductible ailleurs (tirage aléatoire). Unicité et réutilisation garanties par BayardRegistry.' },
             { valeur: 'hex', libelle: 'Hex',
-              portabilite: '✅ Portable — calcul local, aucune dépendance APS. Pas de garantie d\'unicité (juste une collision improbable).' },
+              portabilite: '⚠ Format non reproductible ailleurs (tirage aléatoire). Unicité et réutilisation garanties par BayardRegistry.' },
             { valeur: 'prefixed', libelle: 'Prefixed alphanumeric',
-              portabilite: '✅ Portable — calcul local, aucune dépendance APS. Pas de garantie d\'unicité (juste une collision improbable).' },
+              portabilite: '⚠ Format non reproductible ailleurs (tirage aléatoire). Unicité et réutilisation garanties par BayardRegistry.' },
             { valeur: 'uuid', libelle: 'UUID v4',
-              portabilite: '✅ Portable — calcul local, aucune dépendance APS. Pas de garantie d\'unicité (juste une collision improbable, négligeable pour un UUID).' },
-            { valeur: 'timestamp', libelle: 'Timestamp-based',
-              portabilite: '✅ Portable — calcul local (horodatage + aléatoire), aucune dépendance APS. Solution de repli si le workflow doit s\'exporter vers un autre moteur d\'orchestration.' }
+              portabilite: '✅ Format standard, calculable par n\'importe quel moteur. Unicité et réutilisation garanties par BayardRegistry.' },
+            { valeur: 'timestamp', libelle: 'Timestamp-based (lisible)',
+              portabilite: '✅ Format calculable partout (horodatage + aléatoire), lisible à l\'œil. Unicité et réutilisation garanties par BayardRegistry, table exportable vers un autre orchestrateur. ⚠ Contient des tirets et de l\'hexadécimal : incompatible avec un champ Iconik de type entier.' },
+            { valeur: 'timestamp_numeric', libelle: 'Timestamp-based (entier, 14 chiffres)',
+              portabilite: '✅ Format calculable partout — AAMMJJhhmmss + 2 chiffres d\'aléa. Le seul horodatage acceptable par un champ Iconik de type entier (prévoir max_value ≥ 99999999999999). Unicité et réutilisation garanties par BayardRegistry.' }
           ] },
           { nature: 'texte', chemin: 'idPrefix', label: 'Prefix', placeholder: 'e.g. BAY-',
             visibleSi: function (m) { return m.lire('idType') === 'prefixed'; } },
           { nature: 'nombre', chemin: 'idLength', label: 'Length', min: 1, placeholder: '8',
-            visibleSi: function (m) { return ['uuid', 'timestamp'].indexOf(m.lire('idType')) === -1; } },
+            visibleSi: function (m) { return ['uuid', 'timestamp', 'timestamp_numeric'].indexOf(m.lire('idType')) === -1; } },
           { nature: 'variable', chemin: 'varName', label: 'Store as', placeholder: '{generated_id}' },
           { nature: 'choix', chemin: 'outputType', label: 'Output as',
             options: function (model) {
               const opts = [{ valeur: 'string', libelle: 'String' }];
-              if (model.lire('idType') === 'numeric') opts.push({ valeur: 'integer', libelle: 'Integer' });
+              if (['numeric', 'timestamp_numeric'].indexOf(model.lire('idType')) !== -1) {
+                opts.push({ valeur: 'integer', libelle: 'Integer' });
+              }
               return opts;
             } }
         ];

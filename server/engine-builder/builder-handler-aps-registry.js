@@ -7,7 +7,7 @@
 'use strict';
 
 const BuilderContext = require('./builder-context.js');
-const { bayardIdFor } = require('./builder-iconik-shared.js');
+const { bayardIdFor, genererIdentifiant } = require('./builder-iconik-shared.js');
 
 async function apsRegistry(step, ctx, deps) {
   const p = step.params || {};
@@ -16,59 +16,26 @@ async function apsRegistry(step, ctx, deps) {
   const prefix  = p.idPrefix || '';
   const varName = p.varName  || 'generated_id';
 
-  let id = '';
-  switch (type) {
-    case 'numeric': {
-      const min = Math.pow(10, length - 1);
-      const max = Math.pow(10, length) - 1;
-      id = String(Math.floor(min + Math.random() * (max - min + 1)));
-      break;
-    }
-    case 'uuid': {
-      id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const rnd = Math.random() * 16 | 0;
-        return (c === 'x' ? rnd : (rnd & 0x3 | 0x8)).toString(16);
-      });
-      break;
-    }
-    case 'hex': {
-      const arr = new Array(length).fill(0).map(() => Math.floor(Math.random() * 16).toString(16));
-      id = arr.join('').toUpperCase();
-      break;
-    }
-    case 'alphanumeric': {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      id = new Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
-      break;
-    }
-    case 'prefixed': {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      const body = new Array(length).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
-      id = prefix + body;
-      break;
-    }
-    case 'timestamp': {
-      const now = new Date();
-      const pad = n => String(n).padStart(2, '0');
-      const ts = now.getFullYear().toString() +
-        pad(now.getMonth() + 1) + pad(now.getDate()) + '-' +
-        pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
-      const rnd = Math.floor(Math.random() * 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-      id = ts + '-' + rnd;
-      break;
-    }
-    default:
-      id = String(Math.floor(10000000 + Math.random() * 89999999));
-  }
+  // Fabrique PARTAGÉE avec create_tree (builder-iconik-shared.js) : les deux
+  // nœuds produisaient des formats étrangers l'un à l'autre sur le MÊME champ
+  // Iconik.
+  let id = genererIdentifiant(type, length, prefix);
 
-  if (type === 'numeric') {
-    const assetId    = ctx.asset?.id || ctx.vars?.asset_id || '';
-    const colId      = ctx.collection?.id || ctx.vars?.collection_id || '';
-    const objectId   = assetId || colId;
-    const objectType = assetId ? 'asset' : (colId ? 'collection' : 'asset');
-    const orgId      = ctx.vars?.orgId || 'default';
-    id = await bayardIdFor(deps.prisma, objectId, objectType, orgId, length, id);
-  }
+  // Registre pour TOUS les types, plus seulement 'numeric'. C'était la moitié
+  // manquante de la décision du 2026-07-29 : « calcul lisible (timestamp+aléa)
+  // MAIS relation Iconik↔APS stockée dans le registre BayardRegistry ». Seul
+  // le calcul avait été implémenté — un identifiant timestamp n'était donc
+  // enregistré nulle part, et rien ne garantissait qu'un même objet retrouve
+  // le sien. Le registre n'est pas une entrave à la portabilité : c'est une
+  // table de correspondance exportable vers un orchestrateur tiers, et le
+  // FORMAT reste calculable partout sans elle.
+  const assetId    = ctx.asset?.id || ctx.vars?.asset_id || '';
+  const colId      = ctx.collection?.id || ctx.vars?.collection_id || '';
+  const objectId   = assetId || colId;
+  const objectType = assetId ? 'asset' : (colId ? 'collection' : 'asset');
+  const orgId      = ctx.vars?.orgId || 'default';
+  id = await bayardIdFor(deps.prisma, objectId, objectType, orgId, length, id,
+    function () { return genererIdentifiant(type, length, prefix); });
 
   const outputType = p.outputType || 'string';
   const finalId = outputType === 'integer' ? parseInt(id, 10) : id;
