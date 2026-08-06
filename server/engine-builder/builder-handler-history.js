@@ -17,7 +17,11 @@ function _essencesFromManifest(manifest) {
   return essences
     .filter(e => e.role && e.sortie)
     .map(e => {
-      const eh = { role: e.role, sortie: e.sortie, cardinalite: e.cardinalite || '' };
+      // `verifie` : cet essence a un verifyPath dans le Manifest, donc Verify
+      // (builder-handler-verify.js) l'a réellement interrogé auprès du
+      // Partner — sinon (ex. Title, cardinalite "optionnel") Verify ne le
+      // vérifie jamais et il n'y a aucun résultat Partner à lui opposer.
+      const eh = { role: e.role, sortie: e.sortie, cardinalite: e.cardinalite || '', verifie: !!e.verifyPath };
       if (Array.isArray(e.appliesTo) && e.appliesTo.length && e.appliesTo.indexOf('*') === -1) {
         eh.appliesTo = e.appliesTo;
       }
@@ -58,13 +62,30 @@ async function workflowHistory(step, ctx, deps) {
     // optionnel ou pas (retour utilisateur 2026-08-06 : Title, marqué
     // `cardinalite: "optionnel"` dans le Manifest, ne devrait pas s'afficher
     // en échec s'il est simplement absent).
+    //
+    // Source de vérité par essence : pour un essence VÉRIFIÉ par Verify
+    // (verifyPath configuré), le ✅/❌ reflète le résultat Partner réel
+    // (checkerResult), jamais la présence S3 — le listing S3 (Check
+    // Collection/Check Asset) n'est qu'une optimisation technique interne
+    // (éviter un ré-upload inutile), pas une confirmation qui compte pour
+    // l'utilisateur ; l'afficher ici produisait un ✅ alors que le Partner
+    // répondait 404 sur ce même essence (retour utilisateur 2026-08-06 :
+    // "la vérif VOD Factory est celle qui importe à l'utilisateur"). Pour un
+    // essence NON vérifié (ex. Title, pas de verifyPath — Partner n'est
+    // jamais interrogé dessus), repli sur la présence S3, seule donnée
+    // disponible.
+    const checkerFailures = (ctx.results && ctx.results.checkerResult && ctx.results.checkerResult.failures) || null;
     essenceChecklist = essencesPortee.map(function (e) {
+      const label = _libelle(e.role);
+      if (e.verifie && checkerFailures) {
+        const echoue = checkerFailures.some(function (f) { return f.label === e.role; });
+        return label + (echoue ? ' ❌' : ' ✅');
+      }
       // resolvePath (pas resolve()) : resolve() renvoie le `{placeholder}`
       // brut inchangé quand la variable est absente (utile pour ne pas
       // casser un texte libre), ce qui rendrait tout essence "présent" ici.
       const val = BuilderContext.resolvePath(e.sortie, ctx);
       const present = val !== undefined && val !== null && val !== '';
-      const label = _libelle(e.role);
       if (present) return label + ' ✅';
       if (e.cardinalite === 'optionnel') return label + ' ➖';
       return label + ' ❌';
