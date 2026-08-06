@@ -47,6 +47,20 @@ async function deliver(step, ctx, deps) {
   const objectKey   = r(p.objectKey || '', ctx);
   const resultVar   = p.resultVar   || 'awsResult';
 
+  // Une clé S3 qui contient encore « {…} » signifie qu'une variable amont
+  // n'a pas été résolue (resolve() rend le gabarit brut plutôt que du vide,
+  // pour ne pas casser du texte libre — inoffensif dans un message, faux
+  // dans un chemin). Sans ce garde-fou on interroge un préfixe littéral
+  // « AmazonPrime/{ancestorPath}/ », qui ne trouve évidemment rien : la
+  // livraison est alors déclarée manquante pour une raison qui n'a rien à
+  // voir avec S3 (constaté le 2026-08-06 sur un Episode sans ParentID).
+  if (/\{[^}]+\}/.test(objectKey)) {
+    BuilderContext.addError(ctx, step.id,
+      'Chemin S3 incomplet — « ' + objectKey + ' » contient une variable non résolue', 'warn');
+    BuilderContext.storeResult(ctx, resultVar, { status: 0, cheminIncomplet: true, key: objectKey });
+    return { port: 'error' };
+  }
+
   const conn = p.connexionId && deps.resolved && deps.resolved.connexions
     ? deps.resolved.connexions[connexionId] : null;
   if (!conn) throw new Error('deliver : connexion introuvable — ' + connexionId);

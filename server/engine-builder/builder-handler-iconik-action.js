@@ -154,7 +154,21 @@ async function iconikAction(step, ctx, deps) {
       const exportPayload = {};
       if (p.createFolderAsset) exportPayload.export_to_asset_folder = true;
       if (p.overwrite !== undefined) exportPayload.overwrite = p.overwrite === true || p.overwrite === 'true';
-      if (p.fileName) exportPayload.file_name = r(p.fileName, ctx).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-\/]/g, '');
+      if (p.fileName) {
+        // Le nettoyage ci-dessous retire les accolades : un gabarit NON
+        // résolu (« {ancestorPath}/X ») y survit sous la forme
+        // « ancestorPath/X » et devient un vrai chemin de destination. C'est
+        // arrivé le 2026-08-06 sur un Episode dont resolve_ancestors avait
+        // échoué : Iconik a réellement livré 3 fichiers dans un dossier S3
+        // nommé « ancestorPath », chez le partenaire. Un chemin d'écriture
+        // incomplet doit échouer franchement, jamais s'inventer une valeur.
+        const nomResolu = r(p.fileName, ctx);
+        if (/\{[^}]+\}/.test(nomResolu)) {
+          throw new Error('export_location : chemin de destination incomplet — « ' + nomResolu
+            + ' » contient une variable non résolue, export annulé');
+        }
+        exportPayload.file_name = nomResolu.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-\/]/g, '');
+      }
       result = await iconikClient.post(`/API/files/v1/assets/${aid}/export_locations/${elId}/`, exportPayload);
       if (result?.job_id) BuilderContext.setVar(ctx, 'exportJobId', result.job_id);
       break;
