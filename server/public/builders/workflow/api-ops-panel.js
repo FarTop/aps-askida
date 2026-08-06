@@ -453,15 +453,27 @@
 
   // Le rendu est intégralement reconstruit à chaque sélection : sans cela, les
   // deux pistes horizontales repartiraient à zéro et la carte retenue pourrait
-  // rester hors écran. `block:'nearest'` pour ne jamais faire défiler la page
-  // verticalement — seules les pistes doivent bouger.
+  // rester hors écran.
+  //
+  // Défilement calculé et appliqué SUR LA PISTE elle-même, jamais
+  // `scrollIntoView()` : celui-ci fait défiler TOUS les ancêtres pour révéler
+  // l'élément. Or un volet fermé est déplacé hors écran par `transform`
+  // (workflow-canvas.css) — le navigateur faisait donc défiler le canevas
+  // entier pour l'atteindre, ce qui décalait la scène et rendait une partie
+  // des nœuds inatteignable (signalé le 2026-08-06 : « ça fait une sorte de
+  // zoom »). Et rien à faire du tout si le volet est fermé.
   function _amenerDansLeChamp() {
     if (!etapeActive) return;
-    ['.ao-carte[data-actif="1"]', '.ao-vcarte[data-actif="1"]'].forEach(function (sel) {
-      const el = hote.querySelector(sel);
-      if (el && el.scrollIntoView) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      }
+    if ((root.getAttribute('data-open') || '').indexOf('bottom') === -1) return;
+    [['.ao-timeline', '.ao-carte[data-actif="1"]'],
+     ['.ao-vars-piste', '.ao-vcarte[data-actif="1"]']].forEach(function (paire) {
+      const piste = hote.querySelector(paire[0]);
+      const carte = piste && piste.querySelector(paire[1]);
+      if (!piste || !carte || !piste.scrollBy) return;
+      const rp = piste.getBoundingClientRect();
+      const rc = carte.getBoundingClientRect();
+      const delta = (rc.left - rp.left) - (rp.width - rc.width) / 2;
+      if (Math.abs(delta) > 2) piste.scrollBy({ left: delta, behavior: 'smooth' });
     });
   }
 
