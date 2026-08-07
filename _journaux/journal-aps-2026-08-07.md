@@ -245,3 +245,70 @@ document jetable.
 
 Cinq fois dans la journée, l'utilisateur a contesté une de mes conclusions ;
 cinq fois la mesure lui a donné raison.
+
+---
+
+## Fin de journée — le cadre, posé (et trois de mes conclusions retournées)
+
+La conversation s'est terminée sur une discussion informelle de stratégie,
+ouverte par l'utilisateur. Elle a corrigé trois fois de suite une conclusion
+que je venais d'énoncer. **Le cadre lui-même est consigné dans `CLAUDE.md`,
+section « Why APS exists » — c'est là qu'il faut le lire, pas ici.** Ce qui
+suit ne garde que les corrections, parce qu'elles disent comment se tromper.
+
+### « Le moteur natif ne devrait pas porter la minuterie »
+
+Faux deux fois. Le timer **existe déjà dans WFD**
+(`wfd-engine-trigger.js`, `scheduleTimer` — interval/cron/oneshot, registre
+par flux) : c'est un port, pas une invention. Et j'avais jugé le moteur natif
+à l'aune de sa valeur *en production*, alors que sa raison d'être est de
+**prouver un mécanisme**. Or le risque de STATUSES est la ré-entrance, et ça
+ne se valide pas sur un schéma — le seul endroit où on peut se permettre de
+la casser exprès, c'est ici. Conclusion inversée : **Statuses complet**,
+document pivot *et* exécution native.
+
+### « Le Builder a perdu des sorties que WFD avait »
+
+Formulation fautive. WFD émet vers Node-RED et Word, le Builder n'a que
+`pivot-to-wfd.js` — le fait est exact, mais ce n'est **pas une dette** : WFD
+avait été sondé avant la migration, et les besoins VOD Factory ont été
+priorisés délibérément. J'ai présenté trois fois dans la journée un arbitrage
+comme un oubli.
+
+### « Bâtir d'abord le livrable documentaire »
+
+Tombe d'elle-même une fois l'architecture énoncée : le Documentation Builder
+**consomme** la plateforme et les builders, il est en aval par construction.
+Le placer devant reviendrait à figer un format de sortie sur des documents qui
+ne satisfont pas encore leur propre validateur.
+
+### Ce qui en ressort, et qui vaut mieux que mes recommandations
+
+Un motif transversal, mesuré dans le dépôt : **APS est fort pour lire et
+modéliser, mince pour émettre.** Le pivot est mûr et n'a qu'une cible ; les
+tables `Ikon*` capturent toute la structure d'une plateforme et n'émettent
+nulle part ; le Documentation Builder est un consommateur pas encore
+construit. Contrat d'entrée, générateur ASL, émission plateforme et
+Documentation Builder sont **quatre émetteurs — le même chantier sous quatre
+angles**.
+
+Et l'argument d'architecture du pivot n'est pas la lisibilité ni le coût,
+c'est le principe métier de la maison : si maîtriser une pléthore d'outils est
+futile, alors encoder le métier une fois et le rendre vers la plateforme du
+moment est la seule stratégie cohérente. Make est une cible de rendu, pas une
+compétence à acquérir — et les 14 scénarios sont le prix de l'absence de
+générateur, pas un défaut de Make.
+
+### Ordre retenu pour la reprise
+
+1. **Sonder** — compiler Créer Série (2 nœuds) vers ASL à la main. Une machine
+   dit précisément ce qui manque là où un lecteur humain comble les trous sans
+   s'en apercevoir.
+2. **Le contrat d'entrée**, dessiné contre ce que la sonde a montré. Bloquant,
+   pas priorité : rien ne bouge sans.
+3. **Statuses complet**, minuterie portée depuis WFD, barrière de ré-entrance
+   éprouvée pour de vrai.
+
+En suspens, sans décision : le découpage en 14 scénarios (question à poser aux
+collègues avant d'investir dans le plan B), et le versionnement des fichiers
+`_journaux/` non suivis.

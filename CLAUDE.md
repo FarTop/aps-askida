@@ -14,6 +14,59 @@ file. It only makes API calls. When a transfer/transcode is needed, the *target 
 (e.g. Iconik's Export Location pushes Iconik→S3); APS triggers it and then verifies the result via
 listing/read calls (e.g. `aws_s3 list_objects`). Never design a feature around APS moving media bytes.
 
+## Why APS exists — read this before proposing anything
+
+*(Stated by the maintainer on 2026-08-07, so it doesn't have to be re-explained. Full context in
+`_journaux/journal-aps-2026-08-07.md`.)*
+
+The company is a **broadcast technicians' consultancy whose value is domain expertise, not tooling**.
+The guiding principle, verbatim: *« Maîtriser une pléthore d'outils est futile, maîtriser la science
+du métier est inestimable. »* APS exists to close the time-sinks of that craft — the list is not
+exhaustive:
+
+1. the gap between inputs — data collection;
+2. never again losing time reformatting documents (slides, spreadsheets, Word…);
+3. delivering **documentation and processes** (workflows, diagrams, API requests…);
+4. **testing, validating and proving** the processes delivered;
+5. exploring new ideas and **bending method applied "civil-servant style"** ("we do it this way
+   because we were told to");
+6. harvesting and transforming any scrap of knowledge into something usable.
+
+**APS is not destined for production.** It carries production-grade capability solely to serve point 4
+— validating logics and mechanisms for real. That may change one day; it is not the maintainer's
+call. *« Toute la différence d'outil entre les mains d'un ingénieur et de ce même outil entre les
+mains de commerciaux. »* Practical consequence: never arbitrate a native-engine feature on "is this
+useful in production" — the criterion is **"does it let us prove a mechanism"**.
+
+**"Operator" means colleagues** — engineers, trainers, project managers. Technical people who did
+*not* write the workflow. Never a TV technician; they will never see APS. This is what makes
+legibility load-bearing rather than cosmetic: the real reader of a workflow is the colleague who
+**re-implements it elsewhere from APS's documentation** — which already happened, and produced 14
+Make scenarios.
+
+**Production runs elsewhere.** Bayard chose **Make**; colleagues rebuilt the workflows there from
+APS-produced documentation (near-functional, but 14 scenarios and a serious credit-consumption
+concern). A plan B on **AWS Step Functions** is in scope, with API-driven workflow creation on both.
+Note for design: **ASL has no global namespace** — a workflow relying on ambient variables is not
+translatable to it at all.
+
+**Where it's heading.** APS today is strong at *reading and modelling*, thin at *emitting*: the
+pivot is mature but has one target (`pivot-to-wfd.js`), the `Ikon*` sync tables capture a whole
+platform's structure but emit nowhere, and the Documentation Builder — which will **consume** the
+platform and the builders, so it is downstream by construction — is embryonic. `Infrastructure` will
+host third-party integrations (API + documentation, or existing MCP servers). A named ambition is to
+**rebuild an Iconik platform from data held in APS**. Treat these as one job seen from four angles.
+Each new emitter raises the bar on data quality: the pivot currently tolerates its own violations
+(95 validation errors on PUBLISH) because its only consumer is a forgiving in-house engine.
+
+**Horizon.** VOD Factory is simultaneously a **crash test for APS** and a real production need for
+Bayard. **Mediawan, Canal+ and M6** are expected next, with heavy integration needs — which is why
+the domain principles are being settled now. The schema's multi-tenancy, serving one organisation
+today, becomes load-bearing then.
+
+**What was *not* carried over from WFD was an arbitration, not an oversight.** WFD was surveyed
+before the migration and VOD Factory needs were prioritised. Do not frame such gaps as debt.
+
 ## Commands
 
 ```bash
