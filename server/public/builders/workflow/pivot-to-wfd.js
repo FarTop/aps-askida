@@ -45,7 +45,12 @@ const PivotToWfd = (() => {
   // ── Un nœud WFD depuis une étape pivot ────────────────────────────────────
 
   function _noeud(etape, pos) {
-    const inputs = etape.core === 'trigger' ? [] : [{ id: 'in', label: 'Entrée' }];
+    // Un Post-it n'a NI entrée ni sortie — comme dans WFD, où
+    // script-workflow-designer.js:2363 retourne `{inputs:[], outputs:[]}` pour
+    // cette famille. Le port d'entrée générique est un réflexe de nœud
+    // exécutable ; une annotation ne se branche pas.
+    const annotation = !!(CAT.estAnnotation && CAT.estAnnotation(etape));
+    const inputs = (etape.core === 'trigger' || annotation) ? [] : [{ id: 'in', label: 'Entrée' }];
     return {
       x: pos.x, y: pos.y,
       id: _idWfd(etape.id),

@@ -123,7 +123,11 @@ const PivotValidate = (() => {
 
     // L'intention est requise : c'est ce qui manquait à WFD, où 49 nœuds sur 76
     // n'en portaient aucune. Un champ facultatif ne se remplit pas.
-    if (!etape.intent || !String(etape.intent).trim()) {
+    // Exception : une annotation (Post-it) EST son intention — lui réclamer un
+    // champ `intent` en plus de son texte reviendrait à faire écrire deux fois
+    // la même phrase pour satisfaire une règle écrite pour les étapes.
+    const _annotation = !!(_cat && _cat.estAnnotation && _cat.estAnnotation(etape));
+    if (!_annotation && (!etape.intent || !String(etape.intent).trim())) {
       r.err(chemin + '.intent', 'intention métier manquante — elle nourrit le canevas, la documentation et les exports');
     }
 

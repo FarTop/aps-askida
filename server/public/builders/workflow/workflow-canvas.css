@@ -214,6 +214,32 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+/* Post-it — port de WFD (.wfd-postit, workflow-designer.css:563). Mêmes
+   proportions et même construction en `color-mix` : le fond et la bordure
+   dérivent de la teinte choisie, pour que sept couleurs ne demandent pas
+   quatorze règles. Volontairement PAS de `overflow:hidden` (hérité de
+   .bd-node-canvas) : un post-it doit pouvoir grandir avec son texte, alors
+   qu'un nœud garde une hauteur tenue par ses ports. */
+.bd-node-canvas.bd-postit {
+  width: 200px;
+  min-height: 60px;
+  overflow: visible;
+  border-width: 1.5px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--postit-color, #f1c40f) 9%, transparent);
+  border-color: color-mix(in srgb, var(--postit-color, #f1c40f) 40%, transparent);
+}
+.bd-postit-body {
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--postit-color, #f1c40f);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* La sélection reprend la main sur la bordure teintée (spécificité double). */
+.bd-node-canvas.bd-postit[data-selected="1"] { border-color: var(--accent); }
+
 /* Statut de run live (wf-run-overlay.js) — indépendant de data-selected,
    les deux peuvent coexister. `running` réutilise cfg-pulse tel quel (déjà
    le langage visuel "quelque chose se passe en direct" de cette app, cf.
@@ -439,6 +465,26 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 .cfg-input:focus { outline: none; border-color: var(--bd-text-dim); }
 .cfg-variable { font-family: ui-monospace, Menlo, monospace; color: var(--accent); }
 .cfg-select { appearance: none; cursor: pointer; }
+
+/* Texte long (nature `texteLong`) : mêmes bordure, fond et rythme que
+   .cfg-input, seule la hauteur change. `resize: vertical` seulement — un
+   redimensionnement horizontal casserait la colonne du panneau. */
+.cfg-textarea {
+  background: var(--bd-canvas-surface); border: 1px solid var(--bd-panel-border);
+  color: var(--bd-text); border-radius: 6px; padding: 7px 9px; font: inherit; font-size: 13px;
+  min-height: 80px; resize: vertical; line-height: 1.5;
+}
+.cfg-textarea:focus { outline: none; border-color: var(--bd-text-dim); }
+
+/* Pastilles de couleur (nature `couleur`). La pastille choisie se marque par
+   un anneau, pas par une bordure épaisse : la teinte doit rester lisible. */
+.cfg-teintes { display: flex; gap: 8px; flex-wrap: wrap; }
+.cfg-teinte {
+  width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+  background: var(--teinte); border: 1px solid var(--bd-panel-border); padding: 0;
+}
+.cfg-teinte:hover { transform: scale(1.12); }
+.cfg-teinte[data-choisie="1"] { box-shadow: 0 0 0 2px var(--bd-canvas-surface), 0 0 0 4px var(--teinte); }
 
 /* Booléen : case à cocher alignée avec son libellé. */
 .cfg-check { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--bd-text); font-size: 13px; }

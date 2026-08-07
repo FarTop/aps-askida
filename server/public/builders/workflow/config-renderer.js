@@ -159,6 +159,54 @@ const ConfigRenderer = (() => {
       return wrap;
     },
 
+    // Texte long : même contrat que `texte`, sur plusieurs lignes. Ajouté pour
+    // le Post-it, dont le contenu EST une phrase et non une valeur.
+    texteLong: function (descr, model) {
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+      const zone = _el('textarea', 'cfg-textarea');
+      if (descr.placeholder) zone.placeholder = descr.placeholder;
+      if (descr.lignes) zone.rows = descr.lignes;
+      const v = model.lire(descr.chemin);
+      zone.value = v == null ? '' : v;
+      zone.addEventListener('input', function () {
+        model.ecrire(descr.chemin, zone.value);
+      });
+      wrap.appendChild(zone);
+      return wrap;
+    },
+
+    // Couleur : une rangée de pastilles, pas un sélecteur système. Les sept
+    // teintes sont celles de WFD (wfd-config-panel.js:1828) — une palette
+    // fermée garde les post-its lisibles sur le canevas sombre, là où un
+    // `<input type="color">` laisserait choisir un gris sur gris.
+    couleur: function (descr, model) {
+      const TEINTES = descr.teintes ||
+        ['#f1c40f', '#e74c3c', '#3498db', '#27ae60', '#9b59b6', '#e67e22', '#95a5a6'];
+      const wrap = _el('div', 'cfg-field');
+      wrap.appendChild(_champLabel(descr));
+      const rangee = _el('div', 'cfg-teintes');
+      const courante = model.lire(descr.chemin) || descr.defaut || TEINTES[0];
+      TEINTES.forEach(function (teinte) {
+        const pastille = _el('button', 'cfg-teinte');
+        pastille.type = 'button';
+        pastille.style.setProperty('--teinte', teinte);
+        pastille.setAttribute('data-teinte', teinte);
+        pastille.setAttribute('aria-label', teinte);
+        if (teinte === courante) pastille.setAttribute('data-choisie', '1');
+        pastille.addEventListener('click', function () {
+          rangee.querySelectorAll('[data-teinte]').forEach(function (p) {
+            p.removeAttribute('data-choisie');
+          });
+          pastille.setAttribute('data-choisie', '1');
+          model.ecrire(descr.chemin, teinte);
+        });
+        rangee.appendChild(pastille);
+      });
+      wrap.appendChild(rangee);
+      return wrap;
+    },
+
     // Variable : on affiche {brut}, on stocke brut. La décoration est purement
     // visuelle ; à la saisie, on nettoie les accolades éventuellement tapées.
     // Sélecteur accolé : choisir une entrée écrit sa valeur ET repeint (pour

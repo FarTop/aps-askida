@@ -44,7 +44,14 @@ const PivotCatalogIconik = (() => {
     http_request:  { ports: ['out', 'error'] },
     http_sequence: { ports: ['out', 'err'] },
     history:       { ports: ['out', 'error'] },
-    deliver:       { ports: ['out', 'miss', 'error'] }
+    deliver:       { ports: ['out', 'miss', 'error'] },
+    // Post-it : annotation visuelle, portée de WFD (family `postit`,
+    // wfd-components.js:72). Aucun port — donc jamais d'arête, donc jamais
+    // exécuté ni atteint par le parcours. `annotation: true` est le drapeau
+    // que lisent le convertisseur, le validateur et le volet API ops pour
+    // l'écarter sans avoir à tester son nom : ce n'est pas une étape du
+    // workflow, c'est ce qu'on écrit dans la marge.
+    postit:        { ports: [], annotation: true }
   };
 
   // Sorties d'une décision dans le format : les libellés de ses conditions,
@@ -458,11 +465,20 @@ const PivotCatalogIconik = (() => {
     return i === -1 ? [] : [i];
   }
 
+  // Une étape est-elle une simple annotation (Post-it) ? Un seul endroit
+  // décide, pour que le convertisseur, le validateur, le volet API ops et le
+  // moteur n'aient pas chacun leur liste de noms à tenir à jour.
+  function estAnnotation(etape) {
+    if (!etape || !etape.core) return false;
+    const core = CORES[etape.core];
+    return !!(core && core.annotation);
+  }
+
   return {
     CORES, FACADES,
     portsDe, ports: portsDe,
     servicesDe, services: servicesDe,
-    facadeConnue, coreConnu,
+    facadeConnue, coreConnu, estAnnotation,
     portsDecision, normaliserAretesDecision,
     familleWfd, portsWfd, indexPort,
     variablesDe, aplatitMetadonnees

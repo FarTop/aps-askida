@@ -28,9 +28,19 @@ function indexById(steps) {
 // cette même portée (utilisé pour le corps d'une boucle — la racine du
 // document, elle, démarre explicitement sur l'unique step trigger, trouvé et
 // vérifié par builder-engine.js AVANT d'appeler runFromStep).
+// Cores qui ne s'exécutent pas : ce sont des annotations posées sur le
+// canevas, pas des étapes. Source de vérité : PivotCatalogIconik.CORES
+// (drapeau `annotation`) — recopié ici en une constante parce que le moteur
+// ne dépend d'aucun fichier de `server/public/`, et qu'un `require` à travers
+// l'arbre pour un seul nom serait plus fragile que cette liste.
+const CORES_ANNOTATION = new Set(['postit']);
+
+// Points d'entrée d'une portée : les étapes sans arête entrante. Un Post-it
+// n'en a jamais — il serait donc pris pour un point d'entrée et exécuté, ce
+// qui lèverait « Aucun handler enregistré ». On l'écarte ici, à la source.
 function _entriesOf(steps, edges) {
   const targets = new Set((edges || []).map(e => e.to.step));
-  return steps.filter(s => !targets.has(s.id));
+  return steps.filter(s => !targets.has(s.id) && !CORES_ANNOTATION.has(s.core));
 }
 
 // Arêtes sortantes d'un step pour un port donné, avec repli sur
@@ -52,6 +62,11 @@ function _nextEdges(step, port, edges) {
 //   onError(ctx, step, err) → 'stop' | <nomDePort>
 //   runLoop(step, byId, edges, ctx, opts) → nomDePort (câblé par la tâche boucle)
 async function runStep(step, byId, edges, ctx, opts) {
+  // Annotation atteinte malgré tout (arête posée à la main vers un Post-it,
+  // document importé) : on ne l'exécute pas et on n'émet aucun événement —
+  // elle ne doit apparaître ni dans les logs, ni dans l'animation des badges.
+  if (CORES_ANNOTATION.has(step.core)) return;
+
   await opts.emit('step:start', step, ctx);
 
   let port;

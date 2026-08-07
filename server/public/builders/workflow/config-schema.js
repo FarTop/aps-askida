@@ -79,6 +79,19 @@ const ConfigSchema = (() => {
       if (sf) return s.concat(sf);
     }
 
+    // Post-it : le SEUL schéma qui n'hérite pas des champs communs. Un nœud a
+    // un nom parce qu'on doit pouvoir en parler ; un post-it n'en a pas besoin,
+    // il EST son texte — et afficher « Name » au-dessus de « Texte » ferait
+    // saisir deux fois la même chose (WFD ne montre que ces deux champs,
+    // wfd-config-panel.js:1818).
+    if (core === 'postit') {
+      return [
+        { nature: 'texteLong', chemin: 'text', label: 'Texte / Description',
+          placeholder: 'Étape externe, note, contrainte, question…', lignes: 5 },
+        { nature: 'couleur', chemin: 'color', label: 'Couleur', defaut: '#f1c40f' }
+      ];
+    }
+
     // Familles qui produisent un résultat stockable. `loop` retiré : vérifié
     // sur les 7 occurrences réelles + wfd-engine-executor.js (executeLoopNode)
     // — `resultVar` n'existe dans aucune donnée réelle et n'est jamais lu par
@@ -678,6 +691,24 @@ const ConfigSchema = (() => {
           { nature: 'texte', chemin: 'expression', label: 'Raw expression (advanced)', placeholder: 'optional override' },
           { nature: 'nombre', chemin: 'limit', label: 'Limit', min: 1, placeholder: '500' },
           { nature: 'variable', chemin: 'resultVar', label: 'Store results as', placeholder: '{search_results}' },
+          // Mode : supporté par le moteur depuis le portage (iconikSearch(),
+          // builder-handler-iconik-search.js:21 et :73) mais jamais offert au
+          // panneau — donc inatteignable autrement qu'en éditant le document.
+          // L'écart compte : en `retrieve`, une recherche qui ne ramène QU'UN
+          // résultat expose toutes ses métadonnées à plat dans le contexte,
+          // sous leur nom nu (`ContenuPrime`, `BayardID`…). C'est pratique
+          // quand on veut ces valeurs, et nuisible quand on ne veut que
+          // désigner un objet : les noms nus écrasent ceux déjà posés par une
+          // lecture précédente (vérifié le 7 août — l'asset de test « Le Mag »
+          // porte un `BayardID` résiduel qui remplacerait celui de sa
+          // collection, donc l'`external_id` envoyé au partenaire).
+          // `presence` ne pose que `.id`/`.title`/`.count` et aucune
+          // métadonnée : c'est le mode à choisir quand la lecture des champs
+          // est faite juste après par un Fetch scopé sur une vue.
+          { nature: 'choix', chemin: 'mode', label: 'Mode', options: [
+            { valeur: 'retrieve', libelle: 'Retrieve (exposes a single result’s metadata)' },
+            { valeur: 'presence', libelle: 'Presence (existence only — exposes no metadata)' }
+          ] },
           // Technique (withFormats) : ajouté le 4 août, manquait à l'audit du
           // 31 juillet/3 août. Le moteur (aps_search(), wfd-engine-handlers.js
           // ~4250) le supporte déjà — "une recherche qui ramène UN asset doit

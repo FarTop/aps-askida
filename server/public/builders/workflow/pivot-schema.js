@@ -19,10 +19,13 @@ const PivotSchema = (() => {
 
   // ── Catalogue, figé le 23 juillet 2026 ───────────────────────────────────
 
-  // Les 12 Core en service. Ensemble fermé : un `core` hors liste est une erreur.
+  // Les 13 Core en service. Ensemble fermé : un `core` hors liste est une erreur.
+  // `postit` est le seul qui n'exécute rien — annotation portée de WFD, sans
+  // port ni arête (cf. PivotCatalogIconik.estAnnotation).
   const CORES = [
     'trigger', 'decision', 'loop', 'verify', 'wait', 'set_variable',
-    'transform', 'lookup', 'http_request', 'http_sequence', 'history', 'deliver'
+    'transform', 'lookup', 'http_request', 'http_sequence', 'history', 'deliver',
+    'postit'
   ];
 
   // Déclarés, hors première coupe. Connus pour produire un message utile

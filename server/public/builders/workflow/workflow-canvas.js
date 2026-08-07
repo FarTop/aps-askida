@@ -1467,13 +1467,13 @@
     const GLYPHES_CORE = {
       trigger: '⏱', decision: '◇', loop: '↻', verify: '✓', wait: '⏸',
       set_variable: '=', transform: '⇄', lookup: '⌕', http_request: '↗',
-      http_sequence: '≫', history: '▤', deliver: '⇥'
+      http_sequence: '≫', history: '▤', deliver: '⇥', postit: '📝'
     };
     const NOM_CORE = {
       trigger: 'Trigger', decision: 'Decision', loop: 'Loop', verify: 'Verify',
       wait: 'Wait', set_variable: 'Set Variable', transform: 'Transform',
       lookup: 'Lookup', http_request: 'HTTP Request', http_sequence: 'HTTP Sequence',
-      history: 'History', deliver: 'Deliver'
+      history: 'History', deliver: 'Deliver', postit: 'Note / Post-it'
     };
 
     function _node(glyphe, nom, sub, type) {

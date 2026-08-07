@@ -88,6 +88,22 @@ const NodeRenderer = (() => {
    */
   function rendre(etape, pos, opts) {
     const o = opts || {};
+
+    // Post-it : ni en-tête, ni badge, ni ports — il n'a rien à dire sur son
+    // type, il EST son texte. Port fidèle de WFD (wfd-components.js:72) :
+    // même absence de structure, même variable de couleur, même repli sur le
+    // libellé quand le texte est vide.
+    if (etape.core === 'postit') {
+      const p = etape.params || {};
+      const pi = _el('div', 'bd-node-canvas bd-postit');
+      pi.setAttribute('data-step-id', etape.id || '');
+      pi.style.setProperty('--nx', (pos && pos.x || 0) + 'px');
+      pi.style.setProperty('--ny', (pos && pos.y || 0) + 'px');
+      pi.style.setProperty('--postit-color', p.color || '#f1c40f');
+      pi.appendChild(_el('div', 'bd-postit-body', '📝 ' + (p.text || etape.label || 'Note')));
+      return pi;
+    }
+
     const node = _el('div', 'bd-node-canvas');
     node.setAttribute('data-step-id', etape.id || '');
     node.style.setProperty('--nx', (pos && pos.x || 0) + 'px');
