@@ -29,3 +29,26 @@ scripts/aps-export-full.json
 # Données runtime Node-RED (config, flows, credentials)
 docker/node-red/data/
 server/public/platforms/iconik/_debug/
+
+# Outillage Claude Code (réglages locaux + worktrees jetables)
+.claude/
+
+# Correctifs de l'ancienne méthode (avant le passage en direct-à-main, arrêtée
+# le 31/07/2026). Des .zip, que git ne sait pas diffuser, et dont le contenu
+# est déjà dans l'historique des commits — mieux lisible avec `git log -p`.
+# Conservés sur disque, hors de la vue : les supprimer reste une décision
+# humaine.
+_Patches/
+
+# Sorties dérivées, regénérables (tree.txt liste jusqu'à .git/ et .env)
+tree.txt
+aps-files.txt
+relancer
+
+# Export des flux WFD VOD Factory — NE PAS versionner en l'état : le bloc
+# `contacts` en fin de fichier contient un webhook entrant Slack actif, une
+# URL Power Automate/Teams, et des données personnelles (nom, mobile, email).
+# Bloqué par la protection de secrets GitHub le 07/08/2026. Une version
+# expurgée du bloc contacts serait versionnable — les 8 flux eux-mêmes sont
+# de la matière première utile.
+_journaux/WORKFLOWS_WFD_VODFACTORY.json

@@ -1,0 +1,511 @@
+{
+  "info": {
+    "_postman_id": "d36b68f2-e049-41b7-8c49-ecc4cbf1af07",
+    "name": "Light Partner BayaM",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "28597001",
+    "_collection_link": "https://go.postman.co/collection/28597001-d36b68f2-e049-41b7-8c49-ecc4cbf1af07?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Contents",
+      "item": [
+        {
+          "name": "Get All Contents",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "21|49QWLOZ8dskRwZxCZ5KVUVP5fUV4uTxNTQfQNtwP58ce5fd4",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "locale",
+                "value": "fr-FR",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "https://partner-service.staging.vodfactory.com/api/contents?per_page=5&page=1",
+              "protocol": "https",
+              "host": [
+                "partner-service",
+                "staging",
+                "vodfactory",
+                "com"
+              ],
+              "path": [
+                "api",
+                "contents"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "5"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Serie",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "21|49QWLOZ8dskRwZxCZ5KVUVP5fUV4uTxNTQfQNtwP58ce5fd4",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "locale",
+                "value": "fr-FR",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"type\": \"serie\", // Required. program, serie, season, episode\r\n    \"external_id\": \"1234\",// Required. Your ID\r\n    \"title\": \"Lorem ipsum\",// Required. Max 150 caracters\r\n    \"sku_code\": \"lorem_ipsum_1234\",// Not required. Will be generated if empty\r\n    \"availabilities\": {\r\n        \"amazon\": [\r\n            {\r\n                \"country_code\": \"FRA\",\r\n                \"format_profile\": \"HD\",// SD, HD, UHD\r\n                \"starts_at\": \"2025-09-01 00:00:00\",\r\n                \"ends_at\": \"2030-09-01 00:00:00\"\r\n            }\r\n        ]\r\n    }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://partner-service.staging.vodfactory.com/api/contents",
+              "protocol": "https",
+              "host": [
+                "partner-service",
+                "staging",
+                "vodfactory",
+                "com"
+              ],
+              "path": [
+                "api",
+                "contents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Season",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "21|49QWLOZ8dskRwZxCZ5KVUVP5fUV4uTxNTQfQNtwP58ce5fd4",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "locale",
+                "value": "fr-FR",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"type\": \"season\", // Required. program, serie, season, episode\r\n    \"external_id\": \"12345\",// Required. Your ID\r\n    \"parent_external_id\": \"1234\",// The external ID of the serie\r\n    \"rank\": 1,// Minimum 1\r\n    \"title\": \"Lorem ipsum Season\",// Required\r\n    \"sku_code\": \"lorem_ipsum_season_12345\",// Not required. Will be generated if empty\r\n    \"availabilities\": {\r\n        \"amazon\": [\r\n            {\r\n                \"country_code\": \"FRA\",\r\n                \"format_profile\": \"HD\",// SD, HD, UHD\r\n                \"starts_at\": \"2025-09-01 00:00:00\",\r\n                \"ends_at\": \"2030-09-01 00:00:00\"\r\n            }\r\n        ]\r\n    }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://partner-service.staging.vodfactory.com/api/contents",
+              "protocol": "https",
+              "host": [
+                "partner-service",
+                "staging",
+                "vodfactory",
+                "com"
+              ],
+              "path": [
+                "api",
+                "contents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Episode",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "21|49QWLOZ8dskRwZxCZ5KVUVP5fUV4uTxNTQfQNtwP58ce5fd4",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "locale",
+                "value": "fr-FR",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"type\": \"episode\", // Required. program, serie, season, episode\r\n    \"external_id\": \"123456\",// Required. Your ID\r\n    \"parent_external_id\": \"12345\",// The external ID of the season. Episodes must have a season\r\n    \"rank\": 1,// Minimum 1\r\n    \"title\": \"Lorem ipsum Episode 1\",// Required\r\n    \"sku_code\": \"lorem_ipsum_episode_1_123456\",// Not required. Will be generated if empty\r\n    \"availabilities\": {\r\n        \"amazon\": [\r\n            {\r\n                \"country_code\": \"FRA\",\r\n                \"format_profile\": \"HD\",// SD, HD, UHD\r\n                \"starts_at\": \"2025-09-01 00:00:00\",\r\n                \"ends_at\": \"2030-09-01 00:00:00\"\r\n            }\r\n        ]\r\n    }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://partner-service.staging.vodfactory.com/api/contents",
+              "protocol": "https",
+              "host": [
+                "partner-service",
+                "staging",
+                "vodfactory",
+                "com"
+              ],
+              "path": [
+                "api",
+                "contents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Program",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "21|49QWLOZ8dskRwZxCZ5KVUVP5fUV4uTxNTQfQNtwP58ce5fd4",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "locale",
+                "value": "fr-FR",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"type\": \"program\", // Required. program, serie, season, episode\r\n    \"external_id\": \"1234567\",// Required. Your ID\r\n    \"title\": \"Lorem ipsum Program\",// Required\r\n    \"sku_code\": \"lorem_ipsum_program_1234567\",// Not required. Will be generated if empty\r\n    \"availabilities\": {\r\n        \"amazon\": [\r\n            {\r\n                \"country_code\": \"FRA\",\r\n                \"format_profile\": \"HD\",// SD, HD, UHD\r\n                \"starts_at\": \"2025-09-01 00:00:00\",\r\n                \"ends_at\": \"2030-09-01 00:00:00\"\r\n            }\r\n        ]\r\n    }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://partner-service.staging.vodfactory.com/api/contents",
+              "protocol": "https",
+              "host": [
+                "partner-service",
+                "staging",
+                "vodfactory",
+                "com"
+              ],
+              "path": [
+                "api",
+                "contents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Content",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "21|49QWLOZ8dskRwZxCZ5KVUVP5fUV4uTxNTQfQNtwP58ce5fd4",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "locale",
+                "value": "fr-FR",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"parent_external_id\": \"12345\",// The external ID of the serie or season. Required if season or episode\r\n    \"rank\": 1,// Minimum 1\r\n    \"title\": \"Lorem ipsum updated\",// Required\r\n    \"availabilities\": {\r\n        \"amazon\": [\r\n            {\r\n                \"country_code\": \"FRA\",\r\n                \"format_profile\": \"HD\",// SD, HD, UHD\r\n                \"starts_at\": \"2025-09-02 00:00:00\",\r\n                \"ends_at\": \"2030-09-02 00:00:00\"\r\n            }\r\n        ]\r\n    }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://partner-service.staging.vodfactory.com/api/contents/{yourExternalId}",
+              "protocol": "https",
+              "host": [
+                "partner-service",
+                "staging",
+                "vodfactory",
+                "com"
+              ],
+              "path": [
+                "api",
+                "contents",
+                "{yourExternalId}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Content",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "21|49QWLOZ8dskRwZxCZ5KVUVP5fUV4uTxNTQfQNtwP58ce5fd4",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "locale",
+                "value": "fr-FR",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "https://partner-service.staging.vodfactory.com/api/contents/{yourExternalId}",
+              "protocol": "https",
+              "host": [
+                "partner-service",
+                "staging",
+                "vodfactory",
+                "com"
+              ],
+              "path": [
+                "api",
+                "contents",
+                "{yourExternalId}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Content",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "21|49QWLOZ8dskRwZxCZ5KVUVP5fUV4uTxNTQfQNtwP58ce5fd4",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "locale",
+                "value": "fr-FR",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "https://partner-service.staging.vodfactory.com/api/contents/{yourExternalId}",
+              "protocol": "https",
+              "host": [
+                "partner-service",
+                "staging",
+                "vodfactory",
+                "com"
+              ],
+              "path": [
+                "api",
+                "contents",
+                "{yourExternalId}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Availabilities",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "21|49QWLOZ8dskRwZxCZ5KVUVP5fUV4uTxNTQfQNtwP58ce5fd4",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "locale",
+                "value": "fr-FR",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "https://partner-service.staging.vodfactory.com/api/contents/{yourExternalId}/availabilities",
+              "protocol": "https",
+              "host": [
+                "partner-service",
+                "staging",
+                "vodfactory",
+                "com"
+              ],
+              "path": [
+                "api",
+                "contents",
+                "{yourExternalId}",
+                "availabilities"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Genres",
+      "item": [
+        {
+          "name": "Get All Genres",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "21|49QWLOZ8dskRwZxCZ5KVUVP5fUV4uTxNTQfQNtwP58ce5fd4",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "locale",
+                "value": "fr-FR",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "https://partner-service.staging.vodfactory.com/api/genres",
+              "protocol": "https",
+              "host": [
+                "partner-service",
+                "staging",
+                "vodfactory",
+                "com"
+              ],
+              "path": [
+                "api",
+                "genres"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
