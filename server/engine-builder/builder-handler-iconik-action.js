@@ -18,6 +18,9 @@ const BuilderContext = require('./builder-context.js');
 const { requireIconik, metadataValuesDepuisReponse } = require('./builder-iconik-shared.js');
 
 function r(val, ctx) { return BuilderContext.resolve(val, ctx); }
+// Une RÉFÉRENCE (l'objet visé), tolérante au nom nu que le panneau stocke
+// sans accolades — cf. BuilderContext.resolveRef.
+function ref(val, ctx) { return BuilderContext.resolveRef(val, ctx); }
 
 function _isUnresolvedPlaceholder(v) {
   return typeof v === 'string' && /^\{[A-Za-z_][A-Za-z0-9_.]*\}$/.test(v.trim());
@@ -85,7 +88,7 @@ async function iconikAction(step, ctx, deps) {
     }
 
     case 'metadata_write': {
-      const aid    = r(p.targetId || p.assetId || '{asset.id}', ctx);
+      const aid    = ref(p.targetId || p.assetId || '{asset.id}', ctx);
       const viewId = r(p.viewId  || '', ctx);
       const fields = {};
       (p.fields || []).forEach(f => {
@@ -96,7 +99,7 @@ async function iconikAction(step, ctx, deps) {
     }
 
     case 'metadata_patch': {
-      let aid = r(p.targetId || p.assetId || '{asset.id}', ctx);
+      let aid = ref(p.targetId || p.assetId || '{asset.id}', ctx);
       if (aid && aid.startsWith('{')) {
         const varName = aid.slice(1, -1);
         aid = ctx.vars?.[varName] || ctx.asset?.id || '';

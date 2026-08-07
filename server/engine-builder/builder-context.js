@@ -267,10 +267,40 @@ function popLoopScope(ctx) {
   }
 }
 
+// ── Résoudre une RÉFÉRENCE (pas un gabarit) ─────────────────────
+// Un champ comme `targetId` ou `fetchValue` désigne un objet à atteindre. Il
+// s'écrit normalement `{collection.id}`, mais le panneau de configuration
+// stocke la nature `variable` SANS accolades (config-renderer.js : « on
+// affiche {brut}, on stocke brut ») — ce qui est juste pour un `resultVar`
+// (un nom qu'on définit) et destructeur pour une référence (un nom qu'on lit).
+//
+// Constaté en production le 2026-08-07 : entre la v16 et la v18 de PUBLISH,
+// `targetId` est passé de "{collection_id}" à "collection_id", et l'appel est
+// devenu /API/metadata/v1/collections/collection_id/ → 404. Le handler
+// `lookup` ne souffrait pas du problème parce qu'il retire lui-même les
+// accolades avant de résoudre ; les autres exigeaient qu'elles soient là.
+//
+// On aligne donc tout le monde sur le comportement tolérant :
+//   "{collection.id}"  → gabarit, substitué comme avant
+//   "collection_id"    → nom nu, cherché dans le contexte
+//   "9082419a-…"       → introuvable, donc rendu tel quel (c'est un vrai id)
+// Un résultat non scalaire est refusé : "collection" désigne un OBJET, le
+// prendre pour une référence produirait "[object Object]" dans une URL.
+function resolveRef(value, ctx) {
+  if (value === null || value === undefined) return '';
+  const str = String(value).trim();
+  if (!str) return '';
+  if (str.includes('{')) return resolve(str, ctx);
+  const trouve = resolvePath(str, ctx);
+  if (trouve === undefined || trouve === null || typeof trouve === 'object') return str;
+  return String(trouve);
+}
+
 const BuilderContext = {
   createContext,
   resolve,
   resolvePath,
+  resolveRef,
   setVar,
   storeResult,
   addError,

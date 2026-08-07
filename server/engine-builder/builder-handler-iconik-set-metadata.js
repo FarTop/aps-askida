@@ -10,6 +10,9 @@ const iconikAction    = require('./builder-handler-iconik-action.js');
 const { metadataValuesDepuisReponse } = require('./builder-iconik-shared.js');
 
 function r(val, ctx) { return BuilderContext.resolve(val, ctx); }
+// Une RÉFÉRENCE (l'objet visé), tolérante au nom nu que le panneau stocke
+// sans accolades — cf. BuilderContext.resolveRef.
+function ref(val, ctx) { return BuilderContext.resolveRef(val, ctx); }
 
 function _isUnresolvedPlaceholder(v) {
   return typeof v === 'string' && /^\{[A-Za-z_][A-Za-z0-9_.]*\}$/.test(v.trim());
@@ -23,7 +26,7 @@ async function setMetadata(step, ctx, deps) {
     const iconikClient = deps && deps.iconikClient;
     const _isCol = p.target === 'collection';
     const _defaultId = _isCol ? '{collection.id}' : '{asset.id}';
-    const oid      = r(p.targetId || p.assetId || _defaultId, ctx);
+    const oid      = ref(p.targetId || p.assetId || _defaultId, ctx);
     const mdViewId = r(p.mdViewId || '', ctx);
     const _base = _isCol ? `/API/metadata/v1/collections/${oid}/` : `/API/metadata/v1/assets/${oid}/`;
     const endpoint = mdViewId ? `${_base}views/${mdViewId}/` : _base;

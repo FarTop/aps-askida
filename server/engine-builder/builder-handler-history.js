@@ -11,6 +11,9 @@ const BuilderContext = require('./builder-context.js');
 const { requireIconik, metadataValuesDepuisReponse } = require('./builder-iconik-shared.js');
 
 function r(val, ctx) { return BuilderContext.resolve(val, ctx); }
+// Une RÉFÉRENCE (l'objet visé), tolérante au nom nu que le panneau stocke
+// sans accolades — cf. BuilderContext.resolveRef.
+function ref(val, ctx) { return BuilderContext.resolveRef(val, ctx); }
 
 function _essencesFromManifest(manifest) {
   const essences = (manifest && manifest.essences) || [];
@@ -38,7 +41,7 @@ async function workflowHistory(step, ctx, deps) {
     ? deps.resolved.manifests[p.manifestId] : null;
   const essences = manifest ? _essencesFromManifest(manifest) : (p.essences || []);
 
-  const targetId = r(p.targetId || ((p.target || 'asset') === 'collection' ? '{collection.id}' : '{asset_id}'), ctx)
+  const targetId = ref(p.targetId || ((p.target || 'asset') === 'collection' ? '{collection.id}' : '{asset_id}'), ctx)
     || ctx.vars?.asset_id || ctx.asset?.id || '';
   const mdViewId = p.mdViewId || '';
   const mdField  = p.mdField  || '';

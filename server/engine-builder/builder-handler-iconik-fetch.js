@@ -9,6 +9,9 @@ const BuilderContext = require('./builder-context.js');
 const { requireIconik, resolveByName, extractTechnical } = require('./builder-iconik-shared.js');
 
 function r(val, ctx) { return BuilderContext.resolve(val, ctx); }
+// Une RÉFÉRENCE (l'objet visé), tolérante au nom nu que le panneau stocke
+// sans accolades — cf. BuilderContext.resolveRef.
+function ref(val, ctx) { return BuilderContext.resolveRef(val, ctx); }
 
 async function iconikFetch(step, ctx, deps) {
   const iconikClient = deps && deps.iconikClient;
@@ -44,7 +47,7 @@ async function iconikFetch(step, ctx, deps) {
     let col;
 
     if (src === 'id') {
-      const colId = r(p.fetchValue || '{collection.id}', ctx);
+      const colId = ref(p.fetchValue || '{collection.id}', ctx);
       col = await iconikClient.get(`/API/assets/v1/collections/${colId}/`);
 
     } else if (src === 'path') {
@@ -89,7 +92,7 @@ async function iconikFetch(step, ctx, deps) {
   // ── Métadonnées ──────────────────────────────────────────────
   if (subType === 'metadata') {
     const varName    = r(p.fetchVar || p.storeAs || 'metadata', ctx);
-    const explicitId = p.fetchValue ? r(p.fetchValue, ctx) : '';
+    const explicitId = p.fetchValue ? ref(p.fetchValue, ctx) : '';
     const metaSource = p.fetchSource || 'triggered';
     let objectType, objectId;
 
@@ -159,7 +162,7 @@ async function iconikFetch(step, ctx, deps) {
   const src     = p.fetchSource || 'triggered';
   let assetId;
   if (src === 'triggered' || src === 'id') {
-    assetId = r(p.fetchValue || ctx.asset?.id || '{asset.id}', ctx);
+    assetId = ref(p.fetchValue || ctx.asset?.id || '{asset.id}', ctx);
   } else if (src === 'title') {
     const title = r(p.fetchValue || '', ctx);
     if (!title) throw new Error('Fetch asset par titre : valeur manquante');
