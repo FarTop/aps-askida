@@ -46,9 +46,15 @@ aps-files.txt
 relancer
 
 # Export des flux WFD VOD Factory — NE PAS versionner en l'état : le bloc
-# `contacts` en fin de fichier contient un webhook entrant Slack actif, une
-# URL Power Automate/Teams, et des données personnelles (nom, mobile, email).
-# Bloqué par la protection de secrets GitHub le 07/08/2026. Une version
-# expurgée du bloc contacts serait versionnable — les 8 flux eux-mêmes sont
-# de la matière première utile.
+# `contacts` en fin de fichier porte des URLs de webhook (Slack + déclencheur
+# HTTP Power Automate) et des données personnelles (nom, mobile, email).
+# Bloqué par la protection de secrets GitHub le 07/08/2026, à raison.
+#
+# Précision, pour ne pas déclencher de fausse alerte : ces deux canaux sont
+# des canaux de TEST du nœud de notification WFD, privés, éphémères, et le
+# fichier n'a jamais quitté le poste (le commit a été refusé avant push).
+# Aucune rotation nécessaire — l'ignorer suffit.
+#
+# Une version expurgée du bloc contacts serait versionnable : les 8 flux
+# eux-mêmes sont de la matière première utile.
 _journaux/WORKFLOWS_WFD_VODFACTORY.json
