@@ -2827,3 +2827,245 @@ niveau n'affiche que ses essences, et un optionnel absent donne `➖`.
   rétrécit pas. Mesuré en revanche : le volet fait 240px pour un contenu de
   1281px, et il SUPERPOSE le canevas — la bande basse est masquée tant qu'il
   est ouvert. Capture attendue.
+
+---
+
+## Captage de l'asset éditorial dans PUBLISH — 7 août
+
+### Le trou, mesuré
+
+Le Lookup de PUBLISH reçoit `search_results.objects[0]` — la **collection**.
+Or 16 des 30 lignes de la correspondance « VOD Factory | Fields » décrivent
+des champs de la vue **`VUE | PRIME | LIVRAISON`**, qui est une vue **Asset**.
+Rejeu du vrai `lookup()` sur le contexte réel du run Unitaire du 6 août :
+
+```
+7 / 30 lignes remplies — dont 6 par le repli, pas par la source
+```
+
+`ContenuPrime` valait **∅ sur les 25 derniers runs** : la ligne tombait
+toujours sur `{TypeCollection}`. Série/Saison/Épisode passaient par
+coïncidence — la table de traduction mélange les deux vocabulaires
+(`Série → serie` côtoie `Magazine → magazine`). `Unitaire` n'ayant pas de clé,
+la valeur brute partait au partenaire → « The selected type is invalid ».
+
+### Ce qui a été écarté par la mesure
+
+- **Le snapshot de sync ne prouve rien** : il date du 28 juin ; `TypeCollection`,
+  `ParentID`, `NumeroSaison` y sont absents alors qu'ils existent. Toujours
+  interroger Iconik en direct pour l'existence d'un champ.
+- **La recherche Iconik ignore `metadata_view_id`** — testé dans le corps de
+  la requête ET en paramètre d'URL : 56 champs renvoyés dans les deux cas. Le
+  scope par vue n'existe qu'à la **lecture**
+  (`/API/metadata/v1/assets/{id}/views/{viewId}/` → 24 champs).
+- **Le `BayardID` porté par l'asset de test est un résidu** de réutilisations,
+  pas une donnée normale — cf. mémoire `project-bayardid-scope`.
+
+### La forme retenue
+
+Deux nœuds en tête de flux, aux rôles séparés — délibérément **pas** un seul
+Search qui déverse :
+
+```
+Asset éditorial            iconik.search, mode « presence »
+                           in_collection {collection.id} + ContenuPrime is_not_empty
+                           → pose assetEditorial.id, n'expose AUCUNE métadonnée
+
+Métadonnées de livraison   iconik.fetch, sous-type asset, par id
+                           fetchMdViewId = VUE | PRIME | LIVRAISON
+                           → expose les 24 champs sous leur nom de source
+```
+
+Câblage : `Get Collection ID → Asset éditorial`, puis `found → Métadonnées`,
+`empty|error → Programme ?`. La branche `empty` n'est pas un rattrapage :
+Série et Saison **n'ont pas** d'asset éditorial (vérifié en direct — 0
+résultat), et le workflow doit continuer sans.
+
+Le mode `presence` existait dans `iconikSearch()` depuis le portage mais
+n'était pas offert au panneau : **ajouté à `config-schema.js`**. Sans lui, une
+recherche à 1 résultat expose les 56 champs bruts de l'asset à plat, sous
+leur nom nu — ce qui rendrait la vue purement décorative et écraserait des
+variables déjà posées.
+
+Aucune ligne de la correspondance modifiée, aucun code de Lookup touché : les
+champs exposés à plat par le Fetch sont ramassés par l'étape `ctx.vars` du
+handler existant.
+
+### Résultat en conditions réelles (4 clics Custom Action, v18)
+
+| | Statut | `type` | Asset éditorial | Lookup |
+|---|---|---|---|---|
+| Série | success | `serie` | `empty` | — |
+| Saison | success | `season` | `empty` | — |
+| Épisode | success | `episode` | found | **24/30** |
+| Unitaire | success | `magazine` | found | **21/30** |
+
+Unitaire complet, six essences vérifiées — en envoyant volontairement le
+proxy `.mp4` au lieu de la haute résolution, ce qui isole le refus `.mxf`
+comme obstacle purement contractuel.
+
+## `resolveRef` — une référence sans accolades ne casse plus l'appel — 7 août
+
+### Le bug, constaté en production
+
+```
+v16   Notify "Running" · targetId : "{collection_id}"   marchait
+v18   Notify "Running" · targetId : "collection_id"     404 sur
+                                                        /collections/collection_id/
+```
+
+La nature `variable` du panneau « affiche `{brut}`, stocke brut » : elle
+**retire les accolades à l'enregistrement**. Correct pour un `resultVar` (un
+nom qu'on *définit*), destructeur pour un `targetId` (une référence qu'on
+*lit*), que `history` résout via `resolve()` — lequel ne substitue que les
+`{…}`. **Ouvrir le nœud dans le panneau cassait sa cible.**
+
+`lookup` n'en souffrait pas : il retire lui-même les accolades avant de
+résoudre (`inputVar.replace(/^\{|\}$/g, '')`). Deux handlers, deux
+conventions, un seul widget de panneau.
+
+### Le correctif
+
+`BuilderContext.resolveRef()` — on aligne tout le monde sur le comportement
+tolérant qui marchait déjà, branché sur les sept champs de référence de
+`history`, `iconik.action` (×2), `set_metadata` et `iconik.fetch` (×3) :
+
+```
+{collection.id} · {collection_id}   gabarit, substitué comme avant
+collection_id · collection.id       nom nu, cherché dans le contexte
+ABC-litteral-42                     introuvable → rendu tel quel (vrai id)
+collection                          désigne un OBJET → refusé, pas de
+                                    "[object Object]" dans une URL
+```
+
+Effet de bord bienvenu : la coquille `targetId: "collection.id"` sans
+accolades (qui avait coûté un run Épisode le 6 août) n'est plus une erreur.
+
+**Le vrai correctif reste à faire, à froid** : distinguer dans le schéma du
+panneau « un nom que je définis » et « une référence que je lis ». `resolveRef`
+neutralise le symptôme, il ne supprime pas la confusion de nature.
+
+## Nœud Post-it — port de WFD — 7 août
+
+`family: postit` existait dans WFD (`wfd-components.js:72`) et n'avait jamais
+été porté. Dix fichiers, en portant à l'identique plutôt qu'en réinventant :
+sept teintes, 200px, `color-mix`, aucun port, exclu des exports.
+
+| Fichier | Rôle |
+|---|---|
+| `pivot-catalog-iconik.js` | Core `postit`, `ports: []`, drapeau `annotation` + `estAnnotation()` |
+| `pivot-schema.js` | 13ᵉ core autorisé |
+| `node-renderer.js` | Rendu dédié : ni en-tête, ni badge, ni ports |
+| `workflow-canvas.css` | `.bd-postit` + natures `cfg-textarea` / `cfg-teintes` |
+| `config-schema.js` | Seul schéma sans les champs communs (pas de « Name » redondant) |
+| `config-renderer.js` | Deux natures : `texteLong`, `couleur` |
+| `pivot-to-wfd.js` | Nœud WFD `family: postit`, `inputs: []` |
+| `pivot-validate.js` | Exempté de l'`intent` obligatoire — un post-it EST son intention |
+| `builder-executor.js` | Écarté des points d'entrée + no-op dans `runStep` |
+| `workflow-canvas.js` | 📝 « Note / Post-it » dans la palette |
+
+**Vrai bug trouvé au passage** : `_entriesOf()` prend pour points d'entrée les
+étapes **sans arête entrante**. Un post-it n'en a aucune — il aurait donc été
+exécuté et aurait levé « Aucun handler enregistré pour 'postit' ». C'est
+arrivé pour de vrai sur un run Série, parce que le processus serveur n'avait
+pas été redémarré après le correctif : **un correctif moteur non rechargé
+n'est pas un correctif**.
+
+Le volet API ops n'a rien demandé : il filtre déjà sur « produit au moins une
+opération », et un post-it n'en produit aucune.
+
+### Reste ouvert
+- **`Programme ?` : le port `default` n'est relié à rien.** Une valeur de
+  `TypeCollection` hors des quatre connues arrête le run **en silence**, après
+  que « En cours » a été écrit. Le cas réaliste n'est pas le champ vide
+  (dropdown en lecture seule écrit par les seuls workflows Créer) mais l'ajout
+  d'un **cinquième niveau** au dropdown. Une arête à poser.
+- **Nommage des quatre nœuds de vérification** : `Check Collection`,
+  `Check Asset`, `Recheck` interrogent **S3** ; `Verify` interroge **VOD
+  Factory**. Quatre noms de la même famille pour deux systèmes — ça a induit
+  en erreur quelqu'un qui avait lu le code une heure plus tôt.
+- **`Cardinalité non respectée`** en `info` sur les quatre niveaux : c'est le
+  pré-contrôle S3 **initial**, qui ne peut rien trouver avant que la boucle
+  n'ait uploadé. Inoffensif (le StatutPrime final affiche `Cover ✅` dans le
+  même run), mais bruyant.
+- **95 erreurs de validation** sur le document PUBLISH, post-its exclus : 26
+  étapes sans `intent`, 29 identifiants au format WFD, 20 politiques d'erreur
+  au niveau de l'étape. Le pivot a des règles que ce document, reconstruit
+  depuis WFD plutôt qu'écrit dans le Builder, n'a jamais respectées. Rien ne
+  bloque (la conversion passe), mais `intent` — le champ censé porter
+  exactement ce qu'on a écrit dans les post-its — est vide partout.
+
+## Espace de noms et lisibilité — mesures du 7 août
+
+Discussion de conception ouverte par l'utilisateur. Les chiffres, pour ne pas
+les redécouvrir :
+
+| Mesure | Valeur |
+|---|---|
+| Variables présentes en fin de run (PUBLISH) | 59 |
+| Déclarées par le document | 5 |
+| **Apparues sans déclaration** | **46** |
+| Racines produites / effectivement référencées | 47 / **8** |
+| Nœuds lisant une variable non annoncée | **9 / 19** |
+
+Taux de variables fantômes par workflow :
+
+```
+Créer Série     2 étapes   64 %      ← le plus déclaratif du dépôt
+Créer Unitaire  2 étapes   56 %
+Créer Saison    5 étapes   60 %
+Créer Épisode   5 étapes   19 %      ← variables PRÉFIXÉES (search_results.<champ>)
+PUBLISH v2     19 étapes   80 %      ← variables NUES
+```
+
+**Deux conclusions indépendantes** : le déclaratif réduit le nombre de nœuds
+(Créer Série tient en 2 étapes grâce au gabarit), et **il ne ferme pas
+l'espace de noms** — le workflow le plus déclaratif du dépôt a 64 % de
+fantômes, parce que le gabarit déclare l'*arborescence*, pas les variables
+qu'il produit.
+
+Mécanisme : chaque handler écrit dans un espace global sous des **noms
+calculés à l'exécution** — `setVar(ctx, fieldName, …)` (Search, l.80),
+`setVar(ctx, k, …)` pour chaque clé produite (Lookup, l.226), idem Fetch,
+Deliver, Create Tree.
+
+**Ce qui a été explicitement écarté** : préfixer les noms
+(`{search_results.TypeCollection}`). Traçable ne veut pas dire *à soi* —
+`search_results` reste un tiroir fabriqué par le moteur. Le modèle retenu par
+l'utilisateur est un **contrat d'entrée** : des tiroirs qu'il nomme lui-même,
+remplis une fois depuis une source déclarée, et les 39 variables moteur
+restantes **cachées** plutôt que renommées.
+
+Vocabulaire arrêté avec lui :
+
+> Un **tiroir** porte un nom que le Designer choisit. Sa source est l'une des
+> lectures, prise en bloc quand c'est une vue, dépliable pour cibler un champ.
+> Il est rempli une fois. Une boucle **parcourt** un tiroir, elle n'en crée pas.
+
+Trois questions tranchées : un tiroir = une vue avec dépli pour cibler (le
+widget existe déjà, `vuePour`) ; la correspondance garde des noms de source
+(« voiture = bagnole, pas véhicule à quatre roues ») ; la portée dans une
+boucle n'est pas un sujet, la boucle parcourt un tiroir déjà rempli.
+
+### Reste ouvert
+- **Le contrat d'entrée n'est pas construit** — seulement spécifié.
+- **Recherches sauvegardées absentes du Builder** : WFD offre un `<select>`
+  peuplé des saved searches réelles ; le Builder n'a qu'un champ texte où
+  taper un ID, et `config-sources.js` n'a aucune source pour ça. **Ce sont les
+  recherches APS qu'il faut lister, pas celles d'Iconik** : une saved search
+  Iconik n'exprime que `value`/`value_in` sous un unique `AND`, là où le nœud
+  connaît quinze opérateurs, l'AND/OR par critère et les blocs chaînés. Et la
+  config d'une recherche APS (`limit · blocks · expression · returnBlock`) est
+  **exactement** celle du nœud — chargement = collage, zéro conversion.
+  `ApsSearch` n'a en revanche ni `orgId` ni notion de plateforme.
+- **Page Recherche à remonter d'un cran** — aujourd'hui dans
+  `platforms/iconik/search/`, couplée à Iconik par trois points seulement
+  (transport `/api/iconik`, liste de champs, dialecte de requête) ; tout le
+  reste est agnostique. Destinée à du sémantique / langage naturel. À trancher :
+  outil (accueil) vs ressource (écran d'édition + onglet Builder) — sans doute
+  les deux, avec un composant de critères unique partagé.
+- **STATUSES rejoue le motif Momentum** : `timer` + recherche sur
+  `StatutPublication = "Posté"`, et le workflow écrit ce même champ. Or le
+  moteur ne connaît que `manual` et `custom_action` (**aucune minuterie**) et
+  `startRun` **ne sérialise rien**. Les deux moitiés de la protection
+  manquent : la minuterie ET la barrière de ré-entrance.
