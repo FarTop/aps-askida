@@ -94,19 +94,12 @@ const steps = [
                 + 'collection : statut « success » et date d\'envoi renseignée.',
           params: { checks, connexionId: CONN_VODF } },
 
-        { id: 'pourquoi_ca_bloque', core: 'decision', label: 'Pourquoi ça bloque ?',
-          intent: 'Distinguer une attente normale (contenu prêt, parent pas encore parti) '
-                + 'd\'un vrai manque, à partir du mot renvoyé par VOD Factory.',
-          params: {
-            field: '{checkerSummary}',
-            conditions: [
-              { op: 'contains', value: 'parent_not_sent', label: 'Reporté' },
-              { op: 'contains', value: 'incomplete',      label: 'Echoué'  },
-              { op: 'contains', value: 'ready',           label: 'Reporté' },
-            ],
-            defaultLabel: 'Echoué',
-          } },
-
+        // L'ordre de ce tableau n'a aucun effet sur l'exécution (le routage se
+        // fait par les arêtes) mais il décide des LIGNES du canevas : dans une
+        // colonne, les étapes se posent dans l'ordre où elles sont déclarées.
+        // Le chemin nominal — tout est passé, on publie — est donc écrit en
+        // premier pour qu'il se lise en ligne droite tout en haut, les cas
+        // dégradés en dessous.
         { id: 'marquer_publie', core: 'http_request', facade: 'iconik.set_metadata',
           label: 'Marquer Publié',
           intent: 'Acter la publication : seul cas où le statut de la collection change.',
@@ -128,6 +121,19 @@ const steps = [
             whMessage: 'Livraison Amazon Prime — ✅ Publié sur Prime · {now(Europe/Paris)} '
                      + 'Validé par VOD Factory : avails, métadonnées, images, vidéo.',
             whShowWf: true, whShowDate: true, whShowUser: false, whShowRunId: true,
+          } },
+
+        { id: 'pourquoi_ca_bloque', core: 'decision', label: 'Pourquoi ça bloque ?',
+          intent: 'Distinguer une attente normale (contenu prêt, parent pas encore parti) '
+                + 'd\'un vrai manque, à partir du mot renvoyé par VOD Factory.',
+          params: {
+            field: '{checkerSummary}',
+            conditions: [
+              { op: 'contains', value: 'parent_not_sent', label: 'Reporté' },
+              { op: 'contains', value: 'incomplete',      label: 'Echoué'  },
+              { op: 'contains', value: 'ready',           label: 'Reporté' },
+            ],
+            defaultLabel: 'Echoué',
           } },
 
         { id: 'histo_reporte', core: 'history', facade: 'iconik.history',
@@ -267,6 +273,103 @@ const edges = [
   // publication. Pas d'arête — le run se termine, il n'y a rien à dire.
 ];
 
+// ── Disposition ──────────────────────────────────────────────────
+// Les post-its sont rattachés à leur nœud par leur `label` (même libellé que
+// l'étape qu'ils commentent) et posés DESSOUS, empilés quand il y en a
+// plusieurs. Sans ça ils arrivent tous en (0,0) et l'annotation devient
+// illisible — le contraire de ce à quoi elle sert.
+//
+// Colonnes reprises de la convention du canevas : nœud large de 230 px, post-it
+// de 200, pas de 320 en x (mêmes valeurs que la disposition de PUBLISH).
+const COL_X = 320, NODE_H = 96, ECART_NOTE = 16, MARGE_LIGNE = 48;
+
+// Hauteur d'un post-it : 200 px de large, police 12 px, interligne 1.5 → environ
+// 30 caractères par ligne rendue. On mesure le texte réel plutôt que de
+// supposer une taille fixe, sinon deux notes empilées se chevauchent dès que la
+// première est longue.
+function hauteurNote(texte) {
+  const lignes = String(texte || '').split('\n')
+    .reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 30)), 0);
+  return Math.max(60, 24 + lignes * 18);
+}
+
+// Place un ensemble d'étapes : colonnes par profondeur dans le graphe, lignes
+// par ordre d'apparition, puis les notes sous leur nœud.
+function disposer(listeEtapes, listeAretes, x0, y0) {
+  const mecaniques = listeEtapes.filter(s => s.core !== 'postit');
+  const notes      = listeEtapes.filter(s => s.core === 'postit');
+
+  // Profondeur = plus long chemin depuis une entrée, pour qu'un nœud rejoint
+  // par deux branches se pose APRÈS les deux et non au milieu.
+  const cibles = new Set(listeAretes.map(e => e.to.step));
+  const prof = new Map(mecaniques.map(s => [s.id, cibles.has(s.id) ? -1 : 0]));
+  for (let passe = 0; passe < mecaniques.length; passe++) {
+    let bouge = false;
+    for (const e of listeAretes) {
+      const pd = prof.get(e.from.step), pa = prof.get(e.to.step);
+      if (pd == null || pa == null || pd < 0) continue;
+      if (pa < pd + 1) { prof.set(e.to.step, pd + 1); bouge = true; }
+    }
+    if (!bouge) break;
+  }
+  mecaniques.forEach(s => { if (prof.get(s.id) < 0) prof.set(s.id, 0); });
+
+  // Notes rattachées par libellé, dans l'ordre où elles sont déclarées.
+  const notesDe = new Map();
+  for (const n of notes) {
+    const cible = mecaniques.find(s => s.label === n.label);
+    if (!cible) continue;
+    if (!notesDe.has(cible.id)) notesDe.set(cible.id, []);
+    notesDe.get(cible.id).push(n);
+  }
+
+  const colonnes = new Map();
+  mecaniques.forEach(s => {
+    const c = prof.get(s.id);
+    if (!colonnes.has(c)) colonnes.set(c, []);
+    colonnes.get(c).push(s);
+  });
+
+  // Hauteur qu'occupe un nœud avec sa pile de notes.
+  const encombrement = (s) => NODE_H + (notesDe.get(s.id) || [])
+    .reduce((h, n) => h + ECART_NOTE + hauteurNote(n.params.text), 0);
+
+  // Une ligne doit tenir le plus encombrant de tous les nœuds qui l'occupent,
+  // sinon la pile de notes d'une colonne recouvre le nœud de la ligne d'après.
+  const nbLignes = Math.max(...[...colonnes.values()].map(v => v.length));
+  const hauteurLigne = [];
+  for (let l = 0; l < nbLignes; l++) {
+    let h = NODE_H;
+    for (const col of colonnes.values()) if (col[l]) h = Math.max(h, encombrement(col[l]));
+    hauteurLigne.push(h + MARGE_LIGNE);
+  }
+  const yDeLigne = hauteurLigne.map((_, l) => y0 + hauteurLigne.slice(0, l).reduce((a, b) => a + b, 0));
+
+  const layout = {};
+  for (const [c, col] of colonnes) {
+    col.forEach((s, l) => {
+      const x = x0 + c * COL_X, y = yDeLigne[l];
+      layout[s.id] = { x, y };
+      let yn = y + NODE_H + ECART_NOTE;
+      for (const n of (notesDe.get(s.id) || [])) {
+        layout[n.id] = { x, y: yn };
+        yn += hauteurNote(n.params.text) + ECART_NOTE;
+      }
+    });
+  }
+  // Une note dont le libellé ne désigne aucun nœud ne doit pas retomber en
+  // (0,0) sans qu'on le voie : on la range à part, visiblement à l'écart.
+  notes.forEach((n, i) => { if (!layout[n.id]) layout[n.id] = { x: x0, y: y0 - 320 - i * 120 }; });
+  return layout;
+}
+
+const loop = steps.find(s => s.core === 'loop');
+const presentation = {
+  layout: disposer(steps, edges, 40, 60),
+  versioned: false,
+  bodyLayout: { [loop.id]: disposer(loop.body.steps, loop.body.edges, 40, 60) },
+};
+
 const document = {
   pivot: '1.0',
   form: 'canonical',
@@ -283,7 +386,7 @@ const document = {
   },
   steps,
   edges,
-  presentation: { layout: {}, versioned: false, bodyLayout: {} },
+  presentation,
 };
 
 (async () => {
@@ -303,10 +406,16 @@ const document = {
 
   const avant = await prisma.builderFlow.findUnique({ where: { id: FLOW_ID } });
   if (!avant) throw new Error(`BuilderFlow ${FLOW_ID} introuvable`);
-  const nbAvant = ((avant.document || {}).steps || []).length;
-  if (nbAvant > 0) {
-    throw new Error(`Le flow porte déjà ${nbAvant} étape(s) — refus d'écraser. `
-      + `Vider le document à la main si l'écrasement est voulu.`);
+  // Garde-fou : on n'écrase que le vide, ou une version antérieure de CE
+  // document (mêmes identifiants d'étape). Un document rédigé à la main dans
+  // le canevas ne doit jamais être remplacé par une relance de script.
+  const etapesAvant = (avant.document || {}).steps || [];
+  const idsNotres   = new Set(steps.map(s => s.id));
+  const estANous    = etapesAvant.length > 0 && etapesAvant.every(s => idsNotres.has(s.id));
+  if (etapesAvant.length > 0 && !(estANous && process.argv.includes('--forcer'))) {
+    throw new Error(`Le flow porte déjà ${etapesAvant.length} étape(s) — refus d'écraser.`
+      + (estANous ? ' Relancer avec --forcer pour régénérer ce même document.'
+                  : ' Le document en base n\'a pas été produit par ce script.'));
   }
 
   await prisma.builderFlow.update({ where: { id: FLOW_ID }, data: { document } });
