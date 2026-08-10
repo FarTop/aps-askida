@@ -129,13 +129,35 @@ function baseUrlDe(doc) {
   return null;
 }
 
+// Préfixe de chemin que la spec déclare, quand elle en déclare un.
+//
+// `servers[0].url` recouvre deux cas qu'il ne faut pas confondre, parce que
+// `ApiEndpoint.path` vaut par convention le chemin depuis la base de la
+// CONNEXION (le testeur compose littéralement `acces.baseUrl + path`) :
+//
+//   absolu   https://eu1.make.com/api/v2   la base déclarée EST celle de la
+//            connexion. Le chemin reste tel quel — le préfixer appellerait
+//            /api/v2/api/v2/login. C'est le cas de Make, et il ne bouge pas.
+//   relatif  /API/assets/                  un préfixe SOUS la base de la
+//            connexion. Iconik publie une spec par service, chacune ne portant
+//            que la fin du chemin (/v1/collections/) : sans ce préfixe aucune
+//            opération n'est appelable, et deux services qui déclarent tous
+//            deux /v1/assets/ s'écrasent l'un l'autre à la fusion.
+function prefixeDe(doc) {
+  const u = baseUrlDe(doc);
+  if (!u || u[0] !== '/') return '';
+  return u.replace(/\/+$/, '');
+}
+
 // Aplatit paths → opérations. Les paramètres déclarés au niveau du chemin
 // s'appliquent à toutes ses méthodes : on les fusionne, sinon une opération
 // perdrait ses paramètres de chemin sans qu'on comprenne pourquoi.
 function operationsDe(doc) {
   const out = [];
   const paths = doc.paths || {};
-  for (const [chemin, noeud] of Object.entries(paths)) {
+  const prefixe = prefixeDe(doc);
+  for (const [cheminBrut, noeud] of Object.entries(paths)) {
+    const chemin = prefixe + cheminBrut;
     const communs = Array.isArray(noeud.parameters) ? noeud.parameters : [];
     for (const [methode, op] of Object.entries(noeud)) {
       if (!METHODES.includes(methode)) continue;
@@ -180,24 +202,35 @@ function fragmentsDe(texte) {
   return out;
 }
 
-// Fusionne des fragments en une seule spec. Les chemins s'additionnent ; les
-// composants aussi. Le premier fragment qui déclare `info`/`servers` les donne
-// à l'ensemble — ils sont identiques d'un fragment à l'autre sur une même API.
+// Fusionne des fragments — ou des specs entières — en une seule. Les chemins
+// s'additionnent ; les composants aussi. Le premier qui déclare `info`/`servers`
+// les donne à l'ensemble : sur une même API les fragments les répètent à
+// l'identique.
+//
+// Une source qui déclare un préfixe RELATIF voit ses chemins absolutisés ici, et
+// non à la lecture des opérations : après fusion, plus rien ne dirait de quel
+// service vient tel chemin. Dès qu'au moins une source a été préfixée, la spec
+// assemblée ne peut plus porter de `servers` — le préfixe est déjà dans les
+// chemins, le garder le compterait deux fois.
 function fusionner(fragments) {
   const spec = { openapi: '3.0.0', info: null, servers: null, components: {}, paths: {} };
+  let prefixee = false;
   for (const f of fragments) {
     if (!spec.info && f.info) spec.info = f.info;
     if (!spec.servers && Array.isArray(f.servers)) spec.servers = f.servers;
     if (f.openapi) spec.openapi = f.openapi;
+    const prefixe = prefixeDe(f);
+    if (prefixe) prefixee = true;
     for (const [chemin, noeud] of Object.entries(f.paths || {})) {
-      spec.paths[chemin] = Object.assign(spec.paths[chemin] || {}, noeud);
+      const cle = prefixe + chemin;
+      spec.paths[cle] = Object.assign(spec.paths[cle] || {}, noeud);
     }
     for (const [cle, val] of Object.entries(f.components || {})) {
       spec.components[cle] = Object.assign(spec.components[cle] || {}, val);
     }
   }
   if (!spec.info) spec.info = { title: 'Spécification reconstituée', version: '1.0.0' };
-  if (!spec.servers) delete spec.servers;
+  if (!spec.servers || prefixee) delete spec.servers;
   return spec;
 }
 
@@ -208,6 +241,49 @@ function liensMarkdown(texte, hote) {
   let m;
   while ((m = re.exec(texte))) { if (!hote || m[1].startsWith(hote)) out.add(m[1]); }
   return [...out];
+}
+
+// Liens sortants d'une page HTML, ramenés en URLs absolues de même origine.
+function liensHtml(texte, base) {
+  const out = new Set();
+  const origine = origineDe(base);
+  const re = /(?:href|src)\s*=\s*["']([^"'#\s][^"']*)["']/gi;
+  let m;
+  while ((m = re.exec(texte))) {
+    let u; try { u = new URL(m[1], base).toString(); } catch (_) { continue; }
+    if (origine && !u.startsWith(origine)) continue;
+    out.add(u.split('#')[0]);
+  }
+  return [...out];
+}
+
+// Une troisième forme d'index, où il n'y a rien à recoller : les liens mènent à
+// des specs ENTIÈRES. Iconik n'en publie pas une mais quinze — une par service
+// (/docs/assets/spec/, /docs/search/spec/…) — et sa page swagger.html les
+// liste. Chacune ne déclare que la fin de ses chemins (/v1/collections/), son
+// service vivant dans `servers` : c'est `fusionner` qui les absolutise, sinon
+// six chemins de santé identiques d'un service à l'autre écraseraient tout.
+const MAX_DOCS = 40;
+async function specsLiees(url, texte, entetes) {
+  const base = url.split('#')[0];
+  const candidats = liensHtml(texte, base)
+    .filter(u => u.replace(/\/$/, '') !== base.replace(/\/$/, ''))
+    .filter(u => /(\/spec\/?$|swagger|openapi|api-docs)/i.test(u))
+    .filter(u => !/\.(css|js|png|jpe?g|gif|svg|ico|woff2?)$/i.test(u))
+    .slice(0, MAX_DOCS);
+
+  const docs = [];
+  for (let i = 0; i < candidats.length; i += 6) {
+    const paquet = await Promise.all(candidats.slice(i, i + 6).map(u => lireTexte(u, entetes)));
+    for (const t of paquet) {
+      if (!t || t.length > TAILLE_MAX) continue;
+      let d; try { d = JSON.parse(t); } catch (_) { continue; }
+      // Un lien peut mener à n'importe quel JSON (un manifeste d'icônes en est
+      // un) : n'est retenu que ce qui se reconnaît comme spécification.
+      if (d && typeof d === 'object' && d.paths && detecter(d)) docs.push(d);
+    }
+  }
+  return docs;
 }
 
 async function lireTexte(url, entetes) {
@@ -240,7 +316,6 @@ async function specDepuisDoc(url, entetes) {
     const liens = liensMarkdown(texte, hote)
       .filter(u => /(api-reference|api-documentation|reference|endpoints?)/i.test(u))
       .slice(0, MAX_PAGES);
-    if (!liens.length) return { erreur: 'Aucun fragment OpenAPI ni lien de référence trouvé dans ce document' };
 
     // Par petits paquets : un index de 60 pages ne doit pas ouvrir 60
     // connexions simultanées chez l'éditeur.
@@ -250,7 +325,21 @@ async function specDepuisDoc(url, entetes) {
     }
   }
 
-  if (!fragments.length) return { erreur: `Aucun fragment OpenAPI trouvé (${pagesLues} page(s) lue(s))` };
+  // Rien à recoller : les liens mènent peut-être à des specs entières.
+  if (!fragments.length) {
+    const docs = await specsLiees(url, texte, entetes);
+    if (docs.length) {
+      const spec = fusionner(docs);
+      // Chaque document nomme son service, aucun ne nomme l'ensemble. Titre
+      // laissé vide : l'import retombe alors sur le nom de la plateforme, qui
+      // est le seul nom juste pour l'assemblage.
+      const titres = new Set(docs.map(d => (d.info && d.info.title) || '').filter(Boolean));
+      if (titres.size > 1) spec.info = Object.assign({}, spec.info, { title: '' });
+      return { spec, pagesLues: 1 + docs.length, documents: docs.length };
+    }
+  }
+
+  if (!fragments.length) return { erreur: `Ni fragment OpenAPI, ni spécification liée (${pagesLues} page(s) lue(s))` };
   return { spec: fusionner(fragments), pagesLues, fragments: fragments.length };
 }
 
@@ -440,7 +529,8 @@ router.post('/:id/specs', async (req, res) => {
           return res.status(415).json({ error: 'Le contenu n\'est pas du JSON, et la reconstitution depuis la documentation a échoué — ' + recolle.erreur });
         }
         contenu = recolle.spec;
-        reconstitue = { pagesLues: recolle.pagesLues, fragments: recolle.fragments };
+        reconstitue = { pagesLues: recolle.pagesLues, fragments: recolle.fragments,
+                        documents: recolle.documents };
       }
       source = url;
     }

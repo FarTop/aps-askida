@@ -671,7 +671,9 @@ async function envoyerImport(corps, bouton) {
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
     message('✅ ' + d.nbOperations + ' opérations importées'
-      + (d.reconstitue ? ' — reconstituées depuis ' + d.reconstitue.pagesLues + ' pages de documentation' : '')
+      + (d.reconstitue && d.reconstitue.documents
+          ? ' — ' + d.reconstitue.documents + ' spécifications assemblées depuis cette page'
+          : d.reconstitue ? ' — reconstituées depuis ' + d.reconstitue.pagesLues + ' pages de documentation' : '')
       + (d.remplace ? ' (la spécification précédente a été remplacée)' : ''), 'ok');
     await chargerSpec();
     rendreProposition(d);
