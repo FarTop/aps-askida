@@ -172,6 +172,9 @@ const ETIQUETTE = {
   'état APS' : 'ÉTAT APS — dépend de la base d\'APS, ne se porte pas seul',
 };
 
+// Le rapport n'est imprimé qu'en usage direct : `derive-verbes.js` require ce
+// fichier pour ses mesures, il n'a que faire de son affichage.
+function rapport() {
 for (const cle of ['pure', 'config', 'code', 'état APS']) {
   const dedans = mesures.filter(m => principale(m) === cle);
   console.log(`\n══ ${ETIQUETTE[cle]} ══`);
@@ -207,3 +210,8 @@ for (const cle of ORDRE) {
   console.log(`   ${String(n).padStart(2)} × ${cle}` + (aussi ? `  (+${aussi} qui en relèvent aussi)` : ''));
 }
 console.log(`   ${mesures.filter(m => m.delegations.length).length} × dont la provenance vient d'une délégation`);
+}
+
+if (require.main === module) rapport();
+
+module.exports = { mesures, facades, nomsDuFichier, familles, principale, rapport };
