@@ -160,6 +160,7 @@ model Platform {
   organisations   OrganisationPlatform[]
   nodeDefinitions NodeDefinition[]
   connexions      Connexion[]
+  apiSpecs        ApiSpec[]
 }
 
 model OrganisationPlatform {
@@ -509,8 +510,14 @@ model DocKitItem {
 
 model ApiSpec {
   id            String    @id @default(cuid())
-  projectId     String
-  project       Project   @relation(fields: [projectId], references: [id])
+  // Rattachée à la PLATEFORME (2026-08-10) : la description d'une API décrit
+  // un produit, pas un projet. `projectId` devient nullable — Project n'a
+  // jamais eu de ligne, l'organisation tient ce rôle dans APS.
+  projectId     String?
+  project       Project?  @relation(fields: [projectId], references: [id])
+  platformId    String?
+  platform      Platform? @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  sourceUrl     String?   // d'où la spec a été importée, pour pouvoir la relire
   name          String
   format        String    // 'openapi' | 'postman' | 'wsdl' | 'graphql'
   version       String?
@@ -520,6 +527,8 @@ model ApiSpec {
   updatedAt     DateTime  @updatedAt
 
   endpoints     ApiEndpoint[]
+
+  @@index([platformId])
 }
 
 model ApiEndpoint {

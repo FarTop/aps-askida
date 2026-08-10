@@ -58,11 +58,14 @@ const packageRouter        = require('./routes/package');
 const builderEngineRouter  = require('./routes/builder-engine');
 const builderRunsRouter    = require('./routes/builder-runs');
 const builderScheduler     = require('./engine-builder/builder-scheduler.js');
+const apiSpecsRouter       = require('./routes/api-specs');
 
 app.use('/api/flows',      flowsRouter);
 app.use('/api/connexions', connexionsRouter);
 app.use('/api/status',       statusRouter);
 app.use('/api/environments', environmentsRouter);
+app.use('/api/platforms',    apiSpecsRouter);   // /:id/specs — AVANT platformsRouter, dont /:id capterait 'specs'
+app.use('/api',              apiSpecsRouter);   // /specs/:specId/endpoints
 app.use('/api/platforms',    platformsRouter);
 app.use('/api/ikon',         ikonDataRouter);
 app.use('/api/aps-search',   apsSearchRouter);

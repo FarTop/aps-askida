@@ -1,0 +1,132 @@
+/* APS — admin/infrastructure/infrastructure.css — créé le 2026-08-10
+   Reprend la mise en page à deux colonnes des écrans récents (endpoints,
+   mappings, manifests) : liste à gauche, détail à droite. Visibilité pilotée
+   par l'attribut `hidden` et par data-*, jamais par style.display. */
+
+:root {
+  --inf-fond:      var(--bg, #0e1116);
+  --inf-surface:   var(--surface, #161b22);
+  --inf-bord:      var(--border, #262c36);
+  --inf-texte:     var(--text, #e6edf3);
+  --inf-attenue:   var(--text-dim, #8a939e);
+  --inf-accent:    var(--accent, #4c8dff);
+}
+
+.inf-main { padding: 20px 28px 48px; color: var(--inf-texte); }
+
+.inf-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; margin-bottom: 8px;
+}
+.inf-title { font-size: 20px; margin: 0; }
+
+.inf-intro {
+  max-width: 78ch; margin: 0 0 20px; color: var(--inf-attenue);
+  font-size: 13px; line-height: 1.6;
+}
+
+.inf-layout {
+  display: grid; grid-template-columns: 260px minmax(0, 1fr);
+  gap: 20px; align-items: start;
+}
+@media (max-width: 900px) { .inf-layout { grid-template-columns: 1fr; } }
+
+/* ── Liste ── */
+.inf-liste {
+  background: var(--inf-surface); border: 1px solid var(--inf-bord);
+  border-radius: 10px; padding: 8px; position: sticky; top: 12px;
+}
+.inf-liste-titre {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--inf-attenue); padding: 6px 8px 10px;
+}
+.inf-item {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: transparent; border: 1px solid transparent; border-radius: 8px;
+  padding: 8px 10px; margin-bottom: 4px; color: inherit; font: inherit;
+}
+.inf-item:hover { background: color-mix(in srgb, var(--inf-accent) 8%, transparent); }
+.inf-item[data-actif="1"] {
+  background: color-mix(in srgb, var(--inf-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--inf-accent) 40%, transparent);
+}
+.inf-item-nom  { font-size: 13px; }
+.inf-item-meta { font-size: 11px; color: var(--inf-attenue); margin-top: 2px; }
+
+/* ── Détail ── */
+.inf-detail { min-width: 0; }
+.inf-entete { margin-bottom: 16px; }
+.inf-nom { margin: 0 0 6px; font-size: 18px; }
+.inf-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.inf-badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--inf-bord); color: var(--inf-attenue);
+}
+
+.inf-bloc {
+  background: var(--inf-surface); border: 1px solid var(--inf-bord);
+  border-radius: 10px; padding: 16px; margin-bottom: 16px;
+}
+.inf-bloc-titre { font-size: 14px; margin-bottom: 12px; }
+.inf-compteur { color: var(--inf-attenue); font-size: 12px; font-weight: normal; }
+
+.inf-fiche {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 16px; font-size: 12.5px; margin-bottom: 12px;
+}
+.inf-fiche-cle    { color: var(--inf-attenue); }
+.inf-fiche-valeur { word-break: break-all; }
+
+.inf-label {
+  display: block; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--inf-attenue); margin: 14px 0 6px;
+}
+.inf-ligne { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.inf-input {
+  flex: 1 1 260px; min-width: 0; background: var(--inf-fond);
+  border: 1px solid var(--inf-bord); border-radius: 8px;
+  padding: 8px 10px; color: var(--inf-texte); font: inherit; font-size: 13px;
+}
+.inf-filtre { width: 100%; flex: none; margin: 10px 0; }
+
+.inf-btn {
+  cursor: pointer; background: var(--inf-fond); color: var(--inf-texte);
+  border: 1px solid var(--inf-bord); border-radius: 8px;
+  padding: 8px 14px; font: inherit; font-size: 13px; text-decoration: none;
+  display: inline-block;
+}
+.inf-btn:hover:not(:disabled) { border-color: var(--inf-accent); }
+.inf-btn:disabled { opacity: .5; cursor: default; }
+.inf-btn-accent { background: var(--inf-accent); border-color: var(--inf-accent); color: #fff; }
+.inf-btn-danger { margin-top: 6px; }
+.inf-btn-danger:hover { border-color: var(--err, #f87171); color: var(--err, #f87171); }
+
+.inf-aide { font-size: 11.5px; line-height: 1.5; color: var(--inf-attenue); margin-top: 6px; }
+
+.inf-message { margin-top: 12px; font-size: 13px; }
+.inf-message:empty { display: none; }
+.inf-message[data-etat="ok"]      { color: var(--ok,   #4ade80); }
+.inf-message[data-etat="error"]   { color: var(--err,  #f87171); }
+.inf-message[data-etat="attente"] { color: var(--inf-attenue); }
+
+.inf-vide { color: var(--inf-attenue); font-size: 12.5px; padding: 4px 0; }
+
+/* ── Opérations ── */
+.inf-ops { max-height: 60vh; overflow: auto; border-top: 1px solid var(--inf-bord); }
+.inf-op {
+  display: grid; grid-template-columns: 62px minmax(0, 22ch) minmax(0, 1fr);
+  gap: 10px; align-items: baseline;
+  padding: 6px 2px; border-bottom: 1px solid var(--inf-bord); font-size: 12.5px;
+}
+@media (max-width: 700px) { .inf-op { grid-template-columns: 62px minmax(0, 1fr); } }
+.inf-op-methode {
+  font-size: 10.5px; text-align: center; padding: 2px 0;
+  border-radius: 4px; border: 1px solid var(--inf-bord); color: var(--inf-attenue);
+}
+.inf-op-methode[data-methode="GET"]    { color: #4ade80; }
+.inf-op-methode[data-methode="POST"]   { color: #4c8dff; }
+.inf-op-methode[data-methode="PATCH"]  { color: #fbbf24; }
+.inf-op-methode[data-methode="PUT"]    { color: #fbbf24; }
+.inf-op-methode[data-methode="DELETE"] { color: #f87171; }
+.inf-op-chemin { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+.inf-op-resume { color: var(--inf-attenue); }

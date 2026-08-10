@@ -1,0 +1,107 @@
+<!-- APS — admin/infrastructure/infrastructure.html — créé le 2026-08-10 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Infrastructure — APS Administration</title>
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
+  <link rel="stylesheet" href="infrastructure.css" />
+</head>
+<body>
+
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="#">Administration</a> › Infrastructure</span>
+    </div>
+    <div class="aps-header-center">
+      <div data-role="org-context"></div>
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar">
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="inf-main">
+
+    <div class="inf-toolbar">
+      <h1 class="inf-title">🖥 Infrastructure</h1>
+      <a class="inf-btn" href="../platforms/platforms.html">Gérer les plateformes</a>
+    </div>
+
+    <p class="inf-intro">
+      Administration dit <strong>quels outils</strong> ce projet utilise et avec quels accès.
+      Infrastructure décrit <strong>ce que chaque outil sait faire</strong> : sa spécification
+      d'API, et les opérations qu'on en retient. Importez une spécification par son URL ou
+      depuis un fichier — aucun fichier de configuration à toucher.
+    </p>
+
+    <div class="inf-layout">
+
+      <aside class="inf-liste" aria-label="Liste des outils">
+        <div class="inf-liste-titre">Outils</div>
+        <div id="inf-liste-items"></div>
+      </aside>
+
+      <section class="inf-detail" id="inf-detail" hidden>
+
+        <div class="inf-entete">
+          <h2 class="inf-nom" id="inf-nom"></h2>
+          <div class="inf-meta" id="inf-meta"></div>
+        </div>
+
+        <!-- ── Spécification ── -->
+        <div class="inf-bloc">
+          <div class="inf-bloc-titre">Spécification d'API</div>
+
+          <div class="inf-spec-etat" id="inf-spec-etat"></div>
+
+          <div class="inf-import">
+            <label class="inf-label" for="inf-url">Importer depuis une URL</label>
+            <div class="inf-ligne">
+              <input type="url" id="inf-url" class="inf-input"
+                     placeholder="https://exemple.com/openapi.json" />
+              <button class="inf-btn inf-btn-accent" id="inf-btn-url" type="button">Importer</button>
+            </div>
+            <div class="inf-aide">
+              Le serveur va chercher la spécification lui-même — un navigateur en serait
+              empêché par la politique d'origine croisée. OpenAPI 2 ou 3, en JSON.
+            </div>
+
+            <label class="inf-label" for="inf-fichier">…ou depuis un fichier</label>
+            <div class="inf-ligne">
+              <input type="file" id="inf-fichier" class="inf-input" accept=".json,application/json" />
+              <button class="inf-btn" id="inf-btn-fichier" type="button">Importer le fichier</button>
+            </div>
+
+            <div class="inf-message" id="inf-message" data-etat=""></div>
+          </div>
+        </div>
+
+        <!-- ── Opérations ── -->
+        <div class="inf-bloc" id="inf-bloc-ops" hidden>
+          <div class="inf-bloc-titre">
+            Opérations <span class="inf-compteur" id="inf-ops-compteur"></span>
+          </div>
+          <div class="inf-aide">
+            Une opération décrit un <strong>appel HTTP</strong>. Une façade APS décrit un
+            <strong>verbe métier</strong>, qui vaut parfois plusieurs appels. Ce qu'on retient
+            ici est un choix, pas un déversement.
+          </div>
+          <input type="search" id="inf-ops-filtre" class="inf-input inf-filtre"
+                 placeholder="Filtrer par chemin ou méthode (GET, POST…)" />
+          <div class="inf-ops" id="inf-ops"></div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <script src="../../_shared/js/org-context-selector.js"></script>
+  <script src="infrastructure.js"></script>
+</body>
+</html>
