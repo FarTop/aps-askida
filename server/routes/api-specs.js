@@ -495,6 +495,34 @@ router.get('/specs/:specId/export', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET/PUT /api/platforms/:id/test-context — valeurs nommées servant à remplir
+// les paramètres pendant un test. Rangées sur la CONNEXION et non sur la
+// plateforme : `teamId` n'est pas une propriété de Make, c'est une propriété
+// du Make de ce client — au même titre que la zone.
+router.get('/:id/test-context', async (req, res) => {
+  try {
+    const conn = await prisma.connexion.findFirst({ where: { platformId: req.params.id, isActive: true } });
+    if (!conn) return res.json({ connexion: null, contexte: {} });
+    res.json({ connexion: conn.name, contexte: (conn.extraConfig && conn.extraConfig.contexteTest) || {} });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/:id/test-context', async (req, res) => {
+  try {
+    const conn = await prisma.connexion.findFirst({ where: { platformId: req.params.id, isActive: true } });
+    if (!conn) return res.status(409).json({ error: 'Aucune connexion active pour cet outil' });
+    const contexte = (req.body && req.body.contexte) || {};
+    const propre = {};
+    Object.entries(contexte).forEach(([k, v]) => {
+      const cle = String(k).trim();
+      if (cle && String(v).trim()) propre[cle] = String(v).trim();
+    });
+    const extra = Object.assign({}, conn.extraConfig || {}, { contexteTest: propre });
+    await prisma.connexion.update({ where: { id: conn.id }, data: { extraConfig: extra } });
+    res.json({ connexion: conn.name, contexte: propre });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // POST /api/specs/:specId/check — éprouve les opérations contre la vraie API.
 //
 // Ce qui est appelé, et pourquoi si peu : UNIQUEMENT des GET, et uniquement
@@ -522,13 +550,41 @@ router.post('/specs/:specId/check', async (req, res) => {
     const marginal = (p) => /^\/(admin|internal)\b/.test(p) ? 1 : 0;
     const candidats = brut.slice().sort((a, b) => marginal(a.path) - marginal(b.path));
 
+    // Contexte de test : des valeurs nommées, fournies par l'utilisateur, qui
+    // remplissent les paramètres. Sans lui, une API orientée ressources est
+    // presque entièrement hors de portée — sur Make, 33 des 34 GET « scenario »
+    // exigent un identifiant. Rien n'est jamais deviné : un paramètre sans
+    // valeur au contexte écarte l'opération, avec son nom affiché.
+    const conn = await prisma.connexion.findFirst({ where: { platformId: spec.platformId, isActive: true } });
+    const ctx = (conn && conn.extraConfig && conn.extraConfig.contexteTest) || {};
+
     const testables = [], ecartes = [];
     for (const e of candidats) {
-      if (/\{[^}]+\}/.test(e.path)) { ecartes.push({ path: e.path, raison: 'paramètre dans le chemin' }); continue; }
+      const manquantsChemin = [];
+      const chemin = e.path.replace(/\{([^}]+)\}/g, (brut, nom) => {
+        if (ctx[nom] !== undefined) return encodeURIComponent(ctx[nom]);
+        manquantsChemin.push(nom);
+        return brut;
+      });
+      if (manquantsChemin.length) {
+        ecartes.push({ path: e.path, raison: 'valeur absente du contexte : ' + manquantsChemin.join(', ') });
+        continue;
+      }
       const params = (e.requestSchema && e.requestSchema.parameters) || [];
-      const requis = params.filter(p => p && p.required && p.in === 'query').map(p => p.name);
-      if (requis.length) { ecartes.push({ path: e.path, raison: 'paramètre requis : ' + requis.join(', ') }); continue; }
-      testables.push(e);
+      const requis = params.filter(p => p && p.required && p.in === 'query');
+      const manquantsQuery = requis.filter(p => ctx[p.name] === undefined).map(p => p.name);
+      if (manquantsQuery.length) {
+        ecartes.push({ path: e.path, raison: 'valeur absente du contexte : ' + manquantsQuery.join(', ') });
+        continue;
+      }
+      // SEULEMENT les paramètres requis. Joindre en plus les facultatifs connus
+      // paraissait généreux et cassait l'appel : Make refuse
+      // /scenarios?teamId=…&organizationId=… (400) là où teamId seul répond 200.
+      // Envoyer plus que le nécessaire n'est pas neutre, et un test doit
+      // reproduire l'appel minimal, pas un appel enrichi au jugé.
+      const qs = new URLSearchParams();
+      requis.forEach(p => qs.set(p.name, ctx[p.name]));
+      testables.push({ ...e, cheminAppele: chemin + (qs.toString() ? '?' + qs.toString() : '') });
     }
 
     const lot = testables.slice(0, plafond);
@@ -541,7 +597,7 @@ router.post('/specs/:specId/check', async (req, res) => {
         try {
           const ctrl = new AbortController();
           const to = setTimeout(() => ctrl.abort(), 12000);
-          const r = await fetch(acces.baseUrl + e.path, { method: 'GET', headers: acces.headers, signal: ctrl.signal });
+          const r = await fetch(acces.baseUrl + (e.cheminAppele || e.path), { method: 'GET', headers: acces.headers, signal: ctrl.signal });
           clearTimeout(to);
           const ms = Date.now() - debut;
           let nb = null;
@@ -563,7 +619,8 @@ router.post('/specs/:specId/check', async (req, res) => {
           const etat = r.ok ? 'ok'
                      : (r.status === 401 || r.status === 403) ? 'auth_error'
                      : 'error';
-          return { id: e.id, method: 'GET', path: e.path, status: etat, statusCode: r.status, responseMs: ms, count: nb };
+          return { id: e.id, method: 'GET', path: e.path, appele: e.cheminAppele || e.path,
+                   status: etat, statusCode: r.status, responseMs: ms, count: nb };
         } catch (err) {
           const expire = /abort/i.test(err.message);
           return { id: e.id, method: 'GET', path: e.path,
@@ -592,6 +649,7 @@ router.post('/specs/:specId/check', async (req, res) => {
       testablesTotal: testables.length,
       ecartes: ecartes.slice(0, 40),
       ecartesTotal: ecartes.length,
+      contexte: Object.keys(ctx),
       resume: { ok: compte('ok'), auth: compte('auth_error'), erreur: compte('error'), timeout: compte('timeout') },
       resultats,
     });

@@ -146,6 +146,7 @@ async function chargerSpec() {
   etat.appendChild(sup);
 
   $('inf-bloc-ops').hidden = false;
+  chargerContexte();
   chargerOperations('');
 }
 
@@ -317,6 +318,58 @@ function rendreProposition(d) {
   hote.appendChild(carte);
 }
 
+// ── Contexte de test ─────────────────────────────────────────
+function ligneContexte(cle, valeur) {
+  const l = document.createElement('div');
+  l.className = 'inf-ctx-ligne';
+
+  const k = document.createElement('input');
+  k.type = 'text'; k.className = 'inf-input'; k.dataset.role = 'cle';
+  k.placeholder = 'teamId'; k.value = cle || '';
+  l.appendChild(k);
+
+  const v = document.createElement('input');
+  v.type = 'text'; v.className = 'inf-input'; v.dataset.role = 'valeur';
+  v.placeholder = '411248'; v.value = valeur || '';
+  l.appendChild(v);
+
+  const s = document.createElement('button');
+  s.type = 'button'; s.className = 'inf-ctx-sup'; s.textContent = '✕';
+  s.onclick = function () { l.remove(); };
+  l.appendChild(s);
+
+  return l;
+}
+
+async function chargerContexte() {
+  const hote = $('inf-ctx-lignes');
+  vider(hote);
+  try {
+    const d = await (await fetch('/api/platforms/' + choisie.id + '/test-context')).json();
+    const entrees = Object.entries(d.contexte || {});
+    if (!entrees.length) hote.appendChild(ligneContexte('', ''));
+    else entrees.forEach(function (e) { hote.appendChild(ligneContexte(e[0], e[1])); });
+  } catch (_) { hote.appendChild(ligneContexte('', '')); }
+}
+
+async function enregistrerContexte() {
+  const contexte = {};
+  $('inf-ctx-lignes').querySelectorAll('.inf-ctx-ligne').forEach(function (l) {
+    const k = l.querySelector('[data-role="cle"]').value.trim();
+    const v = l.querySelector('[data-role="valeur"]').value.trim();
+    if (k && v) contexte[k] = v;
+  });
+  try {
+    const r = await fetch('/api/platforms/' + choisie.id + '/test-context', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contexte: contexte }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    message('✅ Contexte enregistré (' + Object.keys(d.contexte).length + ' valeur(s)) sur « ' + d.connexion + ' ».', 'ok');
+  } catch (e) { message('❌ ' + e.message, 'error'); }
+}
+
 // ── Test des endpoints ───────────────────────────────────────
 // Forme reprise de l'API Check de WFD : un bandeau de synthèse d'abord — état
 // global, comptes — puis le détail ligne à ligne.
@@ -368,7 +421,8 @@ function rendreTest(d, hote) {
   dt.className = 'inf-bandeau-detail';
   dt.textContent = d.base + ' via « ' + d.connexion + ' » — '
     + d.testablesTotal + ' opération(s) testables sur ' + d.candidats + ' GET, '
-    + d.ecartesTotal + ' écartée(s) faute de paramètres.';
+    + d.ecartesTotal + ' écartée(s) faute de valeurs'
+    + (d.contexte && d.contexte.length ? ' — contexte : ' + d.contexte.join(', ') : ' — aucun contexte de test défini') + '.';
   bloc.appendChild(dt);
   bandeau.appendChild(bloc);
   hote.appendChild(bandeau);
@@ -395,7 +449,7 @@ function rendreTest(d, hote) {
 
     const p = document.createElement('span');
     p.className = 'inf-res-chemin';
-    p.textContent = x.path + (x.count != null ? '  · ' + x.count + ' élément(s)' : '');
+    p.textContent = (x.appele || x.path) + (x.count != null ? '  · ' + x.count + ' élément(s)' : '');
     l.appendChild(p);
 
     hote.appendChild(l);
@@ -525,6 +579,8 @@ $('inf-btn-url').onclick      = importerUrl;
 $('inf-btn-chercher').onclick = chercher;
 $('inf-btn-suite').onclick    = function () { chargerOperations(filtreCourant, true); };
 $('inf-btn-test').onclick        = tester;
+$('inf-btn-ctx-ajout').onclick   = function () { $('inf-ctx-lignes').appendChild(ligneContexte('', '')); };
+$('inf-btn-ctx-save').onclick    = enregistrerContexte;
 $('inf-btn-export-json').onclick = exporterJson;
 $('inf-btn-export-html').onclick = exporterHtml;
 $('inf-btn-fichier').onclick = importerFichier;

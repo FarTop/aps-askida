@@ -101,6 +101,21 @@
           <div class="inf-bloc-titre">
             Opérations <span class="inf-compteur" id="inf-ops-compteur"></span>
           </div>
+          <details class="inf-contexte">
+            <summary>Contexte de test</summary>
+            <div class="inf-aide">
+              Des valeurs nommées qui remplissent les paramètres pendant un test.
+              Sans elles, la plupart des opérations sont hors de portée : sur une API
+              orientée ressources, presque tout exige un identifiant. Seuls les paramètres
+              <strong>requis</strong> sont envoyés — en joindre d'autres casse certains appels.
+            </div>
+            <div id="inf-ctx-lignes"></div>
+            <div class="inf-ligne">
+              <button class="inf-btn" id="inf-btn-ctx-ajout" type="button">+ Ajouter</button>
+              <button class="inf-btn inf-btn-accent" id="inf-btn-ctx-save" type="button">Enregistrer</button>
+            </div>
+          </details>
+
           <div class="inf-ligne inf-actions">
             <button class="inf-btn" id="inf-btn-test" type="button">⚡ Tester les endpoints</button>
             <button class="inf-btn" id="inf-btn-export-json" type="button">📄 Exporter OpenAPI</button>
