@@ -545,52 +545,17 @@ router.put('/endpoints/:endpointId/mapping', async (req, res) => {
     const retenu = corps.retenu !== undefined ? !!corps.retenu : !!(actuel.apsMapping);
     // Le libellé se modifie sans toucher au marquage, et inversement : renommer
     // un verbe ne doit pas le relâcher.
-    // Un verbe peut valoir PLUSIEURS appels — `create_tree` en fait trois,
-    // `Partner` sept. Choix volontairement pauvre pour un premier essai :
-    // deux opérations qui portent le même `label` SONT le même verbe, `ordre`
-    // les enchaîne. Zéro table, zéro migration — si la forme ne tient pas, on
-    // efface un champ. (Mode conception, 2026-08-10.)
-    const mapping = retenu
-      ? Object.assign({}, actuel.apsMapping || {}, { retenu: true },
-          corps.label !== undefined ? { label: String(corps.label).trim() } : {},
-          corps.ordre !== undefined ? { ordre: parseInt(corps.ordre) || 0 } : {})
-      : null;   // relâcher efface le marquage plutôt que d'y laisser `false`
+    // Marquage seul : « cette opération m'intéresse pour le test ciblé ».
+    // Une version du 2026-08-10 permettait d'y composer des verbes à la main
+    // (même libellé = même verbe, plus un ordre) — retirée le jour même : la
+    // correspondance verbe → appels se dérive des handlers du moteur et des
+    // blueprints Make, elle n'a pas à être saisie ici. Infrastructure récolte
+    // et éprouve ; elle ne compose pas.
+    const mapping = retenu ? Object.assign({}, actuel.apsMapping || {}, { retenu: true }) : null;
     const maj = await prisma.apiEndpoint.update({
       where: { id: req.params.endpointId }, data: { apsMapping: mapping },
     });
     res.json({ id: maj.id, apsMapping: maj.apsMapping });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// GET /api/specs/:specId/verbes — le vocabulaire en cours de constitution.
-// Séparé de la liste des opérations : celle-ci fait des centaines de lignes de
-// plomberie, celui-là se compte sur les doigts. Iconik, exploité depuis des
-// mois, en a quatorze.
-router.get('/specs/:specId/verbes', async (req, res) => {
-  try {
-    const rows = await prisma.apiEndpoint.findMany({
-      where: { specId: req.params.specId, apsMapping: { not: null } },
-      orderBy: [{ path: 'asc' }, { method: 'asc' }],
-      select: { id: true, method: true, path: true, summary: true, apsMapping: true },
-    });
-
-    // Regroupement par libellé : c'est lui qui fait le verbe. Les opérations
-    // encore sans nom restent chacune de leur côté, sous une clé propre — sinon
-    // toutes les nouvelles se fondraient dans un même verbe vide.
-    const groupes = new Map();
-    rows.forEach(r => {
-      const label = ((r.apsMapping && r.apsMapping.label) || '').trim();
-      const cle = label || ('\u0000sans-nom:' + r.id);
-      if (!groupes.has(cle)) groupes.set(cle, { label, appels: [] });
-      groupes.get(cle).appels.push(r);
-    });
-    const verbes = [...groupes.values()].map(v => ({
-      label: v.label,
-      appels: v.appels.sort((a, b) =>
-        ((a.apsMapping && a.apsMapping.ordre) || 0) - ((b.apsMapping && b.apsMapping.ordre) || 0)),
-    })).sort((a, b) => (a.label || 'zz').localeCompare(b.label || 'zz'));
-
-    res.json({ total: verbes.length, appels: rows.length, verbes });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
