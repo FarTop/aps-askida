@@ -55,6 +55,15 @@ const PivotValidate = (() => {
     });
   }
 
+  // Copie sans `onError`, pour soustraire cette seule clé au contrôle sur les
+  // boucles sans toucher au reste (cf. l'exception documentée plus bas).
+  function _sansOnError(params) {
+    if (!params || typeof params !== 'object') return params;
+    var copie = {};
+    Object.keys(params).forEach(function (k) { if (k !== 'onError') copie[k] = params[k]; });
+    return copie;
+  }
+
   // La notation `@…` a été retirée du format : ce qu'on croyait être une
   // propriété de ressource est une variable ordinaire produite par une étape.
   function _controlerNotationRetiree(valeur, chemin, r) {
@@ -145,7 +154,18 @@ const PivotValidate = (() => {
     }
 
     _controlerClesInterdites(etape, chemin, r, 'etape');
-    _controlerClesInterdites(etape.params, chemin + '.params', r, 'etape');
+    // Exception mesurée (2026-08-10) : `params.onError` sur une BOUCLE n'est pas
+    // le vestige que la règle vise. Le moteur natif le lit réellement
+    // (builder-executor.js:171, `const loopOnError = p.onError || 'stop'`) et
+    // il ne dit pas la même chose que `workflow.onError` : il décide si l'échec
+    // d'UN item interrompt l'itération ou si la boucle passe au suivant. Le
+    // bannir forçait le défaut 'stop' — une seule collection en échec faisant
+    // avorter tout le reste. Les autres étapes gardent l'interdit : là, le
+    // réglage est bien mort (seul `workflow.onError` est consulté,
+    // builder-engine.js:151).
+    _controlerClesInterdites(
+      etape.core === 'loop' ? _sansOnError(etape.params) : etape.params,
+      chemin + '.params', r, 'etape');
     _controlerNotationRetiree(etape.params, chemin + '.params', r);
 
     // Le corps de boucle est imbriqué, jamais déduit du graphe.

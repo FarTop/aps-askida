@@ -353,8 +353,7 @@ router.get('/builder-flows', async (req, res) => {
     // ouvrir chaque workflow un par un.
     res.json(items.map(f => {
       const derniere = f.versions[0] || null;
-      const publie = !!derniere &&
-        JSON.stringify(_sansPresentation(f.document)) === JSON.stringify(derniere.document);
+      const publie = _memeMecanique(f.document, derniere);
       return {
         id: f.id, name: f.name, updatedAt: f.updatedAt,
         status: publie ? 'published' : 'draft',
@@ -373,6 +372,37 @@ function _sansPresentation(doc) {
   if (!doc || typeof doc !== 'object') return doc;
   const { presentation, ...reste } = doc;
   return reste;
+}
+
+// Les post-its sont de l'information, pas de la mécanique (2026-08-10) : ils
+// n'ont aucun port, ne s'exécutent pas (le moteur les écarte à la source, cf.
+// builder-executor.js) et ne changent donc jamais ce que le workflow FAIT.
+// Corriger une faute dans une note ne doit pas faire basculer un workflow
+// publié en « brouillon ».
+//
+// Retirés de la COMPARAISON seulement, jamais du gel : une version figée garde
+// ses post-its, sinon restaurer une version effacerait les notes de l'époque —
+// et c'est justement la version figée qui doit rester le témoin fidèle de ce
+// que le concepteur avait sous les yeux. Conséquence assumée : après une
+// retouche de post-it, la dernière version figée porte le texte d'avant. C'est
+// le même compromis que `presentation`, pour la même raison.
+function _sansAnnotations(doc) {
+  const sansPres = _sansPresentation(doc);
+  if (!sansPres || typeof sansPres !== 'object') return sansPres;
+  const filtrer = (steps) => (Array.isArray(steps) ? steps : [])
+    .filter(s => s && s.core !== 'postit')
+    // Un post-it peut vivre dans un corps de boucle comme au niveau racine.
+    .map(s => (s.body && Array.isArray(s.body.steps)
+      ? { ...s, body: { ...s.body, steps: filtrer(s.body.steps) } }
+      : s));
+  return { ...sansPres, steps: filtrer(sansPres.steps) };
+}
+
+// Vrai si le brouillon et la dernière version figée décrivent la même
+// mécanique — présentation et annotations mises à part.
+function _memeMecanique(brouillon, versionFigee) {
+  return !!versionFigee &&
+    JSON.stringify(_sansAnnotations(brouillon)) === JSON.stringify(_sansAnnotations(versionFigee.document));
 }
 
 // Comptage de références (4 août) : où chaque ressource d'org (Mapping,
@@ -438,10 +468,9 @@ router.get('/builder-flows/:id', async (req, res) => {
     if (!item) return res.status(404).json({ error: 'Non trouvé' });
     const derniere = item.versions[0] || null;
     // « Publié » veut dire : le brouillon actuel EST la dernière version figée
-    // (à la présentation près). Le statut se déduit de cette comparaison, il
-    // n'est stocké nulle part (critère 2, builder-etat.md).
-    const publie = !!derniere &&
-      JSON.stringify(_sansPresentation(item.document)) === JSON.stringify(derniere.document);
+    // (présentation et post-its mis à part). Le statut se déduit de cette
+    // comparaison, il n'est stocké nulle part (critère 2, builder-etat.md).
+    const publie = _memeMecanique(item.document, derniere);
     res.json({
       id: item.id, name: item.name, document: item.document,
       orgId: item.orgId, orgName: item.organisation ? item.organisation.name : null,

@@ -226,8 +226,17 @@
     // Compteurs de la statusbar (jusqu'ici jamais câblés — comme "snapshot").
     const nodeCountEl = root.querySelector('[data-role="node-count"]');
     const connCountEl = root.querySelector('[data-role="conn-count"]');
+    // Les post-its ne comptent pas comme des nœuds (2026-08-10) : ce sont des
+    // annotations, sans port et sans exécution. Les inclure gonflait un chiffre
+    // censé dire la taille de la mécanique — PUBLISH affichait 42 pour 21
+    // étapes réelles, uniquement parce qu'il est bien commenté.
     function _majCompteurs() {
-      if (nodeCountEl) nodeCountEl.textContent = String(model.noeuds().length);
+      if (nodeCountEl) {
+        const mecaniques = model.noeuds().filter(function (n) {
+          return !n.etape || n.etape.core !== 'postit';
+        });
+        nodeCountEl.textContent = String(mecaniques.length);
+      }
       if (connCountEl) connCountEl.textContent = String(model.aretes().length);
     }
 
