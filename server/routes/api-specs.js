@@ -50,6 +50,43 @@ const CHEMINS_CONNUS = [
 
 function origineDe(u) { try { return new URL(u).origin; } catch (_) { return null; } }
 
+// Un paramètre désigne-t-il un OBJET ? Les identifiants ne s'inventent jamais :
+// une valeur fabriquée renvoie 404, et un 404 ne distingue pas « cet objet
+// n'existe pas » de « cette route n'existe pas » — le test rendrait alors une
+// longue liste d'échecs qui ne prouvent rien. La forme de l'appel (pagination,
+// tri, filtre, énumération), elle, se remplit sans risque.
+function estIdentifiant(param) {
+  const nom = String((param && param.name) || '');
+  const sch = (param && param.schema) || {};
+  if (/(^|[_\-\[])ids?$/i.test(nom) || /Ids?$/.test(nom)) return true;
+  if (String(sch.format || '').toLowerCase() === 'uuid') return true;
+  if (/^(email|hash|token|uuid|guid|slug|key)$/i.test(nom)) return true;
+  // Le nom ne suffit pas : `hash` et `email` désignaient bien un objet sans que
+  // la spec déclare leur format. On regarde donc aussi À QUOI RESSEMBLE la
+  // valeur d'exemple — un UUID ou une adresse sont des identités, quel que soit
+  // le nom du paramètre.
+  const ex = String(exempleBrut(param) ?? '');
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ex)) return true;
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ex)) return true;
+  return false;
+}
+
+function exempleBrut(param) {
+  const sch = (param && param.schema) || {};
+  if (param && param.example !== undefined) return param.example;
+  if (sch.example !== undefined) return sch.example;
+  if (sch.default !== undefined) return sch.default;
+  if (Array.isArray(sch.enum) && sch.enum.length) return sch.enum[0];
+  return undefined;
+}
+
+// Valeur d'exemple déclarée par la spec, s'il y en a une.
+function exempleDe(param) {
+  const v = exempleBrut(param);
+  if (v === undefined || v === null) return undefined;
+  return Array.isArray(v) ? v.join(',') : String(v);
+}
+
 // Les identifiants d'une connexion ne partent QUE vers l'hôte de cette
 // connexion. Sans cette garde, saisir l'URL d'un tiers dans le champ d'import
 // lui enverrait le jeton du client.
@@ -495,6 +532,25 @@ router.get('/specs/:specId/export', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// PUT /api/endpoints/:endpointId/mapping — retenir une opération, ou la
+// relâcher. `ApiEndpoint.apsMapping` existait depuis l'origine et attendait
+// exactement ça : dire ce qu'une opération devient côté APS. Première étape —
+// on marque ; le libellé métier et la génération des façades viendront après.
+router.put('/endpoints/:endpointId/mapping', async (req, res) => {
+  try {
+    const retenu = !!(req.body && req.body.retenu);
+    const actuel = await prisma.apiEndpoint.findUnique({ where: { id: req.params.endpointId } });
+    if (!actuel) return res.status(404).json({ error: 'Opération non trouvée' });
+    const mapping = retenu
+      ? Object.assign({}, actuel.apsMapping || {}, { retenu: true })
+      : null;   // relâcher efface le marquage plutôt que d'y laisser `false`
+    const maj = await prisma.apiEndpoint.update({
+      where: { id: req.params.endpointId }, data: { apsMapping: mapping },
+    });
+    res.json({ id: maj.id, apsMapping: maj.apsMapping });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET/PUT /api/platforms/:id/test-context — valeurs nommées servant à remplir
 // les paramètres pendant un test. Rangées sur la CONNEXION et non sur la
 // plateforme : `teamId` n'est pas une propriété de Make, c'est une propriété
@@ -543,6 +599,10 @@ router.post('/specs/:specId/check', async (req, res) => {
     const plafond = Math.min(parseInt(req.body && req.body.limit) || 25, 100);
     const where = { specId: spec.id, method: 'GET' };
     if (req.body && req.body.q) where.path = { contains: String(req.body.q), mode: 'insensitive' };
+    // Se restreindre aux opérations retenues : c'est la vraie réponse à « se
+    // rassurer avant de lancer un workflow ». Une poignée d'appels qui comptent
+    // vaut mieux que 120 dont on ne saura pas quoi faire.
+    if (req.body && req.body.retenues) where.apsMapping = { not: null };
     const brut = await prisma.apiEndpoint.findMany({ where, orderBy: { path: 'asc' } });
     // `/admin` et `/internal` en dernier : hors de portée d'un jeton ordinaire,
     // ils occupaient tout un échantillon trié alphabétiquement et donnaient
@@ -572,7 +632,20 @@ router.post('/specs/:specId/check', async (req, res) => {
       }
       const params = (e.requestSchema && e.requestSchema.parameters) || [];
       const requis = params.filter(p => p && p.required && p.in === 'query');
-      const manquantsQuery = requis.filter(p => ctx[p.name] === undefined).map(p => p.name);
+
+      // Un paramètre requis se sert d'abord au contexte. À défaut, et SEULEMENT
+      // s'il ne désigne pas un objet, on prend l'exemple que la spec déclare :
+      // ça valide la forme de l'appel sans fabriquer d'identité.
+      const valeurs = {}; const exemplesUtilises = [];
+      const manquantsQuery = [];
+      for (const p of requis) {
+        if (ctx[p.name] !== undefined) { valeurs[p.name] = ctx[p.name]; continue; }
+        if (!estIdentifiant(p)) {
+          const ex = exempleDe(p);
+          if (ex !== undefined) { valeurs[p.name] = ex; exemplesUtilises.push(p.name); continue; }
+        }
+        manquantsQuery.push(p.name);
+      }
       if (manquantsQuery.length) {
         ecartes.push({ path: e.path, raison: 'valeur absente du contexte : ' + manquantsQuery.join(', ') });
         continue;
@@ -583,8 +656,9 @@ router.post('/specs/:specId/check', async (req, res) => {
       // Envoyer plus que le nécessaire n'est pas neutre, et un test doit
       // reproduire l'appel minimal, pas un appel enrichi au jugé.
       const qs = new URLSearchParams();
-      requis.forEach(p => qs.set(p.name, ctx[p.name]));
-      testables.push({ ...e, cheminAppele: chemin + (qs.toString() ? '?' + qs.toString() : '') });
+      requis.forEach(p => qs.set(p.name, valeurs[p.name]));
+      testables.push({ ...e, exemples: exemplesUtilises,
+                       cheminAppele: chemin + (qs.toString() ? '?' + qs.toString() : '') });
     }
 
     const lot = testables.slice(0, plafond);
@@ -620,6 +694,7 @@ router.post('/specs/:specId/check', async (req, res) => {
                      : (r.status === 401 || r.status === 403) ? 'auth_error'
                      : 'error';
           return { id: e.id, method: 'GET', path: e.path, appele: e.cheminAppele || e.path,
+                   exemples: e.exemples || [],
                    status: etat, statusCode: r.status, responseMs: ms, count: nb };
         } catch (err) {
           const expire = /abort/i.test(err.message);

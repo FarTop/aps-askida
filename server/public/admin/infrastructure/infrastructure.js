@@ -180,6 +180,28 @@ async function chargerOperations(filtre, suite) {
     const ligne = document.createElement('div');
     ligne.className = 'inf-op';
 
+    // Retenir une opération : elle deviendra un verbe, et le test ciblé ne
+    // portera que sur celles-ci.
+    const et = document.createElement('button');
+    et.type = 'button';
+    et.className = 'inf-op-etoile';
+    et.title = 'Retenir cette opération';
+    et.dataset.retenu = op.apsMapping ? '1' : '0';
+    et.textContent = op.apsMapping ? '★' : '☆';
+    et.onclick = async function () {
+      const nouveau = et.dataset.retenu !== '1';
+      try {
+        const r = await fetch('/api/endpoints/' + op.id + '/mapping', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ retenu: nouveau }),
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        et.dataset.retenu = nouveau ? '1' : '0';
+        et.textContent = nouveau ? '★' : '☆';
+      } catch (e) { message('❌ ' + e.message, 'error'); }
+    };
+    ligne.appendChild(et);
+
     const m = document.createElement('span');
     m.className = 'inf-op-methode';
     m.dataset.methode = op.method;
@@ -373,8 +395,8 @@ async function enregistrerContexte() {
 // ── Test des endpoints ───────────────────────────────────────
 // Forme reprise de l'API Check de WFD : un bandeau de synthèse d'abord — état
 // global, comptes — puis le détail ligne à ligne.
-async function tester() {
-  const btn = $('inf-btn-test');
+async function tester(retenues) {
+  const btn = retenues ? $('inf-btn-test-retenues') : $('inf-btn-test');
   const hote = $('inf-test');
   vider(hote);
   btn.disabled = true;
@@ -382,7 +404,9 @@ async function tester() {
   try {
     const r = await fetch('/api/specs/' + specCourante.id + '/check', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit: 25, q: filtreCourant || undefined }),
+      body: JSON.stringify({ limit: 25,
+                             q: retenues ? undefined : (filtreCourant || undefined),
+                             retenues: !!retenues }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
@@ -467,6 +491,12 @@ function rendreTest(d, hote) {
     const p = document.createElement('span');
     p.className = 'inf-res-chemin';
     p.textContent = (x.appele || x.path) + (x.count != null ? '  · ' + x.count + ' élément(s)' : '');
+    if (x.exemples && x.exemples.length) {
+      const e2 = document.createElement('span');
+      e2.className = 'inf-res-exemple';
+      e2.textContent = '  ⚑ valeur d\'exemple : ' + x.exemples.join(', ');
+      p.appendChild(e2);
+    }
     l.appendChild(p);
 
     hote.appendChild(l);
@@ -595,7 +625,8 @@ async function supprimerSpec() {
 $('inf-btn-url').onclick      = importerUrl;
 $('inf-btn-chercher').onclick = chercher;
 $('inf-btn-suite').onclick    = function () { chargerOperations(filtreCourant, true); };
-$('inf-btn-test').onclick        = tester;
+$('inf-btn-test').onclick          = function () { tester(false); };
+$('inf-btn-test-retenues').onclick = function () { tester(true); };
 $('inf-btn-ctx-ajout').onclick   = function () { $('inf-ctx-lignes').appendChild(ligneContexte('', '')); };
 $('inf-btn-ctx-save').onclick    = enregistrerContexte;
 $('inf-btn-export-json').onclick = exporterJson;

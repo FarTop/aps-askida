@@ -139,11 +139,11 @@ body {
 /* ── Opérations ── */
 .inf-ops { max-height: 60vh; overflow: auto; border-top: 1px solid var(--inf-bord); }
 .inf-op {
-  display: grid; grid-template-columns: 62px minmax(0, 22ch) minmax(0, 1fr);
+  display: grid; grid-template-columns: 28px 62px minmax(0, 22ch) minmax(0, 1fr);
   gap: 10px; align-items: baseline;
   padding: 6px 2px; border-bottom: 1px solid var(--inf-bord); font-size: 12.5px;
 }
-@media (max-width: 700px) { .inf-op { grid-template-columns: 62px minmax(0, 1fr); } }
+@media (max-width: 700px) { .inf-op { grid-template-columns: 28px 62px minmax(0, 1fr); } }
 .inf-op-methode {
   font-size: 10.5px; text-align: center; padding: 2px 0;
   border-radius: 4px; border: 1px solid var(--inf-bord); color: var(--inf-attenue);
@@ -238,3 +238,12 @@ body {
   border-radius: 6px; color: var(--inf-attenue); font: inherit; font-size: 12px; padding: 6px 9px;
 }
 .inf-ctx-sup:hover { border-color: #e88; color: #e88; }
+
+/* ── Marquage d'une opération retenue ── */
+.inf-op-etoile {
+  cursor: pointer; background: transparent; border: none; padding: 0;
+  font-size: 14px; line-height: 1; color: var(--inf-bord);
+}
+.inf-op-etoile:hover { color: var(--inf-attenue); }
+.inf-op-etoile[data-retenu="1"] { color: var(--inf-accent); }
+.inf-res-exemple { color: #f0b429; font-size: 11px; }
