@@ -538,16 +538,36 @@ router.get('/specs/:specId/export', async (req, res) => {
 // on marque ; le libellé métier et la génération des façades viendront après.
 router.put('/endpoints/:endpointId/mapping', async (req, res) => {
   try {
-    const retenu = !!(req.body && req.body.retenu);
     const actuel = await prisma.apiEndpoint.findUnique({ where: { id: req.params.endpointId } });
     if (!actuel) return res.status(404).json({ error: 'Opération non trouvée' });
+
+    const corps = req.body || {};
+    const retenu = corps.retenu !== undefined ? !!corps.retenu : !!(actuel.apsMapping);
+    // Le libellé se modifie sans toucher au marquage, et inversement : renommer
+    // un verbe ne doit pas le relâcher.
     const mapping = retenu
-      ? Object.assign({}, actuel.apsMapping || {}, { retenu: true })
+      ? Object.assign({}, actuel.apsMapping || {}, { retenu: true },
+          corps.label !== undefined ? { label: String(corps.label).trim() } : {})
       : null;   // relâcher efface le marquage plutôt que d'y laisser `false`
     const maj = await prisma.apiEndpoint.update({
       where: { id: req.params.endpointId }, data: { apsMapping: mapping },
     });
     res.json({ id: maj.id, apsMapping: maj.apsMapping });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/specs/:specId/verbes — le vocabulaire en cours de constitution.
+// Séparé de la liste des opérations : celle-ci fait des centaines de lignes de
+// plomberie, celui-là se compte sur les doigts. Iconik, exploité depuis des
+// mois, en a quatorze.
+router.get('/specs/:specId/verbes', async (req, res) => {
+  try {
+    const rows = await prisma.apiEndpoint.findMany({
+      where: { specId: req.params.specId, apsMapping: { not: null } },
+      orderBy: [{ path: 'asc' }, { method: 'asc' }],
+      select: { id: true, method: true, path: true, summary: true, apsMapping: true },
+    });
+    res.json({ total: rows.length, verbes: rows });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

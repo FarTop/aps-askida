@@ -105,6 +105,7 @@ async function chargerSpec() {
   vider(etat);
   specCourante = null;
   $('inf-bloc-ops').hidden = true;
+  $('inf-bloc-verbes').hidden = true;
 
   let specs = [];
   try {
@@ -146,6 +147,7 @@ async function chargerSpec() {
   etat.appendChild(sup);
 
   $('inf-bloc-ops').hidden = false;
+  chargerVerbes();
   chargerContexte();
   chargerOperations('');
 }
@@ -198,6 +200,7 @@ async function chargerOperations(filtre, suite) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         et.dataset.retenu = nouveau ? '1' : '0';
         et.textContent = nouveau ? '★' : '☆';
+        chargerVerbes();
       } catch (e) { message('❌ ' + e.message, 'error'); }
     };
     ligne.appendChild(et);
@@ -338,6 +341,80 @@ function rendreProposition(d) {
   };
   carte.appendChild(b);
   hote.appendChild(carte);
+}
+
+// ── Verbes ───────────────────────────────────────────────────
+// Le vocabulaire en cours de constitution : ce qu'un concepteur veut FAIRE,
+// en regard de l'appel HTTP qui le réalise. Les deux côte à côte, pour que le
+// lien reste visible — c'est tout l'objet de l'écran.
+async function chargerVerbes() {
+  const hote = $('inf-verbes');
+  vider(hote);
+  if (!specCourante) return;
+  let d;
+  try { d = await (await fetch('/api/specs/' + specCourante.id + '/verbes')).json(); }
+  catch (_) { return; }
+
+  $('inf-bloc-verbes').hidden = false;
+  $('inf-verbes-compteur').textContent = d.total ? d.total + ' retenu(s)' : '';
+
+  if (!d.total) {
+    const v = document.createElement('div');
+    v.className = 'inf-vide';
+    v.textContent = 'Aucun verbe retenu. Cliquez sur l\'étoile d\'une opération, plus bas, pour en faire un.';
+    hote.appendChild(v);
+    return;
+  }
+
+  d.verbes.forEach(function (x) {
+    const l = document.createElement('div');
+    l.className = 'inf-verbe';
+
+    const nom = document.createElement('input');
+    nom.type = 'text';
+    nom.className = 'inf-input';
+    // Le résumé de la spec sert d'amorce : mieux vaut un point de départ à
+    // réécrire qu'un champ vide devant lequel on hésite.
+    nom.placeholder = (x.summary && x.summary.fr) || 'Nom du verbe';
+    nom.value = (x.apsMapping && x.apsMapping.label) || '';
+    let minuterie = null;
+    nom.oninput = function () {
+      clearTimeout(minuterie);
+      minuterie = setTimeout(async function () {
+        try {
+          await fetch('/api/endpoints/' + x.id + '/mapping', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label: nom.value }),
+          });
+        } catch (e) { message('❌ ' + e.message, 'error'); }
+      }, 500);
+    };
+    l.appendChild(nom);
+
+    const p = document.createElement('span');
+    p.className = 'inf-verbe-plomberie';
+    p.textContent = '← ' + x.method + ' ' + x.path;
+    l.appendChild(p);
+
+    const sup = document.createElement('button');
+    sup.type = 'button';
+    sup.className = 'inf-ctx-sup';
+    sup.title = 'Ne plus retenir';
+    sup.textContent = '✕';
+    sup.onclick = async function () {
+      try {
+        await fetch('/api/endpoints/' + x.id + '/mapping', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ retenu: false }),
+        });
+        await chargerVerbes();
+        await chargerOperations(filtreCourant);
+      } catch (e) { message('❌ ' + e.message, 'error'); }
+    };
+    l.appendChild(sup);
+
+    hote.appendChild(l);
+  });
 }
 
 // ── Contexte de test ─────────────────────────────────────────

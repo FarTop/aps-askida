@@ -247,3 +247,16 @@ body {
 .inf-op-etoile:hover { color: var(--inf-attenue); }
 .inf-op-etoile[data-retenu="1"] { color: var(--inf-accent); }
 .inf-res-exemple { color: #f0b429; font-size: 11px; }
+
+/* ── Verbes ── */
+.inf-verbe {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 34px;
+  gap: 10px; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid var(--inf-bord);
+}
+@media (max-width: 700px) { .inf-verbe { grid-template-columns: minmax(0, 1fr) 34px; } }
+.inf-verbe-plomberie {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px; color: var(--inf-attenue); word-break: break-all;
+}
+.inf-verbe-fleche { color: var(--inf-bord); }
