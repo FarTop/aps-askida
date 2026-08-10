@@ -142,7 +142,11 @@ const steps = [
                 + 'la collection reste « Posté » et repassera la nuit suivante.',
           params: {
             target: 'collection', targetId: '{item.id}', mdField: 'StatutPrime', mdViewId: '',
-            whMode: 'update', whOrder: 'newest', whWfName: 'Prime', whStatut: '❌ Échec',
+            // `🕗 Reporté` et non `❌ Échec` : WFD portait `❌ Échec` ici, mais
+            // le champ StatutPrime lui-même dit le contraire — le contrôle
+            // nocturne qui tourne en production y écrit `🕗 Reporté` depuis le
+            // 1er août. Une attente normale ne s'annonce pas comme un échec.
+            whMode: 'update', whOrder: 'newest', whWfName: 'Prime', whStatut: '🕗 Reporté',
             whMessage: 'Livraison Amazon Prime — ⏳ En attente d\'envoi · {now(Europe/Paris)} '
                      + 'Contenu prêt chez VOD Factory, pas encore transmis à Amazon. '
                      + 'Prochaine tentative cette nuit. ⚠️ {checkerSummary}',
@@ -204,11 +208,12 @@ const steps = [
           + 'la recherche et la tentative n\'avait jamais lieu.' } },
 
         { id: 'postit_09', core: 'postit', label: 'Histo Reporté',
-          params: { color: ROUGE, text:
-            '⚠ Cet historique affiche « ❌ Échec » alors qu\'il raconte une\n'
-          + 'attente normale. Repris tel quel de WFD pour ne pas changer en\n'
-          + 'douce ce que le workflow d\'origine disait — mais le pictogramme\n'
-          + 'ment au lecteur. À trancher.' } },
+          params: { color: JAUNE, text:
+            '« 🕗 Reporté », et non « ❌ Échec » comme le faisait WFD.\n\n'
+          + 'C\'est le champ lui-même qui a tranché : le contrôle nocturne\n'
+          + 'qui tourne en production écrit « 🕗 Reporté » chaque nuit\n'
+          + 'depuis le 1er août. Une attente normale ne s\'annonce pas\n'
+          + 'comme un échec.' } },
 
         { id: 'postit_10', core: 'postit', label: 'Histo Échec',
           params: { color: JAUNE, text:

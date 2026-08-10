@@ -950,6 +950,14 @@ const ConfigSchema = (() => {
             customLibelle: '✏️ Custom…', options: [
               { valeur: '🔄 En cours', libelle: '🔄 En cours' },
               { valeur: '✅ Succès', libelle: '✅ Succès' },
+              // `🕗 Reporté` ajouté le 2026-08-10 : ce n'est pas une invention
+              // mais une valeur DÉJÀ en production — relevée dans le champ
+              // StatutPrime de chaque collection QA, une ligne par nuit depuis
+              // le 1er août, écrite par le contrôle nocturne qui tourne hors
+              // APS. Elle manquait seulement à la liste, ce qui obligeait à la
+              // saisir en texte libre et laissait « ❌ Échec » servir pour une
+              // attente normale.
+              { valeur: '🕗 Reporté', libelle: '🕗 Reporté' },
               { valeur: '⚠️ Incomplet', libelle: '⚠️ Incomplet' },
               { valeur: '❌ Échec', libelle: '❌ Échec' },
               { valeur: '', libelle: '— None —' }
