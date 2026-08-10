@@ -1,29 +1,50 @@
 /* APS — admin/infrastructure/infrastructure.css — créé le 2026-08-10
-   Reprend la mise en page à deux colonnes des écrans récents (endpoints,
-   mappings, manifests) : liste à gauche, détail à droite. Visibilité pilotée
-   par l'attribut `hidden` et par data-*, jamais par style.display. */
+   Mise en page à deux colonnes des écrans récents (endpoints, mappings,
+   manifests) : liste à gauche, détail à droite. Visibilité pilotée par
+   l'attribut `hidden` et par data-*, jamais par style.display.
+
+   Palette : les MÊMES tokens --adm-* que les autres écrans Administration.
+   La première version employait des noms génériques (--bg, --surface) qui
+   n'existent nulle part dans ce dépôt : seules les valeurs de repli
+   s'appliquaient, et le `body` n'était pas stylé du tout — d'où la page
+   blanche en police à empattements. */
 
 :root {
-  --inf-fond:      var(--bg, #0e1116);
-  --inf-surface:   var(--surface, #161b22);
-  --inf-bord:      var(--border, #262c36);
-  --inf-texte:     var(--text, #e6edf3);
-  --inf-attenue:   var(--text-dim, #8a939e);
-  --inf-accent:    var(--accent, #4c8dff);
+  --inf-fond:    #0f1011;
+  --inf-surface: #151718;
+  --inf-surface2:#1a1d1f;
+  --inf-bord:    #262a2e;
+  --inf-texte:   #eef0f1;
+  --inf-attenue: #a6b0b8;
+  --inf-accent:  #d6d233;
+  --inf-danger:  #e74c3c;
 }
 
-.inf-main { padding: 20px 28px 48px; color: var(--inf-texte); }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--inf-fond);
+  color: var(--inf-texte);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.aps-header .breadcrumb { color: var(--inf-attenue); font-size: 12.5px; }
+.aps-header .breadcrumb a { color: var(--inf-attenue); text-decoration: none; }
+.aps-header .breadcrumb a:hover { color: var(--inf-texte); }
+
+.inf-main { max-width: 1440px; margin: 0 auto; padding: 24px 20px 60px; }
 
 .inf-toolbar {
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; margin-bottom: 8px;
 }
-.inf-title { font-size: 20px; margin: 0; }
+.inf-title { font-size: 20px; font-weight: 600; margin: 0; }
 
 .inf-intro {
   max-width: 78ch; margin: 0 0 20px; color: var(--inf-attenue);
   font-size: 13px; line-height: 1.6;
 }
+.inf-intro strong { color: var(--inf-texte); font-weight: 600; }
 
 .inf-layout {
   display: grid; grid-template-columns: 260px minmax(0, 1fr);
@@ -83,30 +104,34 @@
 }
 .inf-ligne { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .inf-input {
-  flex: 1 1 260px; min-width: 0; background: var(--inf-fond);
+  flex: 1 1 260px; min-width: 0; background: var(--inf-surface2);
   border: 1px solid var(--inf-bord); border-radius: 8px;
   padding: 8px 10px; color: var(--inf-texte); font: inherit; font-size: 13px;
 }
 .inf-filtre { width: 100%; flex: none; margin: 10px 0; }
 
 .inf-btn {
-  cursor: pointer; background: var(--inf-fond); color: var(--inf-texte);
+  cursor: pointer; background: var(--inf-surface2); color: var(--inf-texte);
   border: 1px solid var(--inf-bord); border-radius: 8px;
   padding: 8px 14px; font: inherit; font-size: 13px; text-decoration: none;
   display: inline-block;
 }
-.inf-btn:hover:not(:disabled) { border-color: var(--inf-accent); }
+.inf-btn:hover:not(:disabled) { border-color: #3a4147; }
 .inf-btn:disabled { opacity: .5; cursor: default; }
-.inf-btn-accent { background: var(--inf-accent); border-color: var(--inf-accent); color: #fff; }
-.inf-btn-danger { margin-top: 6px; }
-.inf-btn-danger:hover { border-color: var(--err, #f87171); color: var(--err, #f87171); }
+.inf-btn-accent {
+  background: rgba(214,210,51,.14); border-color: rgba(214,210,51,.4); color: var(--inf-accent);
+}
+.inf-btn-danger {
+  margin-top: 6px;
+  background: rgba(231,76,60,.10); border-color: rgba(231,76,60,.35); color: #e88;
+}
 
 .inf-aide { font-size: 11.5px; line-height: 1.5; color: var(--inf-attenue); margin-top: 6px; }
 
 .inf-message { margin-top: 12px; font-size: 13px; }
 .inf-message:empty { display: none; }
-.inf-message[data-etat="ok"]      { color: var(--ok,   #4ade80); }
-.inf-message[data-etat="error"]   { color: var(--err,  #f87171); }
+.inf-message[data-etat="ok"]      { color: #7ddc8f; }
+.inf-message[data-etat="error"]   { color: #e88; }
 .inf-message[data-etat="attente"] { color: var(--inf-attenue); }
 
 .inf-vide { color: var(--inf-attenue); font-size: 12.5px; padding: 4px 0; }
