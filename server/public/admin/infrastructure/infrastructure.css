@@ -185,3 +185,41 @@ body {
   padding: 8px 10px; margin: 6px 0; word-break: break-all;
 }
 .inf-prop-alerte { color: #f0b429; font-size: 12px; margin: 8px 0; }
+
+/* ── Barre de défilement : la native est claire et jure sur ce fond ── */
+.inf-ops { scrollbar-width: thin; scrollbar-color: #3a4147 transparent; }
+.inf-ops::-webkit-scrollbar { width: 10px; height: 10px; }
+.inf-ops::-webkit-scrollbar-track { background: transparent; }
+.inf-ops::-webkit-scrollbar-thumb {
+  background: #3a4147; border-radius: 6px;
+  border: 2px solid var(--inf-surface);   /* marge visuelle, pouce affiné */
+}
+.inf-ops::-webkit-scrollbar-thumb:hover { background: #4c545c; }
+.inf-ops::-webkit-scrollbar-corner { background: transparent; }
+
+/* ── Test des endpoints ── */
+.inf-actions { margin-bottom: 10px; }
+.inf-test { margin: 10px 0; }
+.inf-test:empty { display: none; }
+.inf-bandeau {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  border: 2px solid var(--inf-bord); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;
+}
+.inf-bandeau[data-etat="ok"]    { border-color: #7ddc8f; background: rgba(125,220,143,.07); }
+.inf-bandeau[data-etat="mixte"] { border-color: #f0b429; background: rgba(240,180,41,.07); }
+.inf-bandeau[data-etat="ko"]    { border-color: #e88;    background: rgba(231,76,60,.07); }
+.inf-bandeau-icone { font-size: 22px; }
+.inf-bandeau-titre { font-size: 12.5px; font-weight: 700; }
+.inf-bandeau-detail { font-size: 11px; color: var(--inf-attenue); margin-top: 2px; }
+
+.inf-res {
+  display: grid; grid-template-columns: 86px 52px 62px minmax(0, 1fr);
+  gap: 10px; align-items: baseline; font-size: 12.5px;
+  padding: 5px 2px; border-bottom: 1px solid var(--inf-bord);
+}
+.inf-res-etat[data-etat="ok"]         { color: #7ddc8f; }
+.inf-res-etat[data-etat="auth_error"] { color: #f0b429; }
+.inf-res-etat[data-etat="error"]      { color: #e88; }
+.inf-res-etat[data-etat="timeout"]    { color: #e88; }
+.inf-res-chemin { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+.inf-res-note { color: var(--inf-attenue); font-size: 11.5px; }

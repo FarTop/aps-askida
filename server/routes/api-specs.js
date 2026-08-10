@@ -481,6 +481,123 @@ router.put('/:id/auth-spec', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/specs/:specId/export — rend la spécification telle qu'importée.
+// Utile pour la réinjecter ailleurs (Postman, un générateur de client, une
+// autre instance d'APS) sans avoir à retrouver l'URL d'origine.
+router.get('/specs/:specId/export', async (req, res) => {
+  try {
+    const spec = await prisma.apiSpec.findUnique({ where: { id: req.params.specId } });
+    if (!spec) return res.status(404).json({ error: 'Spécification non trouvée' });
+    const nom = (spec.name || 'openapi').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${nom || 'openapi'}.json"`);
+    res.send(JSON.stringify(spec.rawContent, null, 2));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/specs/:specId/check — éprouve les opérations contre la vraie API.
+//
+// Ce qui est appelé, et pourquoi si peu : UNIQUEMENT des GET, et uniquement
+// ceux dont le chemin ne porte aucun paramètre et dont aucun paramètre de
+// requête n'est obligatoire. Le reste est écarté avec sa raison, jamais
+// deviné : inventer un {scenarioId} produirait un 404 qui ne dirait rien de la
+// joignabilité, et une API n'est pas un terrain où l'on tire au hasard. Aucune
+// écriture n'est jamais déclenchée.
+router.post('/specs/:specId/check', async (req, res) => {
+  try {
+    const spec = await prisma.apiSpec.findUnique({ where: { id: req.params.specId } });
+    if (!spec) return res.status(404).json({ error: 'Spécification non trouvée' });
+    const acces = await accesDe(spec.platformId);
+    if (!acces || !acces.baseUrl) {
+      return res.status(409).json({ error: 'Aucune connexion active pour cet outil — impossible d\'appeler quoi que ce soit.' });
+    }
+
+    const plafond = Math.min(parseInt(req.body && req.body.limit) || 25, 100);
+    const where = { specId: spec.id, method: 'GET' };
+    if (req.body && req.body.q) where.path = { contains: String(req.body.q), mode: 'insensitive' };
+    const brut = await prisma.apiEndpoint.findMany({ where, orderBy: { path: 'asc' } });
+    // `/admin` et `/internal` en dernier : hors de portée d'un jeton ordinaire,
+    // ils occupaient tout un échantillon trié alphabétiquement et donnaient
+    // l'impression que rien ne répondait.
+    const marginal = (p) => /^\/(admin|internal)\b/.test(p) ? 1 : 0;
+    const candidats = brut.slice().sort((a, b) => marginal(a.path) - marginal(b.path));
+
+    const testables = [], ecartes = [];
+    for (const e of candidats) {
+      if (/\{[^}]+\}/.test(e.path)) { ecartes.push({ path: e.path, raison: 'paramètre dans le chemin' }); continue; }
+      const params = (e.requestSchema && e.requestSchema.parameters) || [];
+      const requis = params.filter(p => p && p.required && p.in === 'query').map(p => p.name);
+      if (requis.length) { ecartes.push({ path: e.path, raison: 'paramètre requis : ' + requis.join(', ') }); continue; }
+      testables.push(e);
+    }
+
+    const lot = testables.slice(0, plafond);
+    const resultats = [];
+    // Par paquets de cinq : un test ne doit pas ressembler à une attaque, et
+    // VOD Factory nous a répondu 429 le 2026-08-10 pour moins que ça.
+    for (let i = 0; i < lot.length; i += 5) {
+      const paquet = await Promise.all(lot.slice(i, i + 5).map(async (e) => {
+        const debut = Date.now();
+        try {
+          const ctrl = new AbortController();
+          const to = setTimeout(() => ctrl.abort(), 12000);
+          const r = await fetch(acces.baseUrl + e.path, { method: 'GET', headers: acces.headers, signal: ctrl.signal });
+          clearTimeout(to);
+          const ms = Date.now() - debut;
+          let nb = null;
+          // Uniquement sur une réponse réussie : compter un tableau dans un
+          // corps d'erreur produisait « 2 éléments » pour un 403, ce qui
+          // décrit le message d'erreur, pas la donnée.
+          try {
+            if (!r.ok) throw new Error('sans objet');
+            const corps = await r.json();
+            // Combien d'éléments l'API a-t-elle rendus ? La plupart des API
+            // renvoient un objet avec un unique tableau ; on le compte, faute
+            // de quoi le test dirait « joignable » sans dire « et alors ».
+            if (Array.isArray(corps)) nb = corps.length;
+            else if (corps && typeof corps === 'object') {
+              const tab = Object.values(corps).find(v => Array.isArray(v));
+              if (tab) nb = tab.length;
+            }
+          } catch (_) { /* réponse non JSON : le code HTTP suffit */ }
+          const etat = r.ok ? 'ok'
+                     : (r.status === 401 || r.status === 403) ? 'auth_error'
+                     : 'error';
+          return { id: e.id, method: 'GET', path: e.path, status: etat, statusCode: r.status, responseMs: ms, count: nb };
+        } catch (err) {
+          const expire = /abort/i.test(err.message);
+          return { id: e.id, method: 'GET', path: e.path,
+                   status: expire ? 'timeout' : 'error', statusCode: null,
+                   responseMs: Date.now() - debut, errorMessage: err.message };
+        }
+      }));
+      resultats.push(...paquet);
+    }
+
+    // Historisé dans ApiCheck, le modèle prévu pour ça et resté vide jusqu'ici.
+    if (resultats.length) {
+      await prisma.apiCheck.createMany({
+        data: resultats.map(r => ({
+          endpointId: r.id, status: r.status, statusCode: r.statusCode ?? null,
+          responseMs: r.responseMs ?? null, errorMessage: r.errorMessage || null,
+        })),
+      });
+    }
+
+    const compte = (etat) => resultats.filter(r => r.status === etat).length;
+    res.json({
+      base: acces.baseUrl, connexion: acces.nom,
+      testes: resultats.length,
+      candidats: candidats.length,
+      testablesTotal: testables.length,
+      ecartes: ecartes.slice(0, 40),
+      ecartesTotal: ecartes.length,
+      resume: { ok: compte('ok'), auth: compte('auth_error'), erreur: compte('error'), timeout: compte('timeout') },
+      resultats,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // DELETE /api/specs/:specId
 router.delete('/specs/:specId', async (req, res) => {
   try {

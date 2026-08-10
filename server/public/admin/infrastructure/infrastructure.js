@@ -95,6 +95,7 @@ function selectionner(id) {
   $('inf-url').value = '';
   vider($('inf-candidats'));
   vider($('inf-proposition'));
+  vider($('inf-test'));
   chargerSpec();
 }
 
@@ -316,6 +317,156 @@ function rendreProposition(d) {
   hote.appendChild(carte);
 }
 
+// ── Test des endpoints ───────────────────────────────────────
+// Forme reprise de l'API Check de WFD : un bandeau de synthèse d'abord — état
+// global, comptes — puis le détail ligne à ligne.
+async function tester() {
+  const btn = $('inf-btn-test');
+  const hote = $('inf-test');
+  vider(hote);
+  btn.disabled = true;
+  message('Test en cours…', 'attente');
+  try {
+    const r = await fetch('/api/specs/' + specCourante.id + '/check', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit: 25, q: filtreCourant || undefined }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    message('', '');
+    rendreTest(d, hote);
+  } catch (e) {
+    message('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function rendreTest(d, hote) {
+  const res = d.resume;
+  const etat = res.ok === d.testes ? 'ok' : res.ok === 0 ? 'ko' : 'mixte';
+
+  const bandeau = document.createElement('div');
+  bandeau.className = 'inf-bandeau';
+  bandeau.dataset.etat = etat;
+
+  const ico = document.createElement('span');
+  ico.className = 'inf-bandeau-icone';
+  ico.textContent = etat === 'ok' ? '✅' : etat === 'ko' ? '❌' : '⚠️';
+  bandeau.appendChild(ico);
+
+  const bloc = document.createElement('div');
+  const t = document.createElement('div');
+  t.className = 'inf-bandeau-titre';
+  t.textContent = res.ok + ' joignable(s) sur ' + d.testes + ' testée(s)'
+    + (res.auth ? ' · ' + res.auth + ' refus d\'accès' : '')
+    + (res.erreur ? ' · ' + res.erreur + ' en erreur' : '')
+    + (res.timeout ? ' · ' + res.timeout + ' hors délai' : '');
+  bloc.appendChild(t);
+
+  const dt = document.createElement('div');
+  dt.className = 'inf-bandeau-detail';
+  dt.textContent = d.base + ' via « ' + d.connexion + ' » — '
+    + d.testablesTotal + ' opération(s) testables sur ' + d.candidats + ' GET, '
+    + d.ecartesTotal + ' écartée(s) faute de paramètres.';
+  bloc.appendChild(dt);
+  bandeau.appendChild(bloc);
+  hote.appendChild(bandeau);
+
+  d.resultats.forEach(function (x) {
+    const l = document.createElement('div');
+    l.className = 'inf-res';
+
+    const e = document.createElement('span');
+    e.className = 'inf-res-etat';
+    e.dataset.etat = x.status;
+    e.textContent = { ok: '✅ ok', auth_error: '⚠️ refusé', error: '❌ erreur', timeout: '⏱ délai' }[x.status] || x.status;
+    l.appendChild(e);
+
+    const c = document.createElement('span');
+    c.className = 'inf-res-note';
+    c.textContent = x.statusCode == null ? '—' : String(x.statusCode);
+    l.appendChild(c);
+
+    const ms = document.createElement('span');
+    ms.className = 'inf-res-note';
+    ms.textContent = x.responseMs + ' ms';
+    l.appendChild(ms);
+
+    const p = document.createElement('span');
+    p.className = 'inf-res-chemin';
+    p.textContent = x.path + (x.count != null ? '  · ' + x.count + ' élément(s)' : '');
+    l.appendChild(p);
+
+    hote.appendChild(l);
+  });
+}
+
+// ── Exports ──────────────────────────────────────────────────
+function exporterJson() {
+  // Passe par le serveur : il détient la spec entière, le navigateur n'en a
+  // que la liste des opérations.
+  window.location.href = '/api/specs/' + specCourante.id + '/export';
+}
+
+// Document imprimable : toutes les opérations, pas seulement celles affichées.
+async function exporterHtml() {
+  const btn = $('inf-btn-export-html');
+  btn.disabled = true;
+  try {
+    const d = await (await fetch('/api/specs/' + specCourante.id + '/endpoints?limit=1000')).json();
+    const w = window.open('', '_blank');
+    if (!w) { message('❌ La fenêtre a été bloquée par le navigateur.', 'error'); return; }
+
+    const doc = w.document;
+    doc.title = specCourante.name + ' — opérations';
+    const style = doc.createElement('style');
+    style.textContent = 'body{font-family:system-ui,sans-serif;margin:24px;color:#111}'
+      + 'h1{font-size:18px;margin:0 0 4px}.meta{color:#666;font-size:12px;margin-bottom:18px}'
+      + 'table{border-collapse:collapse;width:100%;font-size:11.5px}'
+      + 'th,td{border-bottom:1px solid #ddd;padding:4px 6px;text-align:left;vertical-align:top}'
+      + 'th{background:#f4f4f4}td.m{font-family:ui-monospace,Menlo,monospace;white-space:nowrap}'
+      + '@media print{body{margin:8mm}thead{display:table-header-group}}';
+    doc.head.appendChild(style);
+
+    const h = doc.createElement('h1');
+    h.textContent = specCourante.name;
+    doc.body.appendChild(h);
+
+    const meta = doc.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = (specCourante.format || '') + ' ' + (specCourante.version || '')
+      + ' — ' + d.total + ' opérations — base ' + (specCourante.baseUrl || '—')
+      + ' — édité le ' + new Date().toLocaleString('fr-FR');
+    doc.body.appendChild(meta);
+
+    const tbl = doc.createElement('table');
+    const thead = doc.createElement('thead');
+    const tr = doc.createElement('tr');
+    ['Méthode', 'Chemin', 'Résumé'].forEach(function (x) {
+      const th = doc.createElement('th'); th.textContent = x; tr.appendChild(th);
+    });
+    thead.appendChild(tr); tbl.appendChild(thead);
+
+    const tb = doc.createElement('tbody');
+    d.endpoints.forEach(function (op) {
+      const r = doc.createElement('tr');
+      const a = doc.createElement('td'); a.className = 'm'; a.textContent = op.method;
+      const b = doc.createElement('td'); b.className = 'm'; b.textContent = op.path;
+      const c = doc.createElement('td'); c.textContent = (op.summary && op.summary.fr) || '';
+      r.appendChild(a); r.appendChild(b); r.appendChild(c);
+      tb.appendChild(r);
+    });
+    tbl.appendChild(tb);
+    doc.body.appendChild(tbl);
+    w.focus();
+  } catch (e) {
+    message('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ── Imports ──────────────────────────────────────────────────
 async function envoyerImport(corps, bouton) {
   bouton.disabled = true;
@@ -373,6 +524,9 @@ async function supprimerSpec() {
 $('inf-btn-url').onclick      = importerUrl;
 $('inf-btn-chercher').onclick = chercher;
 $('inf-btn-suite').onclick    = function () { chargerOperations(filtreCourant, true); };
+$('inf-btn-test').onclick        = tester;
+$('inf-btn-export-json').onclick = exporterJson;
+$('inf-btn-export-html').onclick = exporterHtml;
 $('inf-btn-fichier').onclick = importerFichier;
 
 // Filtre différé : chaque frappe déclencherait sinon une requête sur des
