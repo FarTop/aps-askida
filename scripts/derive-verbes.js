@@ -73,12 +73,20 @@ function libelleFacade(f) {
 // JSON les perdrait en silence ; on les remplace par un marqueur et on les
 // compte. Un champ calculé est précisément ce qu'une cible déclarative ne sait
 // pas rendre : le dire est plus utile que de l'effacer.
-function transportable(v, compteur) {
+function transportable(v, compteur, cle) {
+  // `visibleSi` est le seul cas où une fonction se remplace par du SENS plutôt
+  // que par un marqueur : on l'a lue, on dépose ses termes. C'est ce qui permet
+  // à l'émetteur de lire `NodeDefinition` sans jamais rouvrir le code.
+  if (typeof v === 'function' && cle === 'visibleSi') {
+    const c = conditionDe(v);
+    return c.extractible ? { termes: c.termes, liaison: c.liaison }
+                         : { __illisible: true, source: String(v).replace(/\s+/g, ' ').slice(0, 200) };
+  }
   if (typeof v === 'function') { compteur.n++; return { __calcule: true }; }
-  if (Array.isArray(v)) return v.map(x => transportable(x, compteur));
+  if (Array.isArray(v)) return v.map(x => transportable(x, compteur, cle));
   if (v && typeof v === 'object') {
     const o = {};
-    for (const [k, x] of Object.entries(v)) o[k] = transportable(x, compteur);
+    for (const [k, x] of Object.entries(v)) o[k] = transportable(x, compteur, k);
     return o;
   }
   return v;
@@ -155,11 +163,11 @@ function entreesDe(core, facade) {
   descripteurs.forEach(d => voir(d, null));
 
   const compteur = { n: 0 };
-  const champs = transportable(descripteurs, compteur);
+  const champs = transportable(descripteurs, compteur, null);
   // `calcules` ne compte plus les `visibleSi` : ce sont deux problèmes
   // distincts, et les mélanger gonflait le chiffre de 50 sur 73.
   return { champs, conditions,
-           calcules: compteur.n - conditions.length,
+           calcules: compteur.n,
            conditionnels: conditions.length,
            conditionsExtractibles: conditions.filter(c => c.extractible).length };
 }
