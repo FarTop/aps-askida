@@ -641,6 +641,21 @@ router.post('/specs/:specId/check', async (req, res) => {
       });
     }
 
+    // Quelles valeurs manquent, et pour combien d'opérations. Dire « 24
+    // écartées » sans dire lesquelles ajouter laisse l'utilisateur devant une
+    // impasse : c'est le nom du paramètre qui débloque, pas le décompte.
+    const manquants = {};
+    ecartes.forEach(e => {
+      const m = /valeur absente du contexte : (.+)$/.exec(e.raison);
+      if (!m) return;
+      m[1].split(',').map(x => x.trim()).filter(Boolean)
+          .forEach(nom => { manquants[nom] = (manquants[nom] || 0) + 1; });
+    });
+    const aAjouter = Object.entries(manquants)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([nom, n]) => ({ nom, operations: n }));
+
     const compte = (etat) => resultats.filter(r => r.status === etat).length;
     res.json({
       base: acces.baseUrl, connexion: acces.nom,
@@ -650,6 +665,7 @@ router.post('/specs/:specId/check', async (req, res) => {
       ecartes: ecartes.slice(0, 40),
       ecartesTotal: ecartes.length,
       contexte: Object.keys(ctx),
+      aAjouter,
       resume: { ok: compte('ok'), auth: compte('auth_error'), erreur: compte('error'), timeout: compte('timeout') },
       resultats,
     });

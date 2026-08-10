@@ -208,6 +208,7 @@ body {
 .inf-bandeau[data-etat="ok"]    { border-color: #7ddc8f; background: rgba(125,220,143,.07); }
 .inf-bandeau[data-etat="mixte"] { border-color: #f0b429; background: rgba(240,180,41,.07); }
 .inf-bandeau[data-etat="ko"]    { border-color: #e88;    background: rgba(231,76,60,.07); }
+.inf-bandeau[data-etat="rien"]  { border-color: var(--inf-bord); background: transparent; }
 .inf-bandeau-icone { font-size: 22px; }
 .inf-bandeau-titre { font-size: 12.5px; font-weight: 700; }
 .inf-bandeau-detail { font-size: 11px; color: var(--inf-attenue); margin-top: 2px; }

@@ -397,7 +397,12 @@ async function tester() {
 
 function rendreTest(d, hote) {
   const res = d.resume;
-  const etat = res.ok === d.testes ? 'ok' : res.ok === 0 ? 'ko' : 'mixte';
+  // `res.ok === d.testes` valait vrai quand les deux étaient à zéro : un test
+  // qui n'a rien pu appeler s'affichait en vert « tout va bien ». Rien testé
+  // est un état à part, ni réussite ni échec.
+  const etat = d.testes === 0 ? 'rien'
+             : res.ok === d.testes ? 'ok'
+             : res.ok === 0 ? 'ko' : 'mixte';
 
   const bandeau = document.createElement('div');
   bandeau.className = 'inf-bandeau';
@@ -405,16 +410,18 @@ function rendreTest(d, hote) {
 
   const ico = document.createElement('span');
   ico.className = 'inf-bandeau-icone';
-  ico.textContent = etat === 'ok' ? '✅' : etat === 'ko' ? '❌' : '⚠️';
+  ico.textContent = { ok: '✅', ko: '❌', rien: 'ℹ️' }[etat] || '⚠️';
   bandeau.appendChild(ico);
 
   const bloc = document.createElement('div');
   const t = document.createElement('div');
   t.className = 'inf-bandeau-titre';
-  t.textContent = res.ok + ' joignable(s) sur ' + d.testes + ' testée(s)'
-    + (res.auth ? ' · ' + res.auth + ' refus d\'accès' : '')
-    + (res.erreur ? ' · ' + res.erreur + ' en erreur' : '')
-    + (res.timeout ? ' · ' + res.timeout + ' hors délai' : '');
+  t.textContent = etat === 'rien'
+    ? 'Aucune opération testable — rien n\'a été appelé'
+    : res.ok + ' joignable(s) sur ' + d.testes + ' testée(s)'
+      + (res.auth ? ' · ' + res.auth + ' refus d\'accès' : '')
+      + (res.erreur ? ' · ' + res.erreur + ' en erreur' : '')
+      + (res.timeout ? ' · ' + res.timeout + ' hors délai' : '');
   bloc.appendChild(t);
 
   const dt = document.createElement('div');
@@ -424,6 +431,16 @@ function rendreTest(d, hote) {
     + d.ecartesTotal + ' écartée(s) faute de valeurs'
     + (d.contexte && d.contexte.length ? ' — contexte : ' + d.contexte.join(', ') : ' — aucun contexte de test défini') + '.';
   bloc.appendChild(dt);
+  // Quelles valeurs ajouter pour débloquer, et combien d'opérations chacune
+  // débloque. Sans ça, « 24 écartées » est une impasse.
+  if (d.aAjouter && d.aAjouter.length) {
+    const sug = document.createElement('div');
+    sug.className = 'inf-bandeau-detail';
+    sug.textContent = 'À ajouter au contexte pour aller plus loin : '
+      + d.aAjouter.map(function (x) { return x.nom + ' (' + x.operations + ')'; }).join(' · ');
+    bloc.appendChild(sug);
+  }
+
   bandeau.appendChild(bloc);
   hote.appendChild(bandeau);
 
