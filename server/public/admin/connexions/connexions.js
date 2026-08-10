@@ -165,6 +165,10 @@ function rendreChampsPlateforme(valeurs) {
   aide.textContent = spec.baseUrlPattern
     ? 'URL de base déduite : ' + spec.baseUrlPattern + ' — laissez le champ URL vide pour l\'utiliser.'
     : '';
+  // Le champ URL gardait le repère « https://app.iconik.io » quel que soit
+  // l'outil choisi, ce qui désignait la mauvaise plateforme.
+  const url = document.getElementById('f-baseurl');
+  if (url && spec.baseUrlPattern) url.placeholder = spec.baseUrlPattern;
 
   (spec.fields || []).forEach(function (f) {
     const bloc = document.createElement('div');
@@ -206,7 +210,25 @@ function valeursDesChampsPlateforme() {
 }
 
 // ── Changements de type/auth ─────────────────────────────────
+// Quand un schéma de plateforme pilote le formulaire, ces deux fonctions ne
+// doivent RIEN afficher : leurs champs feraient doublon avec ceux du schéma.
+// Elles posaient un `style.display` en ligne, qui l'emporte sur la feuille de
+// style — d'où l'ancien champ « Auth Token » resté visible sous les champs de
+// Make. On efface l'inline et on laisse le CSS décider (convention du dépôt :
+// la visibilité se pilote par data-*, pas par style.display).
+function modePlateforme() {
+  return document.getElementById('side-panel').dataset.mode === 'plateforme';
+}
+
+function libererInline(ids) {
+  ids.forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) el.style.removeProperty('display');
+  });
+}
+
 function onTypeChange() {
+  if (modePlateforme()) { libererInline(['fields-iconik', 'fields-aws']); return; }
   const type = document.getElementById('f-type').value;
   document.getElementById('fields-iconik').style.display = type === 'iconik'  ? 'block' : 'none';
   document.getElementById('fields-aws').style.display    = type === 'aws_s3'  ? 'block' : 'none';
@@ -216,6 +238,7 @@ function onTypeChange() {
 }
 
 function onAuthChange() {
+  if (modePlateforme()) { libererInline(['field-authvalue', 'field-authtype']); return; }
   const auth = document.getElementById('f-authtype').value;
   const show = ['bearer', 'apikey_header', 'iconik'].includes(auth);
   document.getElementById('field-authvalue').style.display = show ? 'flex' : 'none';
@@ -304,7 +327,13 @@ document.getElementById('overlay').onclick         = fermerPanel;
 document.getElementById('search').oninput          = filtrer;
 document.getElementById('filter-type').onchange    = filtrer;
 document.getElementById('filter-dir').onchange     = filtrer;
-document.getElementById('f-platform').onchange     = function () { rendreChampsPlateforme(null); };
+document.getElementById('f-platform').onchange     = function () {
+  rendreChampsPlateforme(null);
+  // Repasser de « Make » à « aucun outil » doit rendre au formulaire ses
+  // champs d'origine : c'est onTypeChange/onAuthChange qui les repositionnent.
+  onTypeChange();
+  onAuthChange();
+};
 
 // ── Boot ─────────────────────────────────────────────────────
 // Les plateformes AVANT les connexions : ouvrir une connexion existante doit
