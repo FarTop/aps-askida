@@ -326,8 +326,11 @@ router.get('/:id/specs', async (req, res) => {
 // ramer l'écran pour rien.
 router.get('/specs/:specId/endpoints', async (req, res) => {
   try {
-    const q     = (req.query.q || '').trim();
-    const prise = Math.min(parseInt(req.query.limit) || 200, 1000);
+    const q      = (req.query.q || '').trim();
+    const prise  = Math.min(parseInt(req.query.limit) || 200, 1000);
+    // Sans décalage, tout ce qui dépassait la première page était inatteignable
+    // autrement qu'en filtrant — une spec réelle en compte plusieurs centaines.
+    const saut   = Math.max(parseInt(req.query.offset) || 0, 0);
     const where = { specId: req.params.specId };
     if (q) {
       where.OR = [
@@ -338,11 +341,12 @@ router.get('/specs/:specId/endpoints', async (req, res) => {
     const [total, rows] = await Promise.all([
       prisma.apiEndpoint.count({ where }),
       prisma.apiEndpoint.findMany({
-        where, take: prise, orderBy: [{ path: 'asc' }, { method: 'asc' }],
+        where, take: prise, skip: saut, orderBy: [{ path: 'asc' }, { method: 'asc' }],
         select: { id: true, method: true, path: true, summary: true, apsMapping: true },
       }),
     ]);
-    res.json({ total, affiches: rows.length, endpoints: rows });
+    res.json({ total, offset: saut, affiches: rows.length,
+               restantes: Math.max(total - (saut + rows.length), 0), endpoints: rows });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -148,18 +148,31 @@ async function chargerSpec() {
   chargerOperations('');
 }
 
-async function chargerOperations(filtre) {
+// `suite` ajoute à la liste au lieu de la remplacer : c'est ce qui permet
+// d'atteindre la 201e opération et les suivantes.
+let filtreCourant = '';
+let decalage = 0;
+
+async function chargerOperations(filtre, suite) {
   const hote = $('inf-ops');
-  vider(hote);
+  if (!suite) { vider(hote); decalage = 0; filtreCourant = filtre || ''; }
   if (!specCourante) return;
+
+  const params = new URLSearchParams();
+  if (filtreCourant) params.set('q', filtreCourant);
+  if (decalage) params.set('offset', String(decalage));
   const url = '/api/specs/' + specCourante.id + '/endpoints'
-            + (filtre ? '?q=' + encodeURIComponent(filtre) : '');
+            + (params.toString() ? '?' + params.toString() : '');
   let d;
   try { d = await (await fetch(url)).json(); } catch (e) { return; }
 
-  $('inf-ops-compteur').textContent = d.affiches < d.total
-    ? d.affiches + ' affichées sur ' + d.total
-    : d.total + '';
+  decalage += d.affiches;
+  $('inf-ops-compteur').textContent = d.total + ' opération(s)'
+    + (decalage < d.total ? ' · ' + decalage + ' affichées' : '');
+
+  const btn = $('inf-btn-suite');
+  btn.hidden = d.restantes <= 0;
+  btn.textContent = 'Charger la suite (' + d.restantes + ' restantes)';
 
   d.endpoints.forEach(function (op) {
     const ligne = document.createElement('div');
@@ -359,6 +372,7 @@ async function supprimerSpec() {
 // ── Événements ───────────────────────────────────────────────
 $('inf-btn-url').onclick      = importerUrl;
 $('inf-btn-chercher').onclick = chercher;
+$('inf-btn-suite').onclick    = function () { chargerOperations(filtreCourant, true); };
 $('inf-btn-fichier').onclick = importerFichier;
 
 // Filtre différé : chaque frappe déclencherait sinon une requête sur des
