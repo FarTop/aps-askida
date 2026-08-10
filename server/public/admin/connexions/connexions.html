@@ -157,8 +157,14 @@
       </div>
 
     </div>
+    <!-- Résultat du test, au-dessus des boutons : c'est une réponse à une
+         action, elle se lit là où l'action a été déclenchée. -->
+    <div class="test-resultat" id="test-resultat" data-etat=""></div>
     <div class="side-panel-footer">
       <button class="btn ghost" id="btn-cancel" type="button">Annuler</button>
+      <!-- Tester n'a de sens que sur une connexion déjà enregistrée : la route
+           travaille à partir de son id, secret déchiffré côté serveur. -->
+      <button class="btn ghost" id="btn-test" type="button" data-visible="0">⚡ Tester</button>
       <button class="btn" id="btn-save" type="button">✓ Sauvegarder</button>
     </div>
   </aside>

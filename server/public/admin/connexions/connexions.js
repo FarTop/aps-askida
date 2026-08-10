@@ -101,6 +101,9 @@ function ouvrirPanel(conn = null) {
   onTypeChange();
   onAuthChange();
 
+  document.getElementById('btn-test').dataset.visible = editingId ? '1' : '0';
+  afficherResultatTest('', '');
+
   document.getElementById('side-panel').classList.add('open');
   document.getElementById('overlay').classList.add('open');
   document.getElementById('f-name').focus();
@@ -251,6 +254,39 @@ function toggleReveal() {
   inp.type = inp.type === 'password' ? 'text' : 'password';
 }
 
+// ── Test de connexion ────────────────────────────────────────
+// La route existe depuis longtemps (POST /api/connexions/:id/test) et n'était
+// appelée par rien. Elle valide la CONNEXION — joignabilité + poignée de main
+// d'authentification — pas un endpoint précis.
+function afficherResultatTest(texte, etat) {
+  const el = document.getElementById('test-resultat');
+  el.textContent = texte;
+  el.dataset.etat = etat || '';
+}
+
+async function tester() {
+  if (!editingId) return;
+  const btn = document.getElementById('btn-test');
+  btn.disabled = true;
+  afficherResultatTest('Test en cours…', 'attente');
+  try {
+    const r = await fetch(`${API}/${editingId}/test`, { method: 'POST' });
+    const d = await r.json();
+    // Trois issues distinctes, à ne pas confondre : joignable et authentifié,
+    // joignable mais refusé (souvent une portée de jeton), injoignable.
+    const etat = d.state === 'ok' ? 'ok'
+               : d.state === 'auth' ? 'auth'
+               : d.state === 'untestable' ? 'attente'
+               : 'error';
+    const prefixe = { ok: '✅ ', auth: '⚠️ ', attente: 'ℹ️ ', error: '❌ ' }[etat] || '';
+    afficherResultatTest(prefixe + (d.message || 'Réponse sans message'), etat);
+  } catch (e) {
+    afficherResultatTest('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ── Sauvegarde ───────────────────────────────────────────────
 async function sauvegarder() {
   const name = document.getElementById('f-name').value.trim();
@@ -323,6 +359,7 @@ document.getElementById('btn-new').onclick        = () => ouvrirPanel();
 document.getElementById('btn-close-panel').onclick = fermerPanel;
 document.getElementById('btn-cancel').onclick      = fermerPanel;
 document.getElementById('btn-save').onclick        = sauvegarder;
+document.getElementById('btn-test').onclick        = tester;
 document.getElementById('overlay').onclick         = fermerPanel;
 document.getElementById('search').oninput          = filtrer;
 document.getElementById('filter-type').onchange    = filtrer;

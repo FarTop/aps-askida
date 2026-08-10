@@ -137,7 +137,8 @@ html,body{ margin:0; background:var(--bg); color:var(--text); font-family:ui-san
 
 .side-panel[data-mode="plateforme"] #field-authtype,
 .side-panel[data-mode="plateforme"] #field-authvalue,
-.side-panel[data-mode="plateforme"] #fields-iconik { display: none; }
+.side-panel[data-mode="plateforme"] #fields-iconik,
+.side-panel[data-mode="plateforme"] #fields-aws { display: none; }
 
 .field-aide {
   margin-top: 4px;
@@ -146,3 +147,17 @@ html,body{ margin:0; background:var(--bg); color:var(--text); font-family:ui-san
   color: var(--adm-muted, #8a8f98);
 }
 .field-aide:empty { display: none; }
+
+
+/* ── Test de connexion — 2026-08-10 ───────────────────────────────────────
+   La route /api/connexions/:id/test existait depuis longtemps sans que rien
+   ne l'appelle. Elle n'a de sens que sur une connexion enregistrée, d'où le
+   bouton masqué à la création. */
+#btn-test[data-visible="0"] { display: none; }
+
+.test-resultat { margin: 0 16px 8px; font-size: 13px; line-height: 1.45; }
+.test-resultat:empty { display: none; }
+.test-resultat[data-etat="ok"]        { color: var(--ok,   #4ade80); }
+.test-resultat[data-etat="auth"]      { color: var(--warn, #fbbf24); }
+.test-resultat[data-etat="error"]     { color: var(--err,  #f87171); }
+.test-resultat[data-etat="attente"]   { color: var(--adm-muted, #8a8f98); }
