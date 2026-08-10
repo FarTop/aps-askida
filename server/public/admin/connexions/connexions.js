@@ -95,6 +95,9 @@ function ouvrirPanel(conn = null) {
   document.getElementById('f-description').value = conn?.description || '';
   document.getElementById('f-active').checked    = conn?.isActive !== false;
 
+  document.getElementById('f-platform').value = conn?.platformId || '';
+  rendreChampsPlateforme({ champs: conn?.champs || {}, secret: conn?.authValue || '' });
+
   onTypeChange();
   onAuthChange();
 
@@ -112,6 +115,94 @@ function fermerPanel() {
 function editer(id) {
   const conn = connexions.find(c => c.id === id);
   if (conn) ouvrirPanel(conn);
+}
+
+// ── Outil (Infrastructure) ───────────────────────────────────
+// Une plateforme peut déclarer COMMENT elle s'authentifie et comment son URL
+// se forme (Platform.authSpec). Le schéma appartient au produit, le secret à
+// la connexion — c'est ce partage qui évite d'allonger la liste fermée des
+// types d'authentification à chaque nouvel outil.
+let plateformes = [];
+
+async function chargerPlateformes() {
+  try {
+    const r = await fetch('/api/platforms');
+    plateformes = await r.json();
+  } catch (_) { plateformes = []; }
+  const sel = document.getElementById('f-platform');
+  plateformes.forEach(function (p) {
+    const o = document.createElement('option');
+    o.value = p.id;
+    o.textContent = (p.icon ? p.icon + ' ' : '') + p.name + (p.authSpec ? '' : ' (sans schéma)');
+    sel.appendChild(o);
+  });
+}
+
+function plateformeChoisie() {
+  const id = document.getElementById('f-platform').value;
+  return plateformes.find(function (p) { return p.id === id; }) || null;
+}
+
+// Rend les champs déclarés par le schéma. `valeurs` pré-remplit en édition :
+// les non-secrets viennent de `champs`, le secret de `authValue`.
+function rendreChampsPlateforme(valeurs) {
+  const hote  = document.getElementById('fields-plateforme');
+  const aide  = document.getElementById('platform-aide');
+  const panel = document.getElementById('side-panel');
+  while (hote.firstChild) hote.removeChild(hote.firstChild);
+
+  const p    = plateformeChoisie();
+  const spec = p && p.authSpec;
+  if (!spec) {
+    hote.dataset.visible = '0';
+    panel.removeAttribute('data-mode');
+    aide.textContent = p ? 'Cet outil ne déclare pas encore de schéma — renseignez l\'authentification à la main.' : '';
+    return;
+  }
+
+  panel.dataset.mode = 'plateforme';
+  hote.dataset.visible = '1';
+  aide.textContent = spec.baseUrlPattern
+    ? 'URL de base déduite : ' + spec.baseUrlPattern + ' — laissez le champ URL vide pour l\'utiliser.'
+    : '';
+
+  (spec.fields || []).forEach(function (f) {
+    const bloc = document.createElement('div');
+    bloc.className = 'field';
+
+    const lab = document.createElement('label');
+    lab.textContent = (f.label || f.name) + (f.required ? ' *' : '');
+    bloc.appendChild(lab);
+
+    const inp = document.createElement('input');
+    inp.type = f.secret ? 'password' : 'text';
+    inp.id = 'f-spec-' + f.name;
+    inp.dataset.champ = f.name;
+    if (f.secret) inp.dataset.secret = '1';
+    inp.placeholder = f.help || '';
+    inp.value = f.secret ? ((valeurs && valeurs.secret) || '')
+                         : (((valeurs && valeurs.champs) || {})[f.name] || '');
+    bloc.appendChild(inp);
+
+    if (f.help) {
+      const h = document.createElement('div');
+      h.className = 'field-aide';
+      h.textContent = f.help;
+      bloc.appendChild(h);
+    }
+    hote.appendChild(bloc);
+  });
+}
+
+// Ce que le formulaire renvoie quand un schéma pilote la saisie.
+function valeursDesChampsPlateforme() {
+  const champs = {};
+  let secret = null;
+  document.querySelectorAll('#fields-plateforme input[data-champ]').forEach(function (inp) {
+    if (inp.dataset.secret === '1') secret = inp.value;
+    else champs[inp.dataset.champ] = inp.value.trim();
+  });
+  return { champs: champs, secret: secret };
 }
 
 // ── Changements de type/auth ─────────────────────────────────
@@ -142,8 +233,13 @@ async function sauvegarder() {
   const name = document.getElementById('f-name').value.trim();
   if (!name) { alert('Le nom est obligatoire'); return; }
 
+  const spec  = plateformeChoisie() && plateformeChoisie().authSpec;
+  const saisi = spec ? valeursDesChampsPlateforme() : null;
+
   const payload = {
     name,
+    platformId:  document.getElementById('f-platform').value || null,
+    ...(saisi ? { champs: saisi.champs } : {}),
     type:        document.getElementById('f-type').value,
     direction:   document.getElementById('f-direction').value,
     endpoint:    document.getElementById('f-baseurl').value.trim(),
@@ -158,6 +254,8 @@ async function sauvegarder() {
         if (key || secret) return JSON.stringify({ key, secret, region, bucket });
         return '';
       }
+      // Un schéma déclaré fournit le secret ; sinon, le champ historique.
+      if (saisi && saisi.secret !== null) return saisi.secret;
       return document.getElementById('f-authvalue').value;
     })(),
     description: document.getElementById('f-description').value,
@@ -206,6 +304,9 @@ document.getElementById('overlay').onclick         = fermerPanel;
 document.getElementById('search').oninput          = filtrer;
 document.getElementById('filter-type').onchange    = filtrer;
 document.getElementById('filter-dir').onchange     = filtrer;
+document.getElementById('f-platform').onchange     = function () { rendreChampsPlateforme(null); };
 
 // ── Boot ─────────────────────────────────────────────────────
-charger();
+// Les plateformes AVANT les connexions : ouvrir une connexion existante doit
+// pouvoir retrouver son outil dans une liste déjà peuplée.
+chargerPlateformes().then(charger);

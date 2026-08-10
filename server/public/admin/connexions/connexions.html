@@ -74,6 +74,20 @@
         </select>
       </div>
 
+      <!-- Outil (Infrastructure) : la plateforme apporte son schéma
+           d'authentification et la forme de son URL. Les champs qu'elle réclame
+           s'affichent juste en dessous, et remplacent le couple
+           Authentification / Token quand un schéma est déclaré. -->
+      <div class="field">
+        <label>Outil</label>
+        <select id="f-platform">
+          <option value="">— Aucun (connexion générique) —</option>
+        </select>
+        <div class="field-aide" id="platform-aide"></div>
+      </div>
+
+      <div id="fields-plateforme" class="champs-plateforme" data-visible="0"></div>
+
       <div class="field">
         <label>Direction</label>
         <select id="f-direction">

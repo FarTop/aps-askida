@@ -126,3 +126,23 @@ html,body{ margin:0; background:var(--bg); color:var(--text); font-family:ui-san
   background:rgba(0,0,0,.5); z-index:99;
 }
 .overlay.open{ display:block; }
+
+/* ── Champs dictés par la plateforme (Infrastructure) — 2026-08-10 ─────────
+   Visibilité pilotée par data-* et non par style.display : convention du
+   dépôt (CLAUDE.md). Quand un outil déclare un schéma d'authentification,
+   ses champs remplacent le couple Authentification / Token, qui dirait la
+   même chose une seconde fois et pourrait la contredire. */
+.champs-plateforme[data-visible="0"] { display: none; }
+.champs-plateforme[data-visible="1"] { display: block; }
+
+.side-panel[data-mode="plateforme"] #field-authtype,
+.side-panel[data-mode="plateforme"] #field-authvalue,
+.side-panel[data-mode="plateforme"] #fields-iconik { display: none; }
+
+.field-aide {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--adm-muted, #8a8f98);
+}
+.field-aide:empty { display: none; }

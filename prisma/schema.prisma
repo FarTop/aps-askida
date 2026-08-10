@@ -140,6 +140,16 @@ model Platform {
   icon            String?
   version         String           @default("1.0.0")
   type            String           @default("integration") // 'integration' | 'runtime' | 'encoder' | 'ai'
+  // Comment cet outil s'authentifie et comment se forme son URL de base —
+  // propriété du PRODUIT, pas de la connexion (2026-08-10). Toutes les
+  // connexions Make du monde utilisent `Authorization: Token` ; seule la valeur
+  // du jeton et la zone changent d'un client à l'autre. Le secret reste donc
+  // dans Connexion.authValueEnc (chiffré), le SCHÉMA vit ici.
+  // Forme : { baseUrlPattern, variables[{name,label,help,required}],
+  //           auth: { kind:'header'|'basic'|'none', header, prefix, secretLabel } }
+  // Colonne ajoutée en SQL brut (migrate dev interdit tant qu'ApsCounter
+  // existe en base sans modèle — cf. reference_prisma_db_drift).
+  authSpec        Json?
   hasSandbox      Boolean          @default(false)
   sandboxUrl      String?
   isActive        Boolean          @default(true)
@@ -149,6 +159,7 @@ model Platform {
   environments    Environment[]
   organisations   OrganisationPlatform[]
   nodeDefinitions NodeDefinition[]
+  connexions      Connexion[]
 }
 
 model OrganisationPlatform {
@@ -194,6 +205,14 @@ model Connexion {
   // basculées et validées.
   orgId         String?
   organisation  Organisation? @relation(fields: [orgId], references: [id])
+  // Quel OUTIL est au bout (2026-08-10). `type` décrivait à la fois le produit
+  // ('iconik') et le protocole ('http') ; y ajouter 'make', puis 'wildmoka',
+  // puis 'tornado' aurait allongé une liste fermée à chaque intégration. Le
+  // lien vers Platform apporte à la place le schéma d'authentification et la
+  // forme de l'URL (Platform.authSpec), et laisse `type` au protocole.
+  // Nullable : les connexions antérieures n'en ont pas et fonctionnent comme avant.
+  platformId    String?
+  platform      Platform?   @relation(fields: [platformId], references: [id], onDelete: SetNull)
   name          String
   type          String      // 'iconik' | 'aws_s3' | 'http' | 'listener'
   direction     String      @default("outbound")
@@ -207,6 +226,7 @@ model Connexion {
   updatedAt     DateTime    @updatedAt
 
   @@unique([envId, name])
+  @@index([platformId])
 }
 
 model Flow {

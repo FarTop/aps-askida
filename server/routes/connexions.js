@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma  = new PrismaClient({ adapter });
 
+const Acces = require('../lib/connexion-acces.js');
 const { getOrgContext } = require('../lib/org-context');
 
 // Org de la requête (contexte : cookie/header X-Org-Id, sinon repli première
@@ -47,6 +48,11 @@ function fmt(c) {
     authValue: decrypt(c.authValueEnc),
     mappings: c.extraConfig?.mappings || [],
     description: c.extraConfig?.description || '',
+    // Quel outil est au bout, et les valeurs non secrètes que son schéma
+    // réclame (zone Make, App ID Iconik…). Le secret reste dans `authValue`,
+    // déchiffré comme avant — même exposition qu'auparavant, pas davantage.
+    platformId: c.platformId || null,
+    champs: c.extraConfig?.champs || {},
     isActive: c.isActive,
   };
 }
@@ -103,21 +109,42 @@ router.post('/', async (req, res) => {
       return res.json({ ok: true, count: results.length, errors: errors.length ? errors : undefined });
     }
 
-    const { id, name, type, direction, authType, authValue, mappings, description } = req.body;
+    const { id, name, type, direction, authType, authValue, platformId } = req.body;
     const endpoint = (req.body.endpoint || '').replace(/^\/+/, ''); // retirer les slashes parasites en début d'URL
+    const actuel = id ? await prisma.connexion.findUnique({ where: { id } }) : null;
+    const extra  = _fusionnerExtra(actuel && actuel.extraConfig, req.body);
     const conn = await prisma.connexion.upsert({
       where:  { id: id || '' },
-      update: { name, type: type || 'listener', direction: direction || 'inbound', baseUrl: endpoint, authType, authValueEnc: authValue ? encrypt(authValue) : null, extraConfig: { mappings: mappings || [], description: description || '' } },
-      create: { id, envId, orgId, name, type: type || 'listener', direction: direction || 'inbound', baseUrl: endpoint, authType, authValueEnc: authValue ? encrypt(authValue) : null, extraConfig: { mappings: mappings || [], description: description || '' } },
+      update: { name, type: type || 'listener', direction: direction || 'inbound', baseUrl: endpoint, authType,
+                platformId: platformId || null,
+                authValueEnc: authValue ? encrypt(authValue) : (actuel ? actuel.authValueEnc : null),
+                extraConfig: extra },
+      create: { id, envId, orgId, name, type: type || 'listener', direction: direction || 'inbound', baseUrl: endpoint, authType,
+                platformId: platformId || null,
+                authValueEnc: authValue ? encrypt(authValue) : null,
+                extraConfig: extra },
     });
     res.status(201).json(fmt(conn));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// `extraConfig` était réécrit en entier à chaque enregistrement
+// (`{mappings, description}`), ce qui effaçait silencieusement tout le reste.
+// On FUSIONNE désormais avec l'existant, et `champs` porte les valeurs non
+// secrètes réclamées par le schéma de la plateforme (zone Make, App ID
+// Iconik…) — le secret, lui, continue d'aller dans authValueEnc, chiffré.
+function _fusionnerExtra(actuel, corps) {
+  const base = (actuel && typeof actuel === 'object') ? { ...actuel } : {};
+  if (corps.mappings    !== undefined) base.mappings    = corps.mappings || [];
+  if (corps.description !== undefined) base.description = corps.description || '';
+  if (corps.champs      !== undefined) base.champs      = { ...(base.champs || {}), ...(corps.champs || {}) };
+  return base;
+}
+
 // PUT /api/connexions/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { name, type, direction, authType, authValue, mappings, description, isActive } = req.body;
+    const { name, type, direction, authType, authValue, isActive, platformId } = req.body;
     const endpoint = (req.body.endpoint || '').replace(/^\/+/, ''); // retirer les slashes parasites en début d'URL
     const current = await prisma.connexion.findUnique({ where: { id: req.params.id } });
     if (!current) return res.status(404).json({ error: 'Non trouvé' });
@@ -126,8 +153,9 @@ router.put('/:id', async (req, res) => {
       data: {
         name, type: type || current.type, direction: direction || current.direction,
         baseUrl: endpoint, authType,
+        platformId: platformId !== undefined ? (platformId || null) : current.platformId,
         authValueEnc: authValue ? encrypt(authValue) : current.authValueEnc,
-        extraConfig: { mappings: mappings || [], description: description || '' },
+        extraConfig: _fusionnerExtra(current.extraConfig, req.body),
         isActive,
       },
     });
@@ -154,30 +182,31 @@ router.delete('/:id', async (req, res) => {
 // / futur API Builder). aws_s3 non testable par handshake HTTP -> neutre.
 router.post('/:id/test', async (req, res) => {
   try {
-    const c = await prisma.connexion.findUnique({ where: { id: req.params.id } });
+    const c = await prisma.connexion.findUnique({ where: { id: req.params.id }, include: { platform: true } });
     if (!c) return res.status(404).json({ ok: false, message: 'Non trouvé' });
     if (c.isActive === false) return res.json({ ok: false, state: 'inactive', message: 'Connexion inactive' });
-    if (!c.baseUrl) return res.json({ ok: false, state: 'error', message: 'Aucune URL de base à tester' });
     if (c.authType === 'aws_s3') {
       return res.json({ ok: null, state: 'untestable', message: 'Type S3 : test non couvert par le handshake HTTP' });
     }
 
-    // En-têtes : comme WFD (Content-Type + auth selon type).
-    const headers = { 'Content-Type': 'application/json' };
-    const secret = c.authValueEnc ? decrypt(c.authValueEnc) : null;
-    if (secret) {
-      if (c.authType === 'bearer' || c.authType === 'token') headers['Authorization'] = 'Bearer ' + secret;
-      else if (c.authType === 'apikey_header' || c.authType === 'apikey') headers['X-API-Key'] = secret;
-      else if (c.authType === 'basic') headers['Authorization'] = 'Basic ' + secret;
-      else headers['Authorization'] = secret;
+    // Depuis le 2026-08-10 : quand la connexion pointe vers une plateforme qui
+    // déclare un schéma (Platform.authSpec), l'URL et les en-têtes en découlent.
+    // Sinon, repli exact sur l'ancien comportement — aucune connexion existante
+    // ne change de façon d'être testée.
+    const authSpec = c.platform && c.platform.authSpec;
+    const manquants = authSpec ? Acces.champsManquants({ ...c, authValue: c.authValueEnc ? decrypt(c.authValueEnc) : '' }, authSpec) : [];
+    if (manquants.length) {
+      return res.json({ ok: false, state: 'error',
+        message: 'Champs requis non renseignés : ' + manquants.join(', ') });
     }
-    // Headers fixes stockés sur la connexion (comme WFD lit ceux du formulaire).
-    const extra = (c.extraConfig && c.extraConfig.headers) || [];
-    if (Array.isArray(extra)) {
-      extra.forEach(function (h) { if (h && h.key) headers[h.key] = h.value || ''; });
-    }
-
-    const base = String(c.baseUrl).replace(/\/+$/, '');
+    const calcul = Acces.acces({
+      baseUrl: c.baseUrl, authType: c.authType, extraConfig: c.extraConfig,
+      authValue: c.authValueEnc ? decrypt(c.authValueEnc) : null,
+      headers: (c.extraConfig && c.extraConfig.headers) || [],
+    }, authSpec);
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, calcul.headers);
+    const base = calcul.baseUrl;
+    if (!base) return res.json({ ok: false, state: 'error', message: 'Aucune URL de base à tester' });
     // Endpoints de test connus, repli sur '/'. Le premier qui repond (< 500)
     // suffit a prouver la joignabilite.
     const endpoints = (c.extraConfig && c.extraConfig.testPath)
