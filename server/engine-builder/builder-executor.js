@@ -176,39 +176,61 @@ async function runLoop(step, ctx, opts) {
   try {
     for (let i = 0; i < items.length; i++) {
       const raw = items[i];
-      BuilderContext.scopedSetVar(ctx, loopVar, typeof raw === 'string' ? raw : JSON.stringify(raw));
-      BuilderContext.scopedSetVar(ctx, loopVar + '_index', String(i));
 
-      const aplatir = (valeur, prefixe, profondeur) => {
-        if (profondeur > MAX_PROFONDEUR) return;
-        if (Array.isArray(valeur)) {
-          valeur.forEach((v, idx) => aplatir(v, prefixe + '.' + idx, profondeur + 1));
-          return;
-        }
-        if (valeur && typeof valeur === 'object') {
-          Object.entries(valeur).forEach(([k, v]) => aplatir(v, prefixe + '.' + k, profondeur + 1));
-          return;
-        }
-        if (valeur !== null && valeur !== undefined) {
-          BuilderContext.scopedSetVar(ctx, prefixe, String(valeur));
-        }
-      };
-      if (raw && typeof raw === 'object') {
-        Object.entries(raw).forEach(([k, v]) => aplatir(v, loopVar + '.' + k, 1));
-      }
+      // Un scope PAR ITÉRATION, imbriqué dans celui de la boucle (2026-08-10).
+      // Sans lui, l'aplatissement ci-dessous n'écrit que les champs que l'item
+      // POSSÈDE : un item auquel il manque un champ que le précédent avait
+      // héritait silencieusement de la valeur du tour d'avant.
+      //
+      // Constaté en conditions réelles sur STATUSES : une collection sans
+      // BayardID a pris celui de la collection traitée juste avant, APS a
+      // interrogé le partenaire sur le mauvais contenu, reçu une réponse
+      // plausible, et l'a écrite dans l'historique de la mauvaise collection —
+      // sans lever d'erreur. Toute boucle dont les items ont des formes
+      // hétérogènes (un seul champ optionnel suffit) était exposée.
+      //
+      // Ne purge QUE ce que le mécanisme d'itération a écrit : `scopedSetVar`
+      // n'est utilisé que pour `loopVar`, `loopVar_index` et les champs
+      // aplatis. Ce qu'une étape du corps écrit passe par `setVar` ordinaire et
+      // survit d'un tour à l'autre — les accumulateurs continuent de marcher.
+      BuilderContext.pushLoopScope(ctx);
+      try {
+        BuilderContext.scopedSetVar(ctx, loopVar, typeof raw === 'string' ? raw : JSON.stringify(raw));
+        BuilderContext.scopedSetVar(ctx, loopVar + '_index', String(i));
 
-      await runScope(body.steps || [], body.edges || [], ctx, opts);
-
-      if (ctx.status === 'failed') {
-        const lastErr = ctx.errors[ctx.errors.length - 1]?.message || 'Erreur inconnue';
-        itemErrors.push({ index: i, item: raw, message: lastErr });
-
-        if (loopOnError === 'stop') {
-          return null; // branche morte — aucune arête ne porte le port `null`
+        const aplatir = (valeur, prefixe, profondeur) => {
+          if (profondeur > MAX_PROFONDEUR) return;
+          if (Array.isArray(valeur)) {
+            valeur.forEach((v, idx) => aplatir(v, prefixe + '.' + idx, profondeur + 1));
+            return;
+          }
+          if (valeur && typeof valeur === 'object') {
+            Object.entries(valeur).forEach(([k, v]) => aplatir(v, prefixe + '.' + k, profondeur + 1));
+            return;
+          }
+          if (valeur !== null && valeur !== undefined) {
+            BuilderContext.scopedSetVar(ctx, prefixe, String(valeur));
+          }
+        };
+        if (raw && typeof raw === 'object') {
+          Object.entries(raw).forEach(([k, v]) => aplatir(v, loopVar + '.' + k, 1));
         }
-        // 'continue_log' / 'continue' : l'échec de CET item ne stoppe pas les
-        // suivants — on relève le statut pour poursuivre l'itération.
-        ctx.status = 'running';
+
+        await runScope(body.steps || [], body.edges || [], ctx, opts);
+
+        if (ctx.status === 'failed') {
+          const lastErr = ctx.errors[ctx.errors.length - 1]?.message || 'Erreur inconnue';
+          itemErrors.push({ index: i, item: raw, message: lastErr });
+
+          if (loopOnError === 'stop') {
+            return null; // branche morte — aucune arête ne porte le port `null`
+          }
+          // 'continue_log' / 'continue' : l'échec de CET item ne stoppe pas les
+          // suivants — on relève le statut pour poursuivre l'itération.
+          ctx.status = 'running';
+        }
+      } finally {
+        BuilderContext.popLoopScope(ctx);
       }
     }
   } finally {
