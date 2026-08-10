@@ -42,12 +42,16 @@ function _extraireReponse(texte) {
 }
 
 async function _appeler(url, entetes, corps, sessionId) {
-  const h = Object.assign({
+  // Les en-têtes de la connexion d'ABORD, ceux du protocole ENSUITE : ils ne
+  // sont pas négociables. `connexion-acces.js` pose un `Accept:
+  // application/json` par défaut qui, appliqué en dernier, écrasait l'Accept
+  // double — et Make répondait « Client must accept both application/json and
+  // text/event-stream ». Le serveur avait raison, c'est le client qui mentait.
+  const h = Object.assign({}, entetes || {}, {
     'Content-Type': 'application/json',
-    // Les deux, sans quoi un serveur en transport streamable refuse.
     'Accept': 'application/json, text/event-stream',
     'MCP-Protocol-Version': VERSION_PROTOCOLE,
-  }, entetes || {});
+  });
   if (sessionId) h['Mcp-Session-Id'] = sessionId;
 
   const ctrl = new AbortController();
