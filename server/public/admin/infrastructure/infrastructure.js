@@ -108,11 +108,18 @@ async function chargerSpec() {
   specCourante = null;
   $('inf-bloc-ops').hidden = true;
 
-  let specs = [];
+  let toutes = [];
   try {
     const r = await fetch('/api/platforms/' + choisie.id + '/specs');
-    specs = await r.json();
-  } catch (_) { specs = []; }
+    toutes = await r.json();
+  } catch (_) { toutes = []; }
+
+  // Chaque onglet montre SES entrées. Sans ce filtre, les opérations de l'API
+  // s'affichaient aussi sous l'onglet MCP — les deux canaux partageant les
+  // mêmes tables, la liste ne savait pas de qui elle parlait.
+  const specs = toutes.filter(function (x) {
+    return canal === 'mcp' ? x.format === 'mcp' : x.format !== 'mcp';
+  });
 
   if (!specs.length) {
     const p = document.createElement('div');
@@ -147,8 +154,13 @@ async function chargerSpec() {
   sup.onclick = supprimerSpec;
   etat.appendChild(sup);
 
+  const enMcp = canal === 'mcp';
   $('inf-bloc-ops').hidden = false;
-  chargerContexte();
+  $('inf-ops-titre').textContent = enMcp ? 'Outils' : 'Opérations';
+  // Le client MCP ne sait que lire : appeler un outil écrirait chez le tiers.
+  // Tant que `tools/call` n'est pas offert, ces commandes n'ont pas d'objet.
+  $('inf-bloc-test-ops').hidden = enMcp;
+  if (!enMcp) chargerContexte();
   chargerOperations('');
 }
 
@@ -355,7 +367,9 @@ function basculer(vers) {
   $('inf-onglet-mcp').dataset.actif = vers === 'mcp' ? '1' : '0';
   $('inf-bloc-api').hidden = vers !== 'api';
   $('inf-bloc-mcp').hidden = vers !== 'mcp';
+  vider($('inf-test'));
   if (vers === 'mcp') chargerMcp();
+  chargerSpec();
 }
 
 function messageMcp(texte, etat) {
@@ -400,7 +414,7 @@ async function interrogerMcp() {
     messageMcp('✅ ' + d.nbOutils + ' outil(s) annoncé(s) par ' + (d.serveur && d.serveur.name ? d.serveur.name : 'le serveur')
       + (d.remplace ? ' (inventaire précédent remplacé)' : ''), 'ok');
     await chargerMcp();
-    await chargerSpec();
+    await chargerSpec();   // recharge la liste des outils du canal MCP
   } catch (e) {
     messageMcp('❌ ' + e.message, 'error');
   } finally { btn.disabled = false; }

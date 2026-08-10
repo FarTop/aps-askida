@@ -121,8 +121,9 @@
         <!-- ── Opérations ── -->
         <div class="inf-bloc" id="inf-bloc-ops" hidden>
           <div class="inf-bloc-titre">
-            Opérations <span class="inf-compteur" id="inf-ops-compteur"></span>
+            <span id="inf-ops-titre">Opérations</span> <span class="inf-compteur" id="inf-ops-compteur"></span>
           </div>
+          <div id="inf-bloc-test-ops">
           <details class="inf-contexte">
             <summary>Contexte de test</summary>
             <div class="inf-aide">
@@ -145,6 +146,7 @@
             <button class="inf-btn" id="inf-btn-export-html" type="button">📑 Imprimer / HTML</button>
           </div>
           <div class="inf-test" id="inf-test"></div>
+          </div>
           <div class="inf-aide">
             Une opération décrit un <strong>appel HTTP</strong>. Une façade APS décrit un
             <strong>verbe métier</strong>, qui vaut parfois plusieurs appels. Ce qu'on retient
