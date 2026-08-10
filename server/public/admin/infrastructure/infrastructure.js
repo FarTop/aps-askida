@@ -93,16 +93,24 @@ function selectionner(id) {
 
   message('', '');
   messageMcp('', '');
-  basculer('api');
   $('inf-url').value = '';
   vider($('inf-candidats'));
   vider($('inf-proposition'));
   vider($('inf-test'));
-  chargerSpec();
+  // `basculer` charge déjà la spécification du canal. L'appeler une seconde
+  // fois lançait deux rendus concurrents : chacun vidait puis remplissait, et
+  // la fiche s'affichait en double jusqu'au changement d'onglet.
+  basculer('api');
 }
 
 // ── Spécification de l'outil choisi ──────────────────────────
+// Jeton de rendu : si un second chargement démarre pendant qu'un premier
+// attend sa réponse, seul le dernier a le droit d'écrire. Sans ça, deux
+// rendus concurrents s'ajoutent l'un à l'autre au lieu de se remplacer.
+let rendu = 0;
+
 async function chargerSpec() {
+  const monRendu = ++rendu;
   const etat = $('inf-spec-etat');
   vider(etat);
   specCourante = null;
@@ -117,6 +125,8 @@ async function chargerSpec() {
   // Chaque onglet montre SES entrées. Sans ce filtre, les opérations de l'API
   // s'affichaient aussi sous l'onglet MCP — les deux canaux partageant les
   // mêmes tables, la liste ne savait pas de qui elle parlait.
+  if (monRendu !== rendu) return;   // un chargement plus récent a pris la main
+
   const specs = toutes.filter(function (x) {
     return canal === 'mcp' ? x.format === 'mcp' : x.format !== 'mcp';
   });

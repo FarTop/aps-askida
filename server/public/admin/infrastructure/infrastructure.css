@@ -257,3 +257,11 @@ body {
 }
 .inf-onglet:hover { color: var(--inf-texte); }
 .inf-onglet[data-actif="1"] { color: var(--inf-accent); border-bottom-color: var(--inf-accent); }
+
+/* Sans chasse fixe, « llms.txt » se lit « 11ms.txt » — les l minuscules et les
+   chiffres 1 sont indiscernables dans la police d'interface. */
+.inf-aide code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .95em; padding: 1px 4px; border-radius: 4px;
+  background: var(--inf-fond); border: 1px solid var(--inf-bord);
+}
