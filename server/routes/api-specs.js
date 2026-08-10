@@ -559,6 +559,90 @@ router.put('/endpoints/:endpointId/mapping', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── MCP : l'autre canal d'acquisition ────────────────────────────
+// Même question que l'onglet API — qu'est-ce que cet outil sait faire ? — posée
+// à un serveur MCP. La découverte étant dans le protocole, il n'y a ni URL de
+// spec à chercher ni format à reconnaître : on se connecte, il répond.
+//
+// Les outils sont rangés dans les MÊMES tables que les opérations d'API
+// (`ApiSpec` de format `mcp`, une ligne `ApiEndpoint` par outil). C'est un
+// léger abus — un outil MCP n'est pas un endpoint HTTP — mais les champs
+// coïncident (nom, description, schéma d'entrée) et tout ce qui est déjà bâti
+// autour suit : liste paginée, filtre, marquage, export.
+async function accesMcpDe(platformId) {
+  const conn = await prisma.connexion.findFirst({
+    where: { platformId, isActive: true, type: 'mcp' },
+    include: { platform: true },
+  });
+  if (!conn) return null;
+  const { decrypt } = require('../lib/crypto.js');
+  const Acces = require('../lib/connexion-acces.js');
+  const calcul = Acces.acces({
+    baseUrl: conn.baseUrl, authType: conn.authType, extraConfig: conn.extraConfig,
+    authValue: conn.authValueEnc ? decrypt(conn.authValueEnc) : null,
+    headers: (conn.extraConfig && conn.extraConfig.headers) || [],
+  }, conn.platform && conn.platform.authSpec);
+  return { nom: conn.name, ...calcul };
+}
+
+// POST /api/platforms/:id/mcp/inventaire — interroge le serveur et enregistre.
+router.post('/:id/mcp/inventaire', async (req, res) => {
+  try {
+    const plateforme = await prisma.platform.findUnique({ where: { id: req.params.id } });
+    if (!plateforme) return res.status(404).json({ error: 'Plateforme non trouvée' });
+
+    const acces = await accesMcpDe(plateforme.id);
+    if (!acces || !acces.baseUrl) {
+      return res.status(409).json({ error: 'Aucune connexion active de type « mcp » pour cet outil — créez-la dans Administration › Connexions, avec l\'URL du serveur MCP.' });
+    }
+
+    const Mcp = require('../lib/mcp-client.js');
+    const r = await Mcp.listerOutils(acces.baseUrl, acces.headers);
+    if (r.erreur) return res.status(502).json({ error: r.erreur, brut: r.brut });
+    if (!r.outils.length) return res.status(422).json({ error: 'Le serveur répond mais n\'annonce aucun outil' });
+
+    // Un serveur MCP est un instantané, comme une spec : on remplace.
+    const anciennes = await prisma.apiSpec.findMany({
+      where: { platformId: plateforme.id, format: 'mcp' }, select: { id: true },
+    });
+    if (anciennes.length) {
+      await prisma.apiEndpoint.deleteMany({ where: { specId: { in: anciennes.map(x => x.id) } } });
+      await prisma.apiSpec.deleteMany({ where: { id: { in: anciennes.map(x => x.id) } } });
+    }
+
+    const spec = await prisma.apiSpec.create({
+      data: {
+        platformId: plateforme.id,
+        name: (r.serveur && r.serveur.name) || (plateforme.name + ' — MCP'),
+        format: 'mcp',
+        version: (r.serveur && r.serveur.version) || null,
+        rawContent: { serverInfo: r.serveur || null, tools: r.outils },
+        baseUrl: acces.baseUrl,
+        sourceUrl: acces.baseUrl,
+      },
+    });
+
+    await prisma.apiEndpoint.createMany({
+      data: r.outils.map(t => ({
+        specId: spec.id,
+        // `TOOL` plutôt qu'un verbe HTTP : ce n'en est pas un, et l'écran doit
+        // le dire au lieu de laisser croire à un GET.
+        method: 'TOOL',
+        path: t.name,
+        summary: { fr: t.title || t.name, description: t.description || '',
+                   tags: [], operationId: t.name },
+        requestSchema: t.inputSchema || null,
+        responseSchema: t.outputSchema || null,
+      })),
+    });
+
+    res.status(201).json({
+      id: spec.id, name: spec.name, version: spec.version,
+      serveur: r.serveur, nbOutils: r.outils.length, remplace: anciennes.length,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET/PUT /api/platforms/:id/test-context — valeurs nommées servant à remplir
 // les paramètres pendant un test. Rangées sur la CONNEXION et non sur la
 // plateforme : `teamId` n'est pas une propriété de Make, c'est une propriété

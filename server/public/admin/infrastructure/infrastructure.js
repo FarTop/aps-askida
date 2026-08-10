@@ -92,6 +92,8 @@ function selectionner(id) {
   });
 
   message('', '');
+  messageMcp('', '');
+  basculer('api');
   $('inf-url').value = '';
   vider($('inf-candidats'));
   vider($('inf-proposition'));
@@ -340,6 +342,68 @@ function rendreProposition(d) {
   };
   carte.appendChild(b);
   hote.appendChild(carte);
+}
+
+// ── Onglets d'acquisition ────────────────────────────────────
+// Deux canaux pour la même question : que sait faire cet outil ? Le second est
+// plus simple que le premier — la découverte est dans le protocole MCP.
+let canal = 'api';
+
+function basculer(vers) {
+  canal = vers;
+  $('inf-onglet-api').dataset.actif = vers === 'api' ? '1' : '0';
+  $('inf-onglet-mcp').dataset.actif = vers === 'mcp' ? '1' : '0';
+  $('inf-bloc-api').hidden = vers !== 'api';
+  $('inf-bloc-mcp').hidden = vers !== 'mcp';
+  if (vers === 'mcp') chargerMcp();
+}
+
+function messageMcp(texte, etat) {
+  const el = $('inf-mcp-message');
+  el.textContent = texte || '';
+  el.dataset.etat = etat || '';
+}
+
+async function chargerMcp() {
+  const etat = $('inf-mcp-etat');
+  vider(etat);
+  let specs = [];
+  try { specs = await (await fetch('/api/platforms/' + choisie.id + '/specs')).json(); } catch (_) {}
+  const mcp = specs.find(function (x) { return x.format === 'mcp'; });
+  if (!mcp) {
+    const v = document.createElement('div');
+    v.className = 'inf-vide';
+    v.textContent = 'Aucun inventaire MCP pour cet outil.';
+    etat.appendChild(v);
+    return;
+  }
+  const tbl = document.createElement('div');
+  tbl.className = 'inf-fiche';
+  [['Serveur', mcp.name], ['Version', mcp.version || '—'],
+   ['Outils', String(mcp.nbOperations)], ['URL', mcp.baseUrl || '—'],
+   ['Interrogé le', new Date(mcp.updatedAt).toLocaleString('fr-FR')]].forEach(function (l) {
+    const k = document.createElement('div'); k.className = 'inf-fiche-cle';    k.textContent = l[0];
+    const v = document.createElement('div'); v.className = 'inf-fiche-valeur'; v.textContent = l[1];
+    tbl.appendChild(k); tbl.appendChild(v);
+  });
+  etat.appendChild(tbl);
+}
+
+async function interrogerMcp() {
+  const btn = $('inf-btn-mcp');
+  btn.disabled = true;
+  messageMcp('Poignée de main et inventaire en cours…', 'attente');
+  try {
+    const r = await fetch('/api/platforms/' + choisie.id + '/mcp/inventaire', { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    messageMcp('✅ ' + d.nbOutils + ' outil(s) annoncé(s) par ' + (d.serveur && d.serveur.name ? d.serveur.name : 'le serveur')
+      + (d.remplace ? ' (inventaire précédent remplacé)' : ''), 'ok');
+    await chargerMcp();
+    await chargerSpec();
+  } catch (e) {
+    messageMcp('❌ ' + e.message, 'error');
+  } finally { btn.disabled = false; }
 }
 
 // ── Contexte de test ─────────────────────────────────────────
@@ -626,6 +690,9 @@ async function supprimerSpec() {
 // ── Événements ───────────────────────────────────────────────
 $('inf-btn-url').onclick      = importerUrl;
 $('inf-btn-chercher').onclick = chercher;
+$('inf-onglet-api').onclick   = function () { basculer('api'); };
+$('inf-onglet-mcp').onclick   = function () { basculer('mcp'); };
+$('inf-btn-mcp').onclick      = interrogerMcp;
 $('inf-btn-suite').onclick    = function () { chargerOperations(filtreCourant, true); };
 $('inf-btn-test').onclick          = function () { tester(false); };
 $('inf-btn-test-retenues').onclick = function () { tester(true); };

@@ -46,7 +46,7 @@ function afficher(list) {
 }
 
 function typeIcon(type) {
-  return { iconik: '🎬', aws_s3: '☁️', http: '🌐', listener: '👂' }[type] || '🔌';
+  return { iconik: '🎬', aws_s3: '☁️', http: '🌐', mcp: '🧩', listener: '👂' }[type] || '🔌';
 }
 
 function escHtml(s) {

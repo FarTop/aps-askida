@@ -248,3 +248,12 @@ body {
 .inf-op-etoile[data-retenu="1"] { color: var(--inf-accent); }
 .inf-res-exemple { color: #f0b429; font-size: 11px; }
 
+
+/* ── Onglets d'acquisition ── */
+.inf-onglets { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--inf-bord); }
+.inf-onglet {
+  cursor: pointer; background: transparent; border: none; border-bottom: 2px solid transparent;
+  color: var(--inf-attenue); font: inherit; font-size: 13px; padding: 8px 16px;
+}
+.inf-onglet:hover { color: var(--inf-texte); }
+.inf-onglet[data-actif="1"] { color: var(--inf-accent); border-bottom-color: var(--inf-accent); }

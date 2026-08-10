@@ -54,8 +54,14 @@
           <div class="inf-meta" id="inf-meta"></div>
         </div>
 
-        <!-- ── Spécification ── -->
-        <div class="inf-bloc">
+        <!-- ── Canaux d'acquisition ── -->
+        <div class="inf-onglets" role="tablist">
+          <button class="inf-onglet" id="inf-onglet-api" type="button" data-actif="1">API</button>
+          <button class="inf-onglet" id="inf-onglet-mcp" type="button" data-actif="0">MCP</button>
+        </div>
+
+        <!-- ── Spécification d'API ── -->
+        <div class="inf-bloc" id="inf-bloc-api">
           <div class="inf-bloc-titre">Spécification d'API</div>
 
           <div class="inf-spec-etat" id="inf-spec-etat"></div>
@@ -94,6 +100,22 @@
             <div class="inf-message" id="inf-message" data-etat=""></div>
             <div class="inf-proposition" id="inf-proposition"></div>
           </div>
+        </div>
+
+        <!-- ── MCP ── -->
+        <div class="inf-bloc" id="inf-bloc-mcp" hidden>
+          <div class="inf-bloc-titre">Serveur MCP</div>
+          <div class="inf-aide">
+            Un serveur MCP annonce lui-même ses outils : ni URL de spécification à chercher,
+            ni format à reconnaître. Il faut seulement une connexion de type
+            <strong>MCP</strong> pour cet outil, avec l'URL du serveur et son jeton — à créer
+            dans <a href="../connexions/connexions.html">Administration › Connexions</a>.
+          </div>
+          <div class="inf-spec-etat" id="inf-mcp-etat"></div>
+          <div class="inf-ligne">
+            <button class="inf-btn inf-btn-accent" id="inf-btn-mcp" type="button">Interroger le serveur</button>
+          </div>
+          <div class="inf-message" id="inf-mcp-message" data-etat=""></div>
         </div>
 
         <!-- ── Opérations ── -->
