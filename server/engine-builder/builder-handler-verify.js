@@ -67,25 +67,54 @@ async function verify(step, ctx, deps) {
   const failures = [];
   const results  = {};
 
+  // Une réponse par endpoint, pas une par vérification (2026-08-10). Plusieurs
+  // contrôles interrogent couramment la MÊME url pour en lire des champs
+  // différents : le manifeste VOD Factory a huit vérifications (quatre actions
+  // Amazon × statut + date d'envoi) qui tapent toutes
+  // `/api/contents/{id}/action-statuses`. Sans cette mémoire, une collection
+  // coûtait 8 appels identiques, et un passage sur 8 collections en coûtait 64
+  // — assez pour que le partenaire réponde 429 quand deux runs s'enchaînent
+  // (constaté en réel le 2026-08-10).
+  //
+  // La portée est UN appel de verify : on compare un état à un instant donné,
+  // relire la même url deux fois dans la même passe n'a aucun sens métier. Le
+  // résultat mémorisé inclut l'échec HTTP, pour que chaque contrôle reçoive la
+  // même conclusion qu'avant — un `HTTP 404` par contrôle, comme quand chacun
+  // appelait de son côté.
+  const reponses = new Map();
+  async function lireEndpoint(method, endpoint) {
+    const cle = method + ' ' + endpoint;
+    if (reponses.has(cle)) return reponses.get(cle);
+    let issue;
+    if (useIconik) {
+      issue = { ok: true, body: await deps.iconikClient.get(endpoint) };
+    } else {
+      const url = baseUrl.replace(/\/$/, '') + endpoint;
+      const res = await globalThis.fetch(url, { method, headers });
+      if (!res.ok) {
+        issue = { ok: false, error: `HTTP ${res.status}` };
+      } else {
+        const text = await res.text();
+        let body; try { body = JSON.parse(text); } catch (_) { body = text; }
+        issue = { ok: true, body };
+      }
+    }
+    reponses.set(cle, issue);
+    return issue;
+  }
+
   for (const chk of checksPortee) {
     const endpoint = r(chk.endpoint || '', ctx);
     const method   = (chk.method || 'GET').toUpperCase();
     const label    = chk.label || endpoint;
 
     try {
-      let body;
-      if (useIconik) {
-        body = await deps.iconikClient.get(endpoint);
-      } else {
-        const url = baseUrl.replace(/\/$/, '') + endpoint;
-        const res = await globalThis.fetch(url, { method, headers });
-        if (!res.ok) {
-          failures.push({ label, error: `HTTP ${res.status}` });
-          continue;
-        }
-        const text = await res.text();
-        try { body = JSON.parse(text); } catch (_) { body = text; }
+      const issue = await lireEndpoint(method, endpoint);
+      if (!issue.ok) {
+        failures.push({ label, error: issue.error });
+        continue;
       }
+      const body = issue.body;
 
       results[label] = body;
 
