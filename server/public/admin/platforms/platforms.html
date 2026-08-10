@@ -46,7 +46,7 @@
   <header class="aps-header">
     <div class="aps-header-left">
       <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
-      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="#">Administration</a> › Plateformes</span>
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="../../index.html#administration">Administration</a> › Plateformes</span>
     </div>
     <div class="aps-header-right">
       <nav class="aps-navbar">
@@ -86,12 +86,18 @@
 
       <div class="field">
         <label>Type</label>
-        <select id="f-type">
-          <option value="integration">Intégration (MAM, DAM, PAM...)</option>
-          <option value="runtime">Runtime (Node-RED, n8n...)</option>
-          <option value="encoder">Encodeur (FFMPEG, FLICS...)</option>
-          <option value="ai">IA (Ollama...)</option>
-        </select>
+        <!-- Champ libre à suggestions plutôt que liste fermée : « intégration » ne
+             dit pas grand-chose d'Iconik, et les outils à venir (encodeurs, QC,
+             registres NMOS, orchestrateurs) ne rentreront pas dans quatre cases.
+             Le `datalist` garde les valeurs connues à portée de frappe. -->
+        <input type="text" id="f-type" list="liste-types"
+               placeholder="ex. MAM, orchestrateur, encodeur, QC…" />
+        <datalist id="liste-types">
+          <option value="integration">Intégration (MAM, DAM, PAM…)</option>
+          <option value="runtime">Orchestrateur (Make, n8n, Node-RED…)</option>
+          <option value="encoder">Encodeur (FLICS, Tornado…)</option>
+          <option value="ai">IA (Moment Lab, Aive…)</option>
+        </datalist>
       </div>
 
       <div class="field">

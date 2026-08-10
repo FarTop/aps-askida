@@ -265,3 +265,13 @@ body {
   font-size: .95em; padding: 1px 4px; border-radius: 4px;
   background: var(--inf-fond); border: 1px solid var(--inf-bord);
 }
+
+/* Les liens gardaient les couleurs par défaut du navigateur — bleu, puis
+   violet une fois visités. Illisible sur ce fond et hors de la charte. */
+.inf-main a, .inf-aide a {
+  color: var(--inf-accent);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--inf-accent) 35%, transparent);
+}
+.inf-main a:hover, .inf-aide a:hover { border-bottom-color: var(--inf-accent); }
+.inf-main a:visited, .inf-aide a:visited { color: var(--inf-accent); }

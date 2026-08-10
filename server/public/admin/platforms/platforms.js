@@ -168,6 +168,8 @@ function ouvrirPanel(p = null) {
   document.getElementById('panel-title').textContent = p ? 'Éditer la plateforme' : 'Nouvelle plateforme';
   document.getElementById('f-name').value    = p?.name    || '';
   document.getElementById('f-slug').value    = p?.slug    || '';
+  // Le champ est désormais libre (datalist) : une plateforme peut porter un
+  // type que la liste ne connaît pas, et il doit se réafficher tel quel.
   document.getElementById('f-type').value    = p?.type    || 'integration';
   document.getElementById('f-icon').value    = p?.icon    || '';
   document.getElementById('f-version').value = p?.version || '1.0.0';
@@ -205,7 +207,7 @@ async function sauvegarder() {
 
   const payload = {
     name, slug,
-    type:     document.getElementById('f-type').value,
+    type:     document.getElementById('f-type').value.trim() || 'integration',
     icon:     document.getElementById('f-icon').value.trim() || null,
     version:  document.getElementById('f-version').value.trim() || '1.0.0',
     isActive: document.getElementById('f-active').checked,
