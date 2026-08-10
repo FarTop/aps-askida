@@ -61,8 +61,13 @@ function construireAcces(connexion, authSpec) {
   const spec    = authSpec || {};
   const valeurs = valeursDe(connexion, authSpec);
 
+  // L'URL saisie est interpolée elle aussi : certains protocoles portent le
+  // secret DANS le chemin — le serveur MCP de Make attend
+  // https://{zone}.make.com/mcp/u/{token}/stateless. Sans ça il faudrait taper
+  // le jeton dans le champ URL, donc le stocker en clair. Écrit `{token}`, il
+  // reste dans authValueEnc, chiffré, et n'est assemblé qu'à l'appel.
   const baseUrl = (connexion && connexion.baseUrl)
-    ? String(connexion.baseUrl).replace(/\/+$/, '')
+    ? _interpoler(connexion.baseUrl, valeurs).replace(/\/+$/, '')
     : _interpoler(spec.baseUrlPattern, valeurs).replace(/\/+$/, '');
 
   const headers = { 'Accept': 'application/json' };

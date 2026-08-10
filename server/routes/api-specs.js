@@ -577,11 +577,26 @@ async function accesMcpDe(platformId) {
   if (!conn) return null;
   const { decrypt } = require('../lib/crypto.js');
   const Acces = require('../lib/connexion-acces.js');
-  const calcul = Acces.acces({
-    baseUrl: conn.baseUrl, authType: conn.authType, extraConfig: conn.extraConfig,
-    authValue: conn.authValueEnc ? decrypt(conn.authValueEnc) : null,
-    headers: (conn.extraConfig && conn.extraConfig.headers) || [],
-  }, conn.platform && conn.platform.authSpec);
+  const secret = conn.authValueEnc ? decrypt(conn.authValueEnc) : null;
+
+  // Une plateforme ne déclare qu'UN schéma d'authentification, celui de son
+  // API. MCP est un autre protocole avec sa propre convention : Make attend le
+  // jeton dans l'URL, d'autres serveurs attendent un Bearer. On ne reprend donc
+  // du schéma que les CHAMPS — de quoi interpoler `{token}` et `{zone}` dans
+  // l'URL — jamais ses en-têtes, qui parleraient pour l'autre protocole.
+  const specChamps = conn.platform && conn.platform.authSpec
+    ? { fields: conn.platform.authSpec.fields || [] } : { fields: [{ name: 'token', secret: true }] };
+
+  const calcul = Acces.construireAcces({
+    baseUrl: conn.baseUrl, extraConfig: conn.extraConfig, authValue: secret,
+  }, specChamps);
+
+  // En-tête d'authentification seulement si la connexion le demande
+  // explicitement — le jeton est sinon déjà dans l'URL.
+  if (conn.authType === 'bearer' && secret) calcul.headers['Authorization'] = 'Bearer ' + secret;
+  ((conn.extraConfig && conn.extraConfig.headers) || []).forEach(h => {
+    if (h && h.key) calcul.headers[h.key] = h.value;
+  });
   return { nom: conn.name, ...calcul };
 }
 
