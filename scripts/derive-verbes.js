@@ -225,7 +225,8 @@ async function chargerSpec() {
   });
   const ops = await prisma.apiEndpoint.findMany({
     where: { specId: { in: specs.map(s => s.id) } },
-    select: { id: true, specId: true, method: true, path: true, summary: true, requestSchema: true },
+    select: { id: true, specId: true, method: true, path: true, summary: true,
+              requestSchema: true, responseSchema: true },
   });
   const parCle = new Map(), parArite = new Map();
   for (const o of ops) {
@@ -306,7 +307,10 @@ async function chargerSpec() {
                       segmentsFiges: r.segments || 0,
                       endpointId: r.op ? r.op.id : null,
                       cheminDeclare: r.op ? r.op.path : null,
-                      resume: r.op && r.op.summary ? (r.op.summary.fr || r.op.summary.description || null) : null });
+                      resume: r.op && r.op.summary ? (r.op.summary.fr || r.op.summary.description || null) : null,
+                      // Ce que l'appel REND. C'est la matière de l'`interface`
+                      // d'un module Make : sans elle, il sort un blob anonyme.
+                      sortie: (r.op && r.op.responseSchema && r.op.responseSchema.champs) || [] });
     }
     v.assemblees = v.mesure.assemblees;
     v.http       = v.mesure.http;

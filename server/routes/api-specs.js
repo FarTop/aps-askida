@@ -149,6 +149,66 @@ function prefixeDe(doc) {
   return u.replace(/\/+$/, '');
 }
 
+// ── La forme de la réponse ───────────────────────────────────────
+// On ne gardait que les CODES de statut. Suffisant pour tester un endpoint,
+// inutile pour émettre : un module d'app custom doit déclarer ce qu'il sort
+// (`interface`), sinon il rend un blob anonyme — le problème même des 90 appels
+// HTTP anonymes, reproduit un cran plus haut.
+//
+// Les `$ref` sont résolus sur quelques sauts : sans ça le schéma stocké ne dit
+// rien de plus que le nom d'une définition qui vit ailleurs. La profondeur est
+// bornée et les cycles coupés — une spec réelle en contient (un dossier qui
+// contient des dossiers).
+function resoudre(doc, noeud, profondeur, vus) {
+  if (!noeud || typeof noeud !== 'object' || profondeur <= 0) return noeud;
+  if (typeof noeud.$ref === 'string') {
+    if (vus.has(noeud.$ref)) return { type: 'object', description: 'cycle : ' + noeud.$ref };
+    const chemin = noeud.$ref.replace(/^#\//, '').split('/');
+    let cible = doc;
+    for (const c of chemin) { cible = cible && cible[c]; }
+    if (!cible) return noeud;
+    return resoudre(doc, cible, profondeur - 1, new Set([...vus, noeud.$ref]));
+  }
+  if (Array.isArray(noeud)) return noeud.map(x => resoudre(doc, x, profondeur - 1, vus));
+  const o = {};
+  for (const [k, v] of Object.entries(noeud)) o[k] = resoudre(doc, v, profondeur - 1, vus);
+  return o;
+}
+
+// Les champs de premier niveau, prêts à devenir une `interface`. Quand la
+// réponse enveloppe une liste (`{objects:[…]}`, la convention d'Iconik), on
+// descend dedans : c'est l'objet listé qui intéresse, pas l'enveloppe.
+function champsDe(schema) {
+  if (!schema || typeof schema !== 'object') return [];
+  let props = schema.properties;
+  if (props) {
+    const tableaux = Object.entries(props).filter(([, v]) => v && v.type === 'array' && v.items);
+    if (tableaux.length === 1 && tableaux[0][1].items.properties) props = tableaux[0][1].items.properties;
+  }
+  if (!props) return [];
+  return Object.entries(props).slice(0, 60).map(([nom, v]) => ({
+    nom, type: (v && v.type) || 'any', format: (v && v.format) || undefined,
+  }));
+}
+
+function reponseDe(doc, op) {
+  if (!op.responses) return null;
+  const codes = Object.keys(op.responses);
+  const succes = codes.find(c => /^2\d\d$/.test(c));
+  let schema = null;
+  if (succes && op.responses[succes] && op.responses[succes].content) {
+    const premier = Object.values(op.responses[succes].content)[0];
+    if (premier && premier.schema) schema = resoudre(doc, premier.schema, 6, new Set());
+  }
+  const champs = champsDe(schema);
+  // Le schéma résolu peut être énorme (une spec réelle enchaîne les définitions).
+  // On garde toujours les champs, et le schéma seulement s'il reste raisonnable.
+  const brut = schema ? JSON.stringify(schema) : '';
+  return { codes, succes: succes || null, champs,
+           schema: brut && brut.length <= 20000 ? schema : null,
+           schemaTronque: !!(brut && brut.length > 20000) };
+}
+
 // Aplatit paths → opérations. Les paramètres déclarés au niveau du chemin
 // s'appliquent à toutes ses méthodes : on les fusionne, sinon une opération
 // perdrait ses paramètres de chemin sans qu'on comprenne pourquoi.
@@ -174,7 +234,7 @@ function operationsDe(doc) {
         summary: { fr: op.summary || '', description: op.description || '',
                    tags: op.tags || [], operationId: op.operationId || null },
         requestSchema : (params.length || corps) ? { parameters: params, body: corps } : null,
-        responseSchema: op.responses ? { codes: Object.keys(op.responses) } : null,
+        responseSchema: reponseDe(doc, op),
       });
     }
   }
@@ -554,10 +614,34 @@ router.post('/:id/specs', async (req, res) => {
 
     // Réimporter remplace : une spec est un instantané de la doc de l'éditeur,
     // pas un historique. Les anciennes opérations partent avec (cascade).
-    const anciennes = await prisma.apiSpec.findMany({ where: { platformId: plateforme.id }, select: { id: true } });
+    //
+    // Mais `apsMapping` n'appartient PAS à l'éditeur — c'est notre annotation :
+    // les opérations retenues à la main, et la façade que chacune sert. La
+    // perdre à chaque rafraîchissement de spec serait détruire notre travail
+    // pour recopier celui d'un tiers. On la remet en place, appariée par
+    // méthode + chemin ; ce qui a disparu de la spec disparaît avec elle.
+    // Ne remplacer QUE les specs du même canal : l'inventaire MCP est une
+    // spec `format: 'mcp'` de la même plateforme, et rafraîchir l'API n'a
+    // aucune raison de l'effacer. Il a sa propre route pour ça.
+    const anciennes = await prisma.apiSpec.findMany({
+      where: { platformId: plateforme.id, format: 'openapi' }, select: { id: true } });
+    const annotations = new Map();
     if (anciennes.length) {
-      await prisma.apiEndpoint.deleteMany({ where: { specId: { in: anciennes.map(s => s.id) } } });
-      await prisma.apiSpec.deleteMany({ where: { id: { in: anciennes.map(s => s.id) } } });
+      const ids = anciennes.map(s => s.id);
+      const marquees = await prisma.apiEndpoint.findMany({
+        where: { specId: { in: ids }, apsMapping: { not: null } },
+        select: { method: true, path: true, apsMapping: true },
+      });
+      marquees.forEach(e => annotations.set(e.method + ' ' + e.path, e.apsMapping));
+      // Les tests d'endpoint pointent vers les opérations : sans les retirer
+      // d'abord, la contrainte de clé étrangère interdit le remplacement. Ça
+      // ne se voyait pas tant qu'aucune opération n'avait jamais été testée.
+      const vieux = await prisma.apiEndpoint.findMany({ where: { specId: { in: ids } }, select: { id: true } });
+      if (vieux.length) {
+        await prisma.apiCheck.deleteMany({ where: { endpointId: { in: vieux.map(e => e.id) } } });
+      }
+      await prisma.apiEndpoint.deleteMany({ where: { specId: { in: ids } } });
+      await prisma.apiSpec.deleteMany({ where: { id: { in: ids } } });
     }
 
     const spec = await prisma.apiSpec.create({
@@ -575,8 +659,11 @@ router.post('/:id/specs', async (req, res) => {
     // createMany en un seul appel : une spec réelle fait des centaines de
     // lignes, les insérer une par une prendrait des secondes.
     await prisma.apiEndpoint.createMany({
-      data: ops.map(o => ({ specId: spec.id, ...o })),
+      data: ops.map(o => Object.assign({ specId: spec.id }, o,
+        annotations.has(o.method + ' ' + o.path)
+          ? { apsMapping: annotations.get(o.method + ' ' + o.path) } : {})),
     });
+    const conservees = ops.filter(o => annotations.has(o.method + ' ' + o.path)).length;
 
     // Proposition de schéma d'authentification, jamais appliquée d'office :
     // la plateforme peut déjà en porter un, écrit à la main et meilleur (celui
@@ -587,6 +674,7 @@ router.post('/:id/specs', async (req, res) => {
       id: spec.id, name: spec.name, format: spec.format, version: spec.version,
       baseUrl: spec.baseUrl, sourceUrl: spec.sourceUrl, nbOperations: ops.length,
       remplace: anciennes.length,
+      annotationsConservees: conservees, annotationsPerdues: annotations.size - conservees,
       reconstitue,
       authProposee: proposition,
       authDejaDeclare: !!plateforme.authSpec,
