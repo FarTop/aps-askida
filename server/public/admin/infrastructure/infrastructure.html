@@ -70,7 +70,17 @@
             <div class="inf-aide">
               Le serveur va chercher la spécification lui-même — un navigateur en serait
               empêché par la politique d'origine croisée. OpenAPI 2 ou 3, en JSON.
+              Si l'URL est sur le même hôte que la connexion de cet outil, ses identifiants
+              sont joints : une spécification protégée reste lisible.
             </div>
+
+            <div class="inf-ligne">
+              <button class="inf-btn" id="inf-btn-chercher" type="button">Chercher automatiquement</button>
+              <span class="inf-aide" id="inf-chercher-aide">
+                Sonde les emplacements habituels à partir de l'URL de la connexion.
+              </span>
+            </div>
+            <div class="inf-candidats" id="inf-candidats"></div>
 
             <label class="inf-label" for="inf-fichier">…ou depuis un fichier</label>
             <div class="inf-ligne">

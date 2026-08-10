@@ -155,3 +155,18 @@ body {
 .inf-op-methode[data-methode="DELETE"] { color: #f87171; }
 .inf-op-chemin { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
 .inf-op-resume { color: var(--inf-attenue); }
+
+/* ── Candidats de spécification (découverte) ── */
+.inf-candidats { margin-top: 10px; }
+.inf-candidats:empty { display: none; }
+.inf-candidat {
+  display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+  width: 100%; text-align: left; cursor: pointer; font: inherit; font-size: 12.5px;
+  background: var(--inf-surface2); color: var(--inf-texte);
+  border: 1px solid var(--inf-bord); border-radius: 8px;
+  padding: 7px 10px; margin-bottom: 6px;
+}
+.inf-candidat:hover { border-color: var(--inf-accent); }
+.inf-candidat-url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+.inf-candidat-verdict { color: var(--inf-attenue); font-size: 11.5px; }
+.inf-candidat[data-verdict="trouvée"] .inf-candidat-verdict { color: #7ddc8f; }

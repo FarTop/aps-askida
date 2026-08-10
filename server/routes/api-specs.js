@@ -31,6 +31,49 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma  = new PrismaClient({ adapter });
 
 const METHODES = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'];
+
+// Chemins où les éditeurs déposent conventionnellement leur spécification.
+// Aucun n'est garanti : celle de Make a été trouvée en tâtonnant, sa propre
+// documentation ne la mentionne nulle part. Autant que ce tâtonnement soit
+// dans APS plutôt que dans la tête de quelqu'un.
+const CHEMINS_CONNUS = [
+  '/openapi.json',            // le plus répandu — c'est celui de Make
+  '/swagger.json',
+  '/v3/api-docs',             // Springdoc
+  '/v2/api-docs',             // Swagger 2 / Springfox
+  '/api-docs',
+  '/swagger/v1/swagger.json', // ASP.NET
+  '/.well-known/openapi.json',
+  '/openapi',
+  '/spec',
+];
+
+function origineDe(u) { try { return new URL(u).origin; } catch (_) { return null; } }
+
+// Les identifiants d'une connexion ne partent QUE vers l'hôte de cette
+// connexion. Sans cette garde, saisir l'URL d'un tiers dans le champ d'import
+// lui enverrait le jeton du client.
+function memeOrigine(a, b) {
+  const oa = origineDe(a), ob = origineDe(b);
+  return !!oa && !!ob && oa === ob;
+}
+
+// Accès de la plateforme, s'il existe une connexion active qui la porte.
+async function accesDe(platformId) {
+  const conn = await prisma.connexion.findFirst({
+    where: { platformId, isActive: true },
+    include: { platform: true },
+  });
+  if (!conn) return null;
+  const { decrypt } = require('../lib/crypto.js');
+  const Acces = require('../lib/connexion-acces.js');
+  const calcul = Acces.acces({
+    baseUrl: conn.baseUrl, authType: conn.authType, extraConfig: conn.extraConfig,
+    authValue: conn.authValueEnc ? decrypt(conn.authValueEnc) : null,
+    headers: (conn.extraConfig && conn.extraConfig.headers) || [],
+  }, conn.platform && conn.platform.authSpec);
+  return { nom: conn.name, ...calcul };
+}
 const TAILLE_MAX = 12 * 1024 * 1024;   // 12 Mo : la spec Make en fait 1,7
 
 // Reconnaît le format à la lecture plutôt que de le demander à l'utilisateur.
@@ -78,6 +121,50 @@ function operationsDe(doc) {
   }
   return out;
 }
+
+// GET /api/platforms/:id/spec-candidates — cherche la spécification là où les
+// éditeurs la déposent d'habitude, à partir de l'URL de base de la connexion.
+// Sonde deux bases : l'URL de l'API telle quelle, et la racine du domaine.
+// Un 401/403 compte comme une trouvaille : la spec existe, elle est protégée —
+// et APS a les identifiants pour la lire.
+router.get('/:id/spec-candidates', async (req, res) => {
+  try {
+    const acces = await accesDe(req.params.id);
+    if (!acces || !acces.baseUrl) {
+      return res.json({ base: null, candidats: [],
+        message: 'Aucune connexion active avec une URL de base pour cet outil — créez-la d\'abord dans Connexions.' });
+    }
+    const base    = acces.baseUrl.replace(/\/+$/, '');
+    const racine  = origineDe(base);
+    const bases   = racine && racine !== base ? [base, racine] : [base];
+
+    const cibles = [];
+    bases.forEach(b => CHEMINS_CONNUS.forEach(c => cibles.push(b + c)));
+
+    const resultats = await Promise.all(cibles.map(async (url) => {
+      try {
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), 6000);
+        const r = await fetch(url, { headers: acces.headers, signal: ctrl.signal });
+        clearTimeout(to);
+        const type = (r.headers.get('content-type') || '').toLowerCase();
+        return { url, status: r.status, contentType: type };
+      } catch (_) { return { url, status: 0, contentType: '' }; }
+    }));
+
+    const candidats = resultats
+      .filter(x => x.status === 200 || x.status === 401 || x.status === 403)
+      .map(x => ({
+        url: x.url,
+        status: x.status,
+        verdict: x.status === 200
+          ? (x.contentType.includes('json') ? 'trouvée' : 'répond, mais pas du JSON')
+          : 'existe, mais protégée',
+      }));
+
+    res.json({ base, sondes: cibles.length, connexion: acces.nom, candidats });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // GET /api/platforms/:id/specs — ce qui est déjà importé pour cet outil.
 router.get('/:id/specs', async (req, res) => {
@@ -131,16 +218,33 @@ router.post('/:id/specs', async (req, res) => {
     if (url) {
       // Le serveur va chercher la spec : le navigateur en serait empêché par
       // la politique d'origine croisée sur la plupart des éditeurs.
+      //
+      // Les identifiants de la connexion sont joints UNIQUEMENT si l'URL est
+      // sur le même hôte qu'elle. Une spec protégée devient ainsi lisible
+      // (Make répond 401 sur /swagger.json), sans qu'une URL saisie à la main
+      // puisse faire fuiter le jeton du client vers un tiers.
+      const acces = await accesDe(plateforme.id);
+      const entetes = { 'Accept': 'application/json, application/yaml, text/plain' };
+      let authentifie = false;
+      if (acces && memeOrigine(url, acces.baseUrl)) {
+        Object.assign(entetes, acces.headers);
+        authentifie = true;
+      }
       let r;
       try {
         const ctrl = new AbortController();
         const to = setTimeout(() => ctrl.abort(), 30000);
-        r = await fetch(url, { headers: { 'Accept': 'application/json, application/yaml, text/plain' }, signal: ctrl.signal });
+        r = await fetch(url, { headers: entetes, signal: ctrl.signal });
         clearTimeout(to);
       } catch (e) {
         return res.status(502).json({ error: `URL injoignable — ${e.message}` });
       }
-      if (!r.ok) return res.status(502).json({ error: `L'URL a répondu HTTP ${r.status}` });
+      if (!r.ok) {
+        const indice = (r.status === 401 || r.status === 403) && !authentifie
+          ? ' — spécification protégée, et aucune connexion active de cet outil ne couvre cet hôte'
+          : '';
+        return res.status(502).json({ error: `L'URL a répondu HTTP ${r.status}${indice}` });
+      }
       const texte = await r.text();
       if (texte.length > TAILLE_MAX) return res.status(413).json({ error: 'Spécification trop volumineuse (> 12 Mo)' });
       try { contenu = JSON.parse(texte); }

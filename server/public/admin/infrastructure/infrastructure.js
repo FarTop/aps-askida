@@ -93,6 +93,7 @@ function selectionner(id) {
 
   message('', '');
   $('inf-url').value = '';
+  vider($('inf-candidats'));
   chargerSpec();
 }
 
@@ -183,6 +184,54 @@ async function chargerOperations(filtre) {
   });
 }
 
+// ── Découverte ───────────────────────────────────────────────
+// L'URL d'une spécification n'est presque jamais documentée : celle de Make a
+// été trouvée en tâtonnant sur les chemins conventionnels. Autant que le
+// tâtonnement soit ici plutôt que dans la tête de quelqu'un.
+async function chercher() {
+  const btn = $('inf-btn-chercher');
+  const hote = $('inf-candidats');
+  vider(hote);
+  btn.disabled = true;
+  message('Recherche en cours…', 'attente');
+  try {
+    const d = await (await fetch('/api/platforms/' + choisie.id + '/spec-candidates')).json();
+    if (d.message) { message(d.message, 'error'); return; }
+    if (!d.candidats.length) {
+      message(d.sondes + ' emplacements sondés depuis ' + d.base + ' — aucun ne répond. '
+            + 'Il faudra trouver l\'URL dans la documentation de l\'éditeur, ou importer un fichier.', '');
+      return;
+    }
+    message(d.candidats.length + ' piste(s) trouvée(s) via la connexion « ' + d.connexion + ' ».', 'ok');
+    d.candidats.forEach(function (c) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'inf-candidat';
+      b.dataset.verdict = c.verdict;
+
+      const u = document.createElement('span');
+      u.className = 'inf-candidat-url';
+      u.textContent = c.url;
+      b.appendChild(u);
+
+      const v = document.createElement('span');
+      v.className = 'inf-candidat-verdict';
+      v.textContent = c.verdict + ' (HTTP ' + c.status + ')';
+      b.appendChild(v);
+
+      b.onclick = function () {
+        $('inf-url').value = c.url;
+        message('URL reportée — cliquez sur Importer.', '');
+      };
+      hote.appendChild(b);
+    });
+  } catch (e) {
+    message('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ── Imports ──────────────────────────────────────────────────
 async function envoyerImport(corps, bouton) {
   bouton.disabled = true;
@@ -235,7 +284,8 @@ async function supprimerSpec() {
 }
 
 // ── Événements ───────────────────────────────────────────────
-$('inf-btn-url').onclick     = importerUrl;
+$('inf-btn-url').onclick      = importerUrl;
+$('inf-btn-chercher').onclick = chercher;
 $('inf-btn-fichier').onclick = importerFichier;
 
 // Filtre différé : chaque frappe déclencherait sinon une requête sur des
