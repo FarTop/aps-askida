@@ -377,6 +377,16 @@ async function chargerSpec() {
   }
 
   // ── Écriture ──────────────────────────────────────────────────
+  // Ce que le CALCUL produit est réécrit à chaque passage. Ce qu'un RENDU a
+  // produit, non : le nom technique d'un module chez une cible ne se dérive
+  // d'aucune source, il est attribué à l'écriture et doit survivre — sinon
+  // rien ne relie `iconikAction` à `iconik.action` au rendu suivant, et on
+  // recrée des modules au lieu de les mettre à jour. Même principe que
+  // `apsMapping` face au réimport d'une spec.
+  const existantes = new Map();
+  (await prisma.nodeDefinition.findMany({ select: { family: true, description: true } }))
+    .forEach(n => { if (n.description && n.description.rendus) existantes.set(n.family, n.description.rendus); });
+
   let ecrits = 0;
   for (let i = 0; i < verbes.length; i++) {
     const v = verbes[i];
@@ -394,6 +404,7 @@ async function chargerSpec() {
         service: !!v.service,
         derivePar: 'scripts/derive-verbes.js',
         deriveLe: new Date().toISOString(),
+        rendus: existantes.get(v.family) || undefined,
       },
       icon: v.icon,
       group: v.groupe,
