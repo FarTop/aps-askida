@@ -64,7 +64,7 @@
             <label class="inf-label" for="inf-url">Importer depuis une URL</label>
             <div class="inf-ligne">
               <input type="url" id="inf-url" class="inf-input"
-                     placeholder="https://exemple.com/openapi.json" />
+                     placeholder="https://exemple.com/openapi.json — ou l'URL de la documentation" />
               <button class="inf-btn inf-btn-accent" id="inf-btn-url" type="button">Importer</button>
             </div>
             <div class="inf-aide">
@@ -72,6 +72,9 @@
               empêché par la politique d'origine croisée. OpenAPI 2 ou 3, en JSON.
               Si l'URL est sur le même hôte que la connexion de cet outil, ses identifiants
               sont joints : une spécification protégée reste lisible.
+              <br />En repli, une URL de <strong>documentation</strong> fait l'affaire (index
+              <code>llms.txt</code> ou page Markdown) : APS recolle les fragments OpenAPI
+              qu'elle contient.
             </div>
 
             <div class="inf-ligne">
@@ -89,6 +92,7 @@
             </div>
 
             <div class="inf-message" id="inf-message" data-etat=""></div>
+            <div class="inf-proposition" id="inf-proposition"></div>
           </div>
         </div>
 

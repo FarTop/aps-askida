@@ -94,6 +94,7 @@ function selectionner(id) {
   message('', '');
   $('inf-url').value = '';
   vider($('inf-candidats'));
+  vider($('inf-proposition'));
   chargerSpec();
 }
 
@@ -232,6 +233,76 @@ async function chercher() {
   }
 }
 
+// ── Proposition d'authentification ───────────────────────────
+// Déduite de `securitySchemes` par l'import. Proposée, jamais appliquée
+// d'office : la plateforme porte peut-être déjà un schéma écrit à la main et
+// meilleur — celui de Make a une variable {zone} qu'aucune spec ne devine.
+function rendreProposition(d) {
+  const hote = $('inf-proposition');
+  vider(hote);
+  const prop = d.authProposee;
+  if (!prop) return;
+
+  const carte = document.createElement('div');
+  carte.className = 'inf-prop-carte';
+
+  const t = document.createElement('div');
+  t.className = 'inf-prop-titre';
+  t.textContent = 'Schéma d\'authentification déduit de la spécification';
+  carte.appendChild(t);
+
+  const code = document.createElement('div');
+  code.className = 'inf-prop-code';
+  code.textContent = prop.auth.headers.map(function (h) { return h.name + ': ' + h.value; }).join('\n')
+    + (prop.baseUrlPattern ? '\nURL de base : ' + prop.baseUrlPattern : '');
+  carte.appendChild(code);
+
+  if (prop.serveursDeclares && prop.serveursDeclares.length > 1) {
+    const s = document.createElement('div');
+    s.className = 'inf-aide';
+    s.textContent = prop.serveursDeclares.length + ' serveurs déclarés (zones) : '
+      + prop.serveursDeclares.join(' · ')
+      + ' — une variable dans l\'URL sera sans doute préférable.';
+    carte.appendChild(s);
+  }
+
+  if (prop.prefixeAConfirmer) {
+    const a = document.createElement('div');
+    a.className = 'inf-prop-alerte';
+    a.textContent = '⚠️ Le préfixe a été deviné dans la description en prose : la spécification '
+                  + 'ne le déclare pas. À vérifier avant d\'appliquer.';
+    carte.appendChild(a);
+  }
+  if (d.authDejaDeclare) {
+    const a = document.createElement('div');
+    a.className = 'inf-prop-alerte';
+    a.textContent = '⚠️ Cet outil porte déjà un schéma. Appliquer le remplacera.';
+    carte.appendChild(a);
+  }
+
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'inf-btn inf-btn-accent';
+  b.textContent = 'Appliquer à la plateforme';
+  b.onclick = async function () {
+    b.disabled = true;
+    try {
+      const spec = { baseUrlPattern: prop.baseUrlPattern, fields: prop.fields, auth: prop.auth };
+      const r = await fetch('/api/platforms/' + choisie.id + '/auth-spec', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authSpec: spec }),
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      message('✅ Schéma appliqué — il pilote désormais le formulaire de Connexions.', 'ok');
+      vider(hote);
+      await charger();
+      selectionner(choisie.id);
+    } catch (e) { message('❌ ' + e.message, 'error'); b.disabled = false; }
+  };
+  carte.appendChild(b);
+  hote.appendChild(carte);
+}
+
 // ── Imports ──────────────────────────────────────────────────
 async function envoyerImport(corps, bouton) {
   bouton.disabled = true;
@@ -245,8 +316,10 @@ async function envoyerImport(corps, bouton) {
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
     message('✅ ' + d.nbOperations + ' opérations importées'
+      + (d.reconstitue ? ' — reconstituées depuis ' + d.reconstitue.pagesLues + ' pages de documentation' : '')
       + (d.remplace ? ' (la spécification précédente a été remplacée)' : ''), 'ok');
     await chargerSpec();
+    rendreProposition(d);
   } catch (e) {
     message('❌ ' + e.message, 'error');
   } finally {

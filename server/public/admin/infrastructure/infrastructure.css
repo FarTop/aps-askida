@@ -170,3 +170,18 @@ body {
 .inf-candidat-url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
 .inf-candidat-verdict { color: var(--inf-attenue); font-size: 11.5px; }
 .inf-candidat[data-verdict="trouvée"] .inf-candidat-verdict { color: #7ddc8f; }
+
+/* ── Proposition de schéma d'authentification ── */
+.inf-proposition { margin-top: 12px; }
+.inf-proposition:empty { display: none; }
+.inf-prop-carte {
+  border: 1px solid rgba(214,210,51,.4); background: rgba(214,210,51,.07);
+  border-radius: 8px; padding: 12px;
+}
+.inf-prop-titre { font-size: 13px; margin-bottom: 8px; }
+.inf-prop-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+  background: var(--inf-fond); border: 1px solid var(--inf-bord); border-radius: 6px;
+  padding: 8px 10px; margin: 6px 0; word-break: break-all;
+}
+.inf-prop-alerte { color: #f0b429; font-size: 12px; margin: 8px 0; }

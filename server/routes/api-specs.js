@@ -122,6 +122,147 @@ function operationsDe(doc) {
   return out;
 }
 
+// ── Repli : reconstituer une spec depuis une documentation ────────
+// Tous les éditeurs ne publient pas leur spec à un chemin devinable. Beaucoup
+// hébergent en revanche une doc qui EST rendue depuis une spec : chaque page
+// Markdown de Make porte, sous chaque endpoint, le fragment OpenAPI complet
+// dans un bloc de code. Recoller ces fragments reconstitue la spécification.
+//
+// Vaut pour tout éditeur dont la doc expose des variantes `.md` et un index
+// `llms.txt` — c'est une convention répandue, pas une particularité de Make.
+
+// Fragments OpenAPI dans les blocs de code d'une page Markdown.
+function fragmentsDe(texte) {
+  const out = [];
+  const re = /```(?:json)?\s*(\{[\s\S]*?\})\s*```/g;
+  let m;
+  while ((m = re.exec(texte))) {
+    let doc; try { doc = JSON.parse(m[1]); } catch (_) { continue; }
+    if (doc && typeof doc === 'object' && doc.paths) out.push(doc);
+  }
+  return out;
+}
+
+// Fusionne des fragments en une seule spec. Les chemins s'additionnent ; les
+// composants aussi. Le premier fragment qui déclare `info`/`servers` les donne
+// à l'ensemble — ils sont identiques d'un fragment à l'autre sur une même API.
+function fusionner(fragments) {
+  const spec = { openapi: '3.0.0', info: null, servers: null, components: {}, paths: {} };
+  for (const f of fragments) {
+    if (!spec.info && f.info) spec.info = f.info;
+    if (!spec.servers && Array.isArray(f.servers)) spec.servers = f.servers;
+    if (f.openapi) spec.openapi = f.openapi;
+    for (const [chemin, noeud] of Object.entries(f.paths || {})) {
+      spec.paths[chemin] = Object.assign(spec.paths[chemin] || {}, noeud);
+    }
+    for (const [cle, val] of Object.entries(f.components || {})) {
+      spec.components[cle] = Object.assign(spec.components[cle] || {}, val);
+    }
+  }
+  if (!spec.info) spec.info = { title: 'Spécification reconstituée', version: '1.0.0' };
+  if (!spec.servers) delete spec.servers;
+  return spec;
+}
+
+// Liens Markdown vers des pages `.md`, tels qu'un index llms.txt les liste.
+function liensMarkdown(texte, hote) {
+  const out = new Set();
+  const re = /\((https?:\/\/[^)\s]+\.md)\)/g;
+  let m;
+  while ((m = re.exec(texte))) { if (!hote || m[1].startsWith(hote)) out.add(m[1]); }
+  return [...out];
+}
+
+async function lireTexte(url, entetes) {
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 20000);
+    const r = await fetch(url, { headers: entetes, signal: ctrl.signal });
+    clearTimeout(to);
+    if (!r.ok) return null;
+    return await r.text();
+  } catch (_) { return null; }
+}
+
+// Depuis une URL de documentation : soit une page qui porte des fragments,
+// soit un index qui mène à ces pages. Le nombre de pages suivies est borné —
+// un index peut en lister des centaines et rien ne justifie de toutes les
+// parcourir pour une référence d'API.
+const MAX_PAGES = 200;
+async function specDepuisDoc(url, entetes) {
+  const texte = await lireTexte(url, entetes);
+  if (!texte) return { erreur: 'Document injoignable' };
+
+  let fragments = fragmentsDe(texte);
+  let pagesLues = 1;
+
+  if (!fragments.length) {
+    // Pas de fragment ici : c'est peut-être un index. On ne suit que les pages
+    // dont l'URL évoque une référence d'API, sinon on parcourt tout le manuel.
+    const hote  = origineDe(url);
+    const liens = liensMarkdown(texte, hote)
+      .filter(u => /(api-reference|api-documentation|reference|endpoints?)/i.test(u))
+      .slice(0, MAX_PAGES);
+    if (!liens.length) return { erreur: 'Aucun fragment OpenAPI ni lien de référence trouvé dans ce document' };
+
+    // Par petits paquets : un index de 60 pages ne doit pas ouvrir 60
+    // connexions simultanées chez l'éditeur.
+    for (let i = 0; i < liens.length; i += 6) {
+      const paquet = await Promise.all(liens.slice(i, i + 6).map(u => lireTexte(u, entetes)));
+      paquet.forEach(t => { if (t) { pagesLues++; fragments = fragments.concat(fragmentsDe(t)); } });
+    }
+  }
+
+  if (!fragments.length) return { erreur: `Aucun fragment OpenAPI trouvé (${pagesLues} page(s) lue(s))` };
+  return { spec: fusionner(fragments), pagesLues, fragments: fragments.length };
+}
+
+// ── Schéma d'authentification déduit de la spec ───────────────────
+// `securitySchemes` dit quel en-tête porte le jeton. Il ne dit PAS toujours son
+// préfixe : Make déclare `apiKey` dans `Authorization`, et le « Token » qui
+// précède la valeur ne vit que dans la description en prose. On le devine, et
+// on le signale comme à confirmer plutôt que de le poser en silence.
+function authProposee(spec) {
+  const schemas = (spec.components && spec.components.securitySchemes) || {};
+  const premier = Object.values(schemas)[0];
+  if (!premier) return null;
+
+  const champs = [];
+  let entete = null, prefixe = '', aConfirmer = false;
+
+  if (premier.type === 'http' && /^bearer$/i.test(premier.scheme || '')) {
+    entete = 'Authorization'; prefixe = 'Bearer';
+  } else if (premier.type === 'http' && /^basic$/i.test(premier.scheme || '')) {
+    entete = 'Authorization'; prefixe = 'Basic';
+  } else if (premier.type === 'apiKey' && premier.in === 'header') {
+    entete = premier.name || 'Authorization';
+    // Le préfixe ne vit que dans la prose. On cherche une portion entre
+    // accents graves de la forme « Token your-api-token » : deux mots dont le
+    // second est visiblement un exemple de valeur. Une regex plus lâche mordait
+    // sur « ` header with the value: ` » et proposait « header » comme préfixe.
+    const portions = (premier.description || '').match(/`([^`]+)`/g) || [];
+    for (const brute of portions) {
+      const dedans = brute.slice(1, -1).trim();
+      const m = /^([A-Za-z][A-Za-z0-9-]*)\s+(\S+)$/.exec(dedans);
+      if (m && /token|key|secret|your|<|\{/i.test(m[2])) { prefixe = m[1]; aConfirmer = true; break; }
+    }
+  } else {
+    return null;   // oauth2, cookie… : hors de ce que le formulaire sait poser
+  }
+
+  champs.push({ name: 'token', label: 'Jeton d\'API', required: true, secret: true,
+                help: (premier.description || '').split('\n')[0].slice(0, 160) });
+
+  const serveurs = (spec.servers || []).map(s => s.url).filter(Boolean);
+  return {
+    baseUrlPattern: serveurs[0] || '',
+    serveursDeclares: serveurs,
+    fields: champs,
+    auth: { kind: 'headers', headers: [{ name: entete, value: (prefixe ? prefixe + ' ' : '') + '{token}' }] },
+    prefixeAConfirmer: aConfirmer,
+  };
+}
+
 // GET /api/platforms/:id/spec-candidates — cherche la spécification là où les
 // éditeurs la déposent d'habitude, à partir de l'URL de base de la connexion.
 // Sonde deux bases : l'URL de l'API telle quelle, et la racine du domaine.
@@ -214,6 +355,7 @@ router.post('/:id/specs', async (req, res) => {
     const { url } = req.body || {};
     let contenu = req.body && req.body.content;
     let source  = null;
+    let reconstitue = null;
 
     if (url) {
       // Le serveur va chercher la spec : le navigateur en serait empêché par
@@ -247,8 +389,18 @@ router.post('/:id/specs', async (req, res) => {
       }
       const texte = await r.text();
       if (texte.length > TAILLE_MAX) return res.status(413).json({ error: 'Spécification trop volumineuse (> 12 Mo)' });
-      try { contenu = JSON.parse(texte); }
-      catch (_) { return res.status(415).json({ error: 'Le contenu n\'est pas du JSON — YAML pas encore pris en charge' }); }
+      try {
+        contenu = JSON.parse(texte);
+      } catch (_) {
+        // Repli : ce n'est pas une spec, c'est peut-être la documentation qui
+        // en est rendue. On recolle les fragments OpenAPI qu'elle contient.
+        const recolle = await specDepuisDoc(url, entetes);
+        if (recolle.erreur) {
+          return res.status(415).json({ error: 'Le contenu n\'est pas du JSON, et la reconstitution depuis la documentation a échoué — ' + recolle.erreur });
+        }
+        contenu = recolle.spec;
+        reconstitue = { pagesLues: recolle.pagesLues, fragments: recolle.fragments };
+      }
       source = url;
     }
 
@@ -295,11 +447,33 @@ router.post('/:id/specs', async (req, res) => {
       data: ops.map(o => ({ specId: spec.id, ...o })),
     });
 
+    // Proposition de schéma d'authentification, jamais appliquée d'office :
+    // la plateforme peut déjà en porter un, écrit à la main et meilleur (celui
+    // de Make a une variable {zone} qu'aucune spec ne saurait deviner).
+    const proposition = authProposee(contenu);
+
     res.status(201).json({
       id: spec.id, name: spec.name, format: spec.format, version: spec.version,
       baseUrl: spec.baseUrl, sourceUrl: spec.sourceUrl, nbOperations: ops.length,
       remplace: anciennes.length,
+      reconstitue,
+      authProposee: proposition,
+      authDejaDeclare: !!plateforme.authSpec,
     });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/platforms/:id/auth-spec — applique un schéma d'authentification.
+// Geste explicite : l'import propose, l'utilisateur décide.
+router.put('/:id/auth-spec', async (req, res) => {
+  try {
+    const spec = req.body && req.body.authSpec;
+    if (!spec || typeof spec !== 'object') return res.status(400).json({ error: 'authSpec attendu' });
+    const p = await prisma.platform.update({
+      where: { id: req.params.id },
+      data: { authSpec: spec },
+    });
+    res.json({ id: p.id, authSpec: p.authSpec });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
