@@ -545,9 +545,15 @@ router.put('/endpoints/:endpointId/mapping', async (req, res) => {
     const retenu = corps.retenu !== undefined ? !!corps.retenu : !!(actuel.apsMapping);
     // Le libellé se modifie sans toucher au marquage, et inversement : renommer
     // un verbe ne doit pas le relâcher.
+    // Un verbe peut valoir PLUSIEURS appels — `create_tree` en fait trois,
+    // `Partner` sept. Choix volontairement pauvre pour un premier essai :
+    // deux opérations qui portent le même `label` SONT le même verbe, `ordre`
+    // les enchaîne. Zéro table, zéro migration — si la forme ne tient pas, on
+    // efface un champ. (Mode conception, 2026-08-10.)
     const mapping = retenu
       ? Object.assign({}, actuel.apsMapping || {}, { retenu: true },
-          corps.label !== undefined ? { label: String(corps.label).trim() } : {})
+          corps.label !== undefined ? { label: String(corps.label).trim() } : {},
+          corps.ordre !== undefined ? { ordre: parseInt(corps.ordre) || 0 } : {})
       : null;   // relâcher efface le marquage plutôt que d'y laisser `false`
     const maj = await prisma.apiEndpoint.update({
       where: { id: req.params.endpointId }, data: { apsMapping: mapping },
@@ -567,7 +573,24 @@ router.get('/specs/:specId/verbes', async (req, res) => {
       orderBy: [{ path: 'asc' }, { method: 'asc' }],
       select: { id: true, method: true, path: true, summary: true, apsMapping: true },
     });
-    res.json({ total: rows.length, verbes: rows });
+
+    // Regroupement par libellé : c'est lui qui fait le verbe. Les opérations
+    // encore sans nom restent chacune de leur côté, sous une clé propre — sinon
+    // toutes les nouvelles se fondraient dans un même verbe vide.
+    const groupes = new Map();
+    rows.forEach(r => {
+      const label = ((r.apsMapping && r.apsMapping.label) || '').trim();
+      const cle = label || ('\u0000sans-nom:' + r.id);
+      if (!groupes.has(cle)) groupes.set(cle, { label, appels: [] });
+      groupes.get(cle).appels.push(r);
+    });
+    const verbes = [...groupes.values()].map(v => ({
+      label: v.label,
+      appels: v.appels.sort((a, b) =>
+        ((a.apsMapping && a.apsMapping.ordre) || 0) - ((b.apsMapping && b.apsMapping.ordre) || 0)),
+    })).sort((a, b) => (a.label || 'zz').localeCompare(b.label || 'zz'));
+
+    res.json({ total: verbes.length, appels: rows.length, verbes });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

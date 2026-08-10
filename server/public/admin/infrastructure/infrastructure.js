@@ -356,7 +356,8 @@ async function chargerVerbes() {
   catch (_) { return; }
 
   $('inf-bloc-verbes').hidden = false;
-  $('inf-verbes-compteur').textContent = d.total ? d.total + ' retenu(s)' : '';
+  $('inf-verbes-compteur').textContent = d.total
+    ? d.total + ' verbe(s) · ' + d.appels + ' appel(s)' : '';
 
   if (!d.total) {
     const v = document.createElement('div');
@@ -366,55 +367,102 @@ async function chargerVerbes() {
     return;
   }
 
-  d.verbes.forEach(function (x) {
-    const l = document.createElement('div');
-    l.className = 'inf-verbe';
+  d.verbes.forEach(function (verbe) {
+    const bloc = document.createElement('div');
+    bloc.className = 'inf-verbe-bloc';
 
+    // Le nom EST le verbe : deux opérations qui portent le même nom se
+    // regroupent. Renommer une opération l'attache donc à un autre verbe —
+    // c'est le geste de composition, et il n'en faut pas d'autre.
     const nom = document.createElement('input');
     nom.type = 'text';
-    nom.className = 'inf-input';
-    // Le résumé de la spec sert d'amorce : mieux vaut un point de départ à
-    // réécrire qu'un champ vide devant lequel on hésite.
-    nom.placeholder = (x.summary && x.summary.fr) || 'Nom du verbe';
-    nom.value = (x.apsMapping && x.apsMapping.label) || '';
+    nom.className = 'inf-input inf-verbe-nom';
+    nom.placeholder = 'Nom du verbe — le même nom regroupe';
+    nom.value = verbe.label || '';
     let minuterie = null;
     nom.oninput = function () {
       clearTimeout(minuterie);
-      minuterie = setTimeout(async function () {
-        try {
-          await fetch('/api/endpoints/' + x.id + '/mapping', {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ label: nom.value }),
-          });
-        } catch (e) { message('❌ ' + e.message, 'error'); }
-      }, 500);
+      minuterie = setTimeout(function () { renommerVerbe(verbe, nom.value); }, 600);
     };
-    l.appendChild(nom);
+    bloc.appendChild(nom);
 
-    const p = document.createElement('span');
-    p.className = 'inf-verbe-plomberie';
-    p.textContent = '← ' + x.method + ' ' + x.path;
-    l.appendChild(p);
+    verbe.appels.forEach(function (x, i) {
+      const l = document.createElement('div');
+      l.className = 'inf-verbe-appel';
 
-    const sup = document.createElement('button');
-    sup.type = 'button';
-    sup.className = 'inf-ctx-sup';
-    sup.title = 'Ne plus retenir';
-    sup.textContent = '✕';
-    sup.onclick = async function () {
-      try {
-        await fetch('/api/endpoints/' + x.id + '/mapping', {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ retenu: false }),
-        });
+      const rang = document.createElement('span');
+      rang.className = 'inf-verbe-rang';
+      rang.textContent = verbe.appels.length > 1 ? String(i + 1) : '·';
+      l.appendChild(rang);
+
+      const p = document.createElement('span');
+      p.className = 'inf-verbe-plomberie';
+      p.textContent = x.method + ' ' + x.path;
+      l.appendChild(p);
+
+      const monter = document.createElement('button');
+      monter.type = 'button';
+      monter.className = 'inf-ctx-sup';
+      monter.textContent = '▲';
+      monter.title = 'Plus tôt dans la séquence';
+      monter.disabled = i === 0;
+      monter.onclick = function () { deplacer(verbe, i, -1); };
+      l.appendChild(monter);
+
+      const descendre = document.createElement('button');
+      descendre.type = 'button';
+      descendre.className = 'inf-ctx-sup';
+      descendre.textContent = '▼';
+      descendre.title = 'Plus tard dans la séquence';
+      descendre.disabled = i === verbe.appels.length - 1;
+      descendre.onclick = function () { deplacer(verbe, i, 1); };
+      l.appendChild(descendre);
+
+      const sup = document.createElement('button');
+      sup.type = 'button';
+      sup.className = 'inf-ctx-sup';
+      sup.textContent = '✕';
+      sup.title = 'Retirer du verbe';
+      sup.onclick = async function () {
+        await majMapping(x.id, { retenu: false });
         await chargerVerbes();
         await chargerOperations(filtreCourant);
-      } catch (e) { message('❌ ' + e.message, 'error'); }
-    };
-    l.appendChild(sup);
+      };
+      l.appendChild(sup);
 
-    hote.appendChild(l);
+      bloc.appendChild(l);
+    });
+
+    hote.appendChild(bloc);
   });
+}
+
+async function majMapping(id, corps) {
+  try {
+    const r = await fetch('/api/endpoints/' + id + '/mapping', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corps),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+  } catch (e) { message('❌ ' + e.message, 'error'); }
+}
+
+// Renommer applique le nom à TOUS les appels du verbe : sans ça, renommer un
+// verbe à deux appels le couperait en deux.
+async function renommerVerbe(verbe, nouveau) {
+  for (const x of verbe.appels) await majMapping(x.id, { label: nouveau });
+  await chargerVerbes();
+}
+
+// Réordonner réécrit les rangs du verbe entier : plus simple à relire qu'un
+// échange de deux valeurs, et sans trou dans la numérotation.
+async function deplacer(verbe, index, sens) {
+  const ordre = verbe.appels.slice();
+  const cible = index + sens;
+  if (cible < 0 || cible >= ordre.length) return;
+  const tmp = ordre[index]; ordre[index] = ordre[cible]; ordre[cible] = tmp;
+  for (let i = 0; i < ordre.length; i++) await majMapping(ordre[i].id, { ordre: i });
+  await chargerVerbes();
 }
 
 // ── Contexte de test ─────────────────────────────────────────
