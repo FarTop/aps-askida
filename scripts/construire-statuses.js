@@ -20,6 +20,15 @@
 // « Prochaine tentative cette nuit ». Or la recherche du lendemain cherche
 // « Posté » : une collection passée à « Publié » n'était jamais reprise. La
 // tentative promise n'avait jamais lieu. Rester en « Posté » referme ça.
+//
+// SECOND ÉCART, même date : les trois historiques sont en `whMode: 'change'`
+// — ils n'écrivent que si la ligne dit autre chose que la précédente. Un
+// contrôle nocturne sur un contenu bloqué répétait sinon la même phrase
+// indéfiniment (17 lignes identiques relevées sur QA). Corollaire nécessaire :
+// l'horodatage `{now(...)}` est sorti des messages et `whShowRunId` est à
+// false — deux valeurs qui changent à chaque passage auraient rendu toutes les
+// lignes différentes et l'option inopérante. La date reste en tête de ligne,
+// posée par `whShowDate`, où elle était déjà.
 // ================================================================
 'use strict';
 
@@ -117,10 +126,10 @@ const steps = [
                 + 'de bout en bout.',
           params: {
             target: 'collection', targetId: '{item.id}', mdField: 'StatutPrime', mdViewId: '',
-            whMode: 'update', whOrder: 'newest', whWfName: 'Prime', whStatut: '✅ Succès',
-            whMessage: 'Livraison Amazon Prime — ✅ Publié sur Prime · {now(Europe/Paris)} '
+            whMode: 'change', whOrder: 'newest', whWfName: 'Prime', whStatut: '✅ Succès',
+            whMessage: 'Livraison Amazon Prime — ✅ Publié sur Prime. '
                      + 'Validé par VOD Factory : avails, métadonnées, images, vidéo.',
-            whShowWf: true, whShowDate: true, whShowUser: false, whShowRunId: true,
+            whShowWf: true, whShowDate: true, whShowUser: false, whShowRunId: false,
           } },
 
         { id: 'pourquoi_ca_bloque', core: 'decision', label: 'Pourquoi ça bloque ?',
@@ -146,12 +155,12 @@ const steps = [
             // le champ StatutPrime lui-même dit le contraire — le contrôle
             // nocturne qui tourne en production y écrit `🕗 Reporté` depuis le
             // 1er août. Une attente normale ne s'annonce pas comme un échec.
-            whMode: 'update', whOrder: 'newest', whWfName: 'Prime', whStatut: '🕗 Reporté',
-            whMessage: 'Livraison Amazon Prime — ⏳ En attente d\'envoi · {now(Europe/Paris)} '
+            whMode: 'change', whOrder: 'newest', whWfName: 'Prime', whStatut: '🕗 Reporté',
+            whMessage: 'Livraison Amazon Prime — ⏳ En attente d\'envoi. '
                      + 'Contenu prêt chez VOD Factory, pas encore transmis à Amazon. '
                      + 'Prochaine tentative cette nuit. ⚠️ {checkerSummary}',
             whSummaryVar: '{vfStatus.body.results.amazon.actions}',
-            whShowWf: true, whShowDate: true, whShowUser: false, whShowRunId: true,
+            whShowWf: true, whShowDate: true, whShowUser: false, whShowRunId: false,
           } },
 
         { id: 'histo_echec', core: 'history', facade: 'iconik.history',
@@ -160,11 +169,11 @@ const steps = [
                 + '« Posté » pour qu\'elle soit reprise.',
           params: {
             target: 'collection', targetId: '{item.id}', mdField: 'StatutPrime', mdViewId: '',
-            whMode: 'update', whOrder: 'newest', whWfName: 'Prime', whStatut: '❌ Échec',
-            whMessage: 'Livraison Amazon Prime — ❌ Échec de validation VOD Factory · '
-                     + '{now(Europe/Paris)} ⚠️ {checkerSummary}',
+            whMode: 'change', whOrder: 'newest', whWfName: 'Prime', whStatut: '❌ Échec',
+            whMessage: 'Livraison Amazon Prime — ❌ Échec de validation VOD Factory. '
+                     + '⚠️ {checkerSummary}',
             whSummaryVar: '{vfStatus.body.results.amazon.actions}',
-            whShowWf: true, whShowDate: true, whShowUser: false, whShowRunId: true,
+            whShowWf: true, whShowDate: true, whShowUser: false, whShowRunId: false,
           } },
 
         // ── Post-its du corps de boucle ─────────────────────────
@@ -227,7 +236,10 @@ const steps = [
           + 'reprise tout seul. Une collection définitivement en échec\n'
           + 'repassera chaque nuit jusqu\'à ce qu\'un humain la regarde.\n'
           + 'C\'est un choix (ne pas perdre de contenu en silence),\n'
-          + 'pas un oubli.' } },
+          + 'pas un oubli.\n\n'
+          + 'Les trois historiques sont en mode « seulement si ça change » :\n'
+          + 'une collection bloquée n\'écrit qu\'UNE ligne, pas une par nuit.\n'
+          + 'Le passage suivant qui dit autre chose en écrira une nouvelle.' } },
       ],
       edges: [
         // Les huit contrôles passent → on publie.

@@ -928,10 +928,23 @@ const ConfigSchema = (() => {
             placeholder: 'no view (write raw field)' },
           { nature: 'metadonnee', chemin: 'mdField', label: 'History field', placeholder: 'field name',
             vuePour: function (m) { return m.lire('mdViewId'); } },
-          { nature: 'choix', chemin: 'whMode', label: 'Mode', options: [
-            { valeur: 'add', libelle: 'Always add a line' },
-            { valeur: 'update', libelle: "Replace this run's line if present" }
-          ] },
+          // Libellés revus le 2026-08-10 : « Replace this run's line if
+          // present » se lisait « Replace » en parcourant la liste, et laissait
+          // croire que le champ entier était réécrit. Le libellé français de
+          // WFD était sans ambiguïté (« Mettre à jour la ligne du run
+          // courant ») ; on retrouve cette précision ici.
+          { nature: 'choix', chemin: 'whMode', label: 'Mode',
+            aide: 'Add: one line per run, always — the full log, nothing is ever dropped. '
+                + 'Update: only rewrites the line written earlier BY THE SAME RUN (a workflow '
+                + 'that posts "Running" then "Success" keeps one line instead of two); across '
+                + 'runs it still adds. Only when changed: adds a line only when it says '
+                + 'something new — date and run id are ignored in the comparison, so a nightly '
+                + 'check that keeps reporting the same thing stops repeating itself.',
+            options: [
+              { valeur: 'add', libelle: 'Add a line on every run' },
+              { valeur: 'update', libelle: "Update this run's own line" },
+              { valeur: 'change', libelle: 'Add a line only when it changed' }
+            ] },
           { nature: 'choix', chemin: 'whOrder', label: 'New lines go', options: [
             { valeur: 'newest', libelle: 'On top (newest first)' },
             { valeur: 'oldest', libelle: 'At the end (oldest first)' }

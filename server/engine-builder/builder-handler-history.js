@@ -103,13 +103,24 @@ async function workflowHistory(step, ctx, deps) {
   const wfName  = p.whWfName || '';
   const user    = ctx.trigger?.user || ctx.vars?.['trigger.user'] || '';
 
+  // `parts` = la ligne affichée. `partsSignifiantes` = la même chose privée de
+  // ce qui change à chaque passage sans rien dire de neuf (la date, l'id de
+  // run). C'est elle qui sert de signature au mode 'change' plus bas. Les deux
+  // se remplissent dans le MÊME ordre, ce qui fait de la signature une
+  // sous-chaîne contiguë de la ligne — la comparaison peut donc rester un
+  // simple `includes`, sans reparser un format.
   const parts = [];
-  if (p.whShowDate !== false && dateStr) parts.push(dateStr);
-  if (p.whShowWf   !== false && wfName)  parts.push(wfName);
-  if (p.whShowUser !== false && user)    parts.push(user);
-  if (statut)  parts.push(statut);
-  if (message) parts.push(message);
-  if (essenceChecklist) parts.push(essenceChecklist);
+  const partsSignifiantes = [];
+  const pousser = (v, signifiant) => {
+    parts.push(v);
+    if (signifiant) partsSignifiantes.push(v);
+  };
+  if (p.whShowDate !== false && dateStr) pousser(dateStr, false);
+  if (p.whShowWf   !== false && wfName)  pousser(wfName, true);
+  if (p.whShowUser !== false && user)    pousser(user, true);
+  if (statut)  pousser(statut, true);
+  if (message) pousser(message, true);
+  if (essenceChecklist) pousser(essenceChecklist, true);
 
   if (p.whSummaryVar) {
     try {
@@ -124,11 +135,11 @@ async function workflowHistory(step, ctx, deps) {
         const issues = Object.entries(summaryObj)
           .filter(([k, v]) => v && typeof v === 'object' && v.status && !okStatuses.includes(v.status))
           .map(([k, v]) => k.replace('amazon_', '') + ': ' + (v.status_details || v.status));
-        if (issues.length) parts.push(issues.join(', '));
+        if (issues.length) pousser(issues.join(', '), true);
       }
     } catch (_) {}
   }
-  if (p.whShowRunId === true && runId) parts.push(runId.slice(0, 12));
+  if (p.whShowRunId === true && runId) pousser(runId.slice(0, 12), false);
 
   const visibleLine = parts.join(' | ');
   const newLine = (mode === 'add' && runId)
@@ -148,6 +159,27 @@ async function workflowHistory(step, ctx, deps) {
   } catch (e) { /* vue non initialisée — traiter comme vide */ }
 
   const currentVal = (existing[mdField]?.field_values?.[0]?.value || '').trim();
+
+  // Mode 'change' (2026-08-10) : n'écrire QUE si la ligne dit autre chose que
+  // la précédente. Un contrôle qui repasse toutes les nuits sur un contenu
+  // bloqué répétait la même phrase indéfiniment — 17 lignes identiques
+  // observées sur QA, une par nuit, sans plafond.
+  //
+  // Optionnel et JAMAIS le défaut : le journal reste à la main de
+  // l'administrateur, qui peut vouloir la trace de chaque passage même
+  // répétitif (« telle nuit, on a bien regardé »). `add` reste le comportement
+  // d'origine, rien ne change pour les workflows existants.
+  //
+  // On compare à la ligne la PLUS RÉCENTE, dont la position dépend de whOrder.
+  if (mode === 'change' && currentVal) {
+    const lignes = currentVal.split('\n');
+    const derniere = order === 'newest' ? lignes[0] : lignes[lignes.length - 1];
+    const signature = partsSignifiantes.join(' | ');
+    if (signature && derniere && derniere.includes(signature)) {
+      BuilderContext.setVar(ctx, 'history_skipped', 'true');
+      return { port: 'out' };   // rien à dire de neuf : aucune écriture Iconik
+    }
+  }
 
   let newVal;
   if (mode === 'update' && runId) {
