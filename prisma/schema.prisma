@@ -364,8 +364,9 @@ model BuilderRun {
   flow          BuilderFlow       @relation(fields: [flowId], references: [id], onDelete: Cascade)
   flowVersion   Int?              // version publiée exécutée, null si contre le brouillon
   status        String            // running | success | partial | failed
-  triggerType   String            // manual | custom_action
-  triggerRef    String?           // slug/customActionId matché, ou null en manuel
+  triggerType   String            // manual | custom_action | timer
+  triggerRef    String?           // slug/customActionId matché, mode de minuterie
+                                  // (cron|interval|oneshot), ou null en manuel
   startedAt     DateTime          @default(now())
   finishedAt    DateTime?
   durationMs    Int?

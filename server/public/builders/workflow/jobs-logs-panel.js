@@ -220,7 +220,13 @@
       etatTxt.textContent = ETAT_LABEL[run.status] || run.status;
       const trig = document.createElement('span');
       trig.className = 'jb-trigger';
-      trig.textContent = run.triggerType === 'custom_action' ? (run.triggerRef || 'webhook') : 'manual';
+      // Trois origines réelles, pas deux : un run planifié affichait « manual »
+      // avec l'ancien ternaire, qui rangeait tout ce qui n'était pas
+      // custom_action du côté manuel. `triggerRef` porte le mode de minuterie
+      // (cron/interval/oneshot) — cf. builder-scheduler.js.
+      trig.textContent = run.triggerType === 'custom_action' ? (run.triggerRef || 'webhook')
+        : run.triggerType === 'timer' ? ('⏱ ' + (run.triggerRef || 'timer'))
+        : 'manual';
       titre.appendChild(etatTxt);
       titre.appendChild(trig);
 

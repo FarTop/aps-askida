@@ -57,6 +57,7 @@ const contextRouter        = require('./routes/context');
 const packageRouter        = require('./routes/package');
 const builderEngineRouter  = require('./routes/builder-engine');
 const builderRunsRouter    = require('./routes/builder-runs');
+const builderScheduler     = require('./engine-builder/builder-scheduler.js');
 
 app.use('/api/flows',      flowsRouter);
 app.use('/api/connexions', connexionsRouter);
@@ -104,6 +105,7 @@ app.get('/{*path}', (req, res) => {
 // ── Démarrage ─────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
   wfdEngineRouter.start().catch(e => console.warn('[WFD] Démarrage engine échoué :', e.message));
+  builderScheduler.start().catch(e => console.warn('[Builder Timer] Démarrage échoué :', e.message));
   console.log('');
   console.log('╔══════════════════════════════════════╗');
   console.log('║   APS — Askida Platform Studio       ║');

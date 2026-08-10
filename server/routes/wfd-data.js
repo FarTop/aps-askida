@@ -10,6 +10,22 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma  = new PrismaClient({ adapter });
 
 const { getOrgContext } = require('../lib/org-context');
+const builderScheduler  = require('../engine-builder/builder-scheduler.js');
+
+// Une planification vit en mémoire dans le processus serveur ; toute écriture
+// qui peut la changer doit la faire relire. Le planificateur ne lisant que la
+// version PUBLIÉE (cf. builder-scheduler.js, reload()), ce sont les écritures
+// qui touchent à la publication ou à l'existence du flow : publier, supprimer
+// une version, activer/désactiver, supprimer. Volontairement PAS le PUT du
+// document : le canevas enregistre automatiquement, et recharger à chaque
+// frappe rearmerait sans fin une minuterie qui ne partirait jamais.
+// En arrière-plan et sans jamais faire échouer la requête HTTP : un flow
+// republié dont la minuterie n'a pas été rechargée est un désagrément, pas une
+// raison de refuser la publication.
+function _replanifier(motif) {
+  builderScheduler.reload().catch(e =>
+    console.warn(`[Builder Timer] Rechargement après ${motif} échoué :`, e.message));
+}
 
 // Résout l'org d'une requête. Si `req` est fourni, on passe par le contexte
 // (cookie/header X-Org-Id sinon repli première org) : additif, transparent pour
@@ -476,6 +492,7 @@ router.delete('/builder-flows/:id/versions/:version', async (req, res) => {
       where: { flowId_version: { flowId: req.params.id, version: Number(req.params.version) } }
     });
     res.json({ ok: true });
+    _replanifier('suppression de version');
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -498,6 +515,7 @@ router.post('/builder-flows/:id/publish', async (req, res) => {
       data: { flowId: flow.id, version: prochaineVersion, document }
     });
     res.status(201).json({ version: version.version, createdAt: version.createdAt });
+    _replanifier('publication');
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -511,6 +529,7 @@ router.post('/builder-flows/:id/deactivate', async (req, res) => {
   try {
     const item = await prisma.builderFlow.update({ where: { id: req.params.id }, data: { active: false } });
     res.json({ id: item.id, active: item.active });
+    _replanifier('désactivation');
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -518,6 +537,7 @@ router.post('/builder-flows/:id/activate', async (req, res) => {
   try {
     const item = await prisma.builderFlow.update({ where: { id: req.params.id }, data: { active: true } });
     res.json({ id: item.id, active: item.active });
+    _replanifier('activation');
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -556,6 +576,7 @@ router.delete('/builder-flows/:id', async (req, res) => {
   try {
     await prisma.builderFlow.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
+    _replanifier('suppression');
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
