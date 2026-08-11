@@ -576,6 +576,11 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
                              pourquoi: compo.pourquoi }
                          : construitPar(e.core, ports),
         module: rendu ? rendu.module : null,
+        // La configuration de l'étape voyage avec le plan : c'est elle que
+        // l'émetteur recopie dans les `parameters` du module. Sans elle, il
+        // n'émettrait qu'un squelette — des modules justes, vides de tout
+        // réglage.
+        params: (e.etape && e.etape.params) || {},
         composition: compo,
         natif: natif,
         orphelin: orphelin,

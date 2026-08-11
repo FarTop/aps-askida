@@ -95,6 +95,59 @@ const VERSIONS = {
 // plutôt que celui dont le nom sonne juste.
 const LIRE_RESSOURCE = 'datastore:SearchRecord';
 
+// ── COMMENT UN MODULE D'APP CUSTOM SE DÉSIGNE ───────────────────
+// `apssonde28365-9782b8:iconikSearch` semblait évident — c'est la forme de
+// tous les modules natifs (`aws-s3:uploadFile`, `http:ActionSendData`). Elle
+// est fausse pour une app custom, qui porte un préfixe :
+//
+//     app#apssonde28365-9782b8:iconikAction
+//
+// Huit variantes essayées à l'aveugle, toutes refusées, dont `app:` — à un
+// caractère près. Ce qui a tranché n'est aucune d'elles : c'est un scénario
+// posé À LA MAIN dans l'éditeur puis relu par l'API. La cible sait dire ce
+// qu'elle attend, à condition de le lui demander au bon endroit.
+//
+// J'avais imputé l'échec au droit `apps commit` manquant. C'était une
+// inférence tirée d'un 403 voisin, et elle était fausse : l'app est
+// parfaitement utilisable par son équipe. Le droit ne sert qu'à figer une app
+// pour la distribuer — jamais à s'en servir chez soi.
+const PREFIXE_APP = 'app#';
+
+// ── LA CONFIGURATION D'UN MODULE ────────────────────────────────
+// Un module d'app custom prend ses réglages dans `parameters`, PAS dans
+// `mapper` — les modules natifs font l'inverse, et j'avais appliqué la règle
+// des natifs à tout le monde. Le scénario posé à la main le dit sans
+// ambiguïté : `{"assetId":"", "onError":"", "actionType":"export_location_trigger"}`.
+//
+// Les noms coïncident sans travail : `rendre-make.js` déclare chaque paramètre
+// sous `c.chemin`, qui est exactement la clé du pivot. C'est le bénéfice d'un
+// rendu dérivé plutôt que saisi.
+//
+// DEUX FAMILLES DE CHAMPS SONT ÉCARTÉES, et pour des raisons opposées :
+//
+//   les références de ressources — y recopier l'identifiant APS produirait une
+//   valeur qui ne désigne rien chez la cible. La valeur doit venir du module
+//   Data Store posé juste avant ; ce branchement reste à écrire, et un champ
+//   vide se voit alors qu'un identifiant mort passe inaperçu.
+//
+//   `label` — c'est le nom de l'étape, déjà porté par `designer.name`. En
+//   faire aussi un paramètre le ferait diverger à la première renommée.
+function parametresDe(plan, etape) {
+  const out = {};
+  const def = (plan.definitions || {})[etape.verbe];
+  const champs = (def && def.champs) || [];
+  const params = etape.params || {};
+  champs.forEach(function (c) {
+    if (c.chemin === 'label') return;
+    if (RENDU.RESSOURCES_APS.includes(c.nature)) return;
+    if (RENDU.AFFICHAGE.includes(c.nature)) return;
+    const v = params[c.chemin];
+    if (v === undefined || v === null) return;
+    out[c.chemin] = v;
+  });
+  return out;
+}
+
 // ── L'ÉMETTEUR ──────────────────────────────────────────────────
 // `plan` est la sortie de la route d'interprétation : les mêmes groupes, les
 // mêmes étapes, les mêmes lectures. Émettre depuis le PLAN et non depuis le
@@ -179,8 +232,9 @@ function emettre(plan, groupe, rang) {
         principal = premier;
       } else if (e.module) {
         principal = poser(flow, x,
-          SANS_APP ? 'util:SetVariable2' : plan.app + ':' + e.module,
-          e.label + (SANS_APP ? ' [' + e.module + ']' : ''));
+          SANS_APP ? 'util:SetVariable2' : PREFIXE_APP + plan.app + ':' + e.module,
+          e.label + (SANS_APP ? ' [' + e.module + ']' : ''),
+          { parameters: parametresDe(plan, e) });
         x += PAS_X;
       } else if (e.core === 'loop') {
         // Frontière de scénario : on pose l'APPEL, pas le corps — le corps est
@@ -298,6 +352,15 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
   const nd = await prisma.nodeDefinition.findFirst({
     where: { description: { path: ['rendus', 'make', 'app'], not: null } } });
   plan.app = (nd && nd.description.rendus.make.app) || 'apssonde28365-9782b8';
+
+  // Les champs déclarés par chaque verbe. Ils viennent de `NodeDefinition`, où
+  // ils sont DÉRIVÉS du moteur — pas du plan, qui décrit un workflow et non un
+  // vocabulaire.
+  const defs = await prisma.nodeDefinition.findMany();
+  plan.definitions = {};
+  defs.forEach(function (d) {
+    plan.definitions[d.family] = { champs: (d.configSchema && d.configSchema.champs) || [] };
+  });
 
   console.log('\n' + plan.flux.nom + ' → ' + plan.cible.nom);
   console.log(plan.aptitude.titre + ' — ' + plan.verdict.etapes + ' étapes, '
