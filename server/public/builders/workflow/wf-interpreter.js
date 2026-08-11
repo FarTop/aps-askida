@@ -97,8 +97,13 @@ const WfInterpreter = (() => {
      ['traduit', v.traduites, 'traduites'],
      ['degrade', v.degradees, 'dégradées'],
      ['bloquant', v.bloquantes, 'bloquantes'],
+     // Les lectures de ressource ne sont pas des étapes : ce sont des modules
+     // que la cible exige EN PLUS. Comptées à part, jamais fondues dans le
+     // total — sans quoi le workflow paraîtrait plus gros qu'il n'est.
+     ['lectures', v.lectures, v.lectures > 1 ? 'lectures' : 'lecture'],
      ['scenarios', v.scenarios, v.scenarios > 1 ? 'scénarios' : 'scénario']]
       .forEach(function (t) {
+        if (t[0] === 'lectures' && !t[1]) return;
         const c = el('span', 'itp-compte');
         c.dataset.genre = t[0];
         c.appendChild(el('b', null, t[1] == null ? '—' : t[1]));
@@ -174,6 +179,21 @@ const WfInterpreter = (() => {
       bloc.appendChild(el('div', 'itp-scenario-tete', g.nom + ' · ' + g.role));
       const grille = el('div', 'itp-pastilles');
       (g.etapes || []).forEach(function (e) {
+        // La lecture d'une ressource se pose AVANT le module qui s'en sert,
+        // et seulement de ce côté-ci : elle n'existe pas dans le workflow
+        // source. C'est précisément ce que la vue doit montrer — la
+        // destination compte des modules que la source n'a pas.
+        (e.prealables || []).forEach(function (p) {
+          const l = el('div', 'itp-lecture');
+          l.dataset.etape = e.id || '';
+          l.appendChild(el('span', 'itp-lecture-signe', '⛁'));
+          l.appendChild(el('span', 'itp-lecture-nom', p.nom || p.cle));
+          if (!p.existe) l.dataset.absent = '1';
+          l.title = p.module + '\n' + p.store + ' · ' + p.cle
+                  + (p.existe ? '' : '\n⚠ cette clé ne pointe sur rien dans APS')
+                  + (p.reserve ? '\n' + p.reserve : '');
+          grille.appendChild(l);
+        });
         grille.appendChild(pastille(e, 'cible', rangs.get(e.id)));
       });
       bloc.appendChild(grille);
@@ -266,6 +286,32 @@ const WfInterpreter = (() => {
         if (e.natif) m.dataset.natif = '1';
         if (e.orphelin) m.dataset.orphelin = '1';
         mod.appendChild(m);
+        // Une app custom ne peut pas lire un Data Store depuis son `api` : la
+        // lecture se joue dans le SCÉNARIO, en amont. Le module ne vient donc
+        // jamais seul, et la ligne doit le dire.
+        (e.prealables || []).forEach(function (p) {
+          const l = el('span', 'itp-prealable');
+          if (!p.existe) l.dataset.absent = '1';
+          l.appendChild(el('b', null, '＋ ' + p.module));
+          // Le NOM identifie, la CLÉ prouve — dans cet ordre. La clé est un
+          // identifiant opaque : mise en tête, elle occupait trois lignes
+          // d'une colonne étroite et repoussait le seul mot lisible en bas.
+          l.appendChild(el('span', 'itp-prealable-pour',
+            (p.nom ? '« ' + p.nom + ' »' : '⚠ sans correspondance dans APS') + ' → ' + p.pour));
+          l.appendChild(el('span', 'itp-prealable-cle', p.store + ' · ' + p.cle));
+          if (p.reserve) l.appendChild(el('span', 'itp-prealable-pour', p.reserve));
+          mod.appendChild(l);
+        });
+        // Lue une fois, la valeur reste disponible en aval : les étapes
+        // suivantes reprennent au lieu de relire. Le dire évite qu'on prenne
+        // une absence de module pour un oubli.
+        // La clé reste au survol : dans une colonne étroite elle tenait sur
+        // trois lignes pour ne rien dire de plus que « c'est la même ».
+        (e.reprises || []).forEach(function (p) {
+          const r = el('span', 'itp-reprise', '↳ déjà lu par « ' + p.de + ' »');
+          r.title = p.cle + ' → ' + p.pour;
+          mod.appendChild(r);
+        });
         tr.appendChild(mod);
 
         const perte = el('div', 'itp-td');
@@ -305,15 +351,25 @@ const WfInterpreter = (() => {
     L.push('Interprétation : ' + d.flux.nom);
     L.push('Cible          : ' + d.cible.nom);
     L.push('Plan           : ' + v.traduites + ' traduites, ' + v.degradees
-           + ' dégradées, ' + v.bloquantes + ' bloquantes, ' + v.scenarios + ' scénario(s)');
+           + ' dégradées, ' + v.bloquantes + ' bloquantes, ' + v.scenarios + ' scénario(s)'
+           + (v.lectures ? ', ' + v.lectures + ' lecture(s) de ressource' : ''));
     L.push('');
     (d.groupes || []).forEach(function (g) {
       L.push('  scénario "' + g.nom + '" (' + g.role + ')');
       if (g.raison) L.push('    # ' + g.raison);
       (g.etapes || []).forEach(function (e) {
+        // La lecture se pose AVANT le module qu'elle sert : dans un plan qu'on
+        // colle dans un ticket, l'ordre des lignes EST l'ordre du montage.
+        (e.prealables || []).forEach(function (p) {
+          L.push('    + ' + p.module + '  [' + p.store + ' · ' + p.cle + ']'
+                 + (p.existe ? '  → ' + p.pour : '  → ' + p.pour + '  (clé sans correspondance dans APS)'));
+        });
         const signe = e.etat === 'traduit' ? '+' : e.etat === 'degrade' ? '~' : '!';
         L.push('    ' + signe + ' ' + e.label.padEnd(30).slice(0, 30) + ' -> '
                + texteCible(e) + '  [' + (e.construit ? e.construit.dit : '') + ']');
+        (e.reprises || []).forEach(function (p) {
+          L.push('        ↳ reprend ' + p.cle + ' de "' + p.de + '"');
+        });
         (e.ecarts || []).forEach(function (x) {
           L.push('        ' + (x.gravite === 'bloquant' ? 'x' : '!') + ' ['
                  + libelleStatut(x.statut) + '] ' + x.quoi + ' : ' + x.pourquoi

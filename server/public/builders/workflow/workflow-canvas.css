@@ -1506,16 +1506,61 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   font-size: 10px; letter-spacing: .03em; padding: 1px 7px; border-radius: 999px;
   border: 1px solid transparent; white-space: nowrap;
 }
-.itp-statut[data-statut="a_cabler"]   { color: #7fb3d5; border-color: rgba(127,179,213,.35); }
-.itp-statut[data-statut="a_relire"]   { color: #9aa5b1; border-color: rgba(154,165,177,.3); }
-.itp-statut[data-statut="a_trancher"] { color: #f39c12; border-color: rgba(243,156,18,.4); }
-.itp-statut[data-statut="bloquant"]   { color: #e74c3c; border-color: rgba(231,76,60,.45); }
+.itp-statut[data-statut="a_cabler"]       { color: #7fb3d5; border-color: rgba(127,179,213,.35); }
+.itp-statut[data-statut="a_provisionner"] { color: #a99adf; border-color: rgba(169,154,223,.35); }
+.itp-statut[data-statut="a_relire"]       { color: #9aa5b1; border-color: rgba(154,165,177,.3); }
+.itp-statut[data-statut="a_trancher"]     { color: #f39c12; border-color: rgba(243,156,18,.4); }
+.itp-statut[data-statut="bloquant"]       { color: #e74c3c; border-color: rgba(231,76,60,.45); }
 .itp-ecart .itp-statut { margin-right: 5px; cursor: help; }
 
 /* La couleur de l'écart suit son STATUT, plus sa seule gravité. */
-.itp-ecart[data-statut="a_cabler"]::before   { content: '⚙ '; color: #7fb3d5; }
-.itp-ecart[data-statut="a_relire"]::before   { content: '◦ '; color: #9aa5b1; }
-.itp-ecart[data-statut="a_trancher"]::before { content: '⚠ '; color: #f39c12; }
+.itp-ecart[data-statut="a_cabler"]::before       { content: '⚙ '; color: #7fb3d5; }
+.itp-ecart[data-statut="a_provisionner"]::before { content: '🔑'; color: #a99adf; }
+.itp-ecart[data-statut="a_relire"]::before       { content: '◦ '; color: #9aa5b1; }
+.itp-ecart[data-statut="a_trancher"]::before     { content: '⚠ '; color: #f39c12; }
+
+/* ── LA LECTURE D'UNE RESSOURCE ─────────────────────────────────────────────
+   Un module que la CIBLE exige et que la source n'a pas : une app custom ne
+   peut pas lire un Data Store depuis son `api`, la lecture se joue dans le
+   scénario. Elle se distingue donc d'une étape — même famille visuelle, jamais
+   la même forme, sans quoi on croirait le workflow plus gros qu'il n'est. */
+.itp-lecture {
+  /* Toute la largeur, jamais une case. Logée dans une colonne, elle se lisait
+     comme une étape de plus et décalait le rythme des paires — or les deux
+     cartes ne valent que par leurs rangs qui se répondent. Pleine ligne, elle
+     redevient ce qu'elle est : quelque chose d'INSÉRÉ entre deux étapes.
+     Le conteneur est un `flex-wrap`, pas une grille : `grid-column` n'y fait
+     rien du tout, c'est la base qui force le passage à la ligne. */
+  flex: 0 0 100%; box-sizing: border-box;   /* sinon 100 % + marges = débord */
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 9px; border-radius: 8px;
+  border: 1px dashed rgba(127,179,213,.4);
+  background: rgba(127,179,213,.06);
+  font-size: 10.5px; color: #7fb3d5; cursor: help;
+}
+.itp-lecture[data-absent="1"] { border-color: rgba(231,76,60,.5); color: #e08b82; }
+.itp-lecture-nom { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.itp-lecture.est-lie { border-style: solid; background: rgba(127,179,213,.14); }
+
+.itp-prealable {
+  display: block; margin-top: 5px; padding-left: 8px;
+  border-left: 2px dashed rgba(127,179,213,.4);
+  font-size: 10.5px; line-height: 1.5; color: #7fb3d5;
+}
+.itp-prealable[data-absent="1"] { border-left-color: rgba(231,76,60,.5); color: #e08b82; }
+.itp-prealable b { font-weight: 600; display: block; }
+.itp-prealable-cle {
+  display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px; color: #6b7681; word-break: break-all; line-height: 1.35;
+}
+.itp-prealable-pour { display: block; color: #8e9bb3; }
+
+/* Reprise : la valeur a déjà été lue plus haut dans le même scénario. Sans
+   cette ligne, l'absence de module passerait pour un oubli. */
+.itp-reprise {
+  display: block; margin-top: 4px; font-size: 10.5px; color: #6b7681;
+  font-style: italic;
+}
 
 /* La provenance d'une étape. Sans elle, une copie et son original portent le
    même libellé et rien ne les sépare à l'écran. */

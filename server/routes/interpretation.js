@@ -18,6 +18,10 @@ const { PrismaPg }     = require('@prisma/adapter-pg');
 // Chemin relatif au fichier, pas au dossier de lancement : le serveur ne
 // démarre pas toujours depuis la racine du dépôt.
 const RENDU = require('../../scripts/rendre-make.js');
+// Où vivent les ressources d'organisation chez la cible, et sous quelle clé.
+// Comme pour la correspondance des verbes : c'est le portage qui décide, cet
+// écran ne fait que lire. Le module n'écrit rien quand on le requiert.
+const PORT  = require('../../scripts/porter-ressources-make.js');
 // Le catalogue est le seul à savoir quels ports une étape expose — ceux d'une
 // décision se calculent depuis sa configuration.
 const CAT   = require('../public/builders/workflow/pivot-catalog-iconik.js');
@@ -236,22 +240,88 @@ function etapesDe(doc) {
 // croire à vingt-deux obstacles, alors qu'il y en a deux. Chacun porte donc la
 // VOIE à prendre :
 //
-//   à câbler    on sait comment, c'est du travail. Les ressources d'org ont
-//               leur réponse depuis qu'un manifeste réel tient dans un Data
-//               Store Make avec ses champs nommés.
-//   à relire    la limite est NOTRE analyse, pas la cible.
-//   à trancher  une décision de conception, en amont.
-//   bloquant    rien ne passe.
+//   à câbler       on sait comment, c'est du travail — et depuis que les
+//                  ressources vivent dans un Data Store, on sait DANS QUOI :
+//                  un module de lecture en amont, une clé, une valeur mappée.
+//   à provisionner rien à câbler : une connexion se crée une fois chez la
+//                  cible, avec son secret. Ce n'est pas de la traduction.
+//   à relire       la limite est NOTRE analyse, pas la cible.
+//   à trancher     une décision de conception, en amont.
+//   bloquant       rien ne passe.
 const STATUTS = {
-  a_cabler:   { libelle: 'à câbler' },
-  a_relire:   { libelle: 'à relire' },
-  a_trancher: { libelle: 'à trancher' },
-  bloquant:   { libelle: 'bloquant' },
+  a_cabler:       { libelle: 'à câbler' },
+  a_provisionner: { libelle: 'à provisionner' },
+  a_relire:       { libelle: 'à relire' },
+  a_trancher:     { libelle: 'à trancher' },
+  bloquant:       { libelle: 'bloquant' },
 };
+
+// ── UNE RÉFÉRENCE DE RESSOURCE ──────────────────────────────────
+// Ces champs valaient à eux seuls 16 des 22 écarts, tous du même orange et tous
+// disant la même chose : « APS n'est pas là en production, ça devient une saisie
+// libre ». Ce n'est plus vrai — les ressources ont été portées, et une clé
+// connue vaut mieux qu'un aveu d'impuissance. Trois choses ont changé.
+//
+// 1. UN CHAMP VIDE N'EST PAS UN ÉCART. On lisait le schéma du VERBE, jamais la
+//    configuration de l'ÉTAPE : `aws_s3.deliver` déclare un manifeste, donc les
+//    trois Deliver de PUBLISH en comptaient un — alors que deux d'entre eux
+//    n'en désignent aucun. Il n'y a rien à câbler pour une référence que
+//    l'étape ne fait pas.
+//
+// 2. UNE CONNEXION N'EST PAS UNE DONNÉE. Elle n'a délibérément pas été portée :
+//    elle porte un secret, et le mettre dans un Data Store reviendrait à le
+//    sortir de son coffre pour le poser sur une étagère. Chez Make une
+//    connexion est native et attachée au module. Ce n'est pas du câblage, c'est
+//    un provisionnement — d'où un statut à part.
+//
+// 3. LE RESTE A UNE CLÉ. On peut nommer le store, la clé exacte, et la
+//    ressource qu'elle désigne. Ce qui reste à faire n'est plus « trouver
+//    comment », c'est « insérer le module de lecture ».
+function ecartDeRessource(c, etape, noms) {
+  const valeur = ((etape && etape.params) || {})[c.chemin];
+  if (valeur === undefined || valeur === null || valeur === '') return null;
+
+  if (c.nature === 'connexion') {
+    // `filtreType` est le seul indice STRUCTURÉ de la plateforme visée — une
+    // seule connexion en porte un aujourd'hui (`aws_s3`). Le reste ne se
+    // devine pas : les libellés disent « falls back to the flow's platform »,
+    // mais lire une intention dans un libellé anglais, c'est reconstruire une
+    // donnée à partir de son affichage.
+    const app = c.filtreType ? ' « ' + c.filtreType + ' »' : '';
+    return { gravite: 'degrade', statut: 'a_provisionner', quoi: c.chemin,
+             pourquoi: 'une connexion' + app + ' ne se transporte pas : elle porte un '
+                     + 'secret, et chez la cible elle est native, attachée au module',
+             voie: 'créer la connexion chez la cible une fois, à la main' };
+  }
+
+  const r = PORT.RESOLUTION[c.nature];
+  if (!r) {
+    return { gravite: 'degrade', statut: 'a_cabler', quoi: c.chemin,
+             pourquoi: `ressource APS « ${c.nature} » : aucune règle de portage`,
+             voie: 'déclarer la ressource dans scripts/porter-ressources-make.js' };
+  }
+  const cle = PORT.cleDe(c.nature, valeur);
+  const nom = noms.get(cle) || null;
+  // Le texte ne redit PAS le store ni la clé : la colonne d'à côté les affiche
+  // déjà, en toutes lettres, sur la ligne du module de lecture. Une phrase qui
+  // répète la colonne voisine fait deux fois le bruit et une fois l'information.
+  return {
+    gravite: 'degrade', statut: 'a_cabler', quoi: c.chemin,
+    pourquoi: nom ? 'ressource portée chez la cible — « ' + nom + ' » se lit dans un Data Store'
+                  : 'référence sans correspondance dans APS : la clé ne pointe sur rien, '
+                  + 'ici comme chez la cible',
+    voie: 'lire l\'enregistrement en amont et mapper la valeur'
+        + (r.reserve ? ' — ' + r.reserve : ''),
+    // La forme structurée voyage avec le texte : c'est elle qui permet de
+    // prédire le module de lecture, plus bas.
+    ressource: { store: PORT.STORE_PARTAGE, cle, nom, pour: c.chemin,
+                 reserve: r.reserve || null, existe: !!nom },
+  };
+}
 
 // Les écarts d'un verbe, lus dans `NodeDefinition` — jamais dans le code du
 // moteur. C'est la raison d'être de ce modèle.
-function ecartsDuVerbe(nd) {
+function ecartsDuVerbe(nd, etape, noms) {
   const out = [];
   if (!nd) return [{ gravite: 'bloquant', statut: 'bloquant', quoi: '(verbe inconnu)',
                      pourquoi: 'aucune définition dérivée pour ce verbe',
@@ -261,9 +331,8 @@ function ecartsDuVerbe(nd) {
     if (!c.nature || c.chemin === 'label') return;
     if (RENDU.AFFICHAGE.includes(c.nature)) return;   // décor : sans conséquence
     if (RENDU.RESSOURCES_APS.includes(c.nature)) {
-      out.push({ gravite: 'degrade', statut: 'a_cabler', quoi: c.chemin,
-                 pourquoi: `ressource APS « ${c.nature} » : devient une saisie libre, APS n'étant pas là en production`,
-                 voie: 'porter la ressource en Data Store et lire par clé' });
+      const e = ecartDeRessource(c, etape, noms);
+      if (e) out.push(e);
     } else if (!RENDU.TYPE[c.nature] && !RENDU.LISTES[c.nature]) {
       out.push({ gravite: 'degrade', statut: 'a_trancher', quoi: c.chemin,
                  pourquoi: `nature « ${c.nature} » sans équivalent chez la cible`,
@@ -293,6 +362,58 @@ function ecartsDuVerbe(nd) {
   return out;
 }
 
+// Le NOM des ressources référencées. Une clé seule (`manifeste:cms78isly…`) ne
+// se relit pas ; « Livraison VOD Factory | PRIME » se relit. Et l'absence est
+// une information à part entière : une clé qui ne pointe sur rien dans APS ne
+// pointera sur rien chez la cible non plus.
+//
+// On ne vérifie PAS la présence de la ligne chez Make. C'est un plan : il se
+// calcule hors ligne, et la cible se vérifie au moment de soumettre — sans
+// compter que le compte est plafonné à 60 requêtes par minute.
+async function nomsDesRessources() {
+  const noms = new Map();
+  const vus = new Set();
+  for (const nature of Object.keys(PORT.RESOLUTION)) {
+    const r = PORT.RESOLUTION[nature];
+    if (vus.has(r.type)) continue;            // `endpoint` et `endpoints` visent le même
+    vus.add(r.type);
+    if (!prisma[r.modele]) continue;
+    const lignes = await prisma[r.modele].findMany({ select: { id: true, name: true } });
+    lignes.forEach(l => noms.set(r.type + ':' + l.id, l.name));
+  }
+  return noms;
+}
+
+// ── CE QUE LA LECTURE COÛTE EN MODULES ──────────────────────────
+// Une app custom ne peut PAS lire un Data Store depuis son `api` : les Data
+// Stores sont natifs Make. Le montage réel est donc *module Data Store → notre
+// module*, et il ne se joue pas dans l'app mais dans le SCÉNARIO. Chaque
+// référence de ressource ajoute donc un module EN AMONT de l'étape qui s'en
+// sert — c'est la forme du scénario qui change, pas seulement un libellé.
+//
+// Mais pas une par étape : lue une fois, la valeur reste disponible en aval du
+// scénario. On dédoublonne donc par scénario et par clé — sur PUBLISH, le même
+// manifeste sert quatre étapes et ne se lit qu'une. Les suivantes REPRENNENT,
+// et disent de qui.
+function prevoirLectures(groupes) {
+  groupes.forEach(function (g) {
+    const deja = new Map();                   // clé -> libellé de l'étape qui l'a lue
+    g.etapes.forEach(function (e) {
+      e.prealables = [];
+      e.reprises   = [];
+      (e.ecarts || []).forEach(function (x) {
+        if (!x.ressource) return;
+        const r = x.ressource;
+        if (deja.has(r.cle)) { e.reprises.push({ cle: r.cle, de: deja.get(r.cle), pour: r.pour }); return; }
+        deja.set(r.cle, e.label);
+        e.prealables.push({ module: 'Data Store — Get a record', store: r.store,
+                            cle: r.cle, nom: r.nom, pour: r.pour,
+                            reserve: r.reserve, existe: r.existe });
+      });
+    });
+  });
+}
+
 router.get('/builder-flows/:id/interpretation', async (req, res) => {
   try {
     const cle = String(req.query.cible || 'make').toLowerCase();
@@ -317,6 +438,7 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
     })(flux.document);
     const defs = await prisma.nodeDefinition.findMany();
     const parFamille = new Map(defs.map(d => [d.family, d]));
+    const noms = await nomsDesRessources();
 
     // Découpage en scénarios. La seule couture qu'on sache justifier aujourd'hui
     // est le corps de boucle ; elle est donc la seule appliquée, et sa RAISON
@@ -335,7 +457,7 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       } else { g = groupes[0]; }
 
       const nd = parFamille.get(e.facade || e.core);
-      const ecarts = ecartsDuVerbe(nd);
+      const ecarts = ecartsDuVerbe(nd, e.etape, noms);
       const rendu = nd && nd.description && nd.description.rendus && nd.description.rendus.make;
       // « Outil natif » ne veut PAS dire « pas de façade ». `verify` et `wait`
       // sont des Cores qui appellent le réseau ; `lookup` est pur mais porte une
@@ -390,7 +512,9 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       }));
     }
 
+    prevoirLectures(groupes);
     const toutes = groupes.flatMap(g => g.etapes);
+    const lectures = toutes.reduce((n, e) => n + (e.prealables || []).length, 0);
     res.json({
       flux: { id: flux.id, nom: flux.name },
       cible: { cle, nom: cible.nom, pret: cible.pret },
@@ -406,6 +530,11 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
         degradees: toutes.filter(e => e.etat === 'degrade').length,
         bloquantes: toutes.filter(e => e.etat === 'bloquant').length,
         scenarios: groupes.length,
+        // Les lectures de ressource ne sont pas des étapes du workflow : ce
+        // sont des modules que la CIBLE exige en plus. Les compter à part est
+        // la seule façon honnête de le dire — les mêler aux étapes ferait
+        // croire que le workflow en compte davantage qu'il n'en a.
+        lectures: lectures,
       },
       groupes,
       aretes,

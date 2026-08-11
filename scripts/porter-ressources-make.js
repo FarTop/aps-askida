@@ -50,7 +50,6 @@ const { PrismaPg }     = require('@prisma/adapter-pg');
 const { decrypt }      = require('../server/lib/crypto.js');
 const Acces            = require('../server/lib/connexion-acces.js');
 
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 const ECRIRE = process.argv.includes('--ecrire');
 
 const T = (nom, label, type, spec) => spec
@@ -161,6 +160,34 @@ const RESSOURCES = [
   },
 ];
 
+// ── CE QU'UN CHAMP DEVIENT, UNE FOIS LA RESSOURCE PORTÉE ────────
+// La nature d'un champ (côté `NodeDefinition`) désigne une ressource ; le
+// portage décide sous quelle CLÉ elle vit chez la cible. Les deux doivent se
+// rejoindre quelque part, et cet endroit est ici : c'est le portage qui fixe la
+// forme de la clé (`type + ':' + id`), donc c'est lui qui l'annonce. L'écran
+// d'interprétation la LIT — une seconde table aurait divergé de la première au
+// premier changement, comme la correspondance des verbes l'a déjà montré.
+//
+// `connexion` est absente, et volontairement : voir « CE QU'ON NE PORTE PAS ».
+// Une nature absente de cette table n'est donc pas un oubli, c'est une réponse.
+const RESOLUTION = {
+  manifeste: { type: 'manifeste',      modele: 'manifest' },
+  mapping:   { type: 'correspondance', modele: 'mapping' },
+  endpoint:  { type: 'endpoint',       modele: 'endpoint' },
+  endpoints: { type: 'endpoint',       modele: 'endpoint' },
+  gabarit:   { type: 'gabarit',        modele: 'arboTemplate',
+               reserve: 'le gabarit arrive en JSON brut — il est récursif et une '
+                      + 'structure Make est plate ; il faudra le parser à la lecture' },
+};
+
+// La clé d'une ressource dans le store partagé. Le préfixe de type n'est pas
+// décoratif : deux ressources de types différents pourraient partager un
+// identifiant.
+function cleDe(nature, id) {
+  const r = RESOLUTION[nature];
+  return r ? r.type + ':' + id : null;
+}
+
 // L'offre plafonne à 60 requêtes par minute (`license.apiLimit`). Le registre
 // en compte 124 : sans frein, le portage se fait couper au tiers et rend des
 // « 0 sur 124 » qu'on prend pour un bug de forme. On espace, et on réessaie sur
@@ -182,7 +209,11 @@ async function ap(a, m, c, b, essai) {
   return { statut: r.status, corps: j, brut: t.slice(0, 200), ok: r.status >= 200 && r.status < 300 };
 }
 
-(async () => {
+async function porter() {
+  // Le client n'est ouvert qu'à l'exécution : ce fichier est aussi REQUIS par
+  // la route d'interprétation, pour sa table de résolution, et une connexion
+  // ouverte au chargement d'un module qu'on ne fait que lire est une fuite.
+  const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
   const cx = await prisma.connexion.findFirst({
     where: { name: { contains: 'MAKE | LUXIRIS | API' } }, include: { platform: true } });
   const acces = Acces.construireAcces({
@@ -267,4 +298,12 @@ async function ap(a, m, c, b, essai) {
   }
 
   await prisma.$disconnect();
-})().catch(e => { console.error('ERREUR —', e.message); process.exit(1); });
+}
+
+// Exécuté seulement en ligne de commande. Requis comme module, ce fichier ne
+// doit RIEN écrire chez la cible — il n'expose que ce qu'il a décidé.
+if (require.main === module) {
+  porter().catch(e => { console.error('ERREUR —', e.message); process.exit(1); });
+}
+
+module.exports = { STORE_PARTAGE, RESOLUTION, cleDe, porter };
