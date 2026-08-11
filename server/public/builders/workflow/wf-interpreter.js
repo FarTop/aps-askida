@@ -40,7 +40,9 @@ const WfInterpreter = (() => {
   // Trois issues distinctes — « — » ne disait pas si le verbe était pris en
   // charge autrement ou pas pris en charge du tout.
   function texteCible(e) {
-    return e.module ? e.module : e.natif ? 'outil natif' : 'aucun module';
+    if (e.module) return e.module;
+    if (e.composition) return 'composition native';
+    return e.natif ? 'outil natif' : 'aucun module';
   }
 
   // ── Bandeau ────────────────────────────────────────────────────────────
@@ -101,6 +103,12 @@ const WfInterpreter = (() => {
      // que la cible exige EN PLUS. Comptées à part, jamais fondues dans le
      // total — sans quoi le workflow paraîtrait plus gros qu'il n'est.
      ['lectures', v.lectures, v.lectures > 1 ? 'lectures' : 'lecture'],
+     // Le coût réel chez la cible. 28 étapes ne font pas 28 modules : une
+     // attente en vaut à elle seule une soixantaine, faute de boucle
+     // conditionnelle. Sans ce chiffre, « 2 scénarios » laisse croire à
+     // quelque chose de petit — et c'est exactement le chiffre qui inquiète
+     // les collègues sur la consommation.
+     ['modules', v.modules, 'modules chez la cible'],
      ['scenarios', v.scenarios, v.scenarios > 1 ? 'scénarios' : 'scénario']]
       .forEach(function (t) {
         if (t[0] === 'lectures' && !t[1]) return;
@@ -318,6 +326,35 @@ const WfInterpreter = (() => {
         if (e.natif) m.dataset.natif = '1';
         if (e.orphelin) m.dataset.orphelin = '1';
         mod.appendChild(m);
+        // Une composition : la suite de modules natifs qui tient lieu de verbe.
+        // Déroulée en clair, et non résumée à un compte — c'est en la lisant
+        // qu'on comprend POURQUOI elle coûte ce qu'elle coûte. Les répétitions
+        // sont regroupées, sans quoi vingt essais donneraient soixante lignes
+        // illisibles.
+        if (e.composition) {
+          const c = el('span', 'itp-composition');
+          c.appendChild(el('b', null, e.composition.nombre
+            + (e.composition.nombre > 1 ? ' modules natifs' : ' module natif')));
+          const groupes = [];
+          e.composition.modules.forEach(function (x) {
+            const d = groupes[groupes.length - 1];
+            if (d && d.module === x.module) { d.n++; return; }
+            groupes.push({ module: x.module, role: x.role, n: 1 });
+          });
+          const vus = new Set();
+          groupes.forEach(function (x) {
+            if (vus.has(x.module)) return;         // le motif se répète, pas l'explication
+            vus.add(x.module);
+            const li = el('span', 'itp-composition-mod');
+            li.appendChild(el('code', null, x.module));
+            li.appendChild(el('span', null, ' ' + x.role));
+            c.appendChild(li);
+          });
+          if (e.composition.mesure) {
+            c.appendChild(el('span', 'itp-composition-mesure', e.composition.mesure));
+          }
+          mod.appendChild(c);
+        }
         // Une app custom ne peut pas lire un Data Store depuis son `api` : la
         // lecture se joue dans le SCÉNARIO, en amont. Le module ne vient donc
         // jamais seul, et la ligne doit le dire.

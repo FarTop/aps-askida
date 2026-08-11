@@ -63,6 +63,80 @@ const RESSOURCES_APS = ['manifeste', 'mapping', 'endpoint', 'endpoints', 'gabari
 const T_SORTIE = { string: 'text', integer: 'number', number: 'number',
                    boolean: 'boolean', array: 'array', object: 'collection' };
 
+// ── LES COMPOSITIONS NATIVES ────────────────────────────────────
+// Trois verbes n'avaient ni module rendu ni équivalent natif, et l'écran les
+// disait « sans rien à écrire ». C'était vrai au sens strict — aucun module
+// unique ne leur correspond — et faux au sens utile : ils s'écrivent très bien,
+// en PLUSIEURS modules natifs.
+//
+// Le vocabulaire vient de leurs scénarios, pas d'une documentation : 72
+// blueprints relus, 48 modules natifs distincts observés. On ne déclare ici que
+// des modules qu'on a vus tourner chez eux.
+//
+// LA LEÇON DE `BAYAM | PUB | EXPORT+WAIT`. Les collègues avaient déjà résolu
+// l'attente à la main, et leur solution dit ce que la cible impose : Make n'a
+// pas de boucle conditionnelle, donc un sondage se DÉROULE. Leur scénario
+// imbrique huit essais — http, Router à 3 routes, Sleep — avec un back-off
+// écrit à la main (20, 45, 90, 180, puis 300). Une étape `Wait` d'APS y coûte
+// une vingtaine de modules. Ce n'est pas une inefficacité de notre rendu, c'est
+// le prix de la cible, et il doit se voir.
+const COMPOSITIONS = {
+  wait: {
+    dit: 'chaîne déroulée',
+    pourquoi: 'Make n\'a pas de boucle conditionnelle : un sondage ne boucle pas, '
+            + 'il se déroule — un essai après l\'autre, imbriqués',
+    mesure: 'relevé sur BAYAM | PUB | EXPORT+WAIT, qui déroule 8 essais',
+    modules: function (p) {
+      // `maxTries` décide de la longueur : c'est le paramètre de l'étape qui
+      // fixe le coût, pas une constante de notre côté. Le dernier essai ne
+      // dort pas — on ne réessaie plus après.
+      const n = Math.max(1, Number(p && p.maxTries) || 8);
+      const out = [];
+      for (let i = 1; i <= n; i++) {
+        out.push({ module: 'http:ActionSendData', role: 'interroger (essai ' + i + ')' });
+        out.push({ module: 'builtin:BasicRouter', role: 'checkPath atteint ? sortir : continuer' });
+        if (i < n) out.push({ module: 'util:FunctionSleep', role: 'attendre delaySeconds' });
+      }
+      return out;
+    },
+  },
+  lookup: {
+    dit: 'lecture + expression',
+    pourquoi: 'la table de correspondance vit dans un Data Store ; la traverser '
+            + 'est une expression, pas un appel',
+    mesure: 'datastore:SearchRecord et util:SetVariable2 observés chez eux',
+    // La lecture de la ressource est déjà comptée à part, comme préalable : la
+    // redire ici la ferait compter deux fois.
+    modules: function () {
+      return [{ module: 'util:SetVariable2',
+                role: 'choisir la règle qui correspond, dans les regles[] lues' }];
+    },
+  },
+  verify: {
+    dit: 'itération sur les essences',
+    pourquoi: 'un manifeste porte plusieurs essences ; chacune se vérifie par '
+            + 'son propre appel, et le verdict se recompose ensuite',
+    mesure: 'builtin:BasicFeeder et builtin:BasicAggregator observés chez eux',
+    modules: function () {
+      return [
+        { module: 'builtin:BasicFeeder',     role: 'parcourir les essences du manifeste' },
+        { module: 'http:ActionSendData',     role: 'interroger verifyEndpoint' },
+        { module: 'builtin:BasicAggregator', role: 'recomposer un verdict unique' },
+      ];
+    },
+  },
+};
+
+// Ce qu'un verbe devient quand il n'a pas de module à lui. Rend `null` quand
+// rien n'est déclaré — l'absence reste une absence, elle ne s'invente pas.
+function compositionDe(famille, params) {
+  const c = COMPOSITIONS[famille];
+  if (!c) return null;
+  const modules = c.modules(params || {});
+  return { dit: c.dit, pourquoi: c.pourquoi, mesure: c.mesure, modules: modules,
+           nombre: modules.length };
+}
+
 // ── LE CORPS DE LA REQUÊTE ──────────────────────────────────────
 // Sans lui, un module déclare ses champs et poste à vide : une coquille.
 // Chaque champ extrait du handler dit d'où il vient, et se traduit :
@@ -327,6 +401,6 @@ if (require.main === module) (async () => {
 })().catch(e => { console.error('ERREUR —', e.message); process.exit(1); });
 
 module.exports = {
-  TYPE, AFFICHAGE, LISTES, RESSOURCES_APS, T_SORTIE,
+  TYPE, AFFICHAGE, LISTES, RESSOURCES_APS, T_SORTIE, COMPOSITIONS, compositionDe,
   technique, typeDe, parametre, parametresDe, apiDe, valeurMake, visiblePour,
 };

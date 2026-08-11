@@ -545,7 +545,12 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       // muet, pas la cible qui est incapable. `wait` ressemble beaucoup à
       // `util:FunctionSleep`, et `lookup` à `datastore:SearchRecord` — tous
       // deux vus dans les scénarios réels de l'équipe.
-      const orphelin = !rendu && !natif;
+      // Une composition n'est pas un module, mais ce n'est pas rien : c'est une
+      // suite de modules natifs, et elle s'écrit. Un verbe qui en a une cesse
+      // donc d'être orphelin — « rien à écrire » était vrai au sens strict
+      // (aucun module unique) et faux au sens utile.
+      const compo = RENDU.compositionDe(e.facade || e.core, (e.etape && e.etape.params) || {});
+      const orphelin = !rendu && !natif && !compo;
       if (orphelin) {
         ecarts.unshift({ gravite: 'bloquant', statut: 'a_construire', quoi: e.facade || e.core,
                          pourquoi: 'aucun module ni équivalent natif déclaré pour ce verbe : '
@@ -564,8 +569,14 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       g.etapes.push({
         id: e.id, label: e.label, verbe: e.facade || e.core, depuis: depuis,
         injoignable: !!e.injoignable,
-        core: e.core, ports: ports, construit: construitPar(e.core, ports),
+        core: e.core, ports: ports,
+        // La composition l'emporte sur la forme générique : « chaîne déroulée
+        // de 23 modules » dit infiniment plus que « un module dans la suite ».
+        construit: compo ? { forme: 'composition', dit: compo.dit + ' · ' + compo.nombre + ' modules',
+                             pourquoi: compo.pourquoi }
+                         : construitPar(e.core, ports),
         module: rendu ? rendu.module : null,
+        composition: compo,
         natif: natif,
         orphelin: orphelin,
         // L'état suit la CONSÉQUENCE, plus la gravité : une étape qu'on ne sait
@@ -627,6 +638,13 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
         // la seule façon honnête de le dire — les mêler aux étapes ferait
         // croire que le workflow en compte davantage qu'il n'en a.
         lectures: lectures,
+        // Le coût réel en modules chez la cible. 28 étapes ne font pas 28
+        // modules : une seule attente en vaut une vingtaine à elle seule, et
+        // c'est exactement ce que les collègues ont payé à la main. Sans ce
+        // chiffre, « 2 scénarios » laisse croire à quelque chose de petit.
+        modules: toutes.reduce(function (n, e) {
+          return n + (e.composition ? e.composition.nombre : 1)
+                   + (e.prealables || []).length; }, 0),
       },
       groupes,
       aretes,
