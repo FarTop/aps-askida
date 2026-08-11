@@ -1506,6 +1506,47 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   font-size: 10px; letter-spacing: .03em; padding: 1px 7px; border-radius: 999px;
   border: 1px solid transparent; white-space: nowrap;
 }
+/* ── LE VERDICT D'APTITUDE ──────────────────────────────────────────────────
+   « Est-ce que je peux y aller, et est-ce que ça marchera ». Les comptes du
+   bandeau et les statuts du détail répondaient tous deux à autre chose ; cette
+   bande répond à ça, en une phrase, avant les cartes. Son ton suit la gravité :
+   on doit savoir en un coup d'œil, sans lire. */
+.itp-aptitude {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  margin: 0 0 2px; padding: 12px 18px;
+  border-radius: 10px; border: 1px solid transparent;
+  background: rgba(255,255,255,.028);
+}
+.itp-aptitude-texte { flex: 1 1 24rem; min-width: 0; }
+.itp-aptitude h3 { margin: 0 0 3px; font-size: 13.5px; letter-spacing: .01em; }
+.itp-aptitude p  { margin: 0; font-size: 11.5px; color: var(--bd-text-dim, #a6b0b8); }
+
+.itp-aptitude[data-aptitude="non_emettable"]  { border-color: rgba(231,76,60,.45);  background: rgba(231,76,60,.07); }
+.itp-aptitude[data-aptitude="non_emettable"]  h3 { color: #e74c3c; }
+.itp-aptitude[data-aptitude="ne_tournera_pas"]{ border-color: rgba(230,126,34,.45); background: rgba(230,126,34,.07); }
+.itp-aptitude[data-aptitude="ne_tournera_pas"]h3 { color: #e67e22; }
+.itp-aptitude[data-aptitude="resultat_faux"]  { border-color: rgba(243,156,18,.4);  background: rgba(243,156,18,.06); }
+.itp-aptitude[data-aptitude="resultat_faux"]  h3 { color: #f39c12; }
+.itp-aptitude[data-aptitude="fidele"]         { border-color: rgba(46,204,113,.4);  background: rgba(46,204,113,.06); }
+.itp-aptitude[data-aptitude="fidele"]         h3 { color: #2ecc71; }
+
+/* Le relevé par conséquence, à droite de la phrase. Même écarts que les
+   statuts, pris par l'autre bout — ce que ça coûte, pas ce qu'il y a à faire. */
+.itp-consequences { display: flex; gap: 8px; flex-wrap: wrap; }
+.itp-consequence {
+  display: flex; align-items: baseline; gap: 5px;
+  padding: 4px 10px; border-radius: 8px; cursor: help;
+  border: 1px solid var(--bd-panel-border, #262a2e);
+  background: rgba(0,0,0,.18); font-size: 10.5px; white-space: nowrap;
+}
+.itp-consequence b { font-size: 13px; font-variant-numeric: tabular-nums; }
+.itp-consequence-nom { color: var(--bd-text-dim, #a6b0b8); }
+.itp-consequence[data-consequence="ecrire"]  b { color: #e74c3c; }
+.itp-consequence[data-consequence="tourner"] b { color: #e67e22; }
+.itp-consequence[data-consequence="fausser"] b { color: #f39c12; }
+.itp-consequence[data-consequence="lire"]    b { color: #9aa5b1; }
+
+.itp-statut[data-statut="a_construire"]   { color: #e74c3c; border-color: rgba(231,76,60,.45); }
 .itp-statut[data-statut="a_cabler"]       { color: #7fb3d5; border-color: rgba(127,179,213,.35); }
 .itp-statut[data-statut="a_provisionner"] { color: #a99adf; border-color: rgba(169,154,223,.35); }
 .itp-statut[data-statut="a_relire"]       { color: #9aa5b1; border-color: rgba(154,165,177,.3); }
@@ -1514,6 +1555,7 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 .itp-ecart .itp-statut { margin-right: 5px; cursor: help; }
 
 /* La couleur de l'écart suit son STATUT, plus sa seule gravité. */
+.itp-ecart[data-statut="a_construire"]::before   { content: '✖ '; color: #e74c3c; }
 .itp-ecart[data-statut="a_cabler"]::before       { content: '⚙ '; color: #7fb3d5; }
 .itp-ecart[data-statut="a_provisionner"]::before { content: '🔑'; color: #a99adf; }
 .itp-ecart[data-statut="a_relire"]::before       { content: '◦ '; color: #9aa5b1; }

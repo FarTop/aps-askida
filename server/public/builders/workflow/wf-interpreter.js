@@ -114,6 +114,38 @@ const WfInterpreter = (() => {
     hote.appendChild(barre);
   }
 
+  // ── Le verdict d'aptitude ──────────────────────────────────────────────
+  // La question du lecteur n'est pas « combien d'écarts » mais « est-ce que je
+  // peux y aller, et est-ce que ça marchera ». Les quatre statuts répondaient
+  // tous à « qu'est-ce que j'ai à faire » — la question de celui qui exécute,
+  // pas de celui qui décide. Cette bande répond à l'autre, en une phrase, et
+  // avant tout le reste.
+  function rendreAptitude(hote, d) {
+    const a = d.aptitude;
+    if (!a) return;
+    const bande = el('section', 'itp-aptitude');
+    bande.dataset.aptitude = a.cle;
+    const t = el('div', 'itp-aptitude-texte');
+    t.appendChild(el('h3', null, a.titre));
+    t.appendChild(el('p', null, a.phrase));
+    bande.appendChild(t);
+
+    // Le même relevé que les statuts, pris par l'autre bout : ce que ça coûte.
+    // Les deux vivent côte à côte parce qu'ils ne se remplacent pas — l'un dit
+    // quoi faire, l'autre ce qu'il en coûte de ne pas le faire.
+    const c = el('div', 'itp-consequences');
+    (d.consequences || []).forEach(function (x) {
+      const li = el('div', 'itp-consequence');
+      li.dataset.consequence = x.cle;
+      li.appendChild(el('b', null, x.nombre));
+      li.appendChild(el('span', 'itp-consequence-nom', x.libelle));
+      li.title = x.dit;
+      c.appendChild(li);
+    });
+    bande.appendChild(c);
+    hote.appendChild(bande);
+  }
+
   // Une pastille, des deux côtés. Le MÊME objet visuel à gauche et à droite :
   // c'est ce qui rend la correspondance lisible sans tracer un seul trait.
   function pastille(e, cote, rang) {
@@ -350,6 +382,15 @@ const WfInterpreter = (() => {
     const L = [];
     L.push('Interprétation : ' + d.flux.nom);
     L.push('Cible          : ' + d.cible.nom);
+    // Le verdict d'abord : un plan collé dans un ticket se lit par le haut, et
+    // la première ligne doit dire si on peut y aller.
+    if (d.aptitude) {
+      L.push('Verdict        : ' + d.aptitude.titre);
+      L.push('                 ' + d.aptitude.phrase);
+      (d.consequences || []).forEach(function (x) {
+        L.push('                 ' + String(x.nombre).padStart(3) + '  ' + x.libelle);
+      });
+    }
     L.push('Plan           : ' + v.traduites + ' traduites, ' + v.degradees
            + ' dégradées, ' + v.bloquantes + ' bloquantes, ' + v.scenarios + ' scénario(s)'
            + (v.lectures ? ', ' + v.lectures + ' lecture(s) de ressource' : ''));
@@ -393,6 +434,7 @@ const WfInterpreter = (() => {
     if (!hote || !donnees) return;
     vider(hote);
     rendreBarre(hote, donnees);
+    rendreAptitude(hote, donnees);
     rendreCartes(hote, donnees);
     rendreDetail(hote, donnees);
 

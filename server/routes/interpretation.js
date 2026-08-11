@@ -248,13 +248,66 @@ function etapesDe(doc) {
 //   à relire       la limite est NOTRE analyse, pas la cible.
 //   à trancher     une décision de conception, en amont.
 //   bloquant       rien ne passe.
+//   à construire   l'étape n'a rien à écrire chez la cible.
 const STATUTS = {
-  a_cabler:       { libelle: 'à câbler' },
-  a_provisionner: { libelle: 'à provisionner' },
-  a_relire:       { libelle: 'à relire' },
-  a_trancher:     { libelle: 'à trancher' },
-  bloquant:       { libelle: 'bloquant' },
+  a_construire:   { libelle: 'à construire',   consequence: 'ecrire' },
+  a_provisionner: { libelle: 'à provisionner', consequence: 'tourner' },
+  a_cabler:       { libelle: 'à câbler',       consequence: 'fausser' },
+  a_relire:       { libelle: 'à relire',       consequence: 'fausser' },
+  a_trancher:     { libelle: 'à trancher',     consequence: 'lire' },
+  bloquant:       { libelle: 'bloquant',       consequence: 'ecrire' },
 };
+
+// ── LE STATUT DIT QUOI FAIRE, LA CONSÉQUENCE DIT CE QUE ÇA COÛTE ─
+// Deux axes, et l'écran n'en montrait qu'un. « à câbler », « à relire », « à
+// provisionner » répondent tous à « qu'est-ce que j'ai à faire » — la question
+// de celui qui fait le travail. Personne ne répondait à « est-ce que ça va
+// marcher », qui est la question de celui qui décide. Ce sont des questions
+// différentes : deux écarts peuvent demander le même geste et ne pas coûter la
+// même chose du tout.
+//
+// L'ordre ci-dessous est celui de la gravité, et le verdict prend le PIRE
+// présent — un scénario qu'on ne sait pas écrire ne se rattrape pas en
+// corrigeant la lisibilité d'un verbe.
+const CONSEQUENCES = {
+  ecrire:  { rang: 3, libelle: 'empêche d\'écrire',
+             dit: 'l\'étape n\'a rien à écrire chez la cible' },
+  tourner: { rang: 2, libelle: 'empêche de tourner',
+             dit: 'ça s\'écrit, mais le scénario ne s\'exécutera pas' },
+  fausser: { rang: 1, libelle: 'fausse le résultat',
+             dit: 'ça tourne sans erreur, et produit le mauvais résultat' },
+  lire:    { rang: 0, libelle: 'n\'empêche rien',
+             dit: 'ça tourne juste ; c\'est la lecture qui souffre' },
+};
+
+// La phrase du haut. Elle répond aux deux questions dans l'ordre où on se les
+// pose : est-ce que je peux y aller, et est-ce que ça marchera.
+//
+// Un scénario qui livre au mauvais endroit sans lever d'erreur est PIRE qu'un
+// scénario qui s'arrête : « fonctionnel » veut donc dire « produit le bon
+// résultat », jamais « ne plante pas ».
+const APTITUDES = {
+  ecrire:  { cle: 'non_emettable', titre: 'Pas émettable en l\'état',
+             phrase: 'Une étape au moins n\'a rien à écrire chez la cible : le scénario produit serait incomplet.' },
+  tourner: { cle: 'ne_tournera_pas', titre: 'Émettable, ne tournera pas',
+             phrase: 'Le scénario s\'écrit et Make l\'acceptera, mais il ne s\'exécutera pas en l\'état.' },
+  fausser: { cle: 'resultat_faux', titre: 'Émettable et exécutable — résultat faux',
+             phrase: 'Le scénario tournera sans lever d\'erreur, et ne produira pas le bon résultat.' },
+  lire:    { cle: 'fidele', titre: 'Émettable, exécutable, fidèle',
+             phrase: 'Rien n\'empêche ni ne fausse ; ce qui reste ne coûte qu\'à la lecture.' },
+  aucune:  { cle: 'fidele', titre: 'Émettable, exécutable, fidèle',
+             phrase: 'Aucun écart relevé sur ce workflow.' },
+};
+
+function aptitudeDe(ecarts) {
+  let pire = null;
+  ecarts.forEach(function (x) {
+    const c = CONSEQUENCES[x.consequence];
+    if (c && (!pire || c.rang > CONSEQUENCES[pire].rang)) pire = x.consequence;
+  });
+  const a = APTITUDES[pire || 'aucune'];
+  return { cle: a.cle, titre: a.titre, phrase: a.phrase, pire: pire || null };
+}
 
 // ── UNE RÉFÉRENCE DE RESSOURCE ──────────────────────────────────
 // Ces champs valaient à eux seuls 16 des 22 écarts, tous du même orange et tous
@@ -481,16 +534,45 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
         const src = etapes.find(x => x.id === a.de);
         return { de: src ? src.label : a.de, port: a.port };
       });
+      // Ni module dédié, ni équivalent natif. C'était jusqu'ici un simple texte
+      // gris — « aucun module » — qui ne produisait AUCUN écart, donc ne
+      // comptait nulle part : l'écran annonçait « 0 bloquantes » alors que
+      // trois étapes de PUBLISH n'avaient rien à écrire, et `Wait` figurait
+      // même parmi les « traduites ». Un manque qui ne pèse rien est un manque
+      // qu'on ne verra pas.
+      //
+      // Le mot « déclaré » n'est pas de trop : c'est NOTRE catalogue qui est
+      // muet, pas la cible qui est incapable. `wait` ressemble beaucoup à
+      // `util:FunctionSleep`, et `lookup` à `datastore:SearchRecord` — tous
+      // deux vus dans les scénarios réels de l'équipe.
+      const orphelin = !rendu && !natif;
+      if (orphelin) {
+        ecarts.unshift({ gravite: 'bloquant', statut: 'a_construire', quoi: e.facade || e.core,
+                         pourquoi: 'aucun module ni équivalent natif déclaré pour ce verbe : '
+                                 + 'il n\'y a rien à écrire dans le scénario',
+                         voie: 'rendre un module dans l\'app custom, ou déclarer '
+                             + 'l\'outil natif de la cible qui en tient lieu' });
+      }
+      // La conséquence se déduit du statut : elle ne se saisit nulle part, sans
+      // quoi deux écarts de même statut finiraient par ne plus coûter la même
+      // chose selon qui a rempli le champ.
+      ecarts.forEach(function (x) {
+        const st = STATUTS[x.statut];
+        x.consequence = st ? st.consequence : 'fausser';
+      });
+
       g.etapes.push({
         id: e.id, label: e.label, verbe: e.facade || e.core, depuis: depuis,
         injoignable: !!e.injoignable,
         core: e.core, ports: ports, construit: construitPar(e.core, ports),
         module: rendu ? rendu.module : null,
         natif: natif,
-        // Ni module dédié, ni équivalent natif : personne ne s'en occupe pour
-        // l'instant, et c'est ce qu'il faut dire.
-        orphelin: !rendu && !natif,
-        etat: ecarts.some(x => x.gravite === 'bloquant') ? 'bloquant'
+        orphelin: orphelin,
+        // L'état suit la CONSÉQUENCE, plus la gravité : une étape qu'on ne sait
+        // pas écrire ou qui ne tournera pas est bloquante, quoi qu'en dise son
+        // libellé.
+        etat: ecarts.some(x => x.consequence === 'ecrire' || x.consequence === 'tourner')
+                ? 'bloquant'
             : ecarts.length ? 'degrade' : 'traduit',
         ecarts,
       });
@@ -520,10 +602,20 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       cible: { cle, nom: cible.nom, pret: cible.pret },
       ciblesDisponibles: Object.entries(CIBLES).map(([k, v]) => ({ cle: k, nom: v.nom, pret: v.pret })),
       statuts: Object.entries(STATUTS).map(function (kv) {
-        return { cle: kv[0], libelle: kv[1].libelle,
+        return { cle: kv[0], libelle: kv[1].libelle, consequence: kv[1].consequence,
                  nombre: toutes.reduce(function (n, e) {
                    return n + (e.ecarts || []).filter(x => x.statut === kv[0]).length; }, 0) };
       }).filter(x => x.nombre),
+      // Le même relevé, vu par l'autre bout : ce que ça coûte, plutôt que ce
+      // qu'il y a à faire. Les deux listes portent les mêmes écarts.
+      consequences: Object.entries(CONSEQUENCES)
+        .sort((a, b) => b[1].rang - a[1].rang)
+        .map(function (kv) {
+          return { cle: kv[0], libelle: kv[1].libelle, dit: kv[1].dit,
+                   nombre: toutes.reduce(function (n, e) {
+                     return n + (e.ecarts || []).filter(x => x.consequence === kv[0]).length; }, 0) };
+        }).filter(x => x.nombre),
+      aptitude: aptitudeDe(toutes.flatMap(e => e.ecarts || [])),
       verdict: {
         etapes: toutes.length,
         traduites: toutes.filter(e => e.etat === 'traduit').length,
