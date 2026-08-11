@@ -111,8 +111,12 @@ const WfInterpreter = (() => {
 
   // Une pastille, des deux côtés. Le MÊME objet visuel à gauche et à droite :
   // c'est ce qui rend la correspondance lisible sans tracer un seul trait.
-  function pastille(e, cote) {
+  function pastille(e, cote, rang) {
     const p = el('div', 'itp-pastille');
+    // Le rang, en clair. Une grille qui s'enroule ne se lit PAS comme une
+    // séquence : dès qu'elle est coupée ou repliée, l'œil saute des éléments et
+    // croit à un désordre. Le numéro rend l'ordre indépendant de la mise en page.
+    if (rang) p.appendChild(el('span', 'itp-rang', rang));
     p.dataset.etat  = e.etat;
     p.dataset.etape = e.id || '';
     p.dataset.cote  = cote;
@@ -140,9 +144,13 @@ const WfInterpreter = (() => {
     teteS.appendChild(el('span', 'itp-carte-compte', etapes.length + ' étapes'));
     src.appendChild(teteS);
     const grilleS = el('div', 'itp-pastilles');
-    etapes.forEach(function (e) { grilleS.appendChild(pastille(e, 'source')); });
+    etapes.forEach(function (e, i) { grilleS.appendChild(pastille(e, 'source', i + 1)); });
     src.appendChild(grilleS);
     zone.appendChild(src);
+
+    // Le même rang des deux côtés : c'est ce qui permet de retrouver une étape
+    // d'une carte à l'autre sans compter.
+    const rangs = new Map(etapes.map((e, i) => [e.id, i + 1]));
 
     // Destination : découpée en scénarios, avec la couture et sa raison.
     const dst = el('section', 'itp-carte-cote');
@@ -165,7 +173,9 @@ const WfInterpreter = (() => {
       const bloc = el('div', 'itp-scenario');
       bloc.appendChild(el('div', 'itp-scenario-tete', g.nom + ' · ' + g.role));
       const grille = el('div', 'itp-pastilles');
-      (g.etapes || []).forEach(function (e) { grille.appendChild(pastille(e, 'cible')); });
+      (g.etapes || []).forEach(function (e) {
+        grille.appendChild(pastille(e, 'cible', rangs.get(e.id)));
+      });
       bloc.appendChild(grille);
       dst.appendChild(bloc);
     });
@@ -209,6 +219,8 @@ const WfInterpreter = (() => {
     // PREMIÈRE occurrence : la deuxième n'apprend rien et noie les autres.
     const dejaDit = new Set();
 
+    const rangs = new Map((d.groupes || []).flatMap(g => g.etapes).map((e, i) => [e.id, i + 1]));
+
     (d.groupes || []).forEach(function (g) {
       const sep = el('div', 'itp-tr itp-tr-sep');
       sep.appendChild(el('div', 'itp-td', g.nom + ' · ' + g.role));
@@ -220,6 +232,7 @@ const WfInterpreter = (() => {
         tr.dataset.etat = e.etat;
 
         const nom = el('div', 'itp-td itp-td-nom');
+        nom.appendChild(el('span', 'itp-rang', rangs.get(e.id)));
         nom.appendChild(el('span', null, e.label));
         // La provenance lève l'ambiguïté entre deux nœuds de même libellé — une
         // copie et son original ne se distinguent que par ce qui les précède.

@@ -1523,3 +1523,17 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   display: block; margin-top: 2px; font-size: 10.5px; line-height: 1.4;
   color: #8e9bb3;
 }
+
+/* Le rang d'une étape. Une grille qui s'enroule ne se lit pas comme une suite :
+   coupée ou repliée, elle donne l'impression d'un désordre. Le numéro rend
+   l'ordre indépendant de la mise en page — et le même des deux côtés. */
+.itp-rang {
+  display: inline-block; min-width: 1.5em; margin-right: 6px;
+  font-size: 10px; font-variant-numeric: tabular-nums;
+  color: #6b7681;
+}
+.itp-pastille .itp-rang {
+  position: absolute; top: 6px; left: 8px; margin: 0;
+}
+.itp-pastille { padding-left: 30px; }
+.itp-pastille-nb { right: 7px; }

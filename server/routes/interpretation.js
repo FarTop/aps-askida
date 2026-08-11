@@ -139,14 +139,35 @@ function ordonnerParFlux(etapes, aretes) {
     aUnAntecedent.add(a.vers);
   });
 
-  // Les ports donnent l'ordre des branches : « Succès » avant « Erreur », et
-  // non l'ordre dans lequel les arêtes ont été tracées.
+  // Combien d'étapes une branche entraîne derrière elle.
+  function portee(depart) {
+    const vus = new Set(), pile = [depart];
+    while (pile.length) {
+      const id = pile.pop();
+      if (vus.has(id) || !parId.has(id)) continue;
+      vus.add(id);
+      (sortantes.get(id) || []).forEach(a => pile.push(a.vers));
+    }
+    return vus.size;
+  }
+
+  // LES IMPASSES D'ABORD. Un parcours en profondeur naïf descend la première
+  // branche jusqu'au bout : sur « Programme ? », la route « Série » entraîne
+  // tout le workflow, et la route « Par défaut » — deux nœuds — se retrouvait
+  // seize positions plus loin. On visite donc les branches de la plus COURTE à
+  // la plus longue : une impasse se lit près de son embranchement, et le chemin
+  // principal se lit ensuite d'un trait. À portée égale, l'ordre des ports
+  // tranche (« Succès » avant « Erreur »).
   etapes.forEach(function (e) {
     const liste = sortantes.get(e.id);
-    if (!liste) return;
+    if (!liste || liste.length < 2) return;
     let ports = [];
     try { ports = CAT.portsDe(e.etape) || []; } catch (_) { ports = []; }
+    const taille = new Map();
+    liste.forEach(a => { if (!taille.has(a.vers)) taille.set(a.vers, portee(a.vers)); });
     liste.sort(function (x, y) {
+      const d = taille.get(x.vers) - taille.get(y.vers);
+      if (d) return d;
       const i = ports.indexOf(x.port), j = ports.indexOf(y.port);
       return (i < 0 ? 99 : i) - (j < 0 ? 99 : j);
     });
