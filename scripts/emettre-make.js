@@ -67,7 +67,7 @@ async function ap(a, m, c, b) {
 // Make range ses modules sur une ligne, de 300 en 300. Ce n'est pas cosmétique :
 // un blueprint sans `designer.x` s'ouvre en tas chez le lecteur, et le premier
 // geste du collègue qui reprend le travail est de tout replacer à la main.
-const PAS_X = 300;
+const PAS_X = 300, PAS_Y = 180;
 
 // ── LA VERSION D'UN MODULE NATIF ────────────────────────────────
 // Chaque module natif porte SA version, et Make refuse le blueprint quand elle
@@ -178,11 +178,22 @@ function emettre(plan, groupe, rang) {
   // ait choisi ses étapes.
   const differes = [];
 
-  function poser(flow, x, module, nom, extra) {
+  // Chaque branche a SA ligne. Tout était posé à `y: 0` : sur le canevas de
+  // Make, les 52 modules du premier scénario se superposaient en un tas
+  // illisible — et un scénario qu'on ne peut pas lire n'a pas d'intérêt, c'est
+  // exactement ce qu'on reproche à un appel HTTP anonyme.
+  //
+  // La première route reste sur la ligne de son parent, les suivantes en
+  // prennent une neuve. Les gestionnaires d'erreur aussi : ils descendent,
+  // comme le fait la main d'un opérateur.
+  const curseurY = { v: 0 };
+  function ligneNeuve() { curseurY.v += PAS_Y; return curseurY.v; }
+
+  function poser(flow, x, y, module, nom, extra) {
     const m = Object.assign({ id: id++, module: module,
                               version: VERSIONS[module] || 1,
                               parameters: {}, mapper: {},
-                              metadata: { designer: { x: x, y: 0, name: nom } } }, extra || {});
+                              metadata: { designer: { x: x, y: y, name: nom } } }, extra || {});
     flow.push(m);
     return m;
   }
@@ -198,13 +209,13 @@ function emettre(plan, groupe, rang) {
   //
   // C'est la partie qui casse si l'architecture est mal comprise, et c'est
   // pour ça qu'elle passe avant le remplissage des paramètres.
-  function chainer(flow, depart, x) {
+  function chainer(flow, depart, x, y) {
     let idEtape = depart;
     while (idEtape) {
       const e = parId.get(idEtape);
       if (!e) return;
       if (deja.has(idEtape)) {
-        poser(flow, x, 'util:SetVariable2', '↩ rejoint « ' + e.label + ' »');
+        poser(flow, x, y, 'util:SetVariable2', '↩ rejoint « ' + e.label + ' »');
         return;
       }
       deja.add(idEtape);
@@ -212,7 +223,7 @@ function emettre(plan, groupe, rang) {
       // 1. Les lectures de ressources, AVANT le module qui s'en sert : chez
       //    Make une valeur ne se lit qu'en aval de ce qui la produit.
       (e.prealables || []).forEach(function (p) {
-        poser(flow, x, LIRE_RESSOURCE, 'Lire ' + (p.nom || p.cle), { mapper: { key: p.cle } });
+        poser(flow, x, y, LIRE_RESSOURCE, 'Lire ' + (p.nom || p.cle), { mapper: { key: p.cle } });
         x += PAS_X;
       });
 
@@ -225,13 +236,13 @@ function emettre(plan, groupe, rang) {
       if (e.composition) {
         let premier = null;
         e.composition.modules.forEach(function (c) {
-          const m = poser(flow, x, c.module, e.label + ' — ' + c.role);
+          const m = poser(flow, x, y, c.module, e.label + ' — ' + c.role);
           x += PAS_X;
           if (!premier) premier = m;
         });
         principal = premier;
       } else if (e.module) {
-        principal = poser(flow, x,
+        principal = poser(flow, x, y,
           SANS_APP ? 'util:SetVariable2' : PREFIXE_APP + plan.app + ':' + e.module,
           e.label + (SANS_APP ? ' [' + e.module + ']' : ''),
           { parameters: parametresDe(plan, e) });
@@ -243,12 +254,12 @@ function emettre(plan, groupe, rang) {
       } else if (e.core === 'loop') {
         // Frontière de scénario : on pose l'APPEL, pas le corps — le corps est
         // un autre scénario, déclenché par webhook.
-        principal = poser(flow, x, 'http:ActionSendData', e.label + ' — appeler le sous-scénario');
+        principal = poser(flow, x, y, 'http:ActionSendData', e.label + ' — appeler le sous-scénario');
         x += PAS_X;
       } else if (e.core !== 'decision') {
         // Rien à écrire. Un jalon nommé plutôt qu'un trou : un manque
         // silencieux est indétectable à la relecture.
-        principal = poser(flow, x, 'util:SetVariable2', '⚠ ' + e.label + ' — à construire');
+        principal = poser(flow, x, y, 'util:SetVariable2', '⚠ ' + e.label + ' — à construire');
         x += PAS_X;
       }
 
@@ -261,7 +272,7 @@ function emettre(plan, groupe, rang) {
       //    nominal se retrouvait imbriqué sous « sur erreur » — un scénario
       //    dont l'épine dorsale était la gestion d'erreur. Le chemin heureux
       //    passe donc en premier, et l'erreur récupère ce qui reste.
-      if (principal && erreurs.length) differes.push({ sur: principal, aretes: erreurs, x: x });
+      if (principal && erreurs.length) differes.push({ sur: principal, aretes: erreurs, x: x, y: y });
 
       // 4. La suite. Un seul successeur continue la chaîne ; plusieurs
       //    demandent un Router, et chaque route porte le nom de son port.
@@ -270,7 +281,7 @@ function emettre(plan, groupe, rang) {
         // étape ordinaire qui a plusieurs suites, il n'est qu'un aiguillage
         // ajouté par la cible : le dire évite deux modules du même nom, dont
         // l'un n'existe pas dans le workflow source.
-        const rt = poser(flow, x, 'builtin:BasicRouter',
+        const rt = poser(flow, x, y, 'builtin:BasicRouter',
           e.core === 'decision' ? e.label : e.label + ' — aiguillage');
         moduleDe.set(idEtape, principal || rt);
         // À la création, une route n'accepte QUE `flow` : ni `metadata`, ni
@@ -284,9 +295,11 @@ function emettre(plan, groupe, rang) {
         // c'est précisément ce qui rend un workflow illisible pour celui qui le
         // reprend. La CONDITION, elle, reste à écrire — une route sans filtre
         // passe toujours, et c'est un manque à afficher, pas à taire.
-        rt.routes = suites.map(function (a) {
+        rt.routes = suites.map(function (a, i) {
           const sous = [];
-          chainer(sous, a.vers, x + PAS_X);
+          // La première route prolonge la ligne du Router ; les autres
+          // descendent d'un cran chacune.
+          chainer(sous, a.vers, x + PAS_X, i === 0 ? y : ligneNeuve());
           if (sous.length) {
             const d = sous[0].metadata.designer;
             d.name = '« ' + a.port +' » ' + d.name;
@@ -306,16 +319,16 @@ function emettre(plan, groupe, rang) {
   // sinon purement perdue, alors qu'elle existe dans le workflow.
   const entrees = (groupe.etapes || []).filter(e => !aUnAntecedent.has(e.id));
   (entrees.length ? entrees : (groupe.etapes || []).slice(0, 1))
-    .forEach(e => chainer(flow, e.id, 0));
+    .forEach(e => chainer(flow, e.id, 0, 0));
   // Puis seulement les gestionnaires d'erreur. Ils peuvent en produire d'autres
   // à leur tour, d'où la file plutôt qu'une boucle sur une liste figée.
   while (differes.length) {
     const d = differes.shift();
     d.sur.onerror = d.sur.onerror || [];
-    d.aretes.forEach(a => chainer(d.sur.onerror, a.vers, d.x));
+    d.aretes.forEach(a => chainer(d.sur.onerror, a.vers, d.x, ligneNeuve()));
   }
   (groupe.etapes || []).forEach(function (e) {
-    if (!deja.has(e.id)) chainer(flow, e.id, 0);
+    if (!deja.has(e.id)) chainer(flow, e.id, 0, ligneNeuve());
   });
 
   // 3. Les post-its, accrochés aux modules qui portent leurs étapes.

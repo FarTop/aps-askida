@@ -372,6 +372,27 @@ if (require.main === module) (async () => {
   console.log(cnxApp ? `Connexion : ${cnxApp.name} (${cnxApp.type})\n`
                      : 'Aucune connexion déclarée — les modules resteront anonymes\n');
 
+  // ── LA BASE DE L'APP ──────────────────────────────────────────
+  // Elle était `null`, et c'est le défaut le plus coûteux du rendu : sans
+  // elle, aucune requête de l'app ne porte d'URL absolue ni d'en-tête
+  // d'authentification. Les modules et les RPC appellent donc `/API/...` dans
+  // le vide — l'écran de Make le dit noir sur blanc, « App-ID header is
+  // required », sur la liste déroulante des Custom Actions.
+  //
+  // C'est le seul endroit où les en-têtes doivent être écrits : les répéter
+  // dans chaque module les ferait diverger, et un module oublié appellerait en
+  // anonyme sans que rien ne le signale.
+  //
+  // Les valeurs viennent de la CONNEXION, jamais d'APS : `{{connection.appId}}`
+  // est résolu par Make au moment de l'exécution, avec le secret qu'il détient.
+  const base = { baseUrl: 'https://app.iconik.io',
+                 headers: { 'App-ID': '{{connection.appId}}',
+                            'Auth-Token': '{{connection.token}}' },
+                 log: { sanitize: ['request.headers.auth-token'] } };
+  const rb = await ap(acces, 'PATCH', `${A}/base`, base);
+  console.log((rb.ok ? '✅' : '❌') + ' base de l\'app — ' + base.baseUrl
+    + (rb.ok ? ' · en-têtes depuis la connexion' : ' — ' + rb.brut) + '\n');
+
   for (const [nature, r] of rpcs) {
     const existe = await ap(acces, 'GET', `${A}/rpcs/${r.rpc}`);
     if (!existe.ok) await ap(acces, 'POST', `${A}/rpcs`, { name: r.rpc, label: r.titre });
