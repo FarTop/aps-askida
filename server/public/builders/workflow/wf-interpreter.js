@@ -86,7 +86,8 @@ const WfInterpreter = (() => {
     // TROISIÈME niveau, il ne doit ressembler à aucun des deux.
     const rang = el('nav', 'itp-presentations');
     rang.appendChild(el('span', 'itp-etiquette', 'Présentation'));
-    [['carte', 'Carte'], ['colonnes', 'Colonnes'], ['liste', 'Liste'], ['plan', 'Plan']]
+    [['carte', 'Carte'], ['graphe', 'Graphe'], ['colonnes', 'Colonnes'],
+     ['liste', 'Liste'], ['plan', 'Plan']]
       .forEach(function (p) {
         const b = el('button', 'itp-pres', p[1]);
         b.type = 'button';
@@ -211,6 +212,124 @@ const WfInterpreter = (() => {
     hote.appendChild(cadre);
   }
 
+
+  // ── 5. Graphe : la forme d'APS face à la forme de la cible ─────────────
+  // C'est ici que les deux philosophies se voient. APS est un GRAPHE : un nœud
+  // a plusieurs ports, une arête porte un sens (« Aucun résultat », « Erreur »).
+  // Make est une CHAÎNE : un embranchement demande un Router, et une erreur
+  // n'est pas une arête mais une pièce accrochée au module.
+  //
+  // Les arêtes d'erreur sont donc dessinées AUTREMENT : ce sont celles qui
+  // cessent d'être des arêtes en passant chez la cible.
+  const BOITE_L = 168, BOITE_H = 44;
+
+  function estErreur(port) { return /err|erreur|fail|timeout/i.test(port || ''); }
+
+  function vueGraphe(hote, d) {
+    const cadre = el('div', 'itp-graphe-cadre');
+
+    const gauche = el('div', 'itp-colonne');
+    gauche.appendChild(el('h3', 'itp-colonne-tete', 'Ce workflow — un graphe'));
+    const dessin = el('div', 'itp-dessin');
+    gauche.appendChild(dessin);
+
+    const droite = el('div', 'itp-colonne');
+    droite.appendChild(el('h3', 'itp-colonne-tete', 'Ce que la cible en fait — une chaîne'));
+
+    const etapes = (d.groupes || []).flatMap(g => g.etapes);
+    const parId = new Map(etapes.map(e => [e.id, e]));
+
+    (d.groupes || []).forEach(function (g) {
+      droite.appendChild(el('div', 'itp-col-sep', g.nom + ' · ' + g.role));
+      (g.etapes || []).forEach(function (e) {
+        const l = el('div', 'itp-col-ligne');
+        l.dataset.etape = e.id || '';
+        l.dataset.etat = e.etat;
+        l.appendChild(el('span', 'itp-forme', e.construit ? e.construit.dit : ''));
+        l.appendChild(el('span', 'itp-col-de', ' ← ' + e.label));
+        if (e.construit && e.construit.pourquoi) l.title = e.construit.pourquoi;
+        droite.appendChild(l);
+      });
+    });
+
+    cadre.appendChild(gauche);
+    cadre.appendChild(droite);
+    hote.appendChild(cadre);
+
+    // Mise en page par dagre — le même moteur que le bouton Tidy du canevas.
+    const dagreLib = window.dagre;
+    if (!dagreLib) { dessin.appendChild(el('p', 'itp-message', 'dagre absent — graphe indisponible.')); return; }
+    const gr = new dagreLib.graphlib.Graph({ multigraph: true });
+    gr.setGraph({ rankdir: 'TB', nodesep: 26, ranksep: 44, marginx: 16, marginy: 16 });
+    etapes.forEach(e => gr.setNode(e.id, { width: BOITE_L, height: BOITE_H }));
+    (d.aretes || []).forEach(function (a, i) {
+      if (!parId.has(a.de) || !parId.has(a.vers) || a.de === a.vers) return;
+      gr.setEdge(a.de, a.vers, {}, 'a' + i);
+    });
+    dagreLib.layout(gr);
+    const boite = gr.graph();
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + Math.ceil(boite.width || 400) + ' ' + Math.ceil(boite.height || 400));
+    svg.setAttribute('class', 'itp-svg');
+    const svgEl = (n, attrs) => {
+      const x = document.createElementNS('http://www.w3.org/2000/svg', n);
+      Object.entries(attrs).forEach(([k, v]) => x.setAttribute(k, v));
+      return x;
+    };
+
+    // Les arêtes d'abord, sous les nœuds.
+    (d.aretes || []).forEach(function (a) {
+      const u = gr.node(a.de), v = gr.node(a.vers);
+      if (!u || !v) return;
+      const p = svgEl('path', {
+        d: 'M' + u.x + ',' + (u.y + BOITE_H / 2) +
+           ' C' + u.x + ',' + (u.y + BOITE_H / 2 + 26) +
+           ' ' + v.x + ',' + (v.y - BOITE_H / 2 - 26) +
+           ' ' + v.x + ',' + (v.y - BOITE_H / 2),
+        class: 'itp-arete',
+      });
+      if (estErreur(a.port)) p.setAttribute('data-erreur', '1');
+      svg.appendChild(p);
+    });
+
+    etapes.forEach(function (e) {
+      const n = gr.node(e.id);
+      if (!n) return;
+      const grp = svgEl('g', { class: 'itp-noeud', 'data-etape': e.id, 'data-etat': e.etat });
+      grp.appendChild(svgEl('rect', {
+        x: n.x - BOITE_L / 2, y: n.y - BOITE_H / 2, width: BOITE_L, height: BOITE_H, rx: 8 }));
+      const t1 = svgEl('text', { x: n.x - BOITE_L / 2 + 10, y: n.y - 3, class: 'itp-noeud-nom' });
+      t1.textContent = e.label.length > 24 ? e.label.slice(0, 23) + '…' : e.label;
+      grp.appendChild(t1);
+      const t2 = svgEl('text', { x: n.x - BOITE_L / 2 + 10, y: n.y + 12, class: 'itp-noeud-forme' });
+      t2.textContent = e.construit ? e.construit.dit : '';
+      grp.appendChild(t2);
+      const titre = svgEl('title', {});
+      titre.textContent = (e.construit && e.construit.pourquoi) || texteCible(e);
+      grp.appendChild(titre);
+      svg.appendChild(grp);
+    });
+    dessin.appendChild(svg);
+
+    // Le lien actif entre le dessin et la colonne.
+    cadre.addEventListener('mouseover', function (ev) {
+      const cible = ev.target.closest('[data-etape]');
+      if (!cible) return;
+      cadre.querySelectorAll('.est-lie').forEach(x => x.classList.remove('est-lie'));
+      cadre.querySelectorAll('[data-etape="' + CSS.escape(cible.dataset.etape) + '"]')
+        .forEach(x => x.classList.add('est-lie'));
+    });
+    cadre.addEventListener('mouseleave', function () {
+      cadre.querySelectorAll('.est-lie').forEach(x => x.classList.remove('est-lie'));
+    });
+
+    const nErr = (d.aretes || []).filter(a => estErreur(a.port)).length;
+    hote.appendChild(el('p', 'itp-note-graphe',
+      nErr + ' arêtes sur ' + (d.aretes || []).length + ' partent d\'un port d\'erreur. '
+      + 'Chez Make elles cessent d\'être des arêtes : chacune devient un gestionnaire accroché à son module.'));
+  }
+
   // ── 3. Liste : le rapport détaillé ─────────────────────────────────────
   function vueListe(hote, d) {
     const corps = el('div', 'itp-corps');
@@ -304,6 +423,7 @@ const WfInterpreter = (() => {
     rendreBarre(hote, donnees);
 
     if (vueCourante === 'carte')         vueCarte(hote, donnees);
+    else if (vueCourante === 'graphe')   vueGraphe(hote, donnees);
     else if (vueCourante === 'colonnes') vueColonnes(hote, donnees);
     else if (vueCourante === 'plan')     vuePlan(hote, donnees);
     else                                 vueListe(hote, donnees);

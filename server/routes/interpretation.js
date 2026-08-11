@@ -18,6 +18,9 @@ const { PrismaPg }     = require('@prisma/adapter-pg');
 // Chemin relatif au fichier, pas au dossier de lancement : le serveur ne
 // démarre pas toujours depuis la racine du dépôt.
 const RENDU = require('../../scripts/rendre-make.js');
+// Le catalogue est le seul à savoir quels ports une étape expose — ceux d'une
+// décision se calculent depuis sa configuration.
+const CAT   = require('../public/builders/workflow/pivot-catalog-iconik.js');
 
 const router = express.Router();
 const prisma = new PrismaClient({
@@ -33,6 +36,34 @@ const CIBLES = {
   n8n:  { nom: 'n8n', pret: false, decoupe: null },
 };
 
+// ── LA CONCORDANCE DE FORME ─────────────────────────────────────
+// C'est ici que les deux architectures divergent, et le nom des étapes n'y est
+// pour rien. APS est un GRAPHE : un nœud a plusieurs ports de sortie, une arête
+// porte un libellé (« Aucun résultat », « Erreur »). Make est une CHAÎNE : on
+// enfile des modules, un embranchement demande un Router, et une erreur n'est
+// pas une arête mais un gestionnaire accroché au module.
+//
+// Dire « Decision → outil natif » cachait donc l'essentiel. Ce qu'il faut dire
+// est : « cette question à 5 réponses devient un Router à 5 routes ».
+function construitPar(core, ports) {
+  const n = (ports || []).length;
+  const erreurs = (ports || []).filter(p => /err|erreur|fail|timeout/i.test(p)).length;
+  if (core === 'decision') {
+    return { forme: 'router', dit: 'Router à ' + Math.max(n, 1) + ' route(s)',
+             pourquoi: 'un embranchement APS a des ports ; Make n\'en a pas, il faut un module Router' };
+  }
+  if (core === 'loop') {
+    return { forme: 'frontiere', dit: 'frontière de scénario',
+             pourquoi: 'Make n\'a pas de sous-fonctions : le corps part en scénario appelé par webhook' };
+  }
+  if (erreurs) {
+    return { forme: 'module+erreur',
+             dit: 'un module + ' + erreurs + ' gestionnaire(s) d\'erreur',
+             pourquoi: 'chez APS l\'erreur est une arête comme une autre ; chez Make c\'est une pièce accrochée au module' };
+  }
+  return { forme: 'module', dit: 'un module dans la suite', pourquoi: null };
+}
+
 // Parcours du document pivot. On garde l'ORDRE et la PROFONDEUR : c'est la
 // profondeur qui décide du découpage en scénarios.
 function etapesDe(doc) {
@@ -44,7 +75,8 @@ function etapesDe(doc) {
       // versionnés, ni traduits. Les inclure gonflait le compte de 23 à 44.
       if (e.core === 'postit') return;
       out.push({ id: e.id, core: e.core, facade: e.facade || null,
-                 label: e.label || e.facade || e.core, parent: parent || null });
+                 label: e.label || e.facade || e.core, parent: parent || null,
+                 etape: e });
       // Le corps d'une boucle est un SOUS-DOCUMENT `{steps, edges}`, pas une
       // liste — d'où la boucle jamais détectée tant qu'on cherchait un tableau.
       const corps = e.body && (Array.isArray(e.body) ? e.body : e.body.steps);
@@ -100,6 +132,18 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
     if (!flux) return res.status(404).json({ error: 'Workflow non trouvé' });
 
     const etapes = etapesDe(flux.document);
+    // Les arêtes, racine et corps de boucle confondus : c'est le graphe qu'on
+    // veut montrer, pas une liste ordonnée.
+    const aretes = [];
+    (function recolter(doc) {
+      (doc && doc.edges || []).forEach(function (a) {
+        if (!a || !a.from || !a.to) return;
+        aretes.push({ de: a.from.step, port: a.from.port || 'out', vers: a.to.step });
+      });
+      (doc && doc.steps || []).forEach(function (e) {
+        if (e && e.body) recolter(Array.isArray(e.body) ? { steps: e.body } : e.body);
+      });
+    })(flux.document);
     const defs = await prisma.nodeDefinition.findMany();
     const parFamille = new Map(defs.map(d => [d.family, d]));
 
@@ -133,8 +177,13 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       const natif = !e.facade
         && (!provenance.length || provenance.every(p => p === 'pure'))
         && !porteRessourceAps;
+      // Les ports réels de l'étape : le catalogue sait les calculer, y compris
+      // ceux d'une décision qui dépendent de sa configuration.
+      let ports = [];
+      try { ports = CAT.portsDe(e.etape) || []; } catch (_) { ports = []; }
       g.etapes.push({
         id: e.id, label: e.label, verbe: e.facade || e.core,
+        core: e.core, ports: ports, construit: construitPar(e.core, ports),
         module: rendu ? rendu.module : null,
         natif: natif,
         // Ni module dédié, ni équivalent natif : personne ne s'en occupe pour
@@ -159,6 +208,7 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
         scenarios: groupes.length,
       },
       groupes,
+      aretes,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

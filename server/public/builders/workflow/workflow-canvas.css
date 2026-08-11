@@ -1389,3 +1389,35 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 @media (max-width: 1000px) {
   .itp-colonnes { grid-template-columns: 1fr; }
 }
+
+/* ── Graphe : la forme d'APS face à la forme de la cible ────────────────────
+   Un graphe à ports d'un côté, une chaîne de l'autre. Les arêtes d'ERREUR sont
+   dessinées autrement parce qu'elles sont précisément celles qui cessent
+   d'être des arêtes en passant chez la cible. */
+.itp-graphe-cadre { display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; align-items: start; }
+.itp-dessin { max-height: 68vh; overflow: auto; padding: 6px; }
+.itp-svg { width: 100%; height: auto; display: block; }
+
+.itp-arete { fill: none; stroke: #3a4550; stroke-width: 1.4; }
+.itp-arete[data-erreur="1"] { stroke: #b4553f; stroke-dasharray: 4 4; }
+
+.itp-noeud rect {
+  fill: #1b2126; stroke: var(--bd-panel-border, #262a2e); stroke-width: 1;
+}
+.itp-noeud[data-etat="traduit"] rect  { stroke: #2ecc71; }
+.itp-noeud[data-etat="degrade"] rect  { stroke: #f39c12; }
+.itp-noeud[data-etat="bloquant"] rect { stroke: #e74c3c; }
+.itp-noeud.est-lie rect { fill: #22323f; stroke: #4aa3df; stroke-width: 2; }
+.itp-noeud-nom   { fill: #e6edf3; font-size: 11.5px; }
+.itp-noeud-forme { fill: #8e9bb3; font-size: 9.5px; }
+
+.itp-forme { font-size: 12.5px; color: var(--bd-text, #e6edf3); }
+.itp-col-de { font-size: 11.5px; color: var(--bd-text-dim, #a6b0b8); }
+
+.itp-note-graphe {
+  margin: 14px 0 0; padding: 10px 14px; font-size: 12px; line-height: 1.55;
+  color: #d8b9a8; background: rgba(180, 85, 63, .08);
+  border-left: 2px solid #b4553f; border-radius: 0 8px 8px 0;
+}
+
+@media (max-width: 1100px) { .itp-graphe-cadre { grid-template-columns: 1fr; } }
