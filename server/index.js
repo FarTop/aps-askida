@@ -42,6 +42,7 @@ app.use(express.static(FRONTEND_PATH, {
 const flowsRouter      = require('./routes/flows');
 const connexionsRouter = require('./routes/connexions');
 const wfdDataRouter    = require('./routes/wfd-data');
+const interpretationRouter = require('./routes/interpretation.js');
 const statusRouter       = require('./routes/status');
 const environmentsRouter  = require('./routes/environments');
 const platformsRouter     = require('./routes/platforms');
@@ -78,6 +79,9 @@ app.use('/api/package',    packageRouter);
 app.use('/api/builder-engine', builderEngineRouter);
 app.use('/api/builder-runs',   builderRunsRouter);
 app.use('/api',            contextRouter);
+// L'interprétation partage le préfixe /api/builder-flows avec wfdDataRouter :
+// elle passe AVANT, sinon `/:id` y capturerait « interpretation ».
+app.use('/api',            interpretationRouter);
 app.use('/api',            wfdDataRouter);
 app.use('/wfd',            wfdEngineRouter.router);
 

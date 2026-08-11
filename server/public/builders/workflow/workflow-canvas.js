@@ -974,6 +974,12 @@
           onglets.forEach(function (o) {
             o.setAttribute('aria-selected', o === btn ? 'true' : 'false');
           });
+          // L'interprétation se calcule à l'affichage, pas au chargement de la
+          // page : c'est une lecture serveur que personne ne demande tant qu'on
+          // reste sur le canevas.
+          if (btn.dataset.vue === 'interpreter' && window.WfInterpreter) {
+            window.WfInterpreter.charger();
+          }
         });
       })();
 

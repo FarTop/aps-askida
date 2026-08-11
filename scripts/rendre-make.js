@@ -233,7 +233,10 @@ function parametresDe(v, ecarts) {
   return out;
 }
 
-(async () => {
+// Le rendu ne s'exécute qu'en usage direct. Les fonctions de correspondance,
+// elles, sont partagées : la route d'interprétation les réutilise pour dire ce
+// QUI SERAIT produit, sans jamais réécrire la même table deux fois.
+if (require.main === module) (async () => {
   const cx = await prisma.connexion.findFirst({
     where: { name: { contains: 'MAKE | LUXIRIS | API' } }, include: { platform: true } });
   const acces = Acces.construireAcces({
@@ -322,3 +325,8 @@ function parametresDe(v, ecarts) {
   console.log('\nNoms techniques mémorisés dans NodeDefinition.description.rendus.make');
   await prisma.$disconnect();
 })().catch(e => { console.error('ERREUR —', e.message); process.exit(1); });
+
+module.exports = {
+  TYPE, AFFICHAGE, LISTES, RESSOURCES_APS, T_SORTIE,
+  technique, typeDe, parametre, parametresDe, apiDe, valeurMake, visiblePour,
+};
