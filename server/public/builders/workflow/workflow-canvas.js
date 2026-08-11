@@ -1218,10 +1218,45 @@
         });
       }
 
+      // Enregistrement, extrait du bouton 💾 pour que Publier puisse s'en
+      // servir. `null` si l'utilisateur annule la demande de nom.
+      function _enregistrer() {
+        let name = flowName;
+        if (!name) {
+          name = window.prompt('Nom du workflow :', '');
+          if (!name) return Promise.resolve(null);
+          flowName = name;
+        }
+        const environment = envSelect ? envSelect.value : '';
+        if (portee) portee.flush();   // cf. auto-save : jamais perdre un corps en cours d'édition
+        return WfPersistence.sauvegarder({
+          id: flowId, name: name, model: modeleRacine, environment: environment,
+          layoutsDeCorps: portee ? portee.layoutsDeCorps() : undefined
+        }).then(function (res) {
+          flowId = res.id;
+          flowName = res.name;
+          window.history.replaceState(null, '', '?id=' + encodeURIComponent(flowId));
+          _majEntete();
+          root.setAttribute('data-dirty', '0');
+          if (errEl) errEl.hidden = true;
+          _rafraichirStatut();
+          _annoncerFlow();
+          return res;
+        });
+      }
+
       if (publishBtn) {
         publishBtn.addEventListener('click', function () {
           if (!flowId) { _afficherErreur('Enregistrer le workflow avant de publier.'); return; }
-          fetch('/api/builder-flows/' + encodeURIComponent(flowId) + '/publish', { method: 'POST' })
+          // ENREGISTRER D'ABORD. Publier figeait le document tel qu'il était en
+          // BASE, pas tel qu'il était à l'écran — et annonçait un succès. On
+          // pouvait donc ajouter deux nœuds, publier, et obtenir une version
+          // sans eux, sans le moindre avertissement. « Publier » veut dire
+          // « fige ce que je vois ».
+          _enregistrer()
+            .then(function () {
+              return fetch('/api/builder-flows/' + encodeURIComponent(flowId) + '/publish', { method: 'POST' });
+            })
             .then(function (r) {
               if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || ('HTTP ' + r.status)); });
               return r.json();
@@ -1462,27 +1497,7 @@
 
       if (saveBtn) {
         saveBtn.addEventListener('click', function () {
-          let name = flowName;
-          if (!name) {
-            name = window.prompt('Nom du workflow :', '');
-            if (!name) return;
-            flowName = name;
-          }
-          const environment = envSelect ? envSelect.value : '';
-          if (portee) portee.flush();   // cf. auto-save : jamais perdre un corps en cours d'édition
-          WfPersistence.sauvegarder({
-            id: flowId, name: name, model: modeleRacine, environment: environment,
-            layoutsDeCorps: portee ? portee.layoutsDeCorps() : undefined
-          }).then(function (res) {
-            flowId = res.id;
-            flowName = res.name;
-            window.history.replaceState(null, '', '?id=' + encodeURIComponent(flowId));
-            _majEntete();
-            root.setAttribute('data-dirty', '0');
-            if (errEl) errEl.hidden = true;
-            _rafraichirStatut();
-            _annoncerFlow();
-          }).catch(function (e) {
+          _enregistrer().catch(function (e) {
             _afficherErreur('Erreur d\'enregistrement : ' + e.message);
           });
         });

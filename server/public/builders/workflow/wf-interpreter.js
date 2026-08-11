@@ -57,7 +57,7 @@ const WfInterpreter = (() => {
       if (c.cle === d.cible.cle) o.selected = true;
       sel.appendChild(o);
     });
-    sel.addEventListener('change', function () { cibleCourante = sel.value; charger(true); });
+    sel.addEventListener('change', function () { cibleCourante = sel.value; charger(); });
     gauche.appendChild(sel);
 
     // Le plan en texte survit à ses confrères : c'est la seule sortie qui quitte
@@ -81,7 +81,7 @@ const WfInterpreter = (() => {
     const coche = document.createElement('input');
     coche.type = 'checkbox';
     coche.checked = avecNotes;
-    coche.addEventListener('change', function () { avecNotes = coche.checked; charger(true); });
+    coche.addEventListener('change', function () { avecNotes = coche.checked; charger(); });
     opt.appendChild(coche);
     opt.appendChild(el('span', null, 'Porter les post-its'));
     if (d.notes && d.notes.demandees) {
@@ -356,11 +356,14 @@ const WfInterpreter = (() => {
     hote.appendChild(el('p', 'itp-message', texte));
   }
 
-  async function charger(force) {
+  // Toujours relire. Le cache d'origine gardait le premier résultat pour un
+  // couple (workflow, cible) : on éditait dans Builder, on revenait ici, et
+  // l'écran montrait l'état d'avant sans rien dire. Une interprétation périmée
+  // est pire qu'une seconde d'attente — c'est un plan qui décrit autre chose
+  // que ce qu'on regarde.
+  async function charger() {
     const id = fluxId();
     if (!id) { message('Enregistrez ce workflow pour l\'interpréter.'); return; }
-    if (!force && donnees && donnees.cible.cle === cibleCourante
-        && donnees.flux.id === id) { rendre(); return; }
 
     message('Lecture en cours…');
     try {
