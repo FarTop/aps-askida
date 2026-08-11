@@ -5,22 +5,27 @@
  * C'est un plan au sens de `terraform plan` : on lit, on approuve, on soumet
  * ensuite — deux gestes séparés.
  *
- * Trois choses à montrer, et une seule est évidente :
- *   — la correspondance étape → module, qui se lit en deux colonnes ;
- *   — le DÉCOUPAGE, quand un workflow devient plusieurs scénarios. La raison de
- *     la coupure est posée SUR la couture, pas en note de bas de page : sans
- *     elle, un lecteur croit à un caprice de l'outil ;
- *   — les ÉCARTS, qui sont l'information la plus utile et la plus facile à
- *     enterrer. Ils restent attachés à leur étape.
+ * ── QUATRE PRÉSENTATIONS, TEMPORAIRES ────────────────────────────────────
+ * Les mêmes données, dessinées de quatre façons, pour choisir sur pièces
+ * plutôt que sur description. Trois seront retirées.
  *
- * Rien n'est construit par innerHTML : les libellés viennent de la base et d'un
- * document utilisateur.
+ *   Carte      les scénarios en boîtes, les étapes en pastilles colorées, la
+ *              couture matérialisée. Se lit d'un coup d'œil, ne dit pas tout.
+ *   Colonnes   ce qu'on a / ce que ça devient, côte à côte, avec le lien actif
+ *              au survol — le mécanisme de Compiler Explorer.
+ *   Liste      le rapport détaillé : chaque étape, chaque écart sous elle.
+ *   Plan       du texte façon `terraform plan`, copiable tel quel dans un
+ *              ticket. C'est la seule vue qui sorte de l'écran.
+ *
+ * Rien n'est construit par innerHTML : les libellés viennent de la base et
+ * d'un document utilisateur.
  */
 
 const WfInterpreter = (() => {
 
   let cibleCourante = 'make';
-  let charge = null;          // id du flux déjà affiché, pour ne pas recharger
+  let vueCourante   = 'carte';
+  let donnees       = null;
 
   function el(balise, classe, texte) {
     const n = document.createElement(balise);
@@ -28,12 +33,18 @@ const WfInterpreter = (() => {
     if (texte !== undefined && texte !== null) n.textContent = String(texte);
     return n;
   }
+  function vider(n) { while (n && n.firstChild) n.removeChild(n.firstChild); }
+  function fluxId() { return new URLSearchParams(window.location.search).get('id'); }
 
-  function fluxId() {
-    return new URLSearchParams(window.location.search).get('id');
+  // Ce que devient une étape, en trois issues distinctes — « — » ne disait pas
+  // si le verbe était pris en charge autrement ou pas pris en charge du tout.
+  function texteCible(e) {
+    return e.module ? e.module
+         : e.natif  ? 'outil natif de la cible'
+                    : 'aucun module — à porter à la main';
   }
 
-  // ── Bandeau : cible + verdict ──────────────────────────────────────────
+  // ── Bandeau : cible, verdict, présentations ────────────────────────────
   function rendreBarre(hote, d) {
     const barre = el('div', 'itp-barre');
 
@@ -48,7 +59,7 @@ const WfInterpreter = (() => {
       sel.appendChild(o);
     });
     sel.addEventListener('change', function () {
-      cibleCourante = sel.value; charge = null; charger(true);
+      cibleCourante = sel.value; charger(true);
     });
     gauche.appendChild(sel);
     barre.appendChild(gauche);
@@ -69,103 +80,271 @@ const WfInterpreter = (() => {
       });
     barre.appendChild(droite);
     hote.appendChild(barre);
+
+    // Les présentations : un simple rang de mots soulignés. Ni les pastilles
+    // des vues du header, ni les étiquettes de bord des volets — c'est un
+    // TROISIÈME niveau, il ne doit ressembler à aucun des deux.
+    const rang = el('nav', 'itp-presentations');
+    rang.appendChild(el('span', 'itp-etiquette', 'Présentation'));
+    [['carte', 'Carte'], ['colonnes', 'Colonnes'], ['liste', 'Liste'], ['plan', 'Plan']]
+      .forEach(function (p) {
+        const b = el('button', 'itp-pres', p[1]);
+        b.type = 'button';
+        b.dataset.pres = p[0];
+        b.setAttribute('aria-selected', p[0] === vueCourante ? 'true' : 'false');
+        b.addEventListener('click', function () { vueCourante = p[0]; rendre(); });
+        rang.appendChild(b);
+      });
+    hote.appendChild(rang);
   }
 
-  // ── Un scénario produit ────────────────────────────────────────────────
-  function rendreGroupe(hote, g) {
-    const carte = el('section', 'itp-groupe');
-    const tete = el('header', 'itp-groupe-tete');
-    tete.appendChild(el('h3', null, g.nom));
-    tete.appendChild(el('span', 'itp-role', g.role));
-    if (g.appelePar) tete.appendChild(el('span', 'itp-appel', '← ' + g.appelePar));
-    carte.appendChild(tete);
-
-    // La couture porte sa raison. C'est ce qui distingue un découpage subi d'un
-    // découpage compris.
-    if (g.raison) carte.appendChild(el('p', 'itp-raison', g.raison));
-
-    const liste = el('ol', 'itp-etapes');
-    (g.etapes || []).forEach(function (e) {
-      const li = el('li', 'itp-etape');
-      li.dataset.etat = e.etat;
-
-      const ligne = el('div', 'itp-ligne');
-      ligne.appendChild(el('span', 'itp-label', e.label));
-      ligne.appendChild(el('span', 'itp-fleche', '→'));
-      // Trois issues, trois libellés distincts. « — » ne disait pas si le verbe
-      // était pris en charge autrement ou pas pris en charge du tout.
-      const texte = e.module ? e.module
-                  : e.natif ? 'outil natif de la cible'
-                  : 'aucun module — à porter à la main';
-      const cible = el('span', 'itp-module', texte);
-      if (e.natif) cible.dataset.natif = '1';
-      if (e.orphelin) cible.dataset.orphelin = '1';
-      ligne.appendChild(cible);
-      li.appendChild(ligne);
-
-      // Les écarts restent SOUS leur étape : les regrouper ailleurs en ferait
-      // une liste que personne ne relie à rien.
-      if ((e.ecarts || []).length) {
-        const ul = el('ul', 'itp-ecarts');
-        e.ecarts.forEach(function (x) {
-          const item = el('li', 'itp-ecart');
-          item.dataset.gravite = x.gravite;
-          item.appendChild(el('code', null, x.quoi));
-          item.appendChild(el('span', null, ' ' + x.pourquoi));
-          ul.appendChild(item);
-        });
-        li.appendChild(ul);
+  // ── 1. Carte : les scénarios en boîtes ─────────────────────────────────
+  // La forme du résultat avant son détail : combien de scénarios, où passe la
+  // couture, et où sont les points chauds.
+  function vueCarte(hote, d) {
+    const plan = el('div', 'itp-carte');
+    (d.groupes || []).forEach(function (g, i) {
+      if (i > 0) {
+        // La couture, dessinée. C'est l'information que le rapport enterrait.
+        const lien = el('div', 'itp-couture');
+        lien.appendChild(el('span', 'itp-couture-signe', '⚡'));
+        const t = el('div', 'itp-couture-texte');
+        t.appendChild(el('b', null, 'webhook'));
+        if (g.raison) t.appendChild(el('p', null, g.raison));
+        lien.appendChild(t);
+        plan.appendChild(lien);
       }
-      liste.appendChild(li);
+      const boite = el('section', 'itp-boite');
+      const tete = el('header', 'itp-boite-tete');
+      tete.appendChild(el('h3', null, g.nom));
+      tete.appendChild(el('span', 'itp-role', g.role));
+      tete.appendChild(el('span', 'itp-boite-compte',
+        (g.etapes || []).length + ' étapes'));
+      boite.appendChild(tete);
+
+      const grille = el('div', 'itp-pastilles');
+      (g.etapes || []).forEach(function (e) {
+        const p = el('div', 'itp-pastille');
+        p.dataset.etat = e.etat;
+        p.dataset.etape = e.id || '';
+        p.title = texteCible(e) + ((e.ecarts || []).length
+          ? '\n\n' + e.ecarts.map(x => '⚠ ' + x.quoi + ' — ' + x.pourquoi).join('\n') : '');
+        p.appendChild(el('span', 'itp-pastille-nom', e.label));
+        p.appendChild(el('span', 'itp-pastille-cible', texteCible(e)));
+        if ((e.ecarts || []).length) {
+          p.appendChild(el('span', 'itp-pastille-nb', e.ecarts.length));
+        }
+        grille.appendChild(p);
+      });
+      boite.appendChild(grille);
+      plan.appendChild(boite);
     });
-    carte.appendChild(liste);
-    hote.appendChild(carte);
+    hote.appendChild(plan);
+    hote.appendChild(legende());
   }
 
-  function rendre(hote, d) {
-    while (hote.firstChild) hote.removeChild(hote.firstChild);
-    rendreBarre(hote, d);
-    const corps = el('div', 'itp-corps');
-    (d.groupes || []).forEach(function (g) { rendreGroupe(corps, g); });
-    hote.appendChild(corps);
+  function legende() {
+    const l = el('div', 'itp-legende');
+    [['traduit', 'traduite'], ['degrade', 'dégradée'], ['bloquant', 'bloquante']]
+      .forEach(function (t) {
+        const s = el('span', 'itp-legende-item');
+        const pastille = el('i', 'itp-legende-carre');
+        pastille.dataset.etat = t[0];
+        s.appendChild(pastille);
+        s.appendChild(el('span', null, t[1]));
+        l.appendChild(s);
+      });
+    return l;
+  }
 
-    // Le geste de soumission est SÉPARÉ de la lecture, et il est désactivé tant
-    // que la cible n'est pas prête. Un bouton qui ment coûte plus cher qu'un
-    // bouton absent.
-    const pied = el('div', 'itp-pied');
-    const btn = el('button', 'itp-soumettre', 'Soumettre à ' + d.cible.nom);
+  // ── 2. Colonnes : ce qu'on a / ce que ça devient ───────────────────────
+  // Le mécanisme de Compiler Explorer : survoler à gauche allume à droite. Une
+  // lecture côte à côte sans lien actif oblige l'œil à apparier lui-même.
+  function vueColonnes(hote, d) {
+    const cadre = el('div', 'itp-colonnes');
+
+    const gauche = el('div', 'itp-colonne');
+    gauche.appendChild(el('h3', 'itp-colonne-tete', 'Ce workflow'));
+    const droite = el('div', 'itp-colonne');
+    droite.appendChild(el('h3', 'itp-colonne-tete', 'Ce qui serait produit'));
+
+    (d.groupes || []).forEach(function (g) {
+      // Le séparateur va dans LES DEUX colonnes. Le mettre à droite seulement
+      // décalait la gauche d'une ligne à chaque scénario — or tout l'intérêt de
+      // cette vue est que les lignes se fassent face. Et ce n'est pas décoratif :
+      // la coupure vient du workflow (le corps de boucle), elle a sa place à
+      // gauche aussi.
+      gauche.appendChild(el('div', 'itp-col-sep', g.nom + ' · ' + g.role));
+      droite.appendChild(el('div', 'itp-col-sep', g.nom + ' · ' + g.role));
+      (g.etapes || []).forEach(function (e) {
+        const a = el('div', 'itp-col-ligne', e.label);
+        a.dataset.etape = e.id || '';
+        a.dataset.etat = e.etat;
+        gauche.appendChild(a);
+
+        const b = el('div', 'itp-col-ligne');
+        b.dataset.etape = e.id || '';
+        b.dataset.etat = e.etat;
+        b.appendChild(el('span', 'itp-module', texteCible(e)));
+        if ((e.ecarts || []).length) {
+          b.appendChild(el('span', 'itp-col-nb', ' ' + e.ecarts.length + ' écart(s)'));
+        }
+        droite.appendChild(b);
+      });
+    });
+
+    cadre.appendChild(gauche);
+    cadre.appendChild(droite);
+
+    // Le lien actif : une classe posée sur les deux côtés, pas un style.
+    cadre.addEventListener('mouseover', function (ev) {
+      const l = ev.target.closest('.itp-col-ligne');
+      if (!l) return;
+      cadre.querySelectorAll('.est-lie').forEach(x => x.classList.remove('est-lie'));
+      cadre.querySelectorAll('[data-etape="' + CSS.escape(l.dataset.etape) + '"]')
+        .forEach(x => x.classList.add('est-lie'));
+    });
+    cadre.addEventListener('mouseleave', function () {
+      cadre.querySelectorAll('.est-lie').forEach(x => x.classList.remove('est-lie'));
+    });
+
+    hote.appendChild(cadre);
+  }
+
+  // ── 3. Liste : le rapport détaillé ─────────────────────────────────────
+  function vueListe(hote, d) {
+    const corps = el('div', 'itp-corps');
+    (d.groupes || []).forEach(function (g) {
+      const carte = el('section', 'itp-groupe');
+      const tete = el('header', 'itp-groupe-tete');
+      tete.appendChild(el('h3', null, g.nom));
+      tete.appendChild(el('span', 'itp-role', g.role));
+      if (g.appelePar) tete.appendChild(el('span', 'itp-appel', '← ' + g.appelePar));
+      carte.appendChild(tete);
+      if (g.raison) carte.appendChild(el('p', 'itp-raison', g.raison));
+
+      const liste = el('ol', 'itp-etapes');
+      (g.etapes || []).forEach(function (e) {
+        const li = el('li', 'itp-etape');
+        li.dataset.etat = e.etat;
+        const ligne = el('div', 'itp-ligne');
+        ligne.appendChild(el('span', 'itp-label', e.label));
+        ligne.appendChild(el('span', 'itp-fleche', '→'));
+        const cible = el('span', 'itp-module', texteCible(e));
+        if (e.natif) cible.dataset.natif = '1';
+        if (e.orphelin) cible.dataset.orphelin = '1';
+        ligne.appendChild(cible);
+        li.appendChild(ligne);
+        if ((e.ecarts || []).length) {
+          const ul = el('ul', 'itp-ecarts');
+          e.ecarts.forEach(function (x) {
+            const item = el('li', 'itp-ecart');
+            item.dataset.gravite = x.gravite;
+            item.appendChild(el('code', null, x.quoi));
+            item.appendChild(el('span', null, ' ' + x.pourquoi));
+            ul.appendChild(item);
+          });
+          li.appendChild(ul);
+        }
+        liste.appendChild(li);
+      });
+      carte.appendChild(liste);
+      corps.appendChild(carte);
+    });
+    hote.appendChild(corps);
+  }
+
+  // ── 4. Plan : du texte, copiable ───────────────────────────────────────
+  // La seule vue qui sorte de l'écran. Un plan qu'on colle dans un ticket vaut
+  // mieux qu'une capture qu'on décrit.
+  function texteDuPlan(d) {
+    const v = d.verdict || {};
+    const L = [];
+    L.push('Interprétation : ' + d.flux.nom);
+    L.push('Cible          : ' + d.cible.nom);
+    L.push('Plan           : ' + v.traduites + ' traduites, ' + v.degradees
+           + ' dégradées, ' + v.bloquantes + ' bloquantes, ' + v.scenarios + ' scénario(s)');
+    L.push('');
+    (d.groupes || []).forEach(function (g) {
+      L.push('  scénario "' + g.nom + '" (' + g.role + ')');
+      if (g.raison) L.push('    # ' + g.raison);
+      (g.etapes || []).forEach(function (e) {
+        const signe = e.etat === 'traduit' ? '+' : e.etat === 'degrade' ? '~' : '!';
+        L.push('    ' + signe + ' ' + e.label.padEnd(30).slice(0, 30) + ' -> ' + texteCible(e));
+        (e.ecarts || []).forEach(function (x) {
+          L.push('        ' + (x.gravite === 'bloquant' ? 'x' : '!') + ' ' + x.quoi + ' : ' + x.pourquoi);
+        });
+      });
+      L.push('');
+    });
+    L.push('Aucune écriture n\'a été faite chez la cible.');
+    return L.join('\n');
+  }
+
+  function vuePlan(hote, d) {
+    const texte = texteDuPlan(d);
+    const outils = el('div', 'itp-plan-outils');
+    const btn = el('button', 'itp-copier', 'Copier le plan');
     btn.type = 'button';
-    btn.disabled = true;
-    btn.title = 'Pas encore branché — la soumission se fera depuis ici';
-    pied.appendChild(btn);
+    btn.addEventListener('click', async function () {
+      try { await navigator.clipboard.writeText(texte); btn.textContent = 'Copié'; }
+      catch (_) { btn.textContent = 'Copie refusée par le navigateur'; }
+      setTimeout(function () { btn.textContent = 'Copier le plan'; }, 1800);
+    });
+    outils.appendChild(btn);
+    hote.appendChild(outils);
+    hote.appendChild(el('pre', 'itp-plan', texte));
+  }
+
+  // ── Assemblage ─────────────────────────────────────────────────────────
+  function rendre() {
+    const hote = document.querySelector('[data-role="itp-hote"]');
+    if (!hote || !donnees) return;
+    vider(hote);
+    rendreBarre(hote, donnees);
+
+    if (vueCourante === 'carte')         vueCarte(hote, donnees);
+    else if (vueCourante === 'colonnes') vueColonnes(hote, donnees);
+    else if (vueCourante === 'plan')     vuePlan(hote, donnees);
+    else                                 vueListe(hote, donnees);
+
+    // Le geste de soumission est séparé de la lecture, et désactivé tant que
+    // rien n'est branché. Un bouton qui ment coûte plus cher qu'un bouton absent.
+    const pied = el('div', 'itp-pied');
+    const soumettre = el('button', 'itp-soumettre', 'Soumettre à ' + donnees.cible.nom);
+    soumettre.type = 'button';
+    soumettre.disabled = true;
+    soumettre.title = 'Pas encore branché — la soumission se fera depuis ici';
+    pied.appendChild(soumettre);
     pied.appendChild(el('span', 'itp-pied-note',
       'Lecture seule : rien n\'est écrit chez la cible.'));
     hote.appendChild(pied);
   }
 
-  async function charger(force) {
+  function message(texte) {
     const hote = document.querySelector('[data-role="itp-hote"]');
     if (!hote) return;
-    const id = fluxId();
-    if (!id) { rendreMessage(hote, 'Enregistrez ce workflow pour l\'interpréter.'); return; }
-    if (!force && charge === id + '|' + cibleCourante) return;
+    vider(hote);
+    hote.appendChild(el('p', 'itp-message', texte));
+  }
 
-    rendreMessage(hote, 'Lecture en cours…');
+  async function charger(force) {
+    const id = fluxId();
+    if (!id) { message('Enregistrez ce workflow pour l\'interpréter.'); return; }
+    if (!force && donnees && donnees.cible.cle === cibleCourante
+        && donnees.flux.id === id) { rendre(); return; }
+
+    message('Lecture en cours…');
     try {
       const r = await fetch('/api/builder-flows/' + encodeURIComponent(id)
         + '/interpretation?cible=' + encodeURIComponent(cibleCourante));
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
-      rendre(hote, d);
-      charge = id + '|' + cibleCourante;
+      donnees = d;
+      rendre();
     } catch (e) {
-      rendreMessage(hote, '❌ ' + e.message);
+      message('❌ ' + e.message);
     }
-  }
-
-  function rendreMessage(hote, texte) {
-    while (hote.firstChild) hote.removeChild(hote.firstChild);
-    hote.appendChild(el('p', 'itp-message', texte));
   }
 
   return { charger };
