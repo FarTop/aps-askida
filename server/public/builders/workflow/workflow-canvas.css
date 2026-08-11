@@ -1482,3 +1482,15 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   .itp-zone-haute { grid-template-columns: 1fr; }
   .itp-tr { grid-template-columns: 1fr; gap: 4px; }
 }
+
+/* Option « porter les post-its » : une case, sans explication — l'écran est
+   déjà chargé et la case se comprend seule. */
+.itp-option {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: 14px;
+  font-size: 12px; color: var(--bd-text-dim, #a6b0b8); cursor: pointer;
+}
+.itp-note-marque { cursor: help; }
+
+/* Les compteurs de nœuds et de connexions décrivent le canevas : hors du
+   Builder, ils parlent d'un écran qu'on ne regarde plus. */
+.bd-canvas-root:not([data-vue="builder"]) .bd-tech { display: none; }

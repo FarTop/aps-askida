@@ -64,6 +64,57 @@ function construitPar(core, ports) {
   return { forme: 'module', dit: 'un module dans la suite', pourquoi: null };
 }
 
+// ── LES POST-ITS ────────────────────────────────────────────────
+// Ils ne sont pas des étapes — ni comptés, ni versionnés, ni traduits. Mais ce
+// sont eux qui portent le POURQUOI d'un workflow, et c'est exactement ce qui
+// se perd quand un collègue reprend le travail ailleurs. Make sait les
+// recevoir : `POST /scenarios/{id}/notes` accepte `{content, moduleIds}`,
+// c'est-à-dire une note ACCROCHÉE à des modules.
+//
+// Reste à savoir à quel nœud rattacher chacun. Le canevas le dit tout seul :
+// un post-it partage l'abscisse de son nœud et se pose dessous. On prend donc
+// le nœud le plus proche en x, situé AU-DESSUS. Le libellé du post-it reprend
+// souvent le nom du nœud — il sert de confirmation, jamais de critère unique
+// (rien n'oblige un opérateur à le remplir).
+function positionsDe(doc) {
+  const p = (doc && doc.presentation) || {};
+  const out = Object.assign({}, p.layout || {});
+  Object.values(p.bodyLayout || {}).forEach(function (sous) {
+    Object.assign(out, sous || {});
+  });
+  return out;
+}
+
+function postitsDe(doc, idsEtapes) {
+  const pos = positionsDe(doc);
+  const notes = [];
+  (function visiter(liste) {
+    (Array.isArray(liste) ? liste : []).forEach(function (e) {
+      if (!e || typeof e !== 'object') return;
+      if (e.core === 'postit') {
+        const mien = pos[e.id];
+        let sur = null, meilleur = Infinity;
+        if (mien) {
+          idsEtapes.forEach(function (id) {
+            const q = pos[id];
+            if (!q || q.y >= mien.y) return;              // le nœud est au-dessus
+            const d = Math.abs(q.x - mien.x) + Math.abs(q.y - mien.y) * 0.05;
+            if (d < meilleur) { meilleur = d; sur = id; }
+          });
+        }
+        notes.push({ id: e.id, sur: sur,
+                     titre: e.label || null,
+                     texte: (e.params && e.params.text) || '',
+                     couleur: (e.params && e.params.color) || null });
+        return;
+      }
+      const corps = e.body && (Array.isArray(e.body) ? e.body : e.body.steps);
+      if (Array.isArray(corps)) visiter(corps);
+    });
+  })(doc && doc.steps);
+  return notes;
+}
+
 // Parcours du document pivot. On garde l'ORDRE et la PROFONDEUR : c'est la
 // profondeur qui décide du découpage en scénarios.
 function etapesDe(doc) {
@@ -195,6 +246,22 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       });
     });
 
+    // Les post-its ne partent que si on le demande : c'est une option, pas un
+    // défaut, et elle n'a pas à encombrer l'écran.
+    const veutNotes = String(req.query.postits || '') === '1';
+    const notes = veutNotes ? postitsDe(flux.document, etapes.map(e => e.id)) : [];
+    if (veutNotes) {
+      const parEtape = new Map();
+      notes.forEach(function (n) {
+        if (!n.sur) return;
+        if (!parEtape.has(n.sur)) parEtape.set(n.sur, []);
+        parEtape.get(n.sur).push(n);
+      });
+      groupes.forEach(g => g.etapes.forEach(function (e) {
+        e.notes = parEtape.get(e.id) || [];
+      }));
+    }
+
     const toutes = groupes.flatMap(g => g.etapes);
     res.json({
       flux: { id: flux.id, nom: flux.name },
@@ -209,6 +276,8 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       },
       groupes,
       aretes,
+      notes: { demandees: veutNotes, total: notes.length,
+               orphelines: notes.filter(n => !n.sur).length },
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

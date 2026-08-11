@@ -25,6 +25,7 @@
 const WfInterpreter = (() => {
 
   let cibleCourante = 'make';
+  let avecNotes     = false;
   let donnees       = null;
 
   function el(balise, classe, texte) {
@@ -70,6 +71,24 @@ const WfInterpreter = (() => {
       setTimeout(function () { copier.textContent = 'Copier le plan'; }, 1800);
     });
     gauche.appendChild(copier);
+
+    // Porter les post-its : une case, rien de plus. Make sait les recevoir —
+    // `POST /scenarios/{id}/notes` accepte une note accrochée à des modules —
+    // et ce sont eux qui portent le POURQUOI, exactement ce qui se perd quand
+    // un collègue reprend le travail ailleurs. L'écran est déjà chargé : pas
+    // d'explication ici, la case suffit.
+    const opt = el('label', 'itp-option');
+    const coche = document.createElement('input');
+    coche.type = 'checkbox';
+    coche.checked = avecNotes;
+    coche.addEventListener('change', function () { avecNotes = coche.checked; charger(true); });
+    opt.appendChild(coche);
+    opt.appendChild(el('span', null, 'Porter les post-its'));
+    if (d.notes && d.notes.demandees) {
+      opt.title = d.notes.total + ' post-it(s), dont ' + d.notes.orphelines
+                + ' sans nœud identifiable';
+    }
+    gauche.appendChild(opt);
     barre.appendChild(gauche);
 
     const v = d.verdict || {};
@@ -181,7 +200,14 @@ const WfInterpreter = (() => {
         tr.dataset.etape = e.id || '';
         tr.dataset.etat = e.etat;
 
-        tr.appendChild(el('div', 'itp-td itp-td-nom', e.label));
+        const nom = el('div', 'itp-td itp-td-nom');
+        nom.appendChild(el('span', null, e.label));
+        if ((e.notes || []).length) {
+          const m = el('span', 'itp-note-marque', ' 📝');
+          m.title = e.notes.map(n => n.texte).join('\n\n');
+          nom.appendChild(m);
+        }
+        tr.appendChild(nom);
 
         const forme = el('div', 'itp-td');
         forme.appendChild(el('span', null, e.construit ? e.construit.dit : '—'));
@@ -242,6 +268,11 @@ const WfInterpreter = (() => {
         (e.ecarts || []).forEach(function (x) {
           L.push('        ' + (x.gravite === 'bloquant' ? 'x' : '!') + ' '
                  + x.quoi + ' : ' + x.pourquoi);
+        });
+        (e.notes || []).forEach(function (n) {
+          String(n.texte || '').split('\n').forEach(function (l, i) {
+            L.push('        ' + (i ? '  ' : '# ') + l);
+          });
         });
       });
       L.push('');
@@ -309,7 +340,8 @@ const WfInterpreter = (() => {
     message('Lecture en cours…');
     try {
       const r = await fetch('/api/builder-flows/' + encodeURIComponent(id)
-        + '/interpretation?cible=' + encodeURIComponent(cibleCourante));
+        + '/interpretation?cible=' + encodeURIComponent(cibleCourante)
+        + (avecNotes ? '&postits=1' : ''));
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
       donnees = d;
