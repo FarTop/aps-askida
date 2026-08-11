@@ -221,11 +221,24 @@ function apiDe(v, ecarts) {
   });
 }
 
-async function ap(a, m, c, b) {
+// Le 403 de Make est PASSAGER. « Insufficient rights, admin permission "apps
+// edit" is needed » est tombé au milieu d'un rendu, sur un compte qui avait le
+// droit une seconde plus tôt et l'a repris quelques secondes après. Sans
+// réessai, un refus passager laissait l'app amputée : trois RPC supprimés et
+// non recréés, donc trois listes déroulantes mortes chez l'utilisateur.
+//
+// Réessayer un 403 est inhabituel — un refus de droit n'est pas censé être
+// temporaire. Il l'est ici, mesuré, et une opération destructrice suivie d'une
+// recréation ne tolère pas qu'on croie la documentation plutôt que la cible.
+async function ap(a, m, c, b, essai) {
   const o = { method: m, headers: Object.assign({ Accept: 'application/json' }, a.headers) };
   if (b !== undefined) { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(b); }
   const r = await fetch(a.baseUrl + c, o);
   const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (_) {}
+  if ((r.status === 403 || r.status === 429) && (essai || 0) < 4) {
+    await new Promise(x => setTimeout(x, 6000 * ((essai || 0) + 1)));
+    return ap(a, m, c, b, (essai || 0) + 1);
+  }
   return { statut: r.status, corps: j, brut: t.slice(0, 200), ok: r.status >= 200 && r.status < 300 };
 }
 
@@ -424,9 +437,29 @@ if (require.main === module) (async () => {
   console.log((rb.ok ? '✅' : '❌') + ' base de l\'app — ' + base.baseUrl
     + (rb.ok ? ' · en-têtes depuis la connexion' : ' — ' + rb.brut) + '\n');
 
+  // ── UN RPC DOIT DÉCLARER SA CONNEXION ─────────────────────────
+  // Sans ça, l'éditeur de Make appelle le RPC SANS connexion — vérifié sur le
+  // réseau, le corps envoyé est `{data:{eventType:"custom_action"}}` et rien
+  // d'autre. Iconik répond alors « App-ID header is required », et le panneau
+  // affiche « Failed to load data! » sur chaque liste déroulante.
+  //
+  // Le message désigne un en-tête ; la cause est une déclaration manquante.
+  // Rien à l'écran ne relie les deux, et c'est ce qui a coûté le plus de temps.
+  //
+  // La connexion ne se pose QU'À LA CRÉATION : `PATCH` rend 200 et ne stocke
+  // rien. Un RPC déjà créé sans elle doit donc être supprimé puis refait —
+  // d'où ce détour, qui n'est pas de la prudence mais la seule voie.
   for (const [nature, r] of rpcs) {
-    const existe = await ap(acces, 'GET', `${A}/rpcs/${r.rpc}`);
-    if (!existe.ok) await ap(acces, 'POST', `${A}/rpcs`, { name: r.rpc, label: r.titre });
+    let existe = await ap(acces, 'GET', `${A}/rpcs/${r.rpc}`);
+    const sansCnx = existe.ok && cnxApp
+      && !((existe.corps && existe.corps.appRpc) || {}).connection;
+    if (sansCnx) {
+      await ap(acces, 'DELETE', `${A}/rpcs/${r.rpc}`);
+      existe = { ok: false };
+      console.log('   ' + l(r.rpc, 22) + 'refait — il ne déclarait pas sa connexion');
+    }
+    if (!existe.ok) await ap(acces, 'POST', `${A}/rpcs`,
+      { name: r.rpc, label: r.titre, connection: cnxApp ? cnxApp.name : null });
     const api = await ap(acces, 'PUT', `${A}/rpcs/${r.rpc}/api`, {
       url: r.url, method: 'GET',
       response: { iterate: '{{body.objects}}',
