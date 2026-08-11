@@ -369,10 +369,33 @@ if (require.main === module) (async () => {
   if (!ECRIRE) { console.log('\nLecture seule. Relancer avec --ecrire.'); return prisma.$disconnect(); }
 
   // ── Écriture ────────────────────────────────────────────────
+  // ── UNE APP NEUVE, QUAND CELLE QU'ON A EST SUSPECTE ───────────
+  // `--neuve` crée l'app ET sa connexion depuis zéro, dans l'ordre où la cible
+  // les attend. Ce n'est pas un confort : la première app a une histoire —
+  // connexion déclarée avant nous, champs renommés, modules passés en public,
+  // RPC supprimés et refaits sous un 403 intermittent. Repartir propre est le
+  // seul moyen de savoir si ce qui coince tient à SON état ou au mécanisme.
+  //
+  // Le rendu étant idempotent, cela ne coûte qu'une commande. Et le nom
+  // technique, figé à la création, redevient parlant au passage.
+  let app = null;
+  if (process.argv.includes('--neuve')) {
+    const c = await ap(acces, 'POST', '/sdk/apps', {
+      label: 'APS | ICONIK', description: 'Verbes APS rendus depuis NodeDefinition',
+      theme: '#2c3e50', language: 'en', countries: [] });
+    app = c.corps && (c.corps.app || c.corps.appSdk);
+    console.log((c.ok ? '✅' : '❌') + ' app créée — ' + (app ? app.name : c.brut) + '\n');
+    if (!app) return prisma.$disconnect();
+    const rc = await ap(acces, 'POST', `/sdk/apps/${app.name}/connections`,
+      { type: 'basic', label: 'Iconik' });
+    const nc = rc.corps && (rc.corps.appConnection || rc.corps.connection);
+    console.log((rc.ok ? '✅' : '❌') + ' connexion déclarée — ' + (nc ? nc.name : rc.brut) + '\n');
+  }
+
   const apps = await ap(acces, 'GET', '/sdk/apps');
   const liste = (apps.corps.appsSdk || apps.corps.apps || []);
-  const app = APP_VOULUE ? liste.find(a => a.name === APP_VOULUE) : liste[0];
-  if (!app) { console.log('❌ aucune app custom — en créer une d\'abord'); return prisma.$disconnect(); }
+  if (!app) app = APP_VOULUE ? liste.find(a => a.name === APP_VOULUE) : liste[0];
+  if (!app) { console.log('❌ aucune app custom — relancer avec --neuve'); return prisma.$disconnect(); }
   const A = `/sdk/apps/${app.name}/${app.version}`;
   console.log(`\nApp : ${app.name} v${app.version}\n`);
 

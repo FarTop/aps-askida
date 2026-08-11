@@ -502,7 +502,12 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
   console.log('');
   const crees = [];
   for (const s of sorties) {
-    const c = await ap(acces, 'POST', '/scenarios', {
+    // `confirmed=true` répond OUI à une question que l'API pose en clair :
+    // « ces apps ne sont pas encore installées ; les installer les rendra
+    // disponibles pour toute l'organisation ». C'est une écriture qui déborde
+    // du scénario, et Make refuse de la faire dans notre dos — il a raison.
+    // On la déclare donc explicitement plutôt que de la subir.
+    const c = await ap(acces, 'POST', '/scenarios?confirmed=true', {
       teamId: equipe, name: s.blueprint.name,
       blueprint: JSON.stringify(s.blueprint),
       scheduling: JSON.stringify({ type: 'indefinitely', interval: 900 }) });
