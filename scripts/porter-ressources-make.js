@@ -24,6 +24,20 @@
 //                   de données Make est plate. Rien ne peut l'exprimer.
 //   registre        entièrement déclaré — l'unicité des identifiants
 //
+// ── UN SEUL STORE POUR QUATRE RESSOURCES, ET POURQUOI ───────────
+// L'offre plafonne le stockage à 10 Mo, et ce sont les RÉSERVATIONS qui le
+// remplissent, pas les données : six stores existants occupent 31 Ko et le
+// budget est saturé. Créer un store par ressource était donc refusé.
+//
+// Plutôt que de tout jeter dans un champ JSON — ce qui aurait rendu le contenu
+// illisible, exactement le défaut qu'on cherche à corriger — les quatre
+// ressources partagent une structure qui déclare la RÉUNION de leurs champs,
+// avec un champ `type` pour s'y retrouver. `strict: false` autorise un
+// manifeste à laisser `regles` vide. Chaque champ reste donc nommé et typé.
+//
+// Le jour où de la place se libère, ce script sait toujours créer un store par
+// ressource : il suffit de rendre `partage` faux.
+//
 // ── CE QU'ON NE PORTE PAS ───────────────────────────────────────
 // Les CONNEXIONS. Elles portent un secret, et Make a son propre mécanisme
 // (l'app custom a déjà sa connexion Iconik). Mettre un jeton dans un Data Store
@@ -45,9 +59,34 @@ const T = (nom, label, type, spec) => spec
 
 // Les cinq ressources, leur structure et la façon de transformer une ligne
 // d'APS en enregistrement Make.
+// La structure commune : la réunion des champs des quatre ressources.
+const STORE_PARTAGE = 'APS — Ressources';
+const SPEC_PARTAGEE = [
+  T('type', 'Type de ressource', 'text'),
+  T('nom', 'Nom', 'text'),
+  T('niveau', 'Niveau', 'text'),
+  T('essences', 'Essences (manifeste)', 'array', { type: 'collection', spec: [
+    T('role', 'Rôle', 'text'), T('sortie', 'Variable de sortie', 'text'),
+    T('cardinalite', 'Cardinalité', 'text'),
+    T('verifyEndpoint', 'Endpoint de vérification', 'text'),
+    T('verifyPath', 'Chemin de vérification', 'text'),
+    T('appliesTo', 'Niveaux concernés', 'array', { type: 'text' }) ] }),
+  T('regles', 'Règles (correspondance)', 'array', { type: 'collection', spec: [
+    T('cle', 'Champ APS', 'text'), T('type', 'Type', 'text'),
+    T('valeur', 'Chemin partenaire', 'text') ] }),
+  T('etapes', 'Étapes (endpoint)', 'array', { type: 'collection', spec: [
+    T('nom', 'Nom', 'text'), T('methode', 'Méthode', 'text'),
+    T('chemin', 'Endpoint', 'text'), T('mode', 'Mode', 'text'),
+    T('surErreur', 'Sur erreur', 'text'),
+    T('champs', 'Champs', 'array', { type: 'collection', spec: [
+      T('cle', 'Clé', 'text'), T('source', 'Source', 'text') ] }) ] }),
+  T('description', 'Description (gabarit)', 'text'),
+  T('config', 'Gabarit récursif (JSON brut)', 'text'),
+];
+
 const RESSOURCES = [
   {
-    cle: 'manifestes', modele: 'manifest', titre: 'APS — Manifestes',
+    cle: 'manifestes', partage: true, type: 'manifeste', modele: 'manifest', titre: 'APS — Manifestes',
     opaque: null,
     spec: [
       T('nom', 'Nom', 'text'), T('niveau', 'Niveau', 'text'),
@@ -59,14 +98,14 @@ const RESSOURCES = [
         T('appliesTo', 'Niveaux concernés', 'array', { type: 'text' }),
       ] }),
     ],
-    vers: m => ({ nom: m.name, niveau: m.niveau || '',
+    vers: m => ({ type: 'manifeste', nom: m.name, niveau: m.niveau || '',
       essences: (m.essences || []).map(e => ({
         role: e.role || '', sortie: e.sortie || '', cardinalite: e.cardinalite || '',
         verifyEndpoint: e.verifyEndpoint || '', verifyPath: e.verifyPath || '',
         appliesTo: e.appliesTo || [] })) }),
   },
   {
-    cle: 'correspondances', modele: 'mapping', titre: 'APS — Correspondances',
+    cle: 'correspondances', partage: true, type: 'correspondance', modele: 'mapping', titre: 'APS — Correspondances',
     opaque: null,
     spec: [
       T('nom', 'Nom', 'text'),
@@ -75,11 +114,11 @@ const RESSOURCES = [
         T('valeur', 'Chemin partenaire', 'text'),
       ] }),
     ],
-    vers: m => ({ nom: m.name,
+    vers: m => ({ type: 'correspondance', nom: m.name,
       regles: (m.rules || []).map(r => ({ cle: r.key || '', type: r.type || '', valeur: r.value || '' })) }),
   },
   {
-    cle: 'endpoints', modele: 'endpoint', titre: 'APS — Séquences d\'endpoints',
+    cle: 'endpoints', partage: true, type: 'endpoint', modele: 'endpoint', titre: 'APS — Séquences d\'endpoints',
     opaque: null,
     spec: [
       T('nom', 'Nom', 'text'),
@@ -91,14 +130,14 @@ const RESSOURCES = [
           T('cle', 'Clé', 'text'), T('source', 'Source', 'text') ] }),
       ] }),
     ],
-    vers: e => ({ nom: e.name,
+    vers: e => ({ type: 'endpoint', nom: e.name,
       etapes: (e.steps || []).map(s => ({
         nom: s.name || '', methode: s.method || '', chemin: s.endpoint || '',
         mode: s.httpMode || '', surErreur: s.onError || '',
         champs: (s.feFields || []).map(f => ({ cle: f.key || '', source: f.src || '' })) })) }),
   },
   {
-    cle: 'gabarits', modele: 'arboTemplate', titre: 'APS — Gabarits d\'arborescence',
+    cle: 'gabarits', partage: true, type: 'gabarit', modele: 'arboTemplate', titre: 'APS — Gabarits d\'arborescence',
     // Un gabarit décrit un arbre : chaque nœud a des enfants qui ont des
     // enfants. Une structure de données Make n'a pas de récursion. On garde
     // donc la forme brute, et on l'annonce plutôt que de la maquiller.
@@ -107,7 +146,7 @@ const RESSOURCES = [
       T('nom', 'Nom', 'text'), T('description', 'Description', 'text'),
       T('config', 'Gabarit (JSON brut)', 'text'),
     ],
-    vers: a => ({ nom: a.name, description: a.description || '',
+    vers: a => ({ type: 'gabarit', nom: a.name, description: a.description || '',
                   config: JSON.stringify(a.config || {}) }),
   },
   {
@@ -166,14 +205,34 @@ async function ap(a, m, c, b, essai) {
 
   if (!ECRIRE) { console.log('\nLecture seule. Relancer avec --ecrire.'); return prisma.$disconnect(); }
 
-  // Les stores existants, pour ne pas en empiler des copies à chaque passage.
   const existants = await ap(acces, 'GET', `/data-stores?teamId=${equipe}`);
-  const parNom = new Map(((existants.corps && existants.corps.dataStores) || [])
-    .map(s => [s.name, s]));
+  const parNom = new Map(((existants.corps && existants.corps.dataStores) || []).map(s => [s.name, s]));
 
-  console.log('');
+  // Le store partagé : on ÉLARGIT celui qui existe déjà plutôt que d'en créer
+  // un — le budget de réservation est saturé, et une réservation ne se récupère
+  // qu'en la reprenant.
+  let partage = parNom.get(STORE_PARTAGE) || parNom.get('APS — Manifestes');
+  if (partage) {
+    const d = await ap(acces, 'GET', `/data-stores/${partage.id}`);
+    const idStruct = d.corps && d.corps.dataStore && d.corps.dataStore.datastructureId;
+    if (idStruct) {
+      const rs = await ap(acces, 'PATCH', `/data-structures/${idStruct}`,
+        { name: STORE_PARTAGE, spec: SPEC_PARTAGEE });
+      console.log((rs.ok ? '✅' : '❌') + ' structure élargie  ' + idStruct
+        + (rs.ok ? ` · ${SPEC_PARTAGEE.length} champs` : ' — ' + rs.brut));
+      if (!rs.ok) return prisma.$disconnect();
+    }
+    if (partage.name !== STORE_PARTAGE) {
+      await ap(acces, 'PATCH', `/data-stores/${partage.id}`, { name: STORE_PARTAGE });
+    }
+  } else {
+    console.log('❌ aucun store à élargir — en créer un demande de la place');
+    return prisma.$disconnect();
+  }
+  console.log('   store partagé     ' + partage.id + ' « ' + STORE_PARTAGE + ' »\n');
+
   for (const { r, lignes } of plan) {
-    let store = parNom.get(r.titre);
+    let store = r.partage ? partage : parNom.get(r.titre);
     if (!store) {
       const rs = await ap(acces, 'POST', '/data-structures',
         { teamId: equipe, name: r.titre, strict: false, spec: r.spec });
@@ -185,22 +244,27 @@ async function ap(a, m, c, b, essai) {
       store = rd.corps.dataStore;
     }
 
-    // PUT remplace une clé EXISTANTE, il ne la crée pas. Un premier portage
-    // n'écrivait donc rien du tout. On crée au POST, et on retombe sur PUT si
-    // la clé est déjà là — rejouer met à jour, il ne duplique pas.
+    // La clé porte le type quand le store est partagé : deux ressources de
+    // types différents pourraient sinon partager un identifiant.
     let ok = 0, ko = 0, dernierEchec = null;
     for (const ligne of lignes) {
-      const cle = String(r.cleDe ? r.cleDe(ligne) : ligne.id);
+      const brute = String(r.cleDe ? r.cleDe(ligne) : ligne.id);
+      const cle = r.partage ? r.type + ':' + brute : brute;
       const donnees = r.vers(ligne);
+      // Les deux verbes n'ont PAS le même corps, et la spec le dit à peine :
+      // le POST enveloppe (`{key, data}`), le PUT non — son corps EST
+      // l'enregistrement. Envelopper au PUT rendait « paramètre bayardId
+      // manquant » sur les seules clés déjà existantes.
       let res = await ap(acces, 'POST', `/data-stores/${store.id}/data`, { key: cle, data: donnees });
       if (!res.ok) {
         res = await ap(acces, 'PUT',
-          `/data-stores/${store.id}/data/${encodeURIComponent(cle)}`, { data: donnees });
+          `/data-stores/${store.id}/data/${encodeURIComponent(cle)}`, donnees);
       }
       if (res.ok) ok++; else { ko++; dernierEchec = res.brut; }
     }
-    console.log((ko ? '⚠️ ' : '✅ ') + l(r.cle, 20) + `store ${store.id} · ${ok}/${lignes.length} enregistrement(s)`
+    console.log((ko ? '⚠️ ' : '✅ ') + l(r.cle, 20) + `store ${store.id} · ${ok}/${lignes.length}`
       + (ko ? ` · ${ko} en échec — ${dernierEchec}` : ''));
   }
+
   await prisma.$disconnect();
 })().catch(e => { console.error('ERREUR —', e.message); process.exit(1); });
