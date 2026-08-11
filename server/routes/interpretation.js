@@ -137,22 +137,46 @@ function etapesDe(doc) {
   return out;
 }
 
+// ── LE STATUT D'UN ÉCART ────────────────────────────────────────
+// Une gravité ne dit pas quoi faire. Vingt-deux écarts du même orange laissent
+// croire à vingt-deux obstacles, alors qu'il y en a deux. Chacun porte donc la
+// VOIE à prendre :
+//
+//   à câbler    on sait comment, c'est du travail. Les ressources d'org ont
+//               leur réponse depuis qu'un manifeste réel tient dans un Data
+//               Store Make avec ses champs nommés.
+//   à relire    la limite est NOTRE analyse, pas la cible. Une concaténation de
+//               chaîne se traduit très bien ; c'est l'extracteur qui n'a pas su
+//               la lire. Dire « non traduisible » était un mensonge d'écran.
+//   à trancher  une décision de conception, en amont. Aucun mécanisme de la
+//               cible ne rendra lisible un verbe qui en fait trop.
+//   bloquant    rien ne passe.
+const STATUTS = {
+  a_cabler:   { libelle: 'à câbler' },
+  a_relire:   { libelle: 'à relire' },
+  a_trancher: { libelle: 'à trancher' },
+  bloquant:   { libelle: 'bloquant' },
+};
+
 // Les écarts d'un verbe, lus dans `NodeDefinition` — jamais dans le code du
 // moteur. C'est la raison d'être de ce modèle.
 function ecartsDuVerbe(nd) {
   const out = [];
-  if (!nd) return [{ gravite: 'bloquant', quoi: '(verbe inconnu)',
-                     pourquoi: 'aucune définition dérivée pour ce verbe' }];
+  if (!nd) return [{ gravite: 'bloquant', statut: 'bloquant', quoi: '(verbe inconnu)',
+                     pourquoi: 'aucune définition dérivée pour ce verbe',
+                     voie: 'dériver le catalogue (scripts/derive-verbes.js)' }];
   const champs = (nd.configSchema && nd.configSchema.champs) || [];
   champs.forEach(function (c) {
     if (!c.nature || c.chemin === 'label') return;
     if (RENDU.AFFICHAGE.includes(c.nature)) return;   // décor : sans conséquence
     if (RENDU.RESSOURCES_APS.includes(c.nature)) {
-      out.push({ gravite: 'degrade', quoi: c.chemin,
-                 pourquoi: `ressource APS « ${c.nature} » : devient une saisie libre, APS n'étant pas là en production` });
+      out.push({ gravite: 'degrade', statut: 'a_cabler', quoi: c.chemin,
+                 pourquoi: `ressource APS « ${c.nature} » : devient une saisie libre, APS n'étant pas là en production`,
+                 voie: 'porter la ressource en Data Store et lire par clé' });
     } else if (!RENDU.TYPE[c.nature] && !RENDU.LISTES[c.nature]) {
-      out.push({ gravite: 'degrade', quoi: c.chemin,
-                 pourquoi: `nature « ${c.nature} » sans équivalent chez la cible` });
+      out.push({ gravite: 'degrade', statut: 'a_trancher', quoi: c.chemin,
+                 pourquoi: `nature « ${c.nature} » sans équivalent chez la cible`,
+                 voie: 'choisir un type de remplacement, ou retirer le champ' });
     }
   });
   // Plusieurs discriminants : les conditions ne peuvent plus s'inverser en
@@ -160,14 +184,19 @@ function ecartsDuVerbe(nd) {
   const cond = champs.filter(c => c.visibleSi && c.visibleSi.termes && c.visibleSi.termes.length);
   const pivots = [...new Set(cond.flatMap(c => c.visibleSi.termes.map(t => t.champ)))];
   if (pivots.length > 1) {
-    out.push({ gravite: 'degrade', quoi: pivots.join(' + '),
-               pourquoi: `${pivots.length} discriminants : les ${cond.length} conditions de visibilité s'aplatissent, tous les champs s'affichent ensemble` });
+    out.push({ gravite: 'degrade', statut: 'a_trancher', quoi: pivots.join(' + '),
+               pourquoi: `${pivots.length} discriminants : les ${cond.length} conditions de visibilité s'aplatissent, tous les champs s'affichent ensemble`,
+               voie: 'scinder le verbe en amont — aucun mécanisme de la cible ne rendra ça lisible' });
   }
   ((nd.description && nd.description.requetes) || []).forEach(function (r) {
     (r.champs || []).forEach(function (c) {
       if (c.source === 'parametre' || c.source === 'constante') return;
-      out.push({ gravite: 'degrade', quoi: (r.cas ? r.cas + ' · ' : '') + c.cle,
-                 pourquoi: 'valeur calculée dans le moteur : non traduisible telle quelle' });
+      // « Non traduisible » était faux : une concaténation de chaîne s'exprime
+      // très bien chez la cible. C'est l'extracteur de `mesure-facades.js` qui
+      // n'a pas su la lire. La phrase change, et le statut avec.
+      out.push({ gravite: 'degrade', statut: 'a_relire', quoi: (r.cas ? r.cas + ' · ' : '') + c.cle,
+                 pourquoi: 'valeur assemblée dans le moteur, que notre analyse n\'a pas su extraire',
+                 voie: 'étendre l\'extraction, ou écrire l\'expression à la main' });
     });
   });
   return out;
@@ -267,6 +296,11 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       flux: { id: flux.id, nom: flux.name },
       cible: { cle, nom: cible.nom, pret: cible.pret },
       ciblesDisponibles: Object.entries(CIBLES).map(([k, v]) => ({ cle: k, nom: v.nom, pret: v.pret })),
+      statuts: Object.entries(STATUTS).map(function (kv) {
+        return { cle: kv[0], libelle: kv[1].libelle,
+                 nombre: toutes.reduce(function (n, e) {
+                   return n + (e.ecarts || []).filter(x => x.statut === kv[0]).length; }, 0) };
+      }).filter(x => x.nombre),
       verdict: {
         etapes: toutes.length,
         traduites: toutes.filter(e => e.etat === 'traduit').length,

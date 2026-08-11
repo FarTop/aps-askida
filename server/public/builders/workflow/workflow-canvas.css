@@ -1496,3 +1496,23 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 /* Les compteurs de nœuds et de connexions décrivent le canevas : hors du
    Builder, ils parlent d'un écran qu'on ne regarde plus. */
 .bd-canvas-root:not([data-vue="builder"]) .bd-tech { display: none; }
+
+/* Le statut d'un écart : ce qu'il y a à faire, pas seulement ce qui manque.
+   Vingt-deux pastilles du même orange laissaient croire à vingt-deux
+   obstacles ; il y en a deux. */
+.itp-statuts { margin-left: auto; display: flex; gap: 10px; }
+.itp-statut {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; letter-spacing: .03em; padding: 1px 7px; border-radius: 999px;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.itp-statut[data-statut="a_cabler"]   { color: #7fb3d5; border-color: rgba(127,179,213,.35); }
+.itp-statut[data-statut="a_relire"]   { color: #9aa5b1; border-color: rgba(154,165,177,.3); }
+.itp-statut[data-statut="a_trancher"] { color: #f39c12; border-color: rgba(243,156,18,.4); }
+.itp-statut[data-statut="bloquant"]   { color: #e74c3c; border-color: rgba(231,76,60,.45); }
+.itp-ecart .itp-statut { margin-right: 5px; cursor: help; }
+
+/* La couleur de l'écart suit son STATUT, plus sa seule gravité. */
+.itp-ecart[data-statut="a_cabler"]::before   { content: '⚙ '; color: #7fb3d5; }
+.itp-ecart[data-statut="a_relire"]::before   { content: '◦ '; color: #9aa5b1; }
+.itp-ecart[data-statut="a_trancher"]::before { content: '⚠ '; color: #f39c12; }

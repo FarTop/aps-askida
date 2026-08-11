@@ -170,12 +170,28 @@ const WfInterpreter = (() => {
     hote.appendChild(zone);
   }
 
+  function libelleStatut(cle) {
+    const t = (donnees && donnees.statuts || []).find(s => s.cle === cle);
+    return t ? t.libelle : cle;
+  }
+
   // ── Bas : le détail ────────────────────────────────────────────────────
   function rendreDetail(hote, d) {
     const zone = el('section', 'itp-zone-basse');
     const tete = el('header', 'itp-carte-tete');
     tete.appendChild(el('h3', null, 'Détail'));
     tete.appendChild(el('span', 'itp-role', 'étape par étape'));
+    // Le compte par statut vit ICI, avec les écarts, et non dans le bandeau du
+    // haut : c'est la répartition qui dit s'il y a deux obstacles ou vingt-deux.
+    const somme = el('span', 'itp-statuts');
+    (d.statuts || []).forEach(function (st) {
+      const c = el('span', 'itp-statut');
+      c.dataset.statut = st.cle;
+      c.appendChild(el('b', null, st.nombre));
+      c.appendChild(el('span', null, ' ' + st.libelle));
+      somme.appendChild(c);
+    });
+    tete.appendChild(somme);
     zone.appendChild(tete);
 
     const table = el('div', 'itp-table');
@@ -233,6 +249,14 @@ const WfInterpreter = (() => {
           e.ecarts.forEach(function (x) {
             const li = el('li', 'itp-ecart');
             li.dataset.gravite = x.gravite;
+            li.dataset.statut = x.statut || '';
+            // Le statut d'abord : c'est lui qui dit s'il y a quelque chose à
+            // faire, et quoi. La description vient après.
+            if (x.statut) {
+              const chip = el('span', 'itp-statut', libelleStatut(x.statut));
+              if (x.voie) chip.title = x.voie;
+              li.appendChild(chip);
+            }
             li.appendChild(el('code', null, x.quoi));
             li.appendChild(el('span', null, ' ' + x.pourquoi));
             ul.appendChild(li);
@@ -266,8 +290,9 @@ const WfInterpreter = (() => {
         L.push('    ' + signe + ' ' + e.label.padEnd(30).slice(0, 30) + ' -> '
                + texteCible(e) + '  [' + (e.construit ? e.construit.dit : '') + ']');
         (e.ecarts || []).forEach(function (x) {
-          L.push('        ' + (x.gravite === 'bloquant' ? 'x' : '!') + ' '
-                 + x.quoi + ' : ' + x.pourquoi);
+          L.push('        ' + (x.gravite === 'bloquant' ? 'x' : '!') + ' ['
+                 + libelleStatut(x.statut) + '] ' + x.quoi + ' : ' + x.pourquoi
+                 + (x.voie ? '  →  ' + x.voie : ''));
         });
         (e.notes || []).forEach(function (n) {
           String(n.texte || '').split('\n').forEach(function (l, i) {
