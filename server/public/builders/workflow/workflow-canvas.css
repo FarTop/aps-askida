@@ -1138,3 +1138,49 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   margin-top: 2px; max-height: 220px; overflow: auto; user-select: text;
   color: var(--bd-text-dim); white-space: pre;
 }
+
+/* ── Les trois vues d'un workflow ───────────────────────────────────────────
+   Builder / Designer / Interpreter. Volontairement DIFFÉRENTES des onglets de
+   volet : ceux-ci sont des étiquettes de bord, collées au panneau qu'elles
+   ouvrent ; celles-là sont un segment au centre du header. Deux barres
+   d'onglets qui se ressemblent se confondent — c'est le seul vrai risque de
+   cette disposition. */
+.aps-fil {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+}
+
+.bd-vues {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--bd-panel-bg, #14181b);
+  border: 1px solid var(--bd-panel-border, #262a2e);
+  border-radius: 999px;
+}
+.bd-vue-tab {
+  appearance: none; border: 0; cursor: pointer;
+  font: inherit; font-size: 12.5px; line-height: 1;
+  padding: 7px 16px; border-radius: 999px;
+  background: transparent; color: var(--bd-text-dim, #a6b0b8);
+}
+.bd-vue-tab:hover { color: var(--bd-text, #e6edf3); }
+.bd-vue-tab[aria-selected="true"] {
+  background: var(--bd-accent-soft, #1e2b36);
+  color: var(--bd-text, #e6edf3);
+}
+.bd-vue-tab:focus-visible { outline: 2px solid var(--bd-accent, #4aa3df); outline-offset: 2px; }
+
+/* La bascule se fait par attribut sur la racine, jamais par style.display en
+   JS : le HTML décrit l'état, la CSS en tire les conséquences. */
+.bd-vue-panneau { display: none; }
+.bd-canvas-root[data-vue="designer"]    .bd-vue-panneau[data-vue="designer"],
+.bd-canvas-root[data-vue="interpreter"] .bd-vue-panneau[data-vue="interpreter"] {
+  display: flex; flex: 1; align-items: center; justify-content: center;
+}
+.bd-canvas-root:not([data-vue="builder"]) .bd-stage { display: none; }
+
+.bd-vue-vide { max-width: 46ch; text-align: center; color: var(--bd-text-dim, #a6b0b8); }
+.bd-vue-vide h2 {
+  margin: 0 0 10px; font-size: 15px; font-weight: 600;
+  color: var(--bd-text, #e6edf3);
+}
+.bd-vue-vide p { margin: 0 0 6px; font-size: 13px; line-height: 1.5; }
+.bd-vue-note { font-size: 12px; opacity: .62; }

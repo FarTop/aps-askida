@@ -16,16 +16,31 @@
   <header class="aps-header">
     <div class="aps-header-left">
       <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
-      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="workflow.html">Workflow Builder</a> › Canvas</span>
-    </div>
-    <div class="aps-header-center">
-      <!-- Information, PAS un sélecteur : ce canvas édite UN workflow qui
+      <!-- L'organisation passe SOUS le fil d'Ariane : c'est de la provenance,
+           au même titre que le chemin, et le centre du header revient aux vues.
+           Information, PAS un sélecteur — ce canvas édite UN workflow qui
            appartient déjà à une organisation fixe. Changer d'org ici n'aurait
            pas de sens (ça ne réassigne rien, ça ne fait que désynchroniser les
-           listes filtrées par contexte — environnement, futur manifeste/
-           connexion du nœud Deliver). Le sélecteur INTERACTIF reste sur
+           listes filtrées par contexte). Le sélecteur INTERACTIF reste sur
            l'accueil du Builder, où naviguer entre organisations est légitime. -->
-      <span class="bd-org-info" data-role="org-info"></span>
+      <div class="aps-fil">
+        <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="workflow.html">Workflow Builder</a> › Canvas</span>
+        <span class="bd-org-info" data-role="org-info"></span>
+      </div>
+    </div>
+    <div class="aps-header-center">
+      <!-- Les trois vues d'un workflow. Elles ne sont PAS des onglets de volet :
+           un volet montre un outil du canevas, une vue change ce qu'on fait du
+           workflow. D'où le placement au centre du header, loin des onglets de
+           bord, et un dessin qui ne leur ressemble pas. -->
+      <nav class="bd-vues" role="tablist" aria-label="Vues du workflow">
+        <button type="button" class="bd-vue-tab" role="tab" data-vue="builder"
+                aria-selected="true">Builder</button>
+        <button type="button" class="bd-vue-tab" role="tab" data-vue="designer"
+                aria-selected="false">Designer</button>
+        <button type="button" class="bd-vue-tab" role="tab" data-vue="interpreter"
+                aria-selected="false">Interpreter</button>
+      </nav>
     </div>
     <div class="aps-header-right">
       <nav class="aps-navbar">
@@ -41,7 +56,7 @@
        l'API ops (lecture gauche->droite). Chaque volet et ses onglets forment
        une piece solidaire qui coulisse EN SUPERPOSITION par-dessus le canevas
        fixe : le canevas ne bouge jamais quand un volet s'ouvre. -->
-  <div class="bd-canvas-root" data-open="" data-dirty="0" data-active="1">
+  <div class="bd-canvas-root" data-open="" data-dirty="0" data-active="1" data-vue="builder">
 
     <!-- Bandeau d'état — informe, ne commande pas. Trois zones hiérarchisées :
          identité (gauche) · contexte (centre) · technique (droite). Le sapin de
@@ -280,6 +295,25 @@
       </div>
 
     </div>
+
+    <!-- Les deux vues à venir. Vides et annoncées comme telles : un panneau qui
+         ment sur ce qu'il sait faire coûte plus cher qu'un panneau qui attend. -->
+    <section class="bd-vue-panneau" data-vue="designer" role="tabpanel" aria-label="Designer">
+      <div class="bd-vue-vide">
+        <h2>Designer</h2>
+        <p>Interpréter un schéma BPMN vers un workflow APS.</p>
+        <p class="bd-vue-note">Rien n'est construit ici pour l'instant.</p>
+      </div>
+    </section>
+
+    <section class="bd-vue-panneau" data-vue="interpreter" role="tabpanel" aria-label="Interpreter">
+      <div class="bd-vue-vide">
+        <h2>Interpreter</h2>
+        <p>Traduire ce workflow vers une cible — Make, Step Functions — puis soumettre ou exporter.</p>
+        <p class="bd-vue-note">Rien n'est construit ici pour l'instant.</p>
+      </div>
+    </section>
+
   </div>
 
   <script src="_vendor/dagre/dagre.min.js"></script>

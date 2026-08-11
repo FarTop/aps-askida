@@ -959,6 +959,24 @@
         if (orgInfoEl) orgInfoEl.textContent = nom || '';
       }
 
+      // ── Vues du workflow : Builder / Designer / Interpreter ───────────────
+      // Les boutons vivent dans le header du haut (frère de root, comme
+      // org-info), la bascule s'écrit sur root. Le HTML porte l'état, la CSS en
+      // tire les conséquences — aucun style.display ici.
+      (function _vues() {
+        const barre = document.querySelector('.bd-vues');
+        if (!barre) return;
+        const onglets = Array.prototype.slice.call(barre.querySelectorAll('.bd-vue-tab'));
+        barre.addEventListener('click', function (e) {
+          const btn = e.target.closest('.bd-vue-tab');
+          if (!btn || !btn.dataset.vue) return;
+          root.dataset.vue = btn.dataset.vue;
+          onglets.forEach(function (o) {
+            o.setAttribute('aria-selected', o === btn ? 'true' : 'false');
+          });
+        });
+      })();
+
       // ── Sélecteur d'environnement (scopé sur l'org du workflow) ────────────
       const envSelect = root.querySelector('[data-role="env-select"]');
       const envDot = root.querySelector('[data-role="env-dot"]');
