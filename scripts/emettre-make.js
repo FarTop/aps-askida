@@ -440,8 +440,13 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
   // venait d'être créée et vérifiée.
   const rc = await ap(accesMake, 'GET', `/connections?teamId=${equipeMake}`);
   const attendu = PREFIXE_APP + plan.app;
+  // La PLUS RÉCENTE quand il y en a plusieurs. Une connexion ratée ne se
+  // supprime pas toujours (406 tant qu'un scénario la référence), et prendre
+  // la première venue faisait rebrancher les scénarios neufs sur l'ancienne,
+  // celle dont les identifiants n'étaient pas stockés.
   const mienne = ((rc.corps && rc.corps.connections) || [])
-    .find(c => String(c.accountName) === attendu);
+    .filter(c => String(c.accountName) === attendu)
+    .sort((a, b) => Number(b.id) - Number(a.id))[0];
   plan.idConnexion = mienne ? mienne.id : null;
   console.log('Connexion  : ' + (mienne
     ? mienne.id + ' « ' + mienne.accountName + ' »'

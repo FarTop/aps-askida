@@ -385,9 +385,40 @@ if (require.main === module) (async () => {
   //
   // Les valeurs viennent de la CONNEXION, jamais d'APS : `{{connection.appId}}`
   // est résolu par Make au moment de l'exécution, avec le secret qu'il détient.
+  // ── LES DEUX CHAMPS DE LA CONNEXION, ET POURQUOI CES NOMS ─────
+  // `appId` et `token` semblaient les noms naturels. Ils sont refusés en
+  // silence : `POST /connections` les consomme comme des champs À LUI et ne
+  // les stocke pas. La connexion se créait, se « vérifiait » — et n'avait
+  // aucune donnée. Un préfixe suffit à les rendre visibles.
+  if (cnxApp) {
+    await ap(acces, 'PUT', `/sdk/apps/connections/${cnxApp.name}/parameters`,
+      [ { name: 'iconikAppId', type: 'text',     label: 'App ID',     required: true },
+        { name: 'iconikToken', type: 'password', label: 'Auth Token', required: true } ]);
+    await ap(acces, 'PUT', `/sdk/apps/connections/${cnxApp.name}/api`,
+      { url: 'https://app.iconik.io/API/users/v1/users/current/',
+        headers: { 'App-ID': '{{parameters.iconikAppId}}',
+                   'Auth-Token': '{{parameters.iconikToken}}' },
+        log: { sanitize: ['request.headers.auth-token'] } });
+  }
+
+  // ── LA BASE DE L'APP ──────────────────────────────────────────
+  // Elle était `null`, et c'est le défaut le plus coûteux du rendu : sans
+  // elle, aucune requête de l'app ne porte d'URL absolue ni d'en-tête
+  // d'authentification. Modules et RPC appelaient `/API/...` dans le vide —
+  // « App-ID header is required », en rouge, dans le panneau du module.
+  //
+  // `Authorization: null` n'est PAS une précaution : c'est une suppression.
+  // Le gabarit d'app de Make pose `Authorization: Bearer {{connection.apiKey}}`,
+  // notre connexion n'a pas d'`apiKey`, et l'en-tête part donc en « Bearer »
+  // vide. Iconik rend alors 401 même quand App-ID et Auth-Token sont corrects
+  // — vérifié en le rejouant à la main, avec et sans. Et comme le PATCH
+  // FUSIONNE au lieu de remplacer, écrire une base propre ne l'enlevait pas :
+  // il faut le viser nommément.
   const base = { baseUrl: 'https://app.iconik.io',
-                 headers: { 'App-ID': '{{connection.appId}}',
-                            'Auth-Token': '{{connection.token}}' },
+                 headers: { 'App-ID': '{{connection.iconikAppId}}',
+                            'Auth-Token': '{{connection.iconikToken}}',
+                            'Authorization': null },
+                 response: { error: { message: '{{body.errors}}' } },
                  log: { sanitize: ['request.headers.auth-token'] } };
   const rb = await ap(acces, 'PATCH', `${A}/base`, base);
   console.log((rb.ok ? '✅' : '❌') + ' base de l\'app — ' + base.baseUrl
