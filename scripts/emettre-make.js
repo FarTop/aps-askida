@@ -235,6 +235,10 @@ function emettre(plan, groupe, rang) {
           SANS_APP ? 'util:SetVariable2' : PREFIXE_APP + plan.app + ':' + e.module,
           e.label + (SANS_APP ? ' [' + e.module + ']' : ''),
           { parameters: parametresDe(plan, e) });
+        // La connexion se pose DANS `parameters`, sous `__IMTCONN__`. Sans
+        // elle, le module est là, nommé, configuré — et appelle Iconik en
+        // anonyme. C'est le pire des trois états : il a l'air complet.
+        if (!SANS_APP && plan.idConnexion) principal.parameters.__IMTCONN__ = plan.idConnexion;
         x += PAS_X;
       } else if (e.core === 'loop') {
         // Frontière de scénario : on pose l'APPEL, pas le corps — le corps est
@@ -366,6 +370,36 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
   console.log(plan.aptitude.titre + ' — ' + plan.verdict.etapes + ' étapes, '
     + plan.verdict.modules + ' modules attendus, ' + plan.verdict.scenarios + ' scénario(s)\n');
 
+  // ── LA CONNEXION À LIER ───────────────────────────────────────
+  // On la RÉSOUT plutôt que de l'inscrire en dur : une connexion Make porte un
+  // identifiant numérique qui change d'un compte à l'autre. Le lien stable est
+  // son `accountType`, qui vaut `app#<nom de l'app>` — le même préfixe que les
+  // modules.
+  //
+  // Cette résolution est le pendant exact des clés de Data Store : APS ne
+  // transporte pas le secret, il désigne la connexion qui le porte chez la
+  // cible.
+  const cxMake = await prisma.connexion.findFirst({
+    where: { name: { contains: 'MAKE | LUXIRIS | API' } }, include: { platform: true } });
+  const accesMake = Acces.construireAcces({
+    baseUrl: cxMake.baseUrl, extraConfig: cxMake.extraConfig,
+    authValue: cxMake.authValueEnc ? decrypt(cxMake.authValueEnc) : null }, cxMake.platform.authSpec);
+  const equipeMake = Number((cxMake.extraConfig.contexteTest || {}).teamId) || 411248;
+
+  // Attention aux deux champs, qui disent l'inverse de ce que leurs noms
+  // suggèrent : `accountName` porte le TYPE (`app#apssonde…`, `telegram`,
+  // `azure`), et `accountType` porte le mode d'authentification (`basic`,
+  // `oauth`). Les intervertir faisait dire « aucune connexion » alors qu'elle
+  // venait d'être créée et vérifiée.
+  const rc = await ap(accesMake, 'GET', `/connections?teamId=${equipeMake}`);
+  const attendu = PREFIXE_APP + plan.app;
+  const mienne = ((rc.corps && rc.corps.connections) || [])
+    .find(c => String(c.accountName) === attendu);
+  plan.idConnexion = mienne ? mienne.id : null;
+  console.log('Connexion  : ' + (mienne
+    ? mienne.id + ' « ' + mienne.accountName + ' »'
+    : '⚠ AUCUNE pour ' + attendu + ' — les modules appelleront en anonyme') + '\n');
+
   const sorties = (plan.groupes || []).map((g, i) => emettre(plan, g, plan.groupes.length > 1 ? i + 1 : 0));
   // Le flux est un ARBRE dès qu'il y a un Router : l'afficher à plat le
   // redirait faux, et c'est justement la forme qu'on cherche à vérifier.
@@ -411,12 +445,7 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
   if (!ECRIRE) { console.log('\nLecture seule. Relancer avec --ecrire pour créer chez la cible.'); return prisma.$disconnect(); }
 
   // ── L'ENVOI ───────────────────────────────────────────────────
-  const cx = await prisma.connexion.findFirst({
-    where: { name: { contains: 'MAKE | LUXIRIS | API' } }, include: { platform: true } });
-  const acces = Acces.construireAcces({
-    baseUrl: cx.baseUrl, extraConfig: cx.extraConfig,
-    authValue: cx.authValueEnc ? decrypt(cx.authValueEnc) : null }, cx.platform.authSpec);
-  const equipe = Number((cx.extraConfig.contexteTest || {}).teamId) || 411248;
+  const acces = accesMake, equipe = equipeMake;
 
   console.log('');
   const crees = [];

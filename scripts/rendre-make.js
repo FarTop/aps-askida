@@ -363,6 +363,15 @@ if (require.main === module) (async () => {
   const A = `/sdk/apps/${app.name}/${app.version}`;
   console.log(`\nApp : ${app.name} v${app.version}\n`);
 
+  // La connexion déclarée par l'app. Un module qui ne l'ATTACHE pas ne peut pas
+  // s'authentifier : ses en-têtes `{{connection.appId}}` ne résolvent rien, et
+  // le scénario appelle Iconik en anonyme. Les modules étaient créés sans elle
+  // — `attachedAccounts: []` sur les onze.
+  const rc = await ap(acces, 'GET', `/sdk/apps/${app.name}/connections`);
+  const cnxApp = ((rc.corps && (rc.corps.appConnections || rc.corps.connections)) || [])[0];
+  console.log(cnxApp ? `Connexion : ${cnxApp.name} (${cnxApp.type})\n`
+                     : 'Aucune connexion déclarée — les modules resteront anonymes\n');
+
   for (const [nature, r] of rpcs) {
     const existe = await ap(acces, 'GET', `${A}/rpcs/${r.rpc}`);
     if (!existe.ok) await ap(acces, 'POST', `${A}/rpcs`, { name: r.rpc, label: r.titre });
@@ -380,6 +389,9 @@ if (require.main === module) (async () => {
         { name: p.nom, label: p.v.label.fr, typeId: p.typeId, description: p.v.family });
       if (!c.ok) { console.log(`❌ ${l(p.v.family, 26)} création — ${c.brut}`); continue; }
     }
+    // Attacher la connexion AVANT de pousser le reste : c'est elle qui rend
+    // les en-têtes d'authentification résolvables.
+    if (cnxApp) await ap(acces, 'PATCH', `${A}/modules/${p.nom}`, { connection: cnxApp.name });
     const rp = await ap(acces, 'PUT', `${A}/modules/${p.nom}/parameters`, p.params);
     let ra = { ok: true }, ri = { ok: true };
     if (p.api) ra = await ap(acces, 'PUT', `${A}/modules/${p.nom}/api`, p.api);
