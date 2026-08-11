@@ -118,12 +118,30 @@ function apiDe(v, ecarts) {
                  response: { output: '{{body}}' } } : null;
   }
   if (reqs.length === 1) { const r = bati(reqs[0]); delete r.perdus; return r; }
-  // Plusieurs branches : un tableau de requêtes, chacune conditionnée par la
-  // valeur du discriminant. C'est le pendant en sortie de l'inversion `nested`.
+
+  // Plusieurs requêtes recouvrent DEUX formes qu'il ne faut pas confondre — les
+  // confondre coûtait deux appels sur trois à `create_tree` :
+  //
+  //   alternatives  chaque requête porte la branche du `switch` qui la produit
+  //                 (`cas`). Une seule s'exécute, selon le discriminant. C'est
+  //                 `iconik.action` et ses 31 branches.
+  //   séquence      aucune ne porte de branche : elles s'enchaînent toutes, dans
+  //                 l'ordre. C'est `create_tree` — chercher, créer, écrire.
+  //
+  // Make rend les deux avec un tableau d'`api` ; seule la présence d'une
+  // `condition` les distingue.
+  const avecCas = reqs.filter(r => r.cas);
+  if (!avecCas.length) {
+    ecarts.push([v.family, '(api)', `séquence de ${reqs.length} requêtes — l'enchaînement des résultats n'est pas câblé`]);
+    return reqs.map(r => { const b = bati(r); delete b.perdus; return b; });
+  }
   const disc = (v.configSchema.champs || []).find(c => Array.isArray(c.options)
-    && reqs.some(r => r.cas && c.options.some(o => o.valeur === r.cas)));
-  if (!disc) { ecarts.push([v.family, '(api)', `${reqs.length} requêtes sans discriminant — première retenue`]); const r = bati(reqs[0]); delete r.perdus; return r; }
-  return reqs.filter(r => r.cas).map(r => {
+    && avecCas.some(r => c.options.some(o => o.valeur === r.cas)));
+  if (!disc) {
+    ecarts.push([v.family, '(api)', `${avecCas.length} branches sans discriminant déclaré — rendues en séquence`]);
+    return reqs.map(r => { const b = bati(r); delete b.perdus; return b; });
+  }
+  return avecCas.map(r => {
     const b = bati(r); delete b.perdus;
     return Object.assign({ condition: `{{parameters.${disc.chemin} === "${r.cas}"}}` }, b);
   });
@@ -239,7 +257,7 @@ function parametresDe(v, ecarts) {
 
   const l = (s, n) => String(s).padEnd(n);
   console.log(`\n${verbes.length} façades à rendre · ${rpcs.length} RPC nécessaires\n`);
-  console.log(l('VERBE', 26) + l('MODULE', 24) + l('TYPE', 9) + l('PARAMS', 8) + l('NESTED', 8) + l('REQUÊTES', 10) + 'SORTIE');
+  console.log(l('VERBE', 26) + l('MODULE', 24) + l('TYPE', 9) + l('PARAMS', 8) + l('NESTED', 8) + l('REQUÊTES', 12) + 'SORTIE');
   console.log('─'.repeat(88));
   for (const p of plan) {
     // `options` vaut soit une liste de choix, soit `{store:'rpc://…'}` pour une
@@ -248,7 +266,9 @@ function parametresDe(v, ecarts) {
       s + (Array.isArray(x.options) ? x.options.filter(o => o.nested).length : 0), 0);
     console.log(l(p.v.family, 26) + l(p.nom, 24) + l(p.typeId === 9 ? 'search' : 'action', 9)
       + l(p.params.length, 8) + l(nested || '—', 8)
-      + l(Array.isArray(p.api) ? p.api.length + ' cond.' : p.api ? '1' : '—', 10)
+      + l(Array.isArray(p.api)
+            ? p.api.length + (p.api[0] && p.api[0].condition ? ' altern.' : ' en suite')
+            : p.api ? '1' : '—', 12)
       + (p.interface.length ? p.interface.length + ' champs' : '—'));
   }
   if (ecarts.length) {
