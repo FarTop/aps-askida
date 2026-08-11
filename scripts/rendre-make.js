@@ -63,6 +63,72 @@ const RESSOURCES_APS = ['manifeste', 'mapping', 'endpoint', 'endpoints', 'gabari
 const T_SORTIE = { string: 'text', integer: 'number', number: 'number',
                    boolean: 'boolean', array: 'array', object: 'collection' };
 
+// ── LE CORPS DE LA REQUÊTE ──────────────────────────────────────
+// Sans lui, un module déclare ses champs et poste à vide : une coquille.
+// Chaque champ extrait du handler dit d'où il vient, et se traduit :
+//
+//   paramètre + défaut  →  {{ifempty(parameters.X, "def")}}
+//   paramètre seul      →  {{parameters.X}}
+//   constante           →  la valeur, telle quelle
+//   calcul              →  RIEN, et c'est signalé — mieux vaut un champ absent
+//                          qu'un champ faux
+function valeurMake(c) {
+  if (c.source === 'constante') {
+    if (/^\[.*\]$|^\{.*\}$/.test(String(c.valeur))) { try { return JSON.parse(c.valeur); } catch (_) { return c.valeur; } }
+    if (c.valeur === 'true') return true;
+    if (c.valeur === 'false') return false;
+    if (/^-?\d+(\.\d+)?$/.test(c.valeur)) return Number(c.valeur);
+    return c.valeur;
+  }
+  if (c.source !== 'parametre') return undefined;
+  // Un défaut qui est lui-même une variable du moteur (`{asset.id}`) n'a pas de
+  // sens chez la cible : c'est l'opérateur qui remplira le champ.
+  const d = c.defaut && !/^['"`]?\{/.test(String(c.defaut)) ? String(c.defaut).replace(/^['"`]|['"`]$/g, '') : null;
+  return d ? `{{ifempty(parameters.${c.nom}, "${d}")}}` : `{{parameters.${c.nom}}}`;
+}
+
+// Le chemin du handler porte `{…}` là où une valeur s'insère, et la mesure a
+// lu QUELLE variable la remplit — `${aid}` vient de `p.assetId`. On substitue
+// dans l'ordre. Une devinette produisait un PATCH sur le mauvais objet.
+function urlMake(chemin, segments, ecarts, verbe) {
+  let i = 0;
+  return chemin.replace(/\{…\}/g, () => {
+    const s = (segments || [])[i++];
+    if (s && s.source === 'parametre') return `{{parameters.${s.nom}}}`;
+    ecarts.push([verbe, chemin, 'segment d\'URL non résolu' + (s && s.code ? ` (${s.code})` : '')]);
+    return '{{parameters.id}}';
+  });
+}
+
+function apiDe(v, ecarts) {
+  const reqs = (v.description.requetes || []);
+  const bati = r => {
+    const body = {}; let perdus = 0;
+    (r.champs || []).forEach(c => {
+      const val = valeurMake(c);
+      if (val === undefined) { perdus++; ecarts.push([v.family, r.cas ? r.cas + '.' + c.cle : c.cle, `champ calculé (${c.source}) — non rendu`]); return; }
+      body[c.cle] = val;
+    });
+    return { url: urlMake(r.chemin, r.segments, ecarts, v.family), method: r.methode,
+             body, response: { output: '{{body}}' }, perdus };
+  };
+  if (!reqs.length) {
+    const a = (v.description.appels || [])[0];
+    return a ? { url: urlMake(a.chemin, [], ecarts, v.family), method: a.methode,
+                 response: { output: '{{body}}' } } : null;
+  }
+  if (reqs.length === 1) { const r = bati(reqs[0]); delete r.perdus; return r; }
+  // Plusieurs branches : un tableau de requêtes, chacune conditionnée par la
+  // valeur du discriminant. C'est le pendant en sortie de l'inversion `nested`.
+  const disc = (v.configSchema.champs || []).find(c => Array.isArray(c.options)
+    && reqs.some(r => r.cas && c.options.some(o => o.valeur === r.cas)));
+  if (!disc) { ecarts.push([v.family, '(api)', `${reqs.length} requêtes sans discriminant — première retenue`]); const r = bati(reqs[0]); delete r.perdus; return r; }
+  return reqs.filter(r => r.cas).map(r => {
+    const b = bati(r); delete b.perdus;
+    return Object.assign({ condition: `{{parameters.${disc.chemin} === "${r.cas}"}}` }, b);
+  });
+}
+
 async function ap(a, m, c, b) {
   const o = { method: m, headers: Object.assign({ Accept: 'application/json' }, a.headers) };
   if (b !== undefined) { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(b); }
@@ -163,7 +229,7 @@ function parametresDe(v, ecarts) {
   for (const v of verbes) {
     const params = parametresDe(v, ecarts);
     const appel  = (v.description.appels || []).find(a => a.sortie && a.sortie.length);
-    plan.push({ v, nom: technique(v.family), typeId: typeDe(v), params, appel,
+    plan.push({ v, nom: technique(v.family), typeId: typeDe(v), params, appel, api: apiDe(v, ecarts),
                 interface: appel ? appel.sortie.map(c => ({ name: c.nom, type: T_SORTIE[c.type] || 'any', label: c.nom })) : [] });
   }
 
@@ -173,7 +239,7 @@ function parametresDe(v, ecarts) {
 
   const l = (s, n) => String(s).padEnd(n);
   console.log(`\n${verbes.length} façades à rendre · ${rpcs.length} RPC nécessaires\n`);
-  console.log(l('VERBE', 26) + l('MODULE', 24) + l('TYPE', 9) + l('PARAMS', 8) + l('NESTED', 8) + 'SORTIE');
+  console.log(l('VERBE', 26) + l('MODULE', 24) + l('TYPE', 9) + l('PARAMS', 8) + l('NESTED', 8) + l('REQUÊTES', 10) + 'SORTIE');
   console.log('─'.repeat(88));
   for (const p of plan) {
     // `options` vaut soit une liste de choix, soit `{store:'rpc://…'}` pour une
@@ -181,7 +247,9 @@ function parametresDe(v, ecarts) {
     const nested = p.params.reduce((s, x) =>
       s + (Array.isArray(x.options) ? x.options.filter(o => o.nested).length : 0), 0);
     console.log(l(p.v.family, 26) + l(p.nom, 24) + l(p.typeId === 9 ? 'search' : 'action', 9)
-      + l(p.params.length, 8) + l(nested || '—', 8) + (p.interface.length ? p.interface.length + ' champs' : '—'));
+      + l(p.params.length, 8) + l(nested || '—', 8)
+      + l(Array.isArray(p.api) ? p.api.length + ' cond.' : p.api ? '1' : '—', 10)
+      + (p.interface.length ? p.interface.length + ' champs' : '—'));
   }
   if (ecarts.length) {
     console.log(`\nÉcarts (${ecarts.length}) — ce qui ne se rend pas tel quel :`);
@@ -217,12 +285,8 @@ function parametresDe(v, ecarts) {
     }
     const rp = await ap(acces, 'PUT', `${A}/modules/${p.nom}/parameters`, p.params);
     let ra = { ok: true }, ri = { ok: true };
-    if (p.appel) {
-      ra = await ap(acces, 'PUT', `${A}/modules/${p.nom}/api`,
-        { url: p.appel.chemin.replace(/\{…\}/g, '{{parameters.id}}'), method: p.appel.methode,
-          response: { output: '{{body}}' } });
-      ri = await ap(acces, 'PUT', `${A}/modules/${p.nom}/interface`, p.interface);
-    }
+    if (p.api) ra = await ap(acces, 'PUT', `${A}/modules/${p.nom}/api`, p.api);
+    if (p.interface.length) ri = await ap(acces, 'PUT', `${A}/modules/${p.nom}/interface`, p.interface);
     const tout = rp.ok && ra.ok && ri.ok;
     console.log((tout ? '✅' : '❌') + ' ' + l(p.v.family, 26) + l(p.nom, 24)
       + `${p.params.length} params` + (p.interface.length ? ` · ${p.interface.length} sorties` : '')

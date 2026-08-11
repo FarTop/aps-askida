@@ -41,6 +41,7 @@ const RACINE  = process.cwd();
 const PUBLIC  = path.join(RACINE, 'server/public/builders/workflow');
 const ECRIRE  = process.argv.includes('--ecrire');
 
+const fsSync  = require('fs');
 const CAT     = require(path.join(PUBLIC, 'pivot-catalog-iconik.js'));
 const SCHEMA  = require(path.join(PUBLIC, 'config-schema.js'));
 const MESURE  = require(path.join(RACINE, 'scripts/mesure-facades.js'));
@@ -251,6 +252,19 @@ async function chargerSpec() {
   const parNom = new Map();
   MESURE.mesures.forEach(m => m.noms.forEach(n => parNom.set(n, m)));
 
+  // Le CORPS de chaque requête, indexé par méthode + chemin. Sans lui, un
+  // module rendu déclare ses champs et n'envoie rien : une coquille.
+  const corpsParAppel = new Map();
+  const requetesParFichier = new Map();
+  for (const m of MESURE.mesures) {
+    const src = fsSync.readFileSync(path.join(RACINE, 'server/engine-builder', m.fichier), 'utf8');
+    const reqs = MESURE.corpsDe(src);
+    requetesParFichier.set(m.fichier, reqs);
+    for (const c of reqs) {
+      corpsParAppel.set(m.fichier + '|' + c.methode + ' ' + c.chemin, c.champs);
+    }
+  }
+
   const verbes = [];
 
   // 1. Les 13 Cores — génériques, sans plateforme.
@@ -310,7 +324,11 @@ async function chargerSpec() {
                       resume: r.op && r.op.summary ? (r.op.summary.fr || r.op.summary.description || null) : null,
                       // Ce que l'appel REND. C'est la matière de l'`interface`
                       // d'un module Make : sans elle, il sort un blob anonyme.
-                      sortie: (r.op && r.op.responseSchema && r.op.responseSchema.champs) || [] });
+                      sortie: (r.op && r.op.responseSchema && r.op.responseSchema.champs) || [],
+                      // Ce que l'appel ENVOIE, extrait du littéral écrit dans le
+                      // handler : chaque champ dit s'il vient d'un paramètre,
+                      // d'une constante, ou d'un calcul qu'on ne sait pas lire.
+                      corps: corpsParAppel.get(v.mesure.fichier + '|' + methode + ' ' + chemin) || [] });
     }
     v.assemblees = v.mesure.assemblees;
     v.http       = v.mesure.http;
@@ -318,6 +336,10 @@ async function chargerSpec() {
     v.provenance = MESURE.familles(v.mesure);
     v.delegue    = v.mesure.delegations.map(d => d.vers);
     v.handler    = v.mesure.fichier;
+    // Les requêtes AVEC leur branche : une cible qui sait conditionner (Make
+    // accepte un tableau d'`api` portant chacun sa `condition`) peut rendre les
+    // 31 appels d'`iconik.action` en un module, chaque option la sienne.
+    v.requetes   = requetesParFichier.get(v.mesure.fichier) || [];
   }
 
   // ── Rapport ───────────────────────────────────────────────────
@@ -396,6 +418,7 @@ async function chargerSpec() {
       description: {
         provenance: v.provenance || [],
         appels: v.appels || [],
+        requetes: v.requetes || [],
         appelsAssembles: v.assemblees || 0,
         appelsConfigures: v.http || 0,
         etatAps: !!v.etatAps,

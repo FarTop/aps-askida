@@ -215,3 +215,150 @@ console.log(`   ${mesures.filter(m => m.delegations.length).length} × dont la p
 if (require.main === module) rapport();
 
 module.exports = { mesures, facades, nomsDuFichier, familles, principale, rapport };
+
+// ── LE CORPS DES REQUÊTES ───────────────────────────────────────
+// Un module d'app custom qui déclare ses paramètres mais n'envoie rien est une
+// coquille : `iconikSearch` avait ses 8 champs et postait à vide. Le corps est
+// donc à extraire, et il l'est parce que les handlers l'écrivent presque
+// toujours en clair, sur un motif régulier :
+//
+//   title: r(p.title || '{asset.id}', ctx)   un paramètre, avec un défaut
+//   object_type: p.objectType || 'assets'    idem, sans résolution
+//   status: 'ACTIVE'                         une constante
+//   format_id: fid                           une variable locale — NON dérivable
+//
+// `r(x, ctx)` est le résolveur de variables du moteur ; chez une cible, c'est
+// la saisie de l'opérateur. Une variable locale, en revanche, vient d'un calcul
+// antérieur dans le handler : elle est signalée, jamais devinée.
+// Le littéral doit suivre IMMÉDIATEMENT la virgule. Sans cette garde, un appel
+// dont le second argument est une variable faisait avancer l'apparieur jusqu'à
+// une accolade sans rapport — deux corps extraits étaient du bruit.
+function litteralApres(src, i) {
+  const suite = src.slice(i);
+  const m = /^\s*\{/.exec(suite);
+  if (!m) return null;
+  const d = i + m[0].length - 1;
+  let prof = 0;
+  for (let j = d; j < src.length; j++) {
+    if (src[j] === '{') prof++;
+    else if (src[j] === '}' && --prof === 0) return src.slice(d, j + 1);
+  }
+  return null;
+}
+
+// Découpe les paires de premier niveau d'un littéral, sans JSON.parse (ce n'est
+// pas du JSON : il y a des appels de fonction dedans).
+function pairesDe(litteral) {
+  const corps = litteral.slice(1, -1);
+  const out = []; let prof = 0, debut = 0;
+  for (let i = 0; i < corps.length; i++) {
+    const c = corps[i];
+    if ('{(['.includes(c)) prof++;
+    else if ('})]'.includes(c)) prof--;
+    else if (c === ',' && prof === 0) { out.push(corps.slice(debut, i)); debut = i + 1; }
+  }
+  out.push(corps.slice(debut));
+  return out.map(s => s.trim()).filter(Boolean);
+}
+
+// Une valeur par défaut n'est pas toujours une chaîne : `p.permissions ||
+// ['read']`, `p.priority || 50`, `p.filter || {}`. La première version n'en
+// acceptait que de chaînes et rejetait onze champs parfaitement lisibles.
+const DEFAUT = "(?:'[^']*'|\"[^\"]*\"|`[^`]*`|\\[[^\\]]*\\]|\\{[^}]*\\}|-?\\d+(?:\\.\\d+)?|true|false)";
+const FORMES_VALEUR = [
+  // r(p.X || défaut, ctx)  — paramètre résolu à l'exécution
+  { re: new RegExp("^r\\(\\s*p\\.(\\w+)\\s*(?:\\|\\|\\s*(" + DEFAUT + ")\\s*)?,\\s*ctx\\s*\\)$"),
+    lire: m => ({ source: 'parametre', nom: m[1], defaut: m[2] || null, resolu: true }) },
+  // p.X || défaut  — paramètre brut
+  { re: new RegExp("^p\\.(\\w+)\\s*(?:\\|\\|\\s*(" + DEFAUT + "))?$"),
+    lire: m => ({ source: 'parametre', nom: m[1], defaut: m[2] || null, resolu: false }) },
+  // p.X !== undefined ? p.X : défaut  — un défaut qui n'écrase pas `false`
+  { re: new RegExp("^p\\.(\\w+)\\s*!==\\s*undefined\\s*\\?\\s*p\\.\\1\\s*:\\s*(" + DEFAUT + ")$"),
+    lire: m => ({ source: 'parametre', nom: m[1], defaut: m[2], resolu: false }) },
+  // … || undefined  — le champ est OMIS s'il est vide, ce n'est pas un défaut
+  { re: new RegExp("^r\\(\\s*p\\.(\\w+)\\s*(?:\\|\\|\\s*" + DEFAUT + "\\s*)?,\\s*ctx\\s*\\)\\s*\\|\\|\\s*undefined$"),
+    lire: m => ({ source: 'parametre', nom: m[1], defaut: null, resolu: true, facultatif: true }) },
+];
+
+function valeurDe(val) {
+  for (const f of FORMES_VALEUR) {
+    const m = f.re.exec(val);
+    if (m) return f.lire(m);
+  }
+  // Une chaîne constante est une chaîne ENTIÈRE, pas le début d'une
+  // concaténation : `'parent_id:"' + parentIconikId + '"'` commence et finit
+  // par une apostrophe et n'est pourtant pas une constante. Sans cette garde,
+  // le rendu envoyait le code source de la concaténation comme valeur — une
+  // valeur FAUSSE, ce qui est pire qu'une valeur absente.
+  const chaine = /^'((?:[^'\\]|\\.)*)'$|^"((?:[^"\\]|\\.)*)"$|^`((?:[^`\\$]|\\.)*)`$/.exec(val);
+  if (chaine) return { source: 'constante', valeur: chaine[1] ?? chaine[2] ?? chaine[3] };
+  if (/^(true|false|-?\d+(?:\.\d+)?)$/.test(val)) return { source: 'constante', valeur: val };
+  // Un tableau ou un objet littéral : lu pour de vrai, apostrophes tolérées.
+  // S'il ne se lit pas, c'est qu'il contient du code — on ne le rend pas.
+  if (/^[[{]/.test(val)) {
+    try { return { source: 'constante', valeur: JSON.parse(val.replace(/'/g, '"')) }; }
+    catch (_) { return { source: 'expression', code: val.replace(/\s+/g, ' ').slice(0, 60) }; }
+  }
+  if (/^[A-Za-z_]\w*$/.test(val)) return { source: 'locale', nom: val };
+  if (/^[A-Za-z_]\w*\s*\|\|\s*undefined$/.test(val))
+    return { source: 'locale', nom: val.split('|')[0].trim(), facultatif: true };
+  return { source: 'expression', code: val.replace(/\s+/g, ' ').slice(0, 60) };
+}
+
+// Une variable locale vient souvent d'un paramètre, une ligne plus haut :
+// `const aid = r(p.assetId || '{asset.id}', ctx);`. La résoudre d'un cran suffit
+// à rendre lisibles dix champs de plus ; au-delà, c'est un vrai calcul.
+function resoudreLocale(src, nom) {
+  const m = new RegExp("const\\s+" + nom + "\\s*=\\s*([^;\\n]+);").exec(src);
+  if (!m) return null;
+  const v = valeurDe(m[1].trim());
+  return v.source === 'parametre' ? v : null;
+}
+
+function champDe(paire, src) {
+  const i = paire.indexOf(':');
+  if (i < 0) return null;
+  const cle = paire.slice(0, i).trim().replace(/^['"]|['"]$/g, '');
+  if (!/^\w+$/.test(cle)) return null;
+  const v = valeurDe(paire.slice(i + 1).trim());
+  if (v.source === 'locale') {
+    const r = resoudreLocale(src, v.nom);
+    if (r) return Object.assign({ cle, via: v.nom }, r, v.facultatif ? { facultatif: true } : {});
+  }
+  return Object.assign({ cle }, v);
+}
+
+function corpsDe(src) {
+  const out = [];
+  const re = /iconikClient\.(post|put|patch)\(\s*(`[^`]*`|'[^']*')\s*,/g;
+  let m;
+  while ((m = re.exec(src))) {
+    const lit = litteralApres(src, m.index + m[0].length);
+    if (!lit) continue;
+    // La branche du `switch` qui porte l'appel : c'est elle qui relie une
+    // valeur du discriminant (`actionType`) à SA requête. Sans ce lien, les 31
+    // corps d'`iconik.action` sont un tas indistinct, et une cible qui sait
+    // conditionner ses requêtes ne peut rien en faire.
+    const avant = src.slice(0, m.index);
+    const dernierCas = avant.lastIndexOf("case '");
+    const cas = dernierCas >= 0
+      ? (/^case '([^']+)'/.exec(avant.slice(dernierCas)) || [])[1] || null : null;
+    // Les segments interpolés du chemin : `${aid}` nomme la variable qui les
+    // remplit, et cette variable vient elle-même d'un paramètre. Les lire évite
+    // de deviner — le rendu produisait `{{parameters.id}}` pour tout le monde,
+    // donc un PATCH sur le mauvais objet.
+    const brut = m[2].slice(1, -1);
+    const segments = [...brut.matchAll(/\$\{([^}]+)\}/g)].map(x => {
+      const nom = x[1].trim();
+      const r = /^[A-Za-z_]\w*$/.test(nom) ? resoudreLocale(src, nom) : null;
+      return r ? Object.assign({ via: nom }, r) : { source: 'expression', code: nom };
+    });
+    out.push({ methode: m[1].toUpperCase(),
+               chemin: brut.replace(/\$\{[^}]+\}/g, '{…}'),
+               cas, segments,
+               champs: pairesDe(lit).map(p => champDe(p, src)).filter(Boolean) });
+  }
+  return out;
+}
+
+module.exports.corpsDe = corpsDe;
