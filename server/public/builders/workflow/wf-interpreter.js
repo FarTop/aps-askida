@@ -120,6 +120,9 @@ const WfInterpreter = (() => {
       cote === 'source' ? e.label : texteCible(e)));
     p.appendChild(el('span', 'itp-pastille-cible',
       cote === 'source' ? (e.verbe || e.core || '') : (e.construit ? e.construit.dit : '')));
+    if (cote === 'source' && (e.depuis || []).length) {
+      p.title = e.depuis.map(x => '← ' + x.de + ' · port ' + x.port).join('\n');
+    }
     if ((e.ecarts || []).length) p.appendChild(el('span', 'itp-pastille-nb', e.ecarts.length));
     return p;
   }
@@ -218,6 +221,15 @@ const WfInterpreter = (() => {
 
         const nom = el('div', 'itp-td itp-td-nom');
         nom.appendChild(el('span', null, e.label));
+        // La provenance lève l'ambiguïté entre deux nœuds de même libellé — une
+        // copie et son original ne se distinguent que par ce qui les précède.
+        if ((e.depuis || []).length) {
+          nom.appendChild(el('span', 'itp-depuis',
+            e.depuis.map(x => '← ' + x.de + ' · ' + x.port).join('  ')));
+        } else if (!e.injoignable) {
+          nom.appendChild(el('span', 'itp-depuis', '← entrée du workflow'));
+        }
+        if (e.injoignable) nom.appendChild(el('span', 'itp-depuis', '⚠ aucune arête n\'y mène'));
         if ((e.notes || []).length) {
           const m = el('span', 'itp-note-marque', ' 📝');
           m.title = e.notes.map(n => n.texte).join('\n\n');

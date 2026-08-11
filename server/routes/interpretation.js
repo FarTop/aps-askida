@@ -115,25 +115,98 @@ function postitsDe(doc, idsEtapes) {
   return notes;
 }
 
-// Parcours du document pivot. On garde l'ORDRE et la PROFONDEUR : c'est la
-// profondeur qui décide du découpage en scénarios.
+// ── L'ORDRE DE LECTURE ──────────────────────────────────────────
+// Le document range les étapes dans l'ordre où elles ont été CRÉÉES. Un nœud
+// ajouté après coup se retrouve donc en fin de liste, même s'il agit au
+// quatrième rang — et l'écran devient illisible à mesure qu'on édite.
+//
+// On les remet donc dans l'ordre du FLUX : on part de ce qui n'a pas
+// d'antécédent (le déclencheur), on suit les arêtes, et on visite les branches
+// dans l'ordre des ports. Ce n'est pas cosmétique : un scénario cible EST une
+// suite, cet ordre est celui qu'il faudra produire.
+//
+// Ce qu'aucune arête n'atteint est mis à la fin, dans l'ordre du document, et
+// signalé — un nœud injoignable est une information, pas un détail de tri.
+function ordonnerParFlux(etapes, aretes) {
+  if (!etapes.length) return etapes;
+  const parId = new Map(etapes.map(e => [e.id, e]));
+  const sortantes = new Map();
+  const aUnAntecedent = new Set();
+  aretes.forEach(function (a) {
+    if (!parId.has(a.de) || !parId.has(a.vers)) return;
+    if (!sortantes.has(a.de)) sortantes.set(a.de, []);
+    sortantes.get(a.de).push(a);
+    aUnAntecedent.add(a.vers);
+  });
+
+  // Les ports donnent l'ordre des branches : « Succès » avant « Erreur », et
+  // non l'ordre dans lequel les arêtes ont été tracées.
+  etapes.forEach(function (e) {
+    const liste = sortantes.get(e.id);
+    if (!liste) return;
+    let ports = [];
+    try { ports = CAT.portsDe(e.etape) || []; } catch (_) { ports = []; }
+    liste.sort(function (x, y) {
+      const i = ports.indexOf(x.port), j = ports.indexOf(y.port);
+      return (i < 0 ? 99 : i) - (j < 0 ? 99 : j);
+    });
+  });
+
+  const vus = new Set(), ordre = [];
+  // Déclaration, pas expression : une expression de fonction nommée n'expose
+  // son nom qu'à elle-même, et l'appel d'après ne la voyait pas.
+  function visiter(id) {
+    if (vus.has(id) || !parId.has(id)) return;
+    vus.add(id);
+    ordre.push(parId.get(id));
+    (sortantes.get(id) || []).forEach(a => visiter(a.vers));
+  }
+  etapes.filter(e => !aUnAntecedent.has(e.id)).forEach(e => visiter(e.id));
+  // Un cycle ou une composante détachée n'a pas d'entrée : on la prend telle
+  // qu'elle vient plutôt que de l'oublier.
+  etapes.forEach(function (e) {
+    if (vus.has(e.id)) return;
+    e.injoignable = true;
+    vus.add(e.id);
+    ordre.push(e);
+  });
+  return ordre;
+}
+
+// Parcours du document pivot. On garde la PROFONDEUR — c'est elle qui décide du
+// découpage en scénarios — et on réordonne chaque portée par son flux.
 function etapesDe(doc) {
-  const out = [];
-  (function visiter(liste, parent) {
-    (Array.isArray(liste) ? liste : []).forEach(function (e) {
+  const portees = new Map();          // parent (ou null) -> { etapes, aretes }
+  function portee(cle) {
+    if (!portees.has(cle)) portees.set(cle, { etapes: [], aretes: [] });
+    return portees.get(cle);
+  }
+  (function visiter(sousDoc, parent) {
+    const liste = (sousDoc && sousDoc.steps) || [];
+    const p = portee(parent);
+    ((sousDoc && sousDoc.edges) || []).forEach(function (a) {
+      if (a && a.from && a.to) p.aretes.push({ de: a.from.step, port: a.from.port || 'out', vers: a.to.step });
+    });
+    liste.forEach(function (e) {
       if (!e || typeof e !== 'object' || typeof e.core !== 'string') return;
-      // Les post-its ne sont pas des étapes : ni comptés comme nœuds, ni
-      // versionnés, ni traduits. Les inclure gonflait le compte de 23 à 44.
+      // Les post-its ne sont pas des étapes : ni comptés, ni versionnés, ni
+      // traduits. Les inclure gonflait le compte de 23 à 44.
       if (e.core === 'postit') return;
-      out.push({ id: e.id, core: e.core, facade: e.facade || null,
-                 label: e.label || e.facade || e.core, parent: parent || null,
-                 etape: e });
+      p.etapes.push({ id: e.id, core: e.core, facade: e.facade || null,
+                      label: e.label || e.facade || e.core, parent: parent || null,
+                      etape: e });
       // Le corps d'une boucle est un SOUS-DOCUMENT `{steps, edges}`, pas une
       // liste — d'où la boucle jamais détectée tant qu'on cherchait un tableau.
-      const corps = e.body && (Array.isArray(e.body) ? e.body : e.body.steps);
-      if (Array.isArray(corps)) visiter(corps, e.id);
+      if (e.body) visiter(Array.isArray(e.body) ? { steps: e.body } : e.body, e.id);
     });
-  })(doc && doc.steps, null);
+  })(doc, null);
+
+  const out = [];
+  portees.forEach(function (p, cle) {
+    const ordonnees = ordonnerParFlux(p.etapes, p.aretes);
+    if (cle === null) out.unshift.apply(out, ordonnees);
+    else out.push.apply(out, ordonnees);
+  });
   return out;
 }
 
@@ -145,11 +218,8 @@ function etapesDe(doc) {
 //   à câbler    on sait comment, c'est du travail. Les ressources d'org ont
 //               leur réponse depuis qu'un manifeste réel tient dans un Data
 //               Store Make avec ses champs nommés.
-//   à relire    la limite est NOTRE analyse, pas la cible. Une concaténation de
-//               chaîne se traduit très bien ; c'est l'extracteur qui n'a pas su
-//               la lire. Dire « non traduisible » était un mensonge d'écran.
-//   à trancher  une décision de conception, en amont. Aucun mécanisme de la
-//               cible ne rendra lisible un verbe qui en fait trop.
+//   à relire    la limite est NOTRE analyse, pas la cible.
+//   à trancher  une décision de conception, en amont.
 //   bloquant    rien ne passe.
 const STATUTS = {
   a_cabler:   { libelle: 'à câbler' },
@@ -261,8 +331,16 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       // ceux d'une décision qui dépendent de sa configuration.
       let ports = [];
       try { ports = CAT.portsDe(e.etape) || []; } catch (_) { ports = []; }
+      // D'où vient l'étape. Deux nœuds peuvent porter le MÊME libellé — une
+      // copie et son original — et rien ne les distinguait à l'écran. Ce qui
+      // les sépare est justement ce à quoi ils sont reliés.
+      const depuis = aretes.filter(a => a.vers === e.id).map(function (a) {
+        const src = etapes.find(x => x.id === a.de);
+        return { de: src ? src.label : a.de, port: a.port };
+      });
       g.etapes.push({
-        id: e.id, label: e.label, verbe: e.facade || e.core,
+        id: e.id, label: e.label, verbe: e.facade || e.core, depuis: depuis,
+        injoignable: !!e.injoignable,
         core: e.core, ports: ports, construit: construitPar(e.core, ports),
         module: rendu ? rendu.module : null,
         natif: natif,

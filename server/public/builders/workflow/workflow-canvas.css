@@ -1516,3 +1516,10 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
 .itp-ecart[data-statut="a_cabler"]::before   { content: '⚙ '; color: #7fb3d5; }
 .itp-ecart[data-statut="a_relire"]::before   { content: '◦ '; color: #9aa5b1; }
 .itp-ecart[data-statut="a_trancher"]::before { content: '⚠ '; color: #f39c12; }
+
+/* La provenance d'une étape. Sans elle, une copie et son original portent le
+   même libellé et rien ne les sépare à l'écran. */
+.itp-depuis {
+  display: block; margin-top: 2px; font-size: 10.5px; line-height: 1.4;
+  color: #8e9bb3;
+}
