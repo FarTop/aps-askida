@@ -250,9 +250,20 @@ function emettre(plan, groupe, rang) {
       let principal;
 
       if (e.composition) {
-        let premier = null;
+        // Un agrégateur DOIT désigner l'itérateur qu'il referme — son « source
+        // node ». Sans lui, Make refuse d'enregistrer le scénario : « Array
+        // aggregator — Source node is not set », et l'erreur ne se voit qu'au
+        // moment de sauver, pas à la création par API. Un blueprint accepté
+        // n'est donc pas un blueprint valide.
+        //
+        // La paire vit dans la même composition : le Feeder qu'on vient de
+        // poser est celui que l'agrégateur referme.
+        let premier = null, feeder = null;
         e.composition.modules.forEach(function (c) {
-          const m = poser(flow, x, ligne, c.module, e.label + ' — ' + c.role);
+          const extra = /Aggregator$/.test(c.module) && feeder
+            ? { parameters: { feeder: feeder.id } } : undefined;
+          const m = poser(flow, x, ligne, c.module, e.label + ' — ' + c.role, extra);
+          if (/Feeder$/.test(c.module)) feeder = m;
           x += PAS_X;
           if (!premier) premier = m;
         });
