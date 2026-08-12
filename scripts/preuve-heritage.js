@@ -207,6 +207,29 @@ async function main() {
     ctxS.results._emprunts.filter(e => e.signale).map(e => e.champ + ' ← ' + e.depuis),
     ['DatedeFindeDroits ← Série']);
 
+  console.log('\n── La Lambda rend le même payload que le moteur ─────────');
+  // `aps-lookup` ne réimplémente rien : elle appelle les mêmes modules purs.
+  // Cette comparaison garde la porte fermée — si quelqu'un « adaptait » le
+  // code pour AWS, la même correspondance produirait deux payloads
+  // différents, et le partenaire recevrait autre chose selon le moteur qui a
+  // tourné.
+  const lambda = require('../lambda/aps-lookup/index.js');
+  const plat = { Titre: 'Episode 01', Acteur: 'Invité du jour' };
+  const rep = await lambda.handler({
+    regles: REGLES, source: plat, ancetres: ANCETRES, niveau: 'Episode',
+  });
+  verifier('title reste propre',        rep.payload.title, 'Episode 01');
+  verifier('owner hérité en cascade',   rep.payload.owner, 'Bayard');
+  verifier('synopsis hérité, signalé',  rep.signales.indexOf('Synopsis ← Série') !== -1, true);
+  verifier('acteurs fusionnés, dédoublonnés',
+    rep.payload.persons.filter(x => x.job === 'actor').map(x => x.external_id),
+    ['Invité du jour', 'Etienne Julien', 'Invité saison', 'Actrice récurrente']);
+  // Le moteur, sur la même matière : le payload doit être identique.
+  const ctxL = contexte('Episode', ANCETRES);
+  await lookup(ETAPE, ctxL, {});
+  verifier('même payload que le handler',
+    rep.payload.persons, ctxL.results.vodFactoryPayload.persons);
+
   console.log('\n' + (echecs ? `❌ ${echecs} échec(s)` : '✅ tout passe') + '\n');
   process.exit(echecs ? 1 : 0);
 }

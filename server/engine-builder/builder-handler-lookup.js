@@ -8,6 +8,7 @@
 
 const BuilderContext = require('./builder-context.js');
 const Heritage       = require('./builder-heritage.js');
+const Corresp        = require('./builder-correspondance.js');
 
 function r(val, ctx) { return BuilderContext.resolve(val, ctx); }
 
@@ -18,63 +19,6 @@ function _apercu(v) {
   if (Array.isArray(v)) return v.map(x => String(x)).join(', ').slice(0, 200);
   if (typeof v === 'object') { try { return JSON.stringify(v).slice(0, 200); } catch (_) { return '[objet]'; } }
   return String(v).slice(0, 200);
-}
-
-function _isUnresolvedPlaceholder(v) {
-  return typeof v === 'string' && /^\{[A-Za-z_][A-Za-z0-9_.]*\}$/.test(v.trim());
-}
-
-function _setNestedValue(obj, path, val) {
-  const arrAttrMatch = path.match(/^([^[]+)\[([^=\]]+)=([^\]]+)\]\.(.+)$/);
-  if (arrAttrMatch) {
-    const listKey  = arrAttrMatch[1];
-    const attrKey  = arrAttrMatch[2];
-    const attrVal  = arrAttrMatch[3];
-    const fieldKey = arrAttrMatch[4];
-    if (!Array.isArray(obj[listKey])) obj[listKey] = [];
-    let items = val;
-    if (typeof val === 'string' && val.startsWith('[')) {
-      try { items = JSON.parse(val); } catch (e) {}
-    }
-    items = Array.isArray(items) ? items : [items];
-    items.forEach(function (v) {
-      const entry = {};
-      entry[attrKey]  = attrVal;
-      entry[fieldKey] = v;
-      obj[listKey].push(entry);
-    });
-    return;
-  }
-
-  const arrMatch = path.match(/^([^.[]+)\[\]$/);
-  if (arrMatch) {
-    obj[arrMatch[1]] = Array.isArray(val) ? val : [val];
-    return;
-  }
-
-  const arrObjMatch = path.match(/^([^.[]+)\[(\d*)\]\.(.+)$/);
-  if (arrObjMatch) {
-    const listKey  = arrObjMatch[1];
-    const idx      = arrObjMatch[2] !== '' ? parseInt(arrObjMatch[2]) : 0;
-    const fieldKey = arrObjMatch[3];
-    if (!Array.isArray(obj[listKey])) obj[listKey] = [];
-    while (obj[listKey].length <= idx) obj[listKey].push({});
-    _setNestedValue(obj[listKey][idx], fieldKey, val);
-    return;
-  }
-
-  const dotIdx = path.indexOf('.');
-  if (dotIdx > 0) {
-    const head = path.slice(0, dotIdx);
-    const tail = path.slice(dotIdx + 1);
-    if (!obj[head] || typeof obj[head] !== 'object' || Array.isArray(obj[head])) {
-      obj[head] = {};
-    }
-    _setNestedValue(obj[head], tail, val);
-    return;
-  }
-
-  obj[path] = val;
 }
 
 async function lookup(step, ctx, deps) {
@@ -160,7 +104,7 @@ async function lookup(step, ctx, deps) {
       // une faute de frappe. S'il n'y a rien à hériter non plus, le constat
       // `non_resolu` d'origine est rendu intact juste en dessous.
       const politique = Heritage.politiquePour(row.heritage, niveau);
-      const _vide     = function (v) { return Heritage.estVide(v) || _isUnresolvedPlaceholder(v); };
+      const _vide     = function (v) { return Heritage.estVide(v) || Corresp.estPlaceholderNonResolu(v); };
       let   emprunt   = null;
 
       if (politique === 'fusion') {
@@ -190,7 +134,7 @@ async function lookup(step, ctx, deps) {
         }
       }
 
-      if (_isUnresolvedPlaceholder(val)) {
+      if (Corresp.estPlaceholderNonResolu(val)) {
         // HORS PÉRIMÈTRE ≠ REPLI CASSÉ. Un unitaire n'a pas de visuel de
         // saison, un épisode pas de visuel de série : la variable manque parce
         // que le manifeste a écarté cette essence à ce niveau, pas parce que
@@ -243,65 +187,18 @@ async function lookup(step, ctx, deps) {
       val = Heritage.deballerJson(val);
 
       const valeurAvantTraduction = val;
-      let traduction = null;
-      if (children.length) {
-        // Table appliquée ÉLÉMENT PAR ÉLÉMENT sur une valeur multiple : une
-        // liste de genres se traduit genre par genre. Un élément absent de la
-        // table est transmis tel quel (comportement d'origine) — c'est
-        // typiquement un libellé que personne n'a encore traduit.
-        const _traduire = function (v) {
-          const s = String(v);
-          const child = children.find(c => (c.key || c.src || '').trim() === s);
-          return child ? { de: s, vers: (child.value || child.tgt || '').trim() } : { de: s, vers: null };
-        };
-        if (Array.isArray(val)) {
-          const paires = val.map(_traduire);
-          val = paires.map((p, i) => (p.vers !== null ? p.vers : val[i]));
-          const traduits = paires.filter(p => p.vers !== null);
-          traduction = {
-            de  : paires.map(p => p.de).join(', '),
-            vers: traduits.length ? val.join(', ') : null,
-          };
-        } else {
-          const p = _traduire(val);
-          if (p.vers !== null) val = p.vers;
-          traduction = p;
-        }
-      }
-      if (row.list === true || row.list === 'true' || row.type === 'list') {
-        val = Array.isArray(val) ? val : [val];
-      }
+      // Traduction et mise en forme vivent dans builder-correspondance.js :
+      // fonctions pures, partagées avec la Lambda que réclame AWS Step
+      // Functions. Ce qui touche à la PROVENANCE d'une valeur reste ici (APS a
+      // un espace de noms global, une Lambda reçoit un objet plat) ; ce qui
+      // touche à sa FORME doit être identique des deux côtés, sinon la même
+      // correspondance produirait deux payloads différents.
+      const _t = Corresp.traduire(val, children);
+      val = _t.valeur;
+      const traduction = _t.traduction;
+      val = Corresp.formater(val, row);
 
-      const _rowType = row.type || 'string';
-      if (_rowType === 'integer' && !Array.isArray(val)) {
-        const _n = parseInt(String(val), 10);
-        val = isNaN(_n) ? val : _n;
-      } else if (_rowType === 'float' && !Array.isArray(val)) {
-        const _f = parseFloat(String(val));
-        val = isNaN(_f) ? val : _f;
-      } else if (_rowType === 'boolean' && !Array.isArray(val)) {
-        val = (val === 'true' || val === true || val === 1 || val === '1');
-      }
-
-      if (row._format === 'slug') {
-        const _slugify = function (s) {
-          return String(s).toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '');
-        };
-        if (Array.isArray(val)) {
-          val = val.map(_slugify);
-        } else if (typeof val === 'string' && val.startsWith('[')) {
-          try {
-            const parsed = JSON.parse(val);
-            val = JSON.stringify(parsed.map(_slugify));
-          } catch (e) { val = _slugify(val); }
-        } else {
-          val = _slugify(String(val));
-        }
-      }
-      _setNestedValue(mapped, toKey, val);
+      Corresp.rangerA(mapped, toKey, val);
       matched++;
       trace.push({
         de: fromKey, vers: toKey, statut: 'ok', origine: origine,
