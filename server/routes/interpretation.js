@@ -782,6 +782,23 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
         // besoin de son manifeste pour nommer ses sorties (`s3_*_url`), d'où
         // `manifestes` passé ici.
         produit: CAT.variablesDe(e.etape || e, { manifests: manifestes }).map(v => v.nom),
+        // Les essences RÉSOLUES du manifeste référencé. Le pivot ne stocke que
+        // `manifestId` — la résolution est faite au moment de l'exécution chez
+        // APS, mais un émetteur doit l'embarquer : la Lambda de reconnaissance
+        // reçoit les essences dans sa charge utile, elle ne va pas les chercher.
+        essences: (function () {
+          const id = e.etape && e.etape.params && e.etape.params.manifestId;
+          const m = id ? manifestes[id] : null;
+          if (!m) return null;
+          return (m.essences || []).filter(x => x.sortie).map(function (x) {
+            const o = { type: x.role || '', variable: x.sortie,
+                        filter: Array.isArray(x.reconnu_par) ? x.reconnu_par.join(',') : (x.reconnu_par || ''),
+                        cardinalite: x.cardinalite || 'optionnel' };
+            if (Array.isArray(x.appliesTo) && x.appliesTo.length && x.appliesTo.indexOf('*') === -1) o.appliesTo = x.appliesTo;
+            if (x.n) o.n = x.n;
+            return o;
+          });
+        })(),
         composition: compo,
         natif: natif,
         orphelin: orphelin,

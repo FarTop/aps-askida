@@ -189,6 +189,116 @@
         }
       ]
     },
+    "Check Collection - reconnaitre": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Comment": "aps-essences — le module builder-essences.js, tel quel. Ne PAS le réécrire : ces URL sont livrées au partenaire puis vérifiées par APS, deux implémentations qui divergent contrôleraient une autre adresse que celle qu'elles ont envoyée.",
+      "Parameters": {
+        "FunctionName": "aps-essences",
+        "Payload": {
+          "listing.$": "$.s3",
+          "essences": [
+            {
+              "type": "cover",
+              "variable": "s3_cover_url",
+              "filter": "cover",
+              "cardinalite": "au_moins_un",
+              "appliesTo": [
+                "serie",
+                "saison",
+                "unitaire"
+              ]
+            },
+            {
+              "type": "poster",
+              "variable": "s3_poster_url",
+              "filter": "poster",
+              "cardinalite": "au_moins_un",
+              "appliesTo": [
+                "serie",
+                "saison",
+                "unitaire"
+              ]
+            },
+            {
+              "type": "hero",
+              "variable": "s3_hero_url",
+              "filter": "hero",
+              "cardinalite": "au_moins_un",
+              "appliesTo": [
+                "serie",
+                "saison",
+                "unitaire"
+              ]
+            },
+            {
+              "type": "title",
+              "variable": "s3_title_url",
+              "filter": "title",
+              "cardinalite": "optionnel",
+              "appliesTo": [
+                "serie"
+              ]
+            },
+            {
+              "type": "season_box",
+              "variable": "s3_season_url",
+              "filter": "season",
+              "cardinalite": "au_moins_un",
+              "appliesTo": [
+                "saison"
+              ]
+            },
+            {
+              "type": "box",
+              "variable": "s3_box_url",
+              "filter": "box",
+              "cardinalite": "au_moins_un",
+              "appliesTo": [
+                "unitaire"
+              ]
+            },
+            {
+              "type": "episodic",
+              "variable": "s3_episodic_url",
+              "filter": "episodic",
+              "cardinalite": "optionnel",
+              "appliesTo": [
+                "episode"
+              ]
+            },
+            {
+              "type": "video",
+              "variable": "s3_video_url",
+              "filter": ".mp4,.mov,.ts,.mxf",
+              "cardinalite": "exactement_un",
+              "appliesTo": [
+                "episode",
+                "unitaire"
+              ]
+            },
+            {
+              "type": "subtitle",
+              "variable": "s3_srt_url",
+              "filter": ".srt,.vtt",
+              "cardinalite": "au_moins_un",
+              "appliesTo": [
+                "episode",
+                "unitaire"
+              ]
+            }
+          ],
+          "base": "s3://a-renseigner/",
+          "typeCollection.$": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection"
+        }
+      },
+      "ResultSelector": {
+        "variables.$": "$.Payload.variables",
+        "cardinaliteRespectee.$": "$.Payload.cardinaliteRespectee"
+      },
+      "ResultPath": "$.essences",
+      "Next": "Check Collection - quel port"
+    },
     "Check Collection - quel port": {
       "Type": "Choice",
       "Choices": [
@@ -208,7 +318,7 @@
         "Prefix": "a-renseigner"
       },
       "ResultPath": "$.s3",
-      "Next": "Check Collection - quel port",
+      "Next": "Check Collection - reconnaitre",
       "Catch": [
         {
           "ErrorEquals": [
@@ -435,6 +545,26 @@
             "ResultPath": "$.http_request_video_info_1",
             "Next": "Video Info - quel port"
           },
+          "Check Asset - reconnaitre": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "aps-essences — le module builder-essences.js, tel quel. Ne PAS le réécrire : ces URL sont livrées au partenaire puis vérifiées par APS, deux implémentations qui divergent contrôleraient une autre adresse que celle qu'elles ont envoyée.",
+            "Parameters": {
+              "FunctionName": "aps-essences",
+              "Payload": {
+                "listing.$": "$.s3",
+                "essences": [],
+                "base": "s3://a-renseigner/",
+                "typeCollection.$": "$.TypeCollection"
+              }
+            },
+            "ResultSelector": {
+              "variables.$": "$.Payload.variables",
+              "cardinaliteRespectee.$": "$.Payload.cardinaliteRespectee"
+            },
+            "ResultPath": "$.essences",
+            "Next": "Check Asset - quel port"
+          },
           "Check Asset - quel port": {
             "Type": "Choice",
             "Choices": [
@@ -454,7 +584,7 @@
               "Prefix": "a-renseigner"
             },
             "ResultPath": "$.s3",
-            "Next": "Check Asset - quel port"
+            "Next": "Check Asset - reconnaitre"
           },
           "Action": {
             "Type": "Task",
@@ -507,6 +637,26 @@
               }
             ]
           },
+          "Recheck - reconnaitre": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "aps-essences — le module builder-essences.js, tel quel. Ne PAS le réécrire : ces URL sont livrées au partenaire puis vérifiées par APS, deux implémentations qui divergent contrôleraient une autre adresse que celle qu'elles ont envoyée.",
+            "Parameters": {
+              "FunctionName": "aps-essences",
+              "Payload": {
+                "listing.$": "$.s3",
+                "essences": [],
+                "base": "s3://a-renseigner/",
+                "typeCollection.$": "$.TypeCollection"
+              }
+            },
+            "ResultSelector": {
+              "variables.$": "$.Payload.variables",
+              "cardinaliteRespectee.$": "$.Payload.cardinaliteRespectee"
+            },
+            "ResultPath": "$.essences",
+            "Next": "Fin du corps"
+          },
           "Recheck": {
             "Type": "Task",
             "Resource": "arn:aws:states:::aws-sdk:s3:listObjectsV2",
@@ -515,7 +665,7 @@
               "Prefix": "a-renseigner"
             },
             "ResultPath": "$.s3",
-            "Next": "Fin du corps"
+            "Next": "Recheck - reconnaitre"
           }
         }
       },

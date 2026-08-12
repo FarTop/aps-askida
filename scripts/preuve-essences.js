@@ -89,8 +89,31 @@ function main() {
     [!!inconnu.variables.s3_cover_url, !!inconnu.variables.s3_box_url], [true, true]);
   verifier('aucune essence déclarée hors niveau', inconnu.horsNiveau, []);
 
-  console.log('\n' + (echecs ? `❌ ${echecs} échec(s)` : '✅ tout passe') + '\n');
-  process.exit(echecs ? 1 : 0);
+  console.log('\n── La Lambda rend la même chose que le moteur ───────────');
+  // La fonction AWS ne réimplémente rien : elle appelle le même module. Cette
+  // vérification garde la porte fermée — le jour où quelqu'un « adapterait »
+  // le code pour Lambda, les URL livrées cesseraient de correspondre à celles
+  // qu'APS vérifie, et rien ne le signalerait.
+  const lambda = require('../lambda/aps-essences/index.js');
+  const listing = { KeyCount: 3, Contents: [
+    { Key: 'friday_s01_cover.png' }, { Key: 'friday_s01_season.png' }, { Key: 'friday_s01_poster.png' },
+  ] };
+  const direct = reconnaitre(ESSENCES, listing.Contents.map(o => o.Key), BASE, 'Saison');
+  lambda.handler({ essences: ESSENCES, listing: listing, base: BASE, typeCollection: 'Saison' })
+    .then(function (rep) {
+      verifier('mêmes variables que l\'appel direct', rep.variables, direct.variables);
+      verifier('mêmes essences hors niveau',          rep.horsNiveau, direct.horsNiveau);
+      verifier('le verdict de cardinalité est tranché', rep.cardinaliteRespectee, direct.cardinalite.length === 0);
+      // Le listing peut arriver déjà réduit à des clés : refuser cette forme
+      // obligerait à poser un état ASL pour rien.
+      return lambda.handler({ essences: ESSENCES, keys: listing.Contents.map(o => o.Key),
+                              base: BASE, typeCollection: 'Saison' });
+    })
+    .then(function (rep2) {
+      verifier('accepte aussi une liste de clés brute', rep2.variables, direct.variables);
+      console.log('\n' + (echecs ? `❌ ${echecs} échec(s)` : '✅ tout passe') + '\n');
+      process.exit(echecs ? 1 : 0);
+    });
 }
 
 main();

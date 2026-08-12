@@ -162,7 +162,11 @@ function etatsDe(etapes, nommer, contexte) {
     const autres  = autresPorts(e.id);
 
     // 1. Le cœur de l'étape.
+    // Une étape peut s'étaler sur PLUSIEURS états (un deliver liste puis
+    // reconnaît). `porteur` désigne celui qui porte le Next final — c'est lui
+    // que l'aiguillage de port doit rediriger, pas le premier de la chaîne.
     let etat;
+    let porteur = null;
     if (e.core === 'decision') {
       // LA VRAIE CONDITION, pas une chaîne. Une décision du pivot porte son
       // champ et ses conditions (op + valeur) ; ASL sait les exprimer. Émettre
@@ -236,9 +240,41 @@ function etatsDe(etapes, nommer, contexte) {
                  Comment: 'FONCTION À ÉCRIRE — ' + compo.pourquoi,
                  ResultPath: '$.' + (e.core || 'resultat'), Next: nominal };
       } else if (e.core === 'deliver') {
+        // DEUX états, et c'est structurel. ASL sait LISTER un bucket
+        // (intégration native) mais pas RECONNAÎTRE ce qu'il contient :
+        // associer « friday_s01_season.png » à l'essence `season_box` demande
+        // de comparer des motifs, d'écarter les doublons d'upload, de filtrer
+        // par niveau. Aucune intrinsèque ne fait ça. Le listing seul laisserait
+        // les sept `s3_*_url` introuvables — donc le workflow entier muet sur
+        // ce qu'il a livré.
+        const nReconnu = nom + ' - reconnaitre';
         etat = { Type: 'Task', Resource: 'arn:aws:states:::aws-sdk:s3:listObjectsV2',
                  Parameters: { Bucket: 'a-renseigner', Prefix: 'a-renseigner' },
-                 ResultPath: '$.s3', Next: nominal };
+                 ResultPath: '$.s3', Next: nReconnu };
+        porteur = nReconnu;
+        States[nReconnu] = {
+          Type: 'Task',
+          Resource: 'arn:aws:states:::lambda:invoke',
+          Comment: 'aps-essences — le module builder-essences.js, tel quel. Ne PAS le '
+                 + 'réécrire : ces URL sont livrées au partenaire puis vérifiées par APS, '
+                 + 'deux implémentations qui divergent contrôleraient une autre adresse '
+                 + 'que celle qu\'elles ont envoyée.',
+          Parameters: {
+            FunctionName: 'aps-essences',
+            Payload: {
+              'listing.$': '$.s3',
+              essences: e.essences || (e.params && e.params.s3Mappings) || [],
+              base: 's3://a-renseigner/',
+              'typeCollection.$': sourceMd.get(e.id)
+                ? sourceMd.get(e.id) + '.ResponseBody.objects[0].metadata.TypeCollection'
+                : '$.TypeCollection',
+            },
+          },
+          ResultSelector: { 'variables.$': '$.Payload.variables',
+                            'cardinaliteRespectee.$': '$.Payload.cardinaliteRespectee' },
+          ResultPath: '$.essences',
+          Next: nominal,
+        };
       } else if (e.core === 'trigger') {
         etat = { Type: 'Pass',
                  Comment: 'Le déclencheur vit HORS de la machine d\'états (EventBridge ou StartExecution)',
@@ -263,7 +299,8 @@ function etatsDe(etapes, nommer, contexte) {
     // 3. Les ports métier restants : un Choice APRÈS l'état. Le pivot les porte
     //    sur le nœud, ASL ne connaît que Next — d'où un état supplémentaire que
     //    la table de coûts ne prévoyait pas.
-    if (autres.length && etat.Type === 'Task') {
+    const etatPorteur = porteur ? States[porteur] : etat;
+    if (autres.length && etatPorteur.Type === 'Task') {
       const sortie = sortieDe.get(e.id) || '$';
       const Choices = [];
       autres.forEach(function (x) {
@@ -279,7 +316,7 @@ function etatsDe(etapes, nommer, contexte) {
       // fait, et se lit comme un embranchement réel.
       if (Choices.length) {
         const nAiguillage = nom + ' - quel port';
-        etat.Next = nAiguillage;
+        etatPorteur.Next = nAiguillage;
         States[nAiguillage] = { Type: 'Choice', Choices: Choices, Default: nominal };
       }
     }
