@@ -148,7 +148,75 @@ function compositionDe(famille, params) {
            nombre: etats.length };
 }
 
-module.exports = { COMPOSITIONS, FORMES, compositionDe };
+// ── LES OPÉRATEURS D'UNE DÉCISION ───────────────────────────────
+// Le pivot en connaît vingt (builder-handler-decision.js:18-37). ASL n'a que
+// des comparateurs nommés et `StringMatches`, dont les jokers sont des `*` —
+// pas d'expressions régulières. La table dit donc AUSSI ce qui ne passe pas :
+// une règle intraduisible qu'on émettrait au jugé produirait un aiguillage qui
+// a l'air juste et qui trie faux.
+const OPERATEURS = {
+  equals:        (v, x) => ({ Variable: v, StringEquals: x }),
+  not_equals:    (v, x) => ({ Not: { Variable: v, StringEquals: x } }),
+  contains:      (v, x) => ({ Variable: v, StringMatches: '*' + x + '*' }),
+  not_contains:  (v, x) => ({ Not: { Variable: v, StringMatches: '*' + x + '*' } }),
+  starts_with:   (v, x) => ({ Variable: v, StringMatches: x + '*' }),
+  ends_with:     (v, x) => ({ Variable: v, StringMatches: '*' + x }),
+  not_starts_with: (v, x) => ({ Not: { Variable: v, StringMatches: x + '*' } }),
+  not_ends_with:   (v, x) => ({ Not: { Variable: v, StringMatches: '*' + x } }),
+  gt:            (v, x) => ({ Variable: v, NumericGreaterThan: Number(x) }),
+  gte:           (v, x) => ({ Variable: v, NumericGreaterThanEquals: Number(x) }),
+  lt:            (v, x) => ({ Variable: v, NumericLessThan: Number(x) }),
+  lte:           (v, x) => ({ Variable: v, NumericLessThanEquals: Number(x) }),
+  is_empty:      (v)    => ({ Or: [{ Variable: v, IsPresent: false }, { Variable: v, StringEquals: '' }] }),
+  absent:        (v)    => ({ Or: [{ Variable: v, IsPresent: false }, { Variable: v, StringEquals: '' }] }),
+  not_empty:     (v)    => ({ And: [{ Variable: v, IsPresent: true }, { Not: { Variable: v, StringEquals: '' } }] }),
+  present:       (v)    => ({ And: [{ Variable: v, IsPresent: true }, { Not: { Variable: v, StringEquals: '' } }] }),
+  in_list:       (v, x) => ({ Or: String(x).split(',').map(y => ({ Variable: v, StringEquals: y.trim() })) }),
+  not_in_list:   (v, x) => ({ Not: { Or: String(x).split(',').map(y => ({ Variable: v, StringEquals: y.trim() })) } }),
+  // Sans équivalent : StringMatches ne connaît que le joker `*`.
+  matches_regex:     null,
+  not_matches_regex: null,
+};
+
+// ── LES PORTS MÉTIER, TRADUITS EN CONDITIONS ────────────────────
+// C'est le trou qu'a révélé le premier dessin complet, le 2026-08-12 : un
+// Choice qui teste `$.port` ne décide rien, puisque rien ne pose `$.port`.
+// Chez APS c'est le MOTEUR qui calcule le port — un `deliver` sort par `miss`
+// quand le listing S3 est vide. Chez ASL il faut le relire du résultat réel.
+//
+// `resultat` est le ResultPath sous lequel l'émetteur range la réponse ; les
+// fonctions rendent la règle Choice qui reconnaît le port.
+const PORTS = {
+  deliver: {
+    // listObjectsV2 renvoie KeyCount : le compte est déjà là, inutile de
+    // fouiller Contents.
+    miss: (r) => ({ Variable: r + '.KeyCount', NumericEquals: 0 }),
+  },
+  'iconik.search': {
+    empty: (r) => ({ Variable: r + '.ResponseBody.objects[0]', IsPresent: false }),
+  },
+  'iconik.fetch': {
+    not_found: (r) => ({ Variable: r + '.ResponseBody', IsPresent: false }),
+  },
+  http_sequence: {
+    err: (r) => ({ Variable: r + '.ResponseBody', IsPresent: false }),
+  },
+};
+
+function conditionDe(op, variable, valeur) {
+  const f = OPERATEURS[op];
+  return f ? f(variable, valeur) : null;
+}
+
+// Cherche par FAÇADE puis par CORE : une étape porte « aws_s3.deliver », la
+// table connaît « deliver ». Les deux entrées sont légitimes — une façade peut
+// vouloir sa propre règle, sinon celle du core suffit.
+function reglePort(verbe, core, port, resultat) {
+  const t = PORTS[verbe] || PORTS[core];
+  return t && t[port] ? t[port](resultat) : null;
+}
+
+module.exports = { COMPOSITIONS, FORMES, OPERATEURS, PORTS, compositionDe, conditionDe, reglePort };
 
 if (require.main === module) {
   console.log('CE QU\'UN VERBE DEVIENT EN ASL\n');

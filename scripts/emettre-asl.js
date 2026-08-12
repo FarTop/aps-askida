@@ -79,10 +79,26 @@ function nommeur() {
   };
 }
 
+// Une référence du pivot (`{TypeCollection}`, `{search_results.objects}`)
+// devient un JSONPath ASL. Le pivot lit dans un espace de noms global ; ASL lit
+// dans l'état qui circule — d'où le `$.` de tête. Un gabarit qui contient
+// autre chose qu'une référence seule n'est pas traduisible : ASL ne concatène
+// pas dans une condition.
+function jsonPath(gabarit) {
+  const t = String(gabarit || '').trim();
+  const m = t.match(/^\{([^{}]+)\}$/);
+  if (!m) return t.startsWith('$') ? t : '$.' + t.replace(/[^A-Za-z0-9_.[\]]/g, '_');
+  return '$.' + m[1];
+}
+
 // ── LES ÉTATS D'UNE PORTÉE ──────────────────────────────────────
 function etatsDe(etapes, nommer, contexte) {
   const States = {};
   const nomDe  = new Map();
+  // Où chaque étape range sa réponse. Les règles de port en ont besoin :
+  // reconnaître un `miss` demande de relire le résultat réel, pas une chaîne.
+  const sortieDe = new Map();
+  const intraduisibles = contexte.intraduisibles || (contexte.intraduisibles = []);
   etapes.forEach(e => nomDe.set(e.id, nommer(e.label, e.id)));
 
   // Successeurs par étape et par port, reconstruits depuis `depuis` (le plan
@@ -122,13 +138,28 @@ function etatsDe(etapes, nommer, contexte) {
     // 1. Le cœur de l'étape.
     let etat;
     if (e.core === 'decision') {
+      // LA VRAIE CONDITION, pas une chaîne. Une décision du pivot porte son
+      // champ et ses conditions (op + valeur) ; ASL sait les exprimer. Émettre
+      // `$.decision == "Série"` produisait un aiguillage qui ne décide rien —
+      // rien ne pose `$.decision`. Chaque condition est appariée à son port par
+      // son `label`, qui EST le nom du port.
+      const champ = jsonPath((e.params || {}).field);
+      const conds = ((e.params || {}).conditions) || [];
+      const Choices = [];
+      (autres.concat((suites.get(e.id) || []).filter(x => PORT_NOMINAL.test(x.port))))
+        .filter(x => x.port !== 'default')
+        .forEach(function (x) {
+          const c = conds.find(y => (y.label || '') === x.port);
+          const regle = c ? ASL.conditionDe(c.op, champ, c.value) : null;
+          if (!regle) {
+            intraduisibles.push({ etat: nom, port: x.port, op: c ? c.op : '(condition absente)' });
+            return;
+          }
+          Choices.push(Object.assign({}, regle, { Next: nomDe.get(x.vers) }));
+        });
       etat = {
         Type: 'Choice',
-        Choices: (autres.concat((suites.get(e.id) || []).filter(x => PORT_NOMINAL.test(x.port))))
-          .filter(x => x.port !== 'default')
-          .map(function (x) {
-            return { Variable: '$.decision', StringEquals: x.port, Next: nomDe.get(x.vers) };
-          }),
+        Choices: Choices,
         Default: (function () {
           const d = (suites.get(e.id) || []).find(x => x.port === 'default');
           return d ? nomDe.get(d.vers) : FIN;
@@ -195,6 +226,8 @@ function etatsDe(etapes, nommer, contexte) {
       }
     }
 
+    if (etat && etat.ResultPath) sortieDe.set(e.id, etat.ResultPath);
+
     // 2. L'erreur : un Catch attaché, jamais un état de plus — c'est ce que la
     //    console a confirmé le 2026-08-12.
     if (erreur && etat.Type === 'Task') {
@@ -205,15 +238,24 @@ function etatsDe(etapes, nommer, contexte) {
     //    sur le nœud, ASL ne connaît que Next — d'où un état supplémentaire que
     //    la table de coûts ne prévoyait pas.
     if (autres.length && etat.Type === 'Task') {
-      const nAiguillage = nom + ' - quel port';
-      etat.Next = nAiguillage;
-      States[nAiguillage] = {
-        Type: 'Choice',
-        Choices: autres.map(function (x) {
-          return { Variable: '$.port', StringEquals: x.port, Next: nomDe.get(x.vers) };
-        }),
-        Default: nominal,
-      };
+      const sortie = sortieDe.get(e.id) || '$';
+      const Choices = [];
+      autres.forEach(function (x) {
+        const regle = ASL.reglePort(e.verbe, e.core, x.port, sortie);
+        if (!regle) {
+          intraduisibles.push({ etat: nom, port: x.port, op: 'port de ' + (e.verbe || e.core) });
+          return;
+        }
+        Choices.push(Object.assign({}, regle, { Next: nomDe.get(x.vers) }));
+      });
+      // Aucun port reconnaissable : pas d'aiguillage du tout plutôt qu'un
+      // Choice vide — un état qui tombe toujours en Default ment sur ce qu'il
+      // fait, et se lit comme un embranchement réel.
+      if (Choices.length) {
+        const nAiguillage = nom + ' - quel port';
+        etat.Next = nAiguillage;
+        States[nAiguillage] = { Type: 'Choice', Choices: Choices, Default: nominal };
+      }
     }
 
     States[nom] = etat;
@@ -241,11 +283,13 @@ async function main() {
     traversantes = (p.entrees && p.entrees.traversantes) || [];
     const ctxCorps = { fin: nommer('Fin du corps'), traversantes: traversantes };
     const bati = etatsDe(p.etapes, nommer, ctxCorps);
+    p._intraduisibles = ctxCorps.intraduisibles || [];
     corps = { ProcessorConfig: { Mode: 'INLINE' },
               StartAt: bati.nomDe.get(p.etapes[0].id),
               States: bati.States };
   }
 
+  const corpsIntraduisibles = (portees.length && portees[0]._intraduisibles) || [];
   const ctx = { fin: nommer('Fin'), corps: corps, traversantes: traversantes };
   const bati = etatsDe(racine.etapes, nommer, ctx);
 
@@ -332,6 +376,12 @@ async function main() {
   console.log('Lambdas   : ' + JSON.stringify(Object.entries(definition.States)
     .filter(([, s]) => s.Resource && /lambda/.test(s.Resource)).map(([n]) => n)));
   console.log('Fichier   : ' + SORTIE);
+  const nonTrad = (ctx.intraduisibles || []).concat(corpsIntraduisibles);
+  if (nonTrad.length) {
+    console.log('\n⚠ ' + nonTrad.length + ' aiguillage(s) NON traduits — la branche est omise,');
+    console.log('  jamais émise au jugé : un Choice qui trie faux est pire qu\'un manque.');
+    nonTrad.forEach(x => console.log('   ' + x.etat + ' · port « ' + x.port + ' » · ' + x.op));
+  }
   if (problemes.length) {
     console.log('\n⚠ ' + problemes.length + ' problème(s) de cohérence AVANT de coller :');
     problemes.slice(0, 12).forEach(p => console.log('   ' + p));

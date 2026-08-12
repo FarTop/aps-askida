@@ -58,8 +58,8 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.port",
-          "StringEquals": "empty",
+          "Variable": "$.http_request_assetedito_1.ResponseBody.objects[0]",
+          "IsPresent": false,
           "Next": "Programme"
         }
       ],
@@ -91,22 +91,22 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.decision",
+          "Variable": "$.TypeCollection",
           "StringEquals": "Série",
           "Next": "Bayard ID"
         },
         {
-          "Variable": "$.decision",
+          "Variable": "$.TypeCollection",
           "StringEquals": "Saison",
           "Next": "Bayard ID"
         },
         {
-          "Variable": "$.decision",
+          "Variable": "$.TypeCollection",
           "StringEquals": "Episode",
           "Next": "Bayard ID"
         },
         {
-          "Variable": "$.decision",
+          "Variable": "$.TypeCollection",
           "StringEquals": "Unitaire",
           "Next": "Bayard ID"
         }
@@ -152,8 +152,16 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.decision",
-          "StringEquals": "Is Empty",
+          "Or": [
+            {
+              "Variable": "$.BayardID",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.BayardID",
+              "StringEquals": ""
+            }
+          ],
           "Next": "Create ID Generator"
         }
       ],
@@ -185,8 +193,8 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.port",
-          "StringEquals": "miss",
+          "Variable": "$.s3.KeyCount",
+          "NumericEquals": 0,
           "Next": "Search"
         }
       ],
@@ -358,8 +366,8 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.port",
-          "StringEquals": "empty",
+          "Variable": "$.http_request_mseo2m4r_1.ResponseBody.objects[0]",
+          "IsPresent": false,
           "Next": "Set Metadata URLs"
         }
       ],
@@ -407,8 +415,8 @@
             "Type": "Choice",
             "Choices": [
               {
-                "Variable": "$.port",
-                "StringEquals": "not_found",
+                "Variable": "$.http_request_video_info_1.ResponseBody",
+                "IsPresent": false,
                 "Next": "Check Asset"
               }
             ],
@@ -431,8 +439,8 @@
             "Type": "Choice",
             "Choices": [
               {
-                "Variable": "$.port",
-                "StringEquals": "miss",
+                "Variable": "$.s3.KeyCount",
+                "NumericEquals": 0,
                 "Next": "Action"
               }
             ],
@@ -546,8 +554,8 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.port",
-          "StringEquals": "not_found",
+          "Variable": "$.http_request_mdlivraison_1.ResponseBody",
+          "IsPresent": false,
           "Next": "Programme"
         }
       ],
