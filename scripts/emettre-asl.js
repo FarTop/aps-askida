@@ -37,6 +37,11 @@ require('dotenv').config();
 const fs   = require('fs');
 const path = require('path');
 const ASL  = require('./rendre-asl.js');
+// Le catalogue sait quelles étapes APLATISSENT les métadonnées d'Iconik sous
+// leur nom nu — c'est ce qui rend `TypeCollection` lisible dans un gabarit sans
+// qu'aucune étape ne le déclare. En ASL rien ne s'aplatit : il faut relire la
+// valeur là où elle est vraiment, dans le résultat du Search.
+const CAT  = require('../server/public/builders/workflow/pivot-catalog-iconik.js');
 
 const ID     = process.argv[2];
 const iSort  = process.argv.indexOf('--sortie');
@@ -84,11 +89,20 @@ function nommeur() {
 // dans l'état qui circule — d'où le `$.` de tête. Un gabarit qui contient
 // autre chose qu'une référence seule n'est pas traduisible : ASL ne concatène
 // pas dans une condition.
-function jsonPath(gabarit) {
+function jsonPath(gabarit, source) {
   const t = String(gabarit || '').trim();
   const m = t.match(/^\{([^{}]+)\}$/);
-  if (!m) return t.startsWith('$') ? t : '$.' + t.replace(/[^A-Za-z0-9_.[\]]/g, '_');
-  return '$.' + m[1];
+  const ref = m ? m[1] : t;
+  if (ref.startsWith('$')) return ref;
+  const propre = ref.replace(/[^A-Za-z0-9_.[\]]/g, '_');
+  // UNE MÉTADONNÉE APLATIE se relit de son Search. `source` porte le
+  // ResultPath de la dernière étape en amont qui aplatit ; sans elle, on
+  // retombe sur la racine — ce qui était le comportement d'avant, et qui
+  // décrivait un état que personne ne remplit.
+  if (source && !/^(collection|asset|item|user|now|trigger)\b/.test(propre)) {
+    return source + '.ResponseBody.objects[0].metadata.' + propre;
+  }
+  return '$.' + propre;
 }
 
 // ── LES ÉTATS D'UNE PORTÉE ──────────────────────────────────────
@@ -98,6 +112,10 @@ function etatsDe(etapes, nommer, contexte) {
   // Où chaque étape range sa réponse. Les règles de port en ont besoin :
   // reconnaître un `miss` demande de relire le résultat réel, pas une chaîne.
   const sortieDe = new Map();
+  // La dernière étape AMONT qui aplatit les métadonnées, dans l'ordre du flux.
+  // C'est elle qui donne son adresse réelle à `{TypeCollection}` — le pivot le
+  // lit d'ambiance, ASL doit le relire d'un résultat.
+  const sourceMd = new Map();
   const intraduisibles = contexte.intraduisibles || (contexte.intraduisibles = []);
   etapes.forEach(e => nomDe.set(e.id, nommer(e.label, e.id)));
 
@@ -129,6 +147,14 @@ function etatsDe(etapes, nommer, contexte) {
   const FIN = contexte.fin;
   States[FIN] = { Type: 'Succeed' };
 
+  let mdCourante = null;
+  etapes.forEach(function (e) {
+    sourceMd.set(e.id, mdCourante);
+    if (CAT.aplatitMetadonnees({ facade: e.verbe, core: e.core, params: e.params || {} })) {
+      mdCourante = '$.' + String(e.id || 'r').replace(/[^A-Za-z0-9]/g, '_');
+    }
+  });
+
   etapes.forEach(function (e) {
     const nom     = nomDe.get(e.id);
     const nominal = suivantDe(e.id, PORT_NOMINAL) || FIN;
@@ -143,7 +169,7 @@ function etatsDe(etapes, nommer, contexte) {
       // `$.decision == "Série"` produisait un aiguillage qui ne décide rien —
       // rien ne pose `$.decision`. Chaque condition est appariée à son port par
       // son `label`, qui EST le nom du port.
-      const champ = jsonPath((e.params || {}).field);
+      const champ = jsonPath((e.params || {}).field, sourceMd.get(e.id));
       const conds = ((e.params || {}).conditions) || [];
       const Choices = [];
       (autres.concat((suites.get(e.id) || []).filter(x => PORT_NOMINAL.test(x.port))))

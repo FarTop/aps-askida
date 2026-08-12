@@ -91,22 +91,22 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.TypeCollection",
+          "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection",
           "StringEquals": "Série",
           "Next": "Bayard ID"
         },
         {
-          "Variable": "$.TypeCollection",
+          "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection",
           "StringEquals": "Saison",
           "Next": "Bayard ID"
         },
         {
-          "Variable": "$.TypeCollection",
+          "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection",
           "StringEquals": "Episode",
           "Next": "Bayard ID"
         },
         {
-          "Variable": "$.TypeCollection",
+          "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection",
           "StringEquals": "Unitaire",
           "Next": "Bayard ID"
         }
@@ -154,11 +154,11 @@
         {
           "Or": [
             {
-              "Variable": "$.BayardID",
+              "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.BayardID",
               "IsPresent": false
             },
             {
-              "Variable": "$.BayardID",
+              "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.BayardID",
               "StringEquals": ""
             }
           ],
