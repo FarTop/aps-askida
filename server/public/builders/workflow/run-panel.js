@@ -389,8 +389,24 @@
         }
         const row = _ligne(fleche, droite, 'ok');
         const marques = [];
-        if (t.origine && t.origine !== 'champ') marques.push(ORIGINE_FR[t.origine] || t.origine);
+        // `héritage` n'est pas listé ici : la marque détaillée juste en
+        // dessous dit de QUEL niveau, ce qui vaut mieux que « héritée » tout
+        // court.
+        if (t.origine && t.origine !== 'champ' && t.origine !== 'héritage') marques.push(ORIGINE_FR[t.origine] || t.origine);
         if (t.traduction && t.traduction.vers === null) marques.push('hors table de correspondance');
+        // D'OÙ la valeur a été empruntée, et sous quelle politique. Un
+        // `signalee` hérité est marqué ⚠ : la valeur est livrée, mais elle
+        // décrit un autre niveau que celui-ci. Une `fusion` dit ce que chaque
+        // ancêtre a apporté — sans quoi « 5 personnes » ne se distingue pas de
+        // « 5 personnes dont 3 venues de la série ».
+        if (t.heritage && t.heritage.politique === 'fusion') {
+          (t.heritage.apports || []).forEach(function (a) {
+            marques.push('+ ' + a.valeurs.length + ' de « ' + (a.titre || a.niveau) + ' »');
+          });
+        } else if (t.heritage && t.heritage.depuis) {
+          marques.push((t.heritage.signale ? '⚠ ' : '') + 'héritée de ' + t.heritage.depuis +
+            (t.heritage.titre ? ' « ' + t.heritage.titre + ' »' : ''));
+        }
         if (marques.length) {
           const note = document.createElement('span');
           note.className = 'rp-ligne-note';
@@ -957,9 +973,14 @@
         });
         // `_lk_trace_*` : matière première du résumé Lookup ci-dessus, déjà
         // restituée en clair — l'afficher aussi en brut serait du bruit.
+        // `_emprunts` de même (résumé dans les marques d'héritage). `_ancetres`
+        // reste visible, lui : c'est une vraie récolte du nœud Collections
+        // Parentes, et voir ce que porte chaque ancêtre est précisément ce qui
+        // permet de comprendre pourquoi un champ n'a pas pu être hérité.
         const resultsChanges = _diffMap(avant.results, apres.results)
           .filter(function (d) {
-            return d.key.indexOf('_lk_trace_') !== 0 && d.key.indexOf('_seq_trace_') !== 0;
+            return d.key.indexOf('_lk_trace_') !== 0 && d.key.indexOf('_seq_trace_') !== 0
+                && d.key !== '_emprunts';
           });
         if (varsChanges.length || resultsChanges.length) {
           // Brut relégué derrière un dépliant : consultable à la demande,

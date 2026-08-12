@@ -122,6 +122,25 @@ async function workflowHistory(step, ctx, deps) {
   if (message) pousser(message, true);
   if (essenceChecklist) pousser(essenceChecklist, true);
 
+  // LES EMPRUNTS SIGNALÉS. Seuls les `signalee` sortent ici, jamais les
+  // `cascade` : pour un champ en cascade, hériter EST la vérité (le studio
+  // d'une série est celui de ses épisodes), et l'écrire à chaque ligne noierait
+  // la seule information qui compte. Un champ `signalee` hérité, lui, remplit
+  // la fiche avec un texte qui ne décrit pas ce niveau — donnée trompeuse, pas
+  // donnée manquante. Elle est livrée quand même (l'interdire rebloquerait la
+  // branche entière) mais la livraison le DIT.
+  //
+  // Signifiante pour le mode `change` : passer d'un synopsis propre à un
+  // synopsis emprunté est un vrai changement d'état, qui doit produire une
+  // nouvelle ligne même si tout le reste est identique.
+  const emprunts = (ctx.results && ctx.results._emprunts) || [];
+  const signales = emprunts.filter(e => e.signale);
+  if (signales.length) {
+    pousser('⚠ hérité : ' + signales
+      .map(e => e.champ + ' ← ' + (e.depuis || '?'))
+      .join(', '), true);
+  }
+
   if (p.whSummaryVar) {
     try {
       const summaryPath = p.whSummaryVar.replace(/^\{|\}$/g, '');
