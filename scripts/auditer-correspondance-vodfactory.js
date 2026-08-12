@@ -44,10 +44,14 @@ const A_AUDITER = [
   { champ: 'LangueOriginale',   url: '/api/languages' },
   { champ: 'Pays',              url: '/api/countries' },
   { champ: 'PaysdExploitation', url: '/api/countries' },
-  { champ: 'ContenuPrime',      codes: ['program', 'serie', 'season', 'episode'],
-    source: 'doc partenaire p.7 (liste fermée, aucun endpoint)' },
-  { champ: 'Classification',    codes: null,
-    source: 'aucun référentiel exposé — /api/ratings et /api/amazon/ratings répondent 404' },
+  { champ: 'ContenuPrime',      codes: ['program', 'serie', 'season', 'episode', 'magazine', 'tv_show'],
+    source: 'schéma MCP create_content (enum) — la doc p.7 n\'en liste que quatre' },
+  // Le référentiel des ratings n'est servi par AUCUN endpoint (404 sur
+  // /api/ratings comme sur /api/amazon/ratings) — mais le schéma MCP de
+  // create_content le déclare en enum. Mesuré le 2026-08-12 : ce que l'API
+  // REST ne dit pas, le MCP le dit.
+  { champ: 'Classification',    codes: ['0', '10', '12', '16', '18'],
+    source: 'schéma MCP create_content (enum rating)' },
 ];
 
 // Chaque référentiel nomme son identifiant à SA façon : les genres et les

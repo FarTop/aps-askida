@@ -23,10 +23,11 @@
 //   par l'utilisateur le 2026-08-12 ; le rattrapage reste ici, il ne coûte rien
 //   et protège les contenus saisis avant la correction.
 //
-// TYPE (doc partenaire p.7 — liste fermée de QUATRE valeurs)
-//   « type   program / serie / season / episode — send serie exactly, not series »
-//   `Magazine → magazine` n'existait pas : Amazon n'a pas de catégorie pour un
-//   magazine TV, `program` est le seul rangement disponible.
+// TYPE (schéma MCP de create_content — SIX valeurs)
+//   enum program | serie | season | episode | magazine | tv_show
+//   La doc p.7 n'en annonce que quatre (« send serie exactly, not series ») et
+//   omet magazine et tv_show. Le schéma du serveur fait foi : il est
+//   machine-lisible et daté du serveur lui-même.
 //   Et `Unitaire` n'avait AUCUNE entrée, alors que la règle porte un repli
 //   `{TypeCollection}` : un unitaire sans ContenuPrime saisi envoyait la chaîne
 //   « Unitaire » telle quelle. Les trois autres niveaux passaient par
@@ -81,7 +82,11 @@ const GENRES = [
 const CONTENU_PRIME = [
   ['Emission', 'program'],
   ['Film',     'program'],
-  ['Magazine', 'program'],
+  // `magazine` EXISTE — mesuré le 2026-08-12 dans le schéma MCP de
+  // create_content : enum program|serie|season|episode|magazine|tv_show. La
+  // doc p.7 n'en annonce que quatre et cette table avait été ajustée sur elle,
+  // ce qui perdait l'information. Le schéma du serveur fait foi sur le PDF.
+  ['Magazine', 'magazine'],
   ['Série',    'serie'],
   ['Saison',   'season'],
   ['Episode',  'episode'],
