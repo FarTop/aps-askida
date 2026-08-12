@@ -108,7 +108,10 @@ const WfInterpreter = (() => {
      // conditionnelle. Sans ce chiffre, « 2 scénarios » laisse croire à
      // quelque chose de petit — et c'est exactement le chiffre qui inquiète
      // les collègues sur la consommation.
-     ['modules', v.modules, 'modules chez la cible'],
+     // Le mot suit la cible, comme l'unité : Make compte des modules, ASL des
+     // états. Emprunter le vocabulaire de l'autre fait chercher des objets qui
+     // n'existent pas chez soi.
+     ['modules', v.modules, (v.piece || 'module') + 's chez la cible'],
      // Le mot vient de la CIBLE : Make crée des scénarios, ASL une machine
      // d'états. Le figer ici ferait annoncer « 2 scénarios » à une cible qui
      // n'en connaît pas — et ce compte sert à estimer un travail.

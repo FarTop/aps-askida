@@ -27,6 +27,11 @@ const PORT  = require('../../scripts/porter-ressources-make.js');
 // pas des verbes Iconik. Un émetteur qui les ignore produit des chemins S3
 // différents de ceux qu'APS vérifie ensuite.
 const FONC = require('../../scripts/fonctions-pivot.js');
+// Ce qu'un verbe devient chez AWS Step Functions. Table SÉPARÉE de celle de
+// Make, et pas par symétrie : les coûts s'y renversent (ASL sait boucler, mais
+// n'exécute aucune logique sans Lambda). Entièrement déduite de la spec, jamais
+// mesurée sur un compte AWS — elle le dit elle-même.
+const ASL = require('../../scripts/rendre-asl.js');
 // Le catalogue est le seul à savoir quels ports une étape expose — ceux d'une
 // décision se calculent depuis sa configuration.
 const CAT   = require('../public/builders/workflow/pivot-catalog-iconik.js');
@@ -54,10 +59,12 @@ const prisma = new PrismaClient({
 // le calcul indépendant de la cible utile.
 const CIBLES = {
   make: { nom: 'Make', pret: true,
-          portee: { coupe: true, dit: 'scénario à part', unite: 'scénario', vehicule: 'la charge utile de l\'appel webhook' },
+          rendu: RENDU,
+          portee: { coupe: true, dit: 'scénario à part', unite: 'scénario', piece: 'module', vehicule: 'la charge utile de l\'appel webhook' },
           decoupe: 'Make n\'a pas de sous-fonctions : un corps de boucle ne peut pas être appelé sur place, il devient un scénario à part déclenché par webhook.' },
   asl:  { nom: 'AWS Step Functions', pret: false,
-          portee: { coupe: false, dit: 'état Map · ItemProcessor', unite: 'machine d\'états', vehicule: 'ItemSelector' },
+          rendu: ASL,
+          portee: { coupe: false, dit: 'état Map · ItemProcessor', unite: 'machine d\'états', piece: 'état', vehicule: 'ItemSelector' },
           decoupe: 'ASL n\'a aucun espace de noms global : ce qui entre dans un Map doit être passé explicitement, jamais lu d\'ambiance.' },
   n8n:  { nom: 'n8n', pret: false, portee: null, decoupe: null },
 };
@@ -71,9 +78,29 @@ const CIBLES = {
 //
 // Dire « Decision → outil natif » cachait donc l'essentiel. Ce qu'il faut dire
 // est : « cette question à 5 réponses devient un Router à 5 routes ».
-function construitPar(core, ports) {
+function construitPar(core, ports, cible) {
   const n = (ports || []).length;
   const erreurs = (ports || []).filter(p => /err|erreur|fail|timeout/i.test(p)).length;
+
+  // La cible peut déclarer ses propres formes. ASL le fait : un embranchement
+  // y est un `Choice`, pas un Router, et une boucle reste dans la machine
+  // d'états. Laisser le vocabulaire de Make ici ferait décrire à un lecteur
+  // ASL des objets que sa cible ne connaît pas.
+  const formes = cible && cible.rendu && cible.rendu.FORMES;
+  if (formes && formes[core]) {
+    const f = formes[core];
+    return { forme: f.etat, dit: f.dit(n), pourquoi: f.pourquoi };
+  }
+  if (formes) {
+    // Cible connue, forme non déclarée : chez ASL l'erreur est native (`Retry`
+    // / `Catch` s'attachent à l'état), donc un port d'erreur ne coûte RIEN de
+    // plus — l'inverse exact de Make, où c'est une pièce accrochée.
+    return erreurs
+      ? { forme: 'Task', dit: 'Task + ' + erreurs + ' Catch',
+          pourquoi: 'chez ASL, Retry et Catch s\'attachent à l\'état : un port d\'erreur n\'ajoute pas d\'état' }
+      : { forme: 'Task', dit: 'un Task dans la suite', pourquoi: null };
+  }
+
   if (core === 'decision') {
     return { forme: 'router', dit: 'Router à ' + Math.max(n, 1) + ' route(s)',
              pourquoi: 'un embranchement APS a des ports ; Make n\'en a pas, il faut un module Router' };
@@ -625,6 +652,7 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
     // devant une machine d'états ASL est un mot de Make posé sur autre chose —
     // et le lecteur cherche alors un objet qui n'existe pas.
     const _unite = (cible.portee && cible.portee.unite) || 'scénario';
+    const _piece = (cible.portee && cible.portee.piece) || 'module';
     const _titre = _unite.charAt(0).toUpperCase() + _unite.slice(1);
     // Numéroté seulement si la cible découpe : un « 1 » annonce un « 2 ».
     const groupes = [{ nom: _titre + ((cible.portee && cible.portee.coupe === false) ? '' : ' 1'),
@@ -698,7 +726,12 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       // suite de modules natifs, et elle s'écrit. Un verbe qui en a une cesse
       // donc d'être orphelin — « rien à écrire » était vrai au sens strict
       // (aucun module unique) et faux au sens utile.
-      const compo = RENDU.compositionDe(e.facade || e.core, (e.etape && e.etape.params) || {});
+      // La table de compositions vient de la CIBLE. Celle de Make chiffrait
+      // tout le monde : elle annonçait à ASL une soixantaine d'états pour une
+      // attente, alors qu'ASL sait boucler et en demande trois. Un chiffre de
+      // coût emprunté à une autre cible est pire qu'aucun chiffre.
+      const compo = (cible.rendu || RENDU).compositionDe(
+        e.facade || e.core, (e.etape && e.etape.params) || {});
       const orphelin = !rendu && !natif && !compo;
       if (orphelin) {
         ecarts.unshift({ gravite: 'bloquant', statut: 'a_construire', quoi: e.facade || e.core,
@@ -721,9 +754,14 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
         core: e.core, ports: ports,
         // La composition l'emporte sur la forme générique : « chaîne déroulée
         // de 23 modules » dit infiniment plus que « un module dans la suite ».
-        construit: compo ? { forme: 'composition', dit: compo.dit + ' · ' + compo.nombre + ' modules',
+        // « module » est le mot de Make ; ASL compte des états. Un plan qui
+        // emprunte le vocabulaire d'une autre cible fait chercher des objets
+        // qui n'existent pas.
+        construit: compo ? { forme: 'composition',
+                             dit: compo.dit + ' · ' + compo.nombre + ' ' + _piece
+                                + (compo.nombre > 1 ? 's' : ''),
                              pourquoi: compo.pourquoi }
-                         : construitPar(e.core, ports),
+                         : construitPar(e.core, ports, cible),
         module: rendu ? rendu.module : null,
         // La configuration de l'étape voyage avec le plan : c'est elle que
         // l'émetteur recopie dans les `parameters` du module. Sans elle, il
@@ -807,6 +845,7 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
         // travail.
         scenarios: 1 + groupes.slice(1).filter(g => g.coupe).length,
         unite: (cible.portee && cible.portee.unite) || 'scénario',
+        piece: _piece,
         // Les lectures de ressource ne sont pas des étapes du workflow : ce
         // sont des modules que la CIBLE exige en plus. Les compter à part est
         // la seule façon honnête de le dire — les mêler aux étapes ferait
