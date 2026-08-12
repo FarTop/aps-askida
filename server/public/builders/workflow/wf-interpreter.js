@@ -217,6 +217,33 @@ const WfInterpreter = (() => {
       }
       const bloc = el('div', 'itp-scenario');
       bloc.appendChild(el('div', 'itp-scenario-tete', g.nom + ' · ' + g.role));
+
+      // LE CONTRAT D'ENTRÉE. Une valeur produite dans un scénario et lue dans
+      // un autre ne voyage plus toute seule : APS la trouve dans son espace de
+      // noms global, aucune cible n'en a. Ne pas l'écrire ici, c'est laisser
+      // croire qu'un découpage est gratuit — alors qu'il crée une dépendance
+      // que quelqu'un devra transporter à la main.
+      // Tolérant à un plan sans contrat : la clé est neuve, et une réponse
+      // servie depuis un cache ou une version antérieure ne doit pas casser
+      // l'écran entier pour un encadré.
+      const ent = g.entrees
+        ? { itere: g.entrees.itere || [], traversantes: g.entrees.traversantes || [],
+            complet: g.entrees.complet !== false }
+        : null;
+      if (ent && (ent.itere.length || ent.traversantes.length)) {
+        const cadre = el('div', 'itp-entrees');
+        cadre.dataset.complet = ent.complet ? '1' : '0';
+        cadre.appendChild(el('b', null, 'reçoit en entrée'));
+        if (ent.itere.length) {
+          cadre.appendChild(el('p', 'itp-entree-ok',
+            '↻ ' + ent.itere.join(', ') + ' — l\'élément itéré, fourni par la boucle'));
+        }
+        ent.traversantes.forEach(function (v) {
+          cadre.appendChild(el('p', 'itp-entree-manque',
+            '⚠ ' + v + ' — produite dans un autre scénario, sans véhicule déclaré'));
+        });
+        bloc.appendChild(cadre);
+      }
       const grille = el('div', 'itp-pastilles');
       (g.etapes || []).forEach(function (e) {
         // La lecture d'une ressource se pose AVANT le module qui s'en sert,
@@ -435,6 +462,14 @@ const WfInterpreter = (() => {
     (d.groupes || []).forEach(function (g) {
       L.push('  scénario "' + g.nom + '" (' + g.role + ')');
       if (g.raison) L.push('    # ' + g.raison);
+      // Le contrat d'entrée voyage avec le plan : c'est la première chose que
+      // demandera celui qui monte le scénario chez la cible.
+      if (g.entrees && (g.entrees.itere || []).length) {
+        L.push('    reçoit ↻ ' + g.entrees.itere.join(', ') + ' (élément itéré)');
+      }
+      ((g.entrees && g.entrees.traversantes) || []).forEach(function (v) {
+        L.push('    reçoit ⚠ ' + v + ' — produite ailleurs, sans véhicule déclaré');
+      });
       (g.etapes || []).forEach(function (e) {
         // La lecture se pose AVANT le module qu'elle sert : dans un plan qu'on
         // colle dans un ticket, l'ordre des lignes EST l'ordre du montage.

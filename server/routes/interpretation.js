@@ -448,6 +448,89 @@ async function nomsDesRessources() {
 // scénario. On dédoublonne donc par scénario et par clé — sur PUBLISH, le même
 // manifeste sert quatre étapes et ne se lit qu'une. Les suivantes REPRENNENT,
 // et disent de qui.
+// ── LE CONTRAT D'ENTRÉE D'UN SCÉNARIO ───────────────────────────
+// Un corps de boucle devient un scénario à part — chez Make parce qu'il n'a pas
+// de sous-fonctions, chez AWS Step Functions parce qu'un état ne lit que son
+// input. Dans les DEUX cas, une valeur produite en amont et lue dans le corps
+// ne voyage plus toute seule : APS la trouve dans son espace de noms global,
+// la cible n'en a aucun.
+//
+// Ce contrat ne se SAISIT pas, il se CALCULE : c'est l'ensemble des références
+// lues dans un scénario dont l'auteur est ailleurs. Le stocker dans le pivot le
+// ferait diverger dès la première étape déplacée — il est dérivé, comme le
+// statut publié/brouillon d'un BuilderFlow.
+//
+// Deux natures d'entrée, à ne pas confondre : l'ÉLÉMENT ITÉRÉ (`item`), que la
+// boucle fournit par construction et que toute cible sait passer, et les
+// valeurs TRAVERSANTES, qui n'ont aucun véhicule tant que personne ne les
+// déclare. Les mélanger ferait passer pour résolu ce qui ne l'est pas.
+const RACINES_DECLENCHEUR = /^(collection|asset|user|trigger)$/;
+
+function referencesDe(valeur, out) {
+  if (typeof valeur === 'string') {
+    const re = /\{([^{}"':]+)\}/g;
+    let m;
+    while ((m = re.exec(valeur))) {
+      // Un appel de fonction n'est pas une référence : c'est son ARGUMENT qui
+      // en est une (`{filebase(item.title)}`).
+      const appel = m[1].match(/^[a-zA-Z_][\w]*\s*\((.*)\)$/);
+      out.add((appel ? appel[1] : m[1]).split(/[.[]/)[0]);
+    }
+    return out;
+  }
+  if (Array.isArray(valeur)) { valeur.forEach(v => referencesDe(v, out)); return out; }
+  if (valeur && typeof valeur === 'object') { Object.values(valeur).forEach(v => referencesDe(v, out)); return out; }
+  return out;
+}
+
+function contratsDEntree(groupes, doc) {
+  // Qui produit quoi, et dans quel scénario.
+  const producteur = new Map();
+  groupes.forEach(function (g, i) {
+    g.etapes.forEach(function (e) {
+      const p = e.params || {};
+      ['resultVar', 'lkOutputVar', 'varName'].forEach(function (k) {
+        if (p[k] && !producteur.has(String(p[k]))) producteur.set(String(p[k]), i);
+      });
+      (e.produit || []).forEach(function (n) {
+        if (n && !producteur.has(String(n))) producteur.set(String(n), i);
+      });
+    });
+  });
+
+  // Le nom de la variable d'itération de chaque boucle — `item` par défaut.
+  const loopVars = new Set(['item']);
+  (function visiter(sousDoc) {
+    ((sousDoc && sousDoc.steps) || []).forEach(function (e) {
+      if (e && e.core === 'loop') loopVars.add((e.params && e.params.loopVar) || 'item');
+      if (e && e.body) visiter(Array.isArray(e.body) ? { steps: e.body } : e.body);
+    });
+  })(doc);
+
+  groupes.forEach(function (g, i) {
+    const lues = new Set();
+    g.etapes.forEach(e => referencesDe(e.params || {}, lues));
+
+    const itere = [];
+    const traversantes = [];
+    lues.forEach(function (ref) {
+      if (RACINES_DECLENCHEUR.test(ref)) return;       // fourni par le déclencheur
+      if (loopVars.has(ref)) { if (i > 0) itere.push(ref); return; }
+      const chez = producteur.get(ref);
+      if (chez === undefined) return;                  // orpheline : autre problème, autre compte
+      if (chez !== i) traversantes.push(ref);
+    });
+
+    g.entrees = {
+      itere: itere.sort(),
+      traversantes: traversantes.sort(),
+      // Ce que ça coûte de le dire : sans véhicule déclaré, le scénario reçoit
+      // un appel vide et lit des valeurs absentes — sans rien signaler.
+      complet: traversantes.length === 0,
+    };
+  });
+}
+
 function prevoirLectures(groupes) {
   groupes.forEach(function (g) {
     const deja = new Map();                   // clé -> libellé de l'étape qui l'a lue
@@ -635,6 +718,7 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
     }
 
     prevoirLectures(groupes);
+    contratsDEntree(groupes, flux.document);
     const toutes = groupes.flatMap(g => g.etapes);
     const lectures = toutes.reduce((n, e) => n + (e.prealables || []).length, 0);
     res.json({

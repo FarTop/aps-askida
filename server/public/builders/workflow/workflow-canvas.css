@@ -1396,6 +1396,24 @@ body { margin: 0; display: flex; flex-direction: column; height: 100vh; overflow
   text-transform: uppercase; color: #8e9bb3;
 }
 
+/* Le contrat d'entrée d'un scénario. Encadré plutôt que fondu dans la liste :
+   c'est une dépendance que le découpage CRÉE, pas une étape du flux. Le liseré
+   passe à l'ambre dès qu'une valeur traverse sans véhicule déclaré — un
+   scénario qui reçoit un appel vide lit des absences sans rien signaler. */
+.itp-entrees {
+  margin: 8px 15px 0; padding: 8px 11px; border-radius: 8px;
+  background: rgba(255, 255, 255, .025);
+  border-left: 2px solid rgba(255, 255, 255, .12);
+}
+.itp-entrees[data-complet="0"] { border-left-color: #e0a341; }
+.itp-entrees b {
+  font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase;
+  color: #8e9bb3;
+}
+.itp-entrees p { margin: 4px 0 0; font-size: 11.5px; line-height: 1.45; }
+.itp-entree-ok     { color: var(--bd-text-dim, #a6b0b8); }
+.itp-entree-manque { color: #e0a341; }
+
 .itp-pastilles { display: flex; flex-wrap: wrap; gap: 7px; padding: 12px 15px; }
 .itp-pastille {
   position: relative; display: flex; flex-direction: column; gap: 2px;
