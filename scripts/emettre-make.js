@@ -293,9 +293,13 @@ function emettre(plan, groupe, rang) {
         principal = poser(flow, x, ligne,
           SANS_APP ? 'util:SetVariable2' : PREFIXE_APP + plan.app + ':' + e.module,
           e.label + (SANS_APP ? ' [' + e.module + ']' : ''),
-          { parameters: parametresDe(plan, e),
+          // La configuration va dans `mapper`, la connexion SEULE reste dans
+          // `parameters` — c'est la forme d'Airtable, et c'est ce qu'impose le
+          // partage statique/mappable côté module.
+          { mapper: parametresDe(plan, e),
+            parameters: {},
             metadata: { designer: { x: x, y: ligne * PAS_Y, name: e.label },
-                        parameters: (plan.schemas || {})[e.module] || [] } });
+                        expect: (plan.schemas || {})[e.module] || [] } });
         // La connexion se pose DANS `parameters`, sous `__IMTCONN__`. Sans
         // elle, le module est là, nommé, configuré — et appelle Iconik en
         // anonyme. C'est le pire des trois états : il a l'air complet.
@@ -502,7 +506,7 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
   const utilises = [...new Set((plan.groupes || []).flatMap(g => g.etapes)
     .map(e => e.module).filter(Boolean))];
   for (const nom of utilises) {
-    const r = await ap(accesMake, 'GET', `/sdk/apps/${plan.app}/1/modules/${nom}/parameters`);
+    const r = await ap(accesMake, 'GET', `/sdk/apps/${plan.app}/1/modules/${nom}/expect`);
     plan.schemas[nom] = Array.isArray(r.corps) ? r.corps : [];
   }
   console.log('Schémas    : ' + utilises.length + ' modules lus');

@@ -547,7 +547,27 @@ if (require.main === module) (async () => {
     // Attacher la connexion AVANT de pousser le reste : c'est elle qui rend
     // les en-têtes d'authentification résolvables.
     if (cnxApp) await ap(acces, 'PATCH', `${A}/modules/${p.nom}`, { connection: cnxApp.name });
-    const rp = await ap(acces, 'PUT', `${A}/modules/${p.nom}/parameters`, p.params);
+    // ── STATIQUE OU MAPPABLE, ET POURQUOI ÇA DÉCIDE DE TOUT ──────
+    // Un module Make a deux familles de champs. `parameters` est la
+    // configuration STATIQUE — évaluée avant qu'une connexion soit en jeu, et
+    // incapable de porter une expression. `expect` sont les champs MAPPABLES,
+    // ceux qui acceptent `{{1.collection_id}}`.
+    //
+    // Tout était poussé en `parameters`. Deux conséquences, dont la seconde est
+    // grave :
+    //
+    //   les listes déroulantes échouaient — « App-ID header is required » — car
+    //   l'éditeur appelle leur RPC sans connexion, un champ statique n'en ayant
+    //   pas ;
+    //   et AUCUN champ ne pouvait recevoir une valeur d'exécution, ce qui rend
+    //   un scénario émis inapte à tourner, si bien déclenché et authentifié
+    //   soit-il.
+    //
+    // Airtable montre la forme juste : `parameters` ne garde que la connexion,
+    // tout le reste vit dans `expect`. Le PUT sur `expect` n'est pas documenté
+    // (la spec ne déclare qu'un GET) — il fonctionne.
+    const rp = await ap(acces, 'PUT', `${A}/modules/${p.nom}/expect`, p.params);
+    await ap(acces, 'PUT', `${A}/modules/${p.nom}/parameters`, []);
     let ra = { ok: true }, ri = { ok: true };
     if (p.api) ra = await ap(acces, 'PUT', `${A}/modules/${p.nom}/api`, p.api);
     if (p.interface.length) ri = await ap(acces, 'PUT', `${A}/modules/${p.nom}/interface`, p.interface);
