@@ -38,6 +38,9 @@
   //               Un épisode qui déclare un invité doit GARDER le casting
   //               récurrent de la série ; un simple « sinon » le ferait
   //               disparaître.
+  // Les niveaux qui peuvent HÉRITER. La série est la racine et l'unitaire n'a
+  // pas de parent : ni l'une ni l'autre n'a de qui remonter.
+  const NIVEAUX_HERITAGE = ['saison', 'episode'];
   const HERITAGES = ['', 'propre', 'cascade', 'signalee', 'fusion'];
   // Libellés courts : la colonne fait 140 px, et « propre au niveau » y était
   // coupé en « propre au nive… ». Un libellé tronqué ne dit plus rien ; le
@@ -192,16 +195,68 @@
     fallback.addEventListener('input', function () { row.fallback = fallback.value; });
 
     // Héritage — comment le champ se résout dans une arborescence.
-    const heritage = document.createElement('select');
-    heritage.className = 'mp-heritage';
-    heritage.title = 'Comment ce champ se résout quand le niveau ne le porte pas';
-    HERITAGES.forEach(function (h) {
-      const o = document.createElement('option');
-      o.value = h; o.textContent = HERITAGE_LIB[h];
-      if ((row.heritage || '') === h) o.selected = true;
-      heritage.appendChild(o);
-    });
-    heritage.addEventListener('change', function () { row.heritage = heritage.value; });
+    //
+    // Un champ ne se comporte PAS forcément pareil à tous les étages :
+    // l'arbitrage Bayard veut le synopsis d'une saison hérité de sa série sans
+    // réserve, et celui d'un épisode différencié. `heritage` accepte donc
+    // deux formes — une chaîne (même règle partout) ou un objet par niveau —
+    // et l'écran bascule de l'une à l'autre.
+    const heritage = document.createElement('div');
+    heritage.className = 'mp-heritage-bloc';
+
+    function _select(valeur, sur) {
+      const sel = document.createElement('select');
+      sel.className = 'mp-heritage';
+      HERITAGES.forEach(function (h) {
+        const o = document.createElement('option');
+        o.value = h; o.textContent = HERITAGE_LIB[h];
+        if ((valeur || '') === h) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () { sur(sel.value); });
+      return sel;
+    }
+
+    function _rendreHeritage() {
+      heritage.textContent = '';
+      const parNiveau = row.heritage && typeof row.heritage === 'object';
+
+      if (!parNiveau) {
+        heritage.appendChild(_select(row.heritage, function (v) { row.heritage = v; }));
+      } else {
+        NIVEAUX_HERITAGE.forEach(function (n) {
+          const ligne = document.createElement('div');
+          ligne.className = 'mp-heritage-niveau';
+          const et = document.createElement('span');
+          et.textContent = n;
+          ligne.appendChild(et);
+          ligne.appendChild(_select(row.heritage[n], function (v) { row.heritage[n] = v; }));
+          heritage.appendChild(ligne);
+        });
+      }
+
+      const bascule = document.createElement('button');
+      bascule.type = 'button';
+      bascule.className = 'mp-heritage-bascule';
+      bascule.textContent = parNiveau ? '← une seule règle' : 'par niveau…';
+      bascule.title = parNiveau
+        ? 'Revenir à une règle unique pour tous les niveaux'
+        : 'Distinguer la règle selon le niveau (saison, épisode)';
+      bascule.addEventListener('click', function () {
+        if (parNiveau) {
+          // On garde la règle du niveau le plus profond : c'est la plus
+          // restrictive des deux, donc celle qu'on perd le moins à conserver.
+          row.heritage = row.heritage[NIVEAUX_HERITAGE[NIVEAUX_HERITAGE.length - 1]] || '';
+        } else {
+          const commun = row.heritage || '';
+          row.heritage = {};
+          NIVEAUX_HERITAGE.forEach(function (n) { row.heritage[n] = commun; });
+        }
+        _rendreHeritage();
+      });
+      heritage.appendChild(bascule);
+    }
+    _rendreHeritage();
 
     // Retirer la ligne
     const suppr = document.createElement('button');
@@ -310,7 +365,11 @@
         const propre = { key: r.key || '', value: r.value || '', type: r.type || 'string' };
         if (r._format) propre._format = r._format;
         if (r.fallback) propre.fallback = r.fallback;
-        if (r.heritage) propre.heritage = r.heritage;
+        // Une politique par niveau dont tous les niveaux sont vides ne vaut
+        // pas mieux qu'une absence : on ne la persiste pas.
+        if (r.heritage && typeof r.heritage === 'object') {
+          if (Object.values(r.heritage).some(Boolean)) propre.heritage = r.heritage;
+        } else if (r.heritage) propre.heritage = r.heritage;
         const children = (r.children || []).filter(function (c) { return (c.key || '').trim() && (c.value || '').trim(); });
         if (children.length) propre.children = children;
         return propre;

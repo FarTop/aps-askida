@@ -49,14 +49,30 @@ const ECRIRE = process.argv.includes('--ecrire');
 // (VOD Factory) est rappelé pour que la table se relise sans l'autre écran.
 const POLITIQUE = {
   Titre:               { vers: 'title',              heritage: 'propre' },
-  Synopsis:            { vers: 'synopsis',           heritage: 'signalee' },
-  SynopsisCourt:       { vers: 'short_synopsis',     heritage: 'signalee' },
-  DatedeSortie:        { vers: 'release_date',       heritage: 'signalee' },
-  Classification:      { vers: 'rating',             heritage: 'signalee' },
+  // UNE POLITIQUE PAR NIVEAU. L'arbitrage Bayard du 2026-08-12 : le synopsis
+  // d'une SAISON hérite de sa série sans réserve — c'est l'usage normal — mais
+  // celui d'un ÉPISODE doit être différencié, « indispensable pour une belle
+  // fiche Amazon ». Le même champ ne se comporte donc pas pareil aux deux
+  // étages, et une politique unique ne savait pas le dire.
+  Synopsis:            { vers: 'synopsis',           heritage: { saison: 'cascade', episode: 'signalee' } },
+  SynopsisCourt:       { vers: 'short_synopsis',     heritage: { saison: 'cascade', episode: 'signalee' } },
+  // Propre au niveau, par arbitrage : « release date / numéro au niveau
+  // saison / épisode ».
+  DatedeSortie:        { vers: 'release_date',       heritage: 'propre' },
+  // Héritée partout, par arbitrage : saisie une fois au niveau série.
+  Classification:      { vers: 'rating',             heritage: 'cascade' },
   Studio:              { vers: 'owner',              heritage: 'cascade' },
   LangueOriginale:     { vers: 'original_language',  heritage: 'cascade' },
   Pays:                { vers: 'countries',          heritage: 'cascade' },
   Genres:              { vers: 'genres',             heritage: 'cascade' },
+  // FUSION — et « hériter si vide, sinon fusionner » est la MÊME règle :
+  // l'union avec un ensemble vide rend l'ensemble du parent. Un seul
+  // comportement couvre les deux cas.
+  //
+  // Le dédoublonnage porte sur le couple (external_id, job), pas sur la
+  // personne seule : quelqu'un peut être réalisateur ET scénariste — deux
+  // entrées légitimes — alors qu'un réalisateur déclaré à la fois sur la série
+  // et l'épisode ne doit apparaître qu'une fois.
   Realisateur:         { vers: 'persons[director]',  heritage: 'fusion' },
   Acteur:              { vers: 'persons[actor]',     heritage: 'fusion' },
   AuteurOrigine:       { vers: 'persons[creator]',   heritage: 'fusion' },
@@ -70,10 +86,16 @@ const POLITIQUE = {
   TitreOriginal:       { vers: 'original_title',     heritage: 'signalee' },
   ISAN:                { vers: 'identifiers.isan',   heritage: 'propre' },
   ContenuPrime:        { vers: 'type',               heritage: 'propre' },
-  // Droits : propres au niveau qui les porte. Hériter une fenêtre de droits
-  // serait la pire des erreurs — on publierait un contenu hors de sa licence.
-  DatedeDebutdeDroits: { vers: 'availabilities…starts_at', heritage: 'propre' },
-  DatedeFindeDroits:   { vers: 'availabilities…ends_at',   heritage: 'propre' },
+  // LES DROITS CASCADENT, et j'avais tort de les vouloir propres. Mon
+  // objection — « hériter une fenêtre de licence publierait un contenu hors de
+  // ses droits » — confondait deux choses : un champ VIDE ne dit pas « une
+  // licence différente », il dit « pas de licence ». Et sans cascade rien ne
+  // part : la série de test répond précisément `availability_dates_not_set`.
+  //
+  // Signalés plutôt que silencieux : sur une donnée juridique, savoir que la
+  // fenêtre vient du parent vaut la ligne de journal.
+  DatedeDebutdeDroits: { vers: 'availabilities…starts_at', heritage: 'signalee' },
+  DatedeFindeDroits:   { vers: 'availabilities…ends_at',   heritage: 'signalee' },
   PaysdExploitation:   { vers: 'availabilities…country',   heritage: 'cascade' },
   // Les images sont cadrées PAR NIVEAU par Amazon lui-même : box_art pour un
   // programme, cover/poster/hero/title pour programme et saison, season_box
@@ -109,10 +131,12 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
     const cle = r.key || r.src || '';
     const p = POLITIQUE[cle];
     if (!p) { inconnues.push(cle); return r; }
-    const avant = r.heritage || '—';
-    if (avant !== p.heritage) touchees++;
-    console.log(l(cle, 22) + l(r.value || r.tgt, 30) + l(avant, 12)
-      + p.heritage + (avant === p.heritage ? '   (inchangé)' : ''));
+    const dire = h => !h ? '—' : typeof h === 'string' ? h
+      : Object.entries(h).map(([n, v]) => n + '=' + v).join(' ');
+    const avant = dire(r.heritage), apres = dire(p.heritage);
+    if (avant !== apres) touchees++;
+    console.log(l(cle, 22) + l(r.value || r.tgt, 34) + l(avant, 14)
+      + apres + (avant === apres ? '   (inchangé)' : ''));
     return Object.assign({}, r, { heritage: p.heritage });
   });
 

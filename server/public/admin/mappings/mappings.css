@@ -103,6 +103,18 @@ body {
    qui se passe quand le niveau est vide » — c'est un trou, pas un défaut. */
 .mp-heritage { color: var(--adm-text); }
 .mp-heritage:has(option[value=""]:checked) { color: var(--adm-dim); font-style: italic; }
+
+/* Un champ peut ne pas se comporter pareil à tous les étages : la colonne
+   accueille donc soit une règle unique, soit une par niveau. */
+.mp-heritage-bloc { display: flex; flex-direction: column; gap: 4px; }
+.mp-heritage-niveau { display: grid; grid-template-columns: 52px 1fr; gap: 6px; align-items: center; }
+.mp-heritage-niveau span { font-size: 10.5px; color: var(--adm-dim); }
+.mp-heritage-bascule {
+  background: transparent; border: none; color: var(--adm-dim);
+  font: inherit; font-size: 10.5px; text-align: left; padding: 0;
+  cursor: pointer; text-decoration: underline dotted;
+}
+.mp-heritage-bascule:hover { color: var(--adm-accent); }
 .mp-row input, .mp-row select {
   background: #262c32; color: var(--adm-text);
   border: 1px solid #3a4147; border-radius: 6px;
