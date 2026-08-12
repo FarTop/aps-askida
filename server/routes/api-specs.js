@@ -241,6 +241,93 @@ function operationsDe(doc) {
   return out;
 }
 
+// ── Collection Postman ───────────────────────────────────────────
+// Beaucoup d'éditeurs ne publient pas d'OpenAPI mais distribuent une
+// collection Postman — c'est ce que VOD Factory a fourni. Le détecteur la
+// reconnaissait depuis le début et l'import répondait « pas encore analysé ».
+//
+// Une collection dit MOINS qu'une spec : pas de schéma de réponse, pas de
+// types, pas d'énumérations. Elle dit en revanche deux choses qu'une spec omet
+// souvent — des exemples de corps RÉELS, et les commentaires que l'éditeur y a
+// laissés (« Not required. Will be generated if empty »). On garde donc le
+// corps brut tel quel, sans chercher à en inférer un schéma qui serait faux.
+
+// Les corps d'exemple contiennent souvent des commentaires `//`, donc ne sont
+// pas du JSON valide (constaté sur la collection VOD Factory : chaque champ
+// est annoté). On tente le parse, et à défaut on conserve le texte — perdre
+// l'annotation serait perdre l'essentiel de ce que la collection apporte.
+function _corpsPostman(request) {
+  const b = request && request.body;
+  if (!b || !b.raw) return null;
+  try { return { exemple: JSON.parse(b.raw) }; }
+  catch (_) { return { exempleBrut: String(b.raw).slice(0, 4000), note: 'corps non-JSON (commentaires ou variables)' }; }
+}
+
+// Le chemin depuis la base, conformément à la convention d'ApiEndpoint.path.
+// Postman écrit ses URL en absolu ; `url.path` est déjà découpé en segments,
+// et ses paramètres `:id` deviennent `{id}` pour rejoindre la notation
+// OpenAPI — sans quoi deux descriptions de la même API ne se compareraient
+// pas.
+function _cheminPostman(url) {
+  if (!url) return '/';
+  const segments = Array.isArray(url.path)
+    ? url.path
+    : String(url.raw || url).replace(/^[a-z]+:\/\/[^/]+/i, '').split('?')[0].split('/').filter(Boolean);
+  const chemin = '/' + segments
+    .map(s => String(s).replace(/^:(.+)$/, '{$1}'))
+    .join('/');
+  return chemin.replace(/\/+/g, '/');
+}
+
+function _originePostman(url) {
+  const brut = url && (url.raw || (typeof url === 'string' ? url : ''));
+  const m = String(brut || '').match(/^([a-z]+:\/\/[^/]+)/i);
+  return m ? m[1] : null;
+}
+
+function operationsDePostman(doc) {
+  const out = [];
+  const parcourir = function (items, dossiers) {
+    (items || []).forEach(function (it) {
+      if (Array.isArray(it.item)) { parcourir(it.item, dossiers.concat(it.name || [])); return; }
+      const r = it.request;
+      if (!r) return;
+      const url = r.url || {};
+      const params = (url.query || []).map(q => ({
+        name: q.key, in: 'query', description: q.description || '',
+        example: q.value, disabled: !!q.disabled,
+      }));
+      out.push({
+        method : String(r.method || 'GET').toUpperCase(),
+        path   : _cheminPostman(url),
+        summary: { fr: it.name || '', description: (typeof r.description === 'string' ? r.description : '') || '',
+                   tags: dossiers, operationId: null },
+        requestSchema : (params.length || _corpsPostman(r))
+          ? { parameters: params, body: _corpsPostman(r) } : null,
+        // Une collection ne décrit JAMAIS ses réponses : laisser `null` plutôt
+        // qu'un objet vide, pour que l'écran distingue « pas documenté » de
+        // « documenté comme vide ».
+        responseSchema: null,
+      });
+    });
+  };
+  parcourir(doc.item, []);
+  return out;
+}
+
+function baseUrlDePostman(doc) {
+  let trouvee = null;
+  const parcourir = function (items) {
+    (items || []).forEach(function (it) {
+      if (trouvee) return;
+      if (Array.isArray(it.item)) { parcourir(it.item); return; }
+      if (it.request && it.request.url) trouvee = _originePostman(it.request.url);
+    });
+  };
+  parcourir(doc.item);
+  return trouvee;
+}
+
 // ── Repli : reconstituer une spec depuis une documentation ────────
 // Tous les éditeurs ne publient pas leur spec à un chemin devinable. Beaucoup
 // hébergent en revanche une doc qui EST rendue depuis une spec : chaque page
@@ -605,11 +692,9 @@ router.post('/:id/specs', async (req, res) => {
 
     const detecte = detecter(contenu);
     if (!detecte) return res.status(415).json({ error: 'Format non reconnu — attendu OpenAPI (openapi/swagger) ou collection Postman' });
-    if (detecte.format !== 'openapi') {
-      return res.status(501).json({ error: `Format « ${detecte.format} » reconnu mais pas encore analysé — seul OpenAPI l'est` });
-    }
 
-    const ops = operationsDe(contenu);
+    const estPostman = detecte.format === 'postman';
+    const ops = estPostman ? operationsDePostman(contenu) : operationsDe(contenu);
     if (!ops.length) return res.status(422).json({ error: 'Spécification lue, mais aucune opération trouvée' });
 
     // Réimporter remplace : une spec est un instantané de la doc de l'éditeur,
@@ -623,8 +708,15 @@ router.post('/:id/specs', async (req, res) => {
     // Ne remplacer QUE les specs du même canal : l'inventaire MCP est une
     // spec `format: 'mcp'` de la même plateforme, et rafraîchir l'API n'a
     // aucune raison de l'effacer. Il a sa propre route pour ça.
+    // OpenAPI et Postman sont deux DESCRIPTIONS de la même API, donc un seul
+    // et même canal : la seconde importée remplace la première. Les avoir en
+    // parallèle afficherait deux fois les mêmes opérations, décrites
+    // inégalement. C'est aussi le comportement voulu en pratique — une
+    // collection tient lieu de description en attendant la vraie spec, et
+    // s'efface d'elle-même quand celle-ci arrive. Le canal `mcp` reste
+    // intact : il a sa propre route.
     const anciennes = await prisma.apiSpec.findMany({
-      where: { platformId: plateforme.id, format: 'openapi' }, select: { id: true } });
+      where: { platformId: plateforme.id, format: { in: ['openapi', 'postman'] } }, select: { id: true } });
     const annotations = new Map();
     if (anciennes.length) {
       const ids = anciennes.map(s => s.id);
@@ -647,11 +739,11 @@ router.post('/:id/specs', async (req, res) => {
     const spec = await prisma.apiSpec.create({
       data: {
         platformId: plateforme.id,
-        name: (contenu.info && contenu.info.title) || plateforme.name,
-        format: 'openapi',
+        name: (contenu.info && (contenu.info.title || contenu.info.name)) || plateforme.name,
+        format: detecte.format,
         version: (contenu.info && contenu.info.version) || detecte.version,
         rawContent: contenu,
-        baseUrl: baseUrlDe(contenu),
+        baseUrl: estPostman ? baseUrlDePostman(contenu) : baseUrlDe(contenu),
         sourceUrl: source,
       },
     });
