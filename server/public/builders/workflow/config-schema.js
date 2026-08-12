@@ -231,8 +231,22 @@ const ConfigSchema = (() => {
         { valeur: 'asset', libelle: 'An asset' },
         { valeur: 'collection', libelle: 'A collection' },
         { valeur: 'segment', libelle: 'A segment' },
-        { valeur: 'schedule', libelle: 'A schedule' }
+        { valeur: 'schedule', libelle: 'A schedule' },
+        { valeur: 'webhook', libelle: 'A third-party webhook' }
       ] });
+      // Webhook TIERS (2026-08-12) : un partenaire nous appelle avec SON
+      // payload, sur POST /api/hooks/<slug> (server/routes/hooks.js). Distinct
+      // du webhook Iconik, qui passe par un Custom Action et se déclare avec
+      // `kind: asset|collection`. Sans ce type, un callback partenaire devait
+      // détourner un déclencheur « collection » — le canevas annonçait alors
+      // une collection cliquée là où rien de tel n'arrive, et le premier
+      // lecteur du workflow était trompé.
+      s.push({ nature: 'texte', chemin: 'wfdSlug', label: 'Webhook slug', placeholder: 'vodfactory-callback',
+               aide: 'Last segment of the URL to give the partner: POST /api/hooks/<slug>. Keep it stable — changing it means asking the partner to reconfigure.',
+               visibleSi: function (m) { return m.lire('kind') === 'webhook'; } });
+      s.push({ nature: 'texte', chemin: 'hookSecret', label: 'Shared secret', placeholder: '(optional)',
+               aide: 'When set, the caller must send the same value in the X-APS-Hook-Secret header (or ?secret=). Leave empty for a public endpoint — only acceptable if the partner cannot send custom headers.',
+               visibleSi: function (m) { return m.lire('kind') === 'webhook'; } });
       s.push({ nature: 'choix', chemin: 'timerMode', label: 'Schedule type', reagit: true,
                visibleSi: function (m) { return m.lire('kind') === 'schedule'; },
                aide: 'Cron: recurring on a fine-grained pattern (needs a cron expression). Fixed interval: simplest recurring case ("every N minutes/hours/days"). One-shot: runs once at a specific date and time, then never again.',

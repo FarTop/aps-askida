@@ -57,6 +57,7 @@ const endpointsRouter      = require('./routes/endpoints');
 const contextRouter        = require('./routes/context');
 const packageRouter        = require('./routes/package');
 const builderEngineRouter  = require('./routes/builder-engine');
+const hooksRouter          = require('./routes/hooks');
 const builderRunsRouter    = require('./routes/builder-runs');
 const builderScheduler     = require('./engine-builder/builder-scheduler.js');
 const apiSpecsRouter       = require('./routes/api-specs');
@@ -77,6 +78,9 @@ app.use('/api/jobs',         syncJobsRouter);
 app.use('/api/iconik',       iconikProxy);
 app.use('/api/package',    packageRouter);
 app.use('/api/builder-engine', builderEngineRouter);
+// Webhooks TIERS (un partenaire nous appelle avec SON payload) — distinct du
+// webhook Iconik de /api/builder-engine/action/:slug, cf. routes/hooks.js.
+app.use('/api/hooks', hooksRouter);
 app.use('/api/builder-runs',   builderRunsRouter);
 app.use('/api',            contextRouter);
 // L'interprétation partage le préfixe /api/builder-flows avec wfdDataRouter :
