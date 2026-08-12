@@ -135,3 +135,150 @@ Reprise, dans l'ordre de blocage :
 3. **Les 8 orphelines** — à régler dans le Builder, pas dans l'émetteur.
 4. Mettre à jour plutôt que créer un scénario (aujourd'hui chaque émission
    fabrique une paire neuve).
+
+---
+
+# Journal APS — 2026-08-12, seconde partie : retour à VOD Factory
+
+> Make est mis en pause volontairement : la documentation partenaire VOD
+> Factory a été mise à jour, et elle change des choses. Une demi-journée de
+> lecture, de mesure et d'arbitrage — qui découvre un blocage total du
+> catalogue série, jamais vu jusqu'ici.
+
+## Ce que la doc a bougé
+
+Changelog API jusqu'au **1.3.0 du 2026-08-10**. Quatre entrées comptent :
+
+```
+1.3.0  callback transfert/ingest        ← tue notre plus gros poste de coût
+       force_send_amazon / force_send_free
+1.1.0  licences AVOD/FVOD/VOD/EST/POEST + price_value/price_currency
+       débit : 120 req/min, X-RateLimit-*, 429 + Retry-After
+1.0.4  serveur MCP
+```
+
+**Le callback change l'architecture.** Savoir si une livraison a abouti
+demandait de sonder `action-statuses` — c'est ce que fait le nœud `Wait`, et
+chez Make ce sondage coûtait 59 modules à lui seul. VOD Factory rappelle
+désormais une URL quand un transfert atteint un état final. Le `Wait`
+disparaît, remplacé par un second scénario déclenché par webhook.
+
+## LA DÉCOUVERTE : le catalogue série est entièrement bloqué
+
+Doute de l'utilisateur en lisant les exigences : les séries et saisons
+auraient aussi besoin de métadonnées éditoriales. Vérifié sur le tableau
+structuré — la légende dit « ✔ : program, serie, season, and episode » —
+puis **mesuré sur leur préprod** :
+
+```
+SERIE   « Star Trek »        title ✅   les 9 autres ❌
+EPISODE « Next Generation »  les 10 ✅  (il a un asset éditorial)
+```
+
+Et une cascade que personne n'attendait :
+
+```
+serie    amazon_avails → availability_dates_not_set
+season   amazon_avails → parent_not_sent
+episode  amazon_avails → parent_not_sent
+```
+
+**La perfection des épisodes ne sert à rien** : l'arbre entier est bloqué par
+le niveau série. Aujourd'hui, rien d'une série ne peut être livré à Amazon.
+
+La cause est en amont d'Iconik : les vues SERIE et SAISON ne portaient aucune
+métadonnée éditoriale. Le workflow ne « saute » pas une récolte — il n'y avait
+rien à récolter. Ce n'était donc pas un chantier de workflow mais de modèle de
+données.
+
+## L'arbitrage — trois classes, et une politique par niveau
+
+Rendre les dix champs obligatoires partout ferait ressaisir dix valeurs sur
+chaque épisode ; ne rien exiger livrerait des fiches vides. La résolution se
+fait à la publication, en remontant tant que c'est vide, et ce qui varie d'un
+champ à l'autre est le DROIT de remonter :
+
+```
+propre     identité, structure, images, ISAN, date de sortie
+cascade    Studio · LangueOriginale · Pays · Genres · Classification
+signalee   Synopsis · SynopsisCourt · TitreOriginal · droits
+fusion     les cinq métiers de personnes, dédoublonnés sur (external_id, job)
+```
+
+Le responsable Bayard a corrigé trois choses, dont une où j'avais tort :
+
+**Les droits cascadent.** Mon objection — « hériter une fenêtre de licence
+publierait un contenu hors de ses droits » — confondait deux situations. Un
+champ VIDE ne dit pas « une licence différente », il dit « pas de licence ».
+Et la preuve était sous mes yeux : `availability_dates_not_set`.
+
+**Et le modèle était insuffisant.** Leur règle sur le synopsis — la saison
+hérite, l'épisode doit être différencié — ne s'exprime pas avec une politique
+par champ. `heritage` accepte donc deux formes : une chaîne, ou un objet par
+niveau.
+
+Sur les personnes, « hérite si vide, sinon fusion » est la MÊME règle que
+`fusion` seule : l'union avec un ensemble vide rend l'ensemble du parent.
+
+## Où vit la contrainte — trois moments, pas un
+
+L'utilisateur a tranché en cours de route, et son raisonnement s'est propagé :
+si l'opérateur peut ne pas avoir l'information à la création, le formulaire ne
+peut pas être bloquant là. Et à la publication non plus — il se prendrait dix
+champs au visage au moment où il est le moins disposé à les chercher.
+
+```
+création     CREER UNE SERIE     ce qu'il faut pour bâtir la structure
+saisie       fiche COLLECTION    au fil de l'eau, aucun required
+publication  la livraison DIT ce qui manque, champ par champ
+```
+
+`action-statuses` rend le motif exact — « The metadata persons is required ».
+Le contrôle existe donc en aval, sans qu'on ait à le dupliquer en amont.
+
+## Les vues, faites par l'utilisateur
+
+```
+SERIE     28 champs   ✅ les 13 éditoriaux, les 3 droits, ISAN
+SAISON    23 champs   ⚠ voir ci-dessous
+EPISODE   20 champs   ✅
+aucun champ requis, aucun champ du tronc commun dupliqué sous la série
+```
+
+**Un piège trouvé en vérifiant, et il ne se serait vu qu'à la livraison :**
+
+```
+DatedeFindeDroits   datetime   ASSET · SERIE · EPISODE   ← ciblé par la correspondance
+DatedeFinDroits     date       SAISON seulement          ← le mauvais
+```
+
+Deux champs Iconik distincts, libellés à l'identique, types différents. Une
+date de fin de droits saisie sur une saison ne serait jamais lue.
+
+## Ce qui reste
+
+1. **Remplacer `DatedeFinDroits` par `DatedeFindeDroits`** sur la vue SAISON.
+2. **La résolution dans le moteur** — remonter l'arbre selon la politique de
+   la correspondance. `iconik.resolve_ancestors` remonte déjà, il lui manque
+   de rapporter les métadonnées et pas seulement le chemin.
+3. **La trace des emprunts** au compte rendu — sans elle, `hérité ⚠` ne vaut
+   pas mieux que `hérité`.
+4. **Le découpage par niveau des images** dans le manifeste : Amazon cadre ses
+   formats par niveau (`box_art` programme, `cover/poster/hero/title` programme
+   et saison, `season_box` saison, `episodic` épisode) alors que notre
+   manifeste déclare les mêmes essences pour tous (`niveau: *`).
+5. **Le callback** — il remplace le sondage, et change la forme du workflow.
+6. Les huit champs manquants de la correspondance (`sku_code`, `format_profile`,
+   `licence_type`, `duration`, identifiants…) et la connexion production.
+
+## Méthode
+
+**Le doute de l'utilisateur valait mieux que ma lecture.** J'avais lu le
+tableau des attributs requis dans un texte aplati et attribué `original_title`
+et `video_quality` à Amazon — ils appartiennent à Allociné et Betv. Réextrait
+en table structurée, tout se remet en place. Un tableau lu à plat n'est pas un
+tableau.
+
+**Et la mesure a battu la déduction, encore.** Le blocage en cascade
+(`parent_not_sent`) ne se déduisait d'aucune documentation : il a fallu
+appeler `action-statuses` sur une vraie série pour le voir.
