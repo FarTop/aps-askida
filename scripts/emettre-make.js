@@ -148,6 +148,110 @@ function parametresDe(plan, etape) {
   return out;
 }
 
+// ── TRADUIRE UNE RÉFÉRENCE DU PIVOT EN EXPRESSION MAKE ──────────
+// APS écrit `{collection.id}` ; Make écrit `{{1.collection_id}}` — le nombre
+// désignant le MODULE qui a produit la valeur. Traduire demande donc de savoir
+// d'où vient chaque variable, et c'est là que le workflow se fait mesurer.
+//
+// Sur PUBLISH : 16 références distinctes, dont 7 traçables — le déclencheur ou
+// une étape amont qui déclare un `resultVar`. Les 9 autres (`exportJobId`,
+// `now`, sept `s3_*_url`) ne sont produites par AUCUNE étape déclarée. Ce sont
+// des variables d'ambiance, et le moteur d'APS les tolère parce qu'il a un
+// espace de noms global.
+//
+// Make n'en a pas. ASL non plus. Une référence orpheline n'est donc pas un
+// détail d'émission : c'est une dépendance invisible du workflow, qui ne
+// survivra à aucun portage. On les laisse telles quelles et on les COMPTE —
+// les traduire au jugé produirait un scénario qui a l'air complet et qui lit
+// des valeurs vides.
+function traducteurDe(plan) {
+  // Quelle étape produit quelle variable.
+  const parVariable = new Map();
+  (plan.groupes || []).flatMap(g => g.etapes).forEach(function (e) {
+    const p = e.params || {};
+    ['resultVar', 'lkOutputVar', 'varName'].forEach(function (k) {
+      if (p[k]) parVariable.set(String(p[k]), e.id);
+    });
+  });
+
+  // À quel scénario appartient chaque étape : une référence qui traverse la
+  // frontière ne peut PAS devenir une référence de module.
+  const groupeDe = new Map();
+  (plan.groupes || []).forEach(function (g, i) {
+    (g.etapes || []).forEach(e => groupeDe.set(e.id, i));
+  });
+
+  // Make a ses propres constantes. `now` en est une, et la traduire vaut mieux
+  // que la déclarer orpheline.
+  const CONSTANTES = { now: '{{now}}' };
+
+  const orphelines = new Map();
+  const traversantes = new Map();
+  const sansChamp = new Map();
+  return {
+    orphelines: orphelines,
+    traversantes: traversantes,
+    sansChamp: sansChamp,
+    // `moduleDe` est rempli au fil du parcours : une étape productrice est
+    // toujours posée avant celles qui la consomment, l'ordre du flux le
+    // garantit.
+    traduire: function (valeur, moduleDe, idDeclencheur) {
+      if (typeof valeur !== 'string') return valeur;
+      return valeur.replace(/\{([^{}"':]+)\}/g, function (tout, ref) {
+        const racine = ref.split(/[.[]/)[0];
+        const reste = ref.slice(racine.length);
+        // Le déclencheur : Iconik poste sa charge utile au webhook, qui est le
+        // module 1. `{collection.id}` devient `{{1.collection.id}}`.
+        if (/^(collection|asset|item|user)$/.test(racine) && idDeclencheur) {
+          return '{{' + idDeclencheur + '.' + ref + '}}';
+        }
+        if (CONSTANTES[racine] && !reste) return CONSTANTES[racine];
+
+        const etape = parVariable.get(racine);
+        const m = etape && moduleDe.get(etape);
+        if (m) {
+          // Une référence NUE — `{{38}}` — ne désigne rien : Make attend un
+          // champ. APS range tout le résultat dans une variable, la cible veut
+          // savoir lequel de ses champs on lit. À défaut de le savoir, on prend
+          // la première sortie DÉCLARÉE du module, qui est l'information la
+          // plus proche qu'on ait.
+          if (reste) return '{{' + m.id + reste + '}}';
+          const sorties = (plan.interfaces || {})[m.module] || [];
+          const champ = sorties.length ? '.' + sorties[0] : '';
+          if (!champ) sansChamp.set(ref, (sansChamp.get(ref) || 0) + 1);
+          return '{{' + m.id + champ + '}}';
+        }
+
+        // Produite ailleurs, mais dans un AUTRE scénario. Make n'a pas de
+        // référence inter-scénarios : la valeur doit voyager dans la charge
+        // utile de l'appel webhook. Ce n'est pas une variable manquante, c'est
+        // un paramètre d'entrée qui n'a pas encore été déclaré.
+        if (etape !== undefined && groupeDe.has(etape)) {
+          traversantes.set(ref, (traversantes.get(ref) || 0) + 1);
+          return tout;
+        }
+        orphelines.set(ref, (orphelines.get(ref) || 0) + 1);
+        return tout;                       // laissée telle quelle, et comptée
+      });
+    },
+  };
+}
+
+// Une configuration est un arbre : chaînes, tableaux, objets imbriqués. La
+// traduction descend partout — un `{collection.id}` enfoui dans un critère de
+// recherche compte autant que celui posé en surface.
+function traduireTout(v, trad, moduleDe, idDecl) {
+  if (!trad) return v;
+  if (typeof v === 'string') return trad.traduire(v, moduleDe, idDecl);
+  if (Array.isArray(v)) return v.map(x => traduireTout(x, trad, moduleDe, idDecl));
+  if (v && typeof v === 'object') {
+    const o = {};
+    Object.keys(v).forEach(k => { o[k] = traduireTout(v[k], trad, moduleDe, idDecl); });
+    return o;
+  }
+  return v;
+}
+
 // ── L'ÉMETTEUR ──────────────────────────────────────────────────
 // `plan` est la sortie de la route d'interprétation : les mêmes groupes, les
 // mêmes étapes, les mêmes lectures. Émettre depuis le PLAN et non depuis le
@@ -155,6 +259,7 @@ function parametresDe(plan, etape) {
 // l'écran a montré et que quelqu'un a approuvé.
 function emettre(plan, groupe, rang) {
   let id = 1;
+  const trad = plan.traducteur;
 
   const parId = new Map((groupe.etapes || []).map(e => [e.id, e]));
   const sortantes = new Map();
@@ -296,7 +401,7 @@ function emettre(plan, groupe, rang) {
           // La configuration va dans `mapper`, la connexion SEULE reste dans
           // `parameters` — c'est la forme d'Airtable, et c'est ce qu'impose le
           // partage statique/mappable côté module.
-          { mapper: parametresDe(plan, e),
+          { mapper: traduireTout(parametresDe(plan, e), trad, moduleDe, plan.idDeclencheur),
             parameters: {},
             metadata: { designer: { x: x, y: ligne * PAS_Y, name: e.label },
                         expect: (plan.schemas || {})[e.module] || [] } });
@@ -503,11 +608,17 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
   // reconstruit : c'est exactement ce que l'éditeur recopie dans le blueprint
   // quand un humain pose un module.
   plan.schemas = {};
+  plan.interfaces = {};
   const utilises = [...new Set((plan.groupes || []).flatMap(g => g.etapes)
     .map(e => e.module).filter(Boolean))];
   for (const nom of utilises) {
     const r = await ap(accesMake, 'GET', `/sdk/apps/${plan.app}/1/modules/${nom}/expect`);
     plan.schemas[nom] = Array.isArray(r.corps) ? r.corps : [];
+    // Les SORTIES déclarées, pour savoir quel champ lire quand une référence
+    // ne pointe rien de précis.
+    const ri = await ap(accesMake, 'GET', `/sdk/apps/${plan.app}/1/modules/${nom}/interface`);
+    plan.interfaces[PREFIXE_APP + plan.app + ':' + nom] =
+      (Array.isArray(ri.corps) ? ri.corps : []).map(c => c.name).filter(Boolean);
   }
   console.log('Schémas    : ' + utilises.length + ' modules lus');
 
@@ -534,7 +645,34 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
     ? hook.id + '  ' + (hook.url || 'https://hook.eu2.make.com/' + hook.udid)
     : '⚠ aucun — le scénario n\'aura pas de point d\'entrée'));
 
+  // Le déclencheur est le module 1 du premier scénario : c'est lui qui porte la
+  // charge utile d'Iconik.
+  plan.idDeclencheur = 1;
+  plan.traducteur = traducteurDe(plan);
+
   const sorties = (plan.groupes || []).map((g, i) => emettre(plan, g, plan.groupes.length > 1 ? i + 1 : 0));
+
+  const trav = [...plan.traducteur.traversantes.entries()].sort((a, b) => b[1] - a[1]);
+  if (trav.length) {
+    console.log('\n↔ ' + trav.length + ' référence(s) FRANCHISSANT une frontière de scénario :');
+    trav.forEach(([r, n]) => console.log('   {' + r + '}  ×' + n));
+    console.log('   Produites dans un scénario, lues dans un autre. Make n\'a pas de');
+    console.log('   référence inter-scénarios : elles doivent voyager dans la charge');
+    console.log('   utile de l\'appel webhook, en paramètres d\'entrée déclarés.');
+  }
+  const sc = [...plan.traducteur.sansChamp.entries()];
+  if (sc.length) {
+    console.log('\n◦ ' + sc.length + ' référence(s) sans champ ni sortie déclarée :');
+    sc.forEach(([r, n]) => console.log('   {' + r + '}  ×' + n
+      + '  → module désigné, champ inconnu'));
+  }
+  const orph = [...plan.traducteur.orphelines.entries()].sort((a, b) => b[1] - a[1]);
+  if (orph.length) {
+    console.log('\n⚠ ' + orph.length + ' référence(s) sans origine déclarée — laissées telles quelles :');
+    orph.forEach(([r, n]) => console.log('   {' + r + '}  ×' + n));
+    console.log('   AUCUNE étape ne les produit. Le moteur d\'APS les tolère grâce à');
+    console.log('   son espace de noms global ; Make n\'en a pas, ASL non plus.');
+  }
   // Le flux est un ARBRE dès qu'il y a un Router : l'afficher à plat le
   // redirait faux, et c'est justement la forme qu'on cherche à vérifier.
   // Un blueprint est un ARBRE : `flow.length` ne compte que le premier niveau.
