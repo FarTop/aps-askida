@@ -707,9 +707,15 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
       // D'où vient l'étape. Deux nœuds peuvent porter le MÊME libellé — une
       // copie et son original — et rien ne les distinguait à l'écran. Ce qui
       // les sépare est justement ce à quoi ils sont reliés.
+      // `de` porte le LIBELLÉ, pour l'écran — mais deux étapes peuvent porter
+      // le même (« Set Metadata (Échec) » existe deux fois dans PUBLISH). Un
+      // émetteur qui apparie là-dessus se trompe de cible ou ne trouve rien :
+      // l'émetteur ASL a chaîné TOUS ses états vers la sortie en croyant lire
+      // des identifiants. `deId` porte donc l'identifiant, seul appariement
+      // sûr, sans retirer le libellé à qui s'en sert déjà.
       const depuis = aretes.filter(a => a.vers === e.id).map(function (a) {
         const src = etapes.find(x => x.id === a.de);
-        return { de: src ? src.label : a.de, port: a.port };
+        return { de: src ? src.label : a.de, deId: a.de, port: a.port };
       });
       // Ni module dédié, ni équivalent natif. C'était jusqu'ici un simple texte
       // gris — « aucun module » — qui ne produisait AUCUN écart, donc ne
