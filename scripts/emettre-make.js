@@ -268,6 +268,16 @@ function emettre(plan, groupe, rang) {
           if (!premier) premier = m;
         });
         principal = premier;
+      } else if (RENDU.NATIFS[e.verbe]) {
+        // Un équivalent natif l'emporte sur tout : la cible a déjà l'objet, et
+        // il fait mieux qu'un module de notre app. Le webhook est le cas qui
+        // compte — sans lui, le scénario n'a pas de point d'entrée et Iconik ne
+        // peut pas le démarrer.
+        const nat = RENDU.NATIFS[e.verbe];
+        principal = poser(flow, x, ligne, nat.module, e.label,
+          nat.besoin === 'hook' && plan.idHook
+            ? { parameters: { hook: plan.idHook, maxResults: 1 } } : undefined);
+        x += PAS_X;
       } else if (e.module) {
         principal = poser(flow, x, ligne,
           SANS_APP ? 'util:SetVariable2' : PREFIXE_APP + plan.app + ':' + e.module,
@@ -462,6 +472,34 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
   console.log('Connexion  : ' + (mienne
     ? mienne.id + ' « ' + mienne.accountName + ' »'
     : '⚠ AUCUNE pour ' + attendu + ' — les modules appelleront en anonyme') + '\n');
+
+  // ── LE DÉCLENCHEUR ────────────────────────────────────────────
+  // Un scénario Make doit commencer par un déclencheur. Le webhook en est un,
+  // il n'a aucune connexion à authentifier, et Iconik sait déjà y poster —
+  // c'est exactement ce que fait une Custom Action.
+  //
+  // Le hook est RÉUTILISÉ par son nom : le recréer à chaque émission changerait
+  // son URL, et l'URL est justement ce qu'on aura collé dans Iconik. Un
+  // déclencheur qui change d'adresse à chaque publication ne déclenche plus
+  // rien.
+  const nomHook = 'APS | ' + plan.flux.nom;
+  const rh = await ap(accesMake, 'GET', `/hooks?teamId=${equipeMake}`);
+  let hook = ((rh.corps && rh.corps.hooks) || []).find(h => h.name === nomHook);
+  if (!hook && ECRIRE) {
+    // `method`, `headers` et `stringify` sont REQUIS, alors que le schéma de la
+    // spec ne les marque pas comme tels. Ils décident de ce que le webhook
+    // ajoute au corps reçu ; `false` partout donne le corps brut, qui est ce
+    // qu'Iconik envoie et ce que les scénarios BAYAM utilisent.
+    const c = await ap(accesMake, 'POST', '/hooks',
+      { name: nomHook, teamId: equipeMake, typeName: 'gateway-webhook',
+        method: false, headers: false, stringify: false });
+    hook = c.corps && c.corps.hook;
+    if (!hook) console.log('⚠️  hook non créé — ' + c.brut);
+  }
+  plan.idHook = hook ? hook.id : null;
+  console.log('Déclencheur : ' + (hook
+    ? hook.id + '  ' + (hook.url || 'https://hook.eu2.make.com/' + hook.udid)
+    : '⚠ aucun — le scénario n\'aura pas de point d\'entrée'));
 
   const sorties = (plan.groupes || []).map((g, i) => emettre(plan, g, plan.groupes.length > 1 ? i + 1 : 0));
   // Le flux est un ARBRE dès qu'il y a un Router : l'afficher à plat le

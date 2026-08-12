@@ -63,6 +63,33 @@ const RESSOURCES_APS = ['manifeste', 'mapping', 'endpoint', 'endpoints', 'gabari
 const T_SORTIE = { string: 'text', integer: 'number', number: 'number',
                    boolean: 'boolean', array: 'array', object: 'collection' };
 
+// ── LES ÉQUIVALENTS NATIFS ──────────────────────────────────────
+// Certains verbes ne doivent PAS devenir un module de notre app, parce que la
+// cible a déjà l'objet qui convient — et qu'il fait mieux.
+//
+// `iconik.trigger` était rendu en module d'action (`typeId 4`). C'était une
+// erreur de fond : notre app n'avait AUCUN module de type déclencheur, donc un
+// scénario émis commençait par une action et n'avait pas de point d'entrée —
+// Iconik ne pouvait pas le démarrer. Il ne partait qu'à la main.
+//
+// Les douze scénarios BAYAM commencent tous par `gateway:CustomWebHook`, et
+// cumulent trois avantages qu'aucun module d'app ne peut avoir : c'est un vrai
+// déclencheur, il n'a aucune connexion à authentifier, et Iconik sait déjà y
+// poster (c'est ce que fait une Custom Action). Le rendre en module de notre
+// app revenait à réinventer moins bien ce que la cible offre.
+const NATIFS = {
+  'iconik.trigger': {
+    module: 'gateway:CustomWebHook',
+    dit: 'webhook — le point d\'entrée du scénario',
+    pourquoi: 'un scénario Make doit commencer par un déclencheur ; une action '
+            + 'n\'en est pas un, et notre app n\'en déclare aucun',
+    mesure: 'les 12 scénarios BAYAM commencent par ce module',
+    // L'émetteur devra créer le hook et poser son identifiant : c'est une
+    // donnée d'exécution, pas une correspondance.
+    besoin: 'hook',
+  },
+};
+
 // ── LES COMPOSITIONS NATIVES ────────────────────────────────────
 // Trois verbes n'avaient ni module rendu ni équivalent natif, et l'écran les
 // disait « sans rien à écrire ». C'était vrai au sens strict — aucun module
@@ -333,8 +360,17 @@ if (require.main === module) (async () => {
   const verbes = (await prisma.nodeDefinition.findMany({ orderBy: { sortOrder: 'asc' } }))
     .filter(v => String(v.group || '').startsWith('plateforme:'));
 
-  const ecarts = [], plan = [];
+  const ecarts = [], plan = [], natifs = [];
   for (const v of verbes) {
+    // Un verbe qui a un équivalent natif ne se rend PAS en module : la cible a
+    // déjà l'objet qui convient. On note la correspondance à sa place, pour que
+    // l'écran d'interprétation et l'émetteur la lisent au même endroit que les
+    // autres — sans quoi le verbe garderait un `rendus.make` pointant vers un
+    // module qu'on ne pousse plus.
+    if (NATIFS[v.family]) {
+      natifs.push(v);
+      continue;
+    }
     const params = parametresDe(v, ecarts);
     const appel  = (v.description.appels || []).find(a => a.sortie && a.sortie.length);
     plan.push({ v, nom: technique(v.family), typeId: typeDe(v), params, appel, api: apiDe(v, ecarts),
@@ -394,7 +430,18 @@ if (require.main === module) (async () => {
 
   const apps = await ap(acces, 'GET', '/sdk/apps');
   const liste = (apps.corps.appsSdk || apps.corps.apps || []);
-  if (!app) app = APP_VOULUE ? liste.find(a => a.name === APP_VOULUE) : liste[0];
+  if (!app && APP_VOULUE) app = liste.find(a => a.name === APP_VOULUE);
+  if (!app) {
+    // Celle qu'APS a rendue en dernier, pas la première venue. Sans ça, un
+    // rendu sans `--neuve` visait `liste[0]` — c'est-à-dire l'app de sonde
+    // obsolète, publiée par erreur et jamais supprimable. Deux commandes plus
+    // loin, l'émetteur branchait ses scénarios sur elle sans que rien ne le
+    // signale : le seul indice était un nom d'app dans une ligne de log.
+    const memoire = await prisma.nodeDefinition.findFirst({
+      where: { description: { path: ['rendus', 'make', 'app'], not: null } } });
+    const nom = memoire && memoire.description.rendus.make.app;
+    app = (nom && liste.find(a => a.name === nom)) || liste[liste.length - 1];
+  }
   if (!app) { console.log('❌ aucune app custom — relancer avec --neuve'); return prisma.$disconnect(); }
   const A = `/sdk/apps/${app.name}/${app.version}`;
   console.log(`\nApp : ${app.name} v${app.version}\n`);
@@ -516,11 +563,51 @@ if (require.main === module) (async () => {
       await prisma.nodeDefinition.update({ where: { family: p.v.family }, data: { description: d } });
     }
   }
+  for (const v of natifs) {
+    const n = NATIFS[v.family];
+    const d = Object.assign({}, v.description, {
+      rendus: Object.assign({}, v.description.rendus, {
+        make: { natif: n.module, le: new Date().toISOString() } }) });
+    await prisma.nodeDefinition.update({ where: { family: v.family }, data: { description: d } });
+    console.log('🔗 ' + l(v.family, 26) + l(n.module, 24) + n.dit);
+  }
+
+  // ── L'INSTANCE DE CONNEXION ───────────────────────────────────
+  // Déclarer une connexion ne suffit pas : il en faut une INSTANCE, avec les
+  // identifiants, sinon les modules émis pointent dans le vide. Elle vit ici
+  // parce que rendre l'app sans la rendre utilisable n'a pas de sens.
+  //
+  // Réutilisée par son `accountName` — qui porte le TYPE (`app#<app>`), là où
+  // `accountType` porte le mode d'authentification. Les deux champs disent
+  // l'inverse de leur nom.
+  if (cnxApp) {
+    const src = await prisma.connexion.findFirst({
+      where: { name: { contains: 'ICONIK | ASKIDA | API' } } });
+    const equipe = Number((cx.extraConfig.contexteTest || {}).teamId) || 411248;
+    const type = 'app#' + app.name;
+    const rl = await ap(acces, 'GET', `/connections?teamId=${equipe}`);
+    let inst = ((rl.corps && rl.corps.connections) || []).find(c => String(c.accountName) === type);
+    if (!inst && src) {
+      const rn = await ap(acces, 'POST', `/connections?teamId=${equipe}`, {
+        accountName: 'APS | ICONIK — ' + (src.name.split('|')[1] || '').trim(),
+        accountType: type,
+        // Préfixés : `appId` et `token` sont consommés en silence par Make.
+        iconikAppId: (src.extraConfig && src.extraConfig.champs && src.extraConfig.champs.appId) || '',
+        iconikToken: src.authValueEnc ? decrypt(src.authValueEnc) : '' });
+      inst = rn.corps && rn.corps.connection;
+      if (inst) {
+        const t = await ap(acces, 'POST', `/connections/${inst.id}/test`);
+        console.log('\n' + (t.ok ? '✅' : '⚠️ ') + ' connexion ' + inst.id
+          + ' créée' + (t.ok ? ' et vérifiée' : ' — test ' + t.statut));
+      } else console.log('\n❌ connexion — ' + rn.brut);
+    } else if (inst) console.log('\n✅ connexion ' + inst.id + ' réutilisée');
+  }
+
   console.log('\nNoms techniques mémorisés dans NodeDefinition.description.rendus.make');
   await prisma.$disconnect();
 })().catch(e => { console.error('ERREUR —', e.message); process.exit(1); });
 
 module.exports = {
-  TYPE, AFFICHAGE, LISTES, RESSOURCES_APS, T_SORTIE, COMPOSITIONS, compositionDe,
+  TYPE, AFFICHAGE, LISTES, RESSOURCES_APS, T_SORTIE, COMPOSITIONS, compositionDe, NATIFS,
   technique, typeDe, parametre, parametresDe, apiDe, valeurMake, visiblePour,
 };
