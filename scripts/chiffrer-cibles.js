@@ -23,10 +23,21 @@
 // ================================================================
 'use strict';
 
-// ── TARIFS — À VÉRIFIER, saisis de mémoire le 2026-08-12 ────────
+// ── TARIFS ──────────────────────────────────────────────────────
+// Step Functions : RELEVÉ sur la page de prix AWS le 2026-08-12, région
+// Europe (Paris). Mon estimation de mémoire annonçait 0,025 — soit 19 % en
+// dessous. L'ordre de grandeur tenait, le chiffre non : c'est la différence
+// entre « environ cinquante fois moins cher » et un montant qu'on met dans une
+// proposition commerciale.
+//
+// UNE LIGNE DE LA PAGE QUI COMPTE : « chaque nouvelle tentative est facturée
+// comme une transition d'état supplémentaire ». Un `Retry` à 3 essais sur un
+// appel qui échoue coûte donc 3 transitions, pas une. L'émetteur ASL n'en pose
+// AUCUN aujourd'hui (seulement des `Catch`, qui ne se facturent pas tant qu'ils
+// ne se déclenchent pas) — mais le jour où on ajoutera des reprises
+// automatiques, elles se paieront.
 const TARIFS = {
-  // Step Functions Standard, facturé à la TRANSITION d'état.
-  aslParTransition: 0.025 / 1000,          // ~0,025 $ / 1000 transitions
+  aslParTransition: 0.0297 / 1000,         // relevé — Europe (Paris)
   // Lambda : requête + temps. À 128 Mo et quelques dizaines de ms, le temps est
   // sous le centième de centime — on garde la requête, qui domine.
   lambdaParAppel:   0.20 / 1000000,        // 0,20 $ / million de requêtes
@@ -68,7 +79,8 @@ const runs = parseInt(process.argv[2], 10) || 1000;
 console.log('CE QUE COÛTE UN RUN DE BAYARD | PUBLISH | VODFACTORY\n');
 console.log('Volumes mesurés   : ' + PUBLISH.make.total + ' modules chez Make · '
           + PUBLISH.asl.total + ' états chez ASL');
-console.log('Tarifs            : SAISIS DE MÉMOIRE, à vérifier avant de citer\n');
+console.log('Tarifs            : Step Functions RELEVÉ (Europe Paris, 2026-08-12) ·');
+console.log('                    Make et Lambda encore de mémoire\n');
 console.log('  scénario                     Make            ASL           écart');
 console.log('  ' + '-'.repeat(64));
 SCENARIOS.forEach(function (s) {
@@ -89,8 +101,10 @@ console.log('\n── CE QUE CE TABLEAU NE DIT PAS ─────────�
 console.log('  · Make se paie par PALIER d\'abonnement, pas à l\'usage : sous le');
 console.log('    plafond du plan, une publication de plus ne coûte rien de plus,');
 console.log('    et au-dessus il faut changer de palier d\'un coup.');
-console.log('  · AWS offre 4 000 transitions et 1 M d\'appels Lambda par mois :');
-console.log('    en dessous de ~100 publications mensuelles, ASL est gratuit.');
+const gratuit = Math.floor(4000 / coutAsl(5).unites);
+console.log('  · AWS offre 4 000 transitions par mois, et cette offre N\'EXPIRE PAS.');
+console.log('    À ' + coutAsl(5).unites + ' transitions par publication, cela fait ' + gratuit + ' publications');
+console.log('    mensuelles GRATUITES — probablement au-dessus du régime actuel.');
 console.log('  · Les trois Lambdas ne se facturent presque pas — mais elles');
 console.log('    s\'écrivent, se déploient, se versionnent et se surveillent.');
 console.log('    Ce coût-là est humain, il ne figure sur aucune facture, et');
