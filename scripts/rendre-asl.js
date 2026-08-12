@@ -22,6 +22,11 @@
 //   Map + ItemSelector « Source de l'élément : JSON Payload » — le contrat
 //                      d'entrée a bien un véhicule
 //
+// Puis le 2026-08-12 encore, la définition COMPLÈTE de PUBLISH (38 états,
+// emettre-asl.js) a été acceptée et dessinée : S3 s'affiche « S3:
+// ListObjectsV2 », les ARN de Lambda « Lambda: Invoke », le Map porte son
+// corps, et la boucle de sondage tourne bien à l'intérieur.
+//
 // MAIS C'EST UNE VALIDATION DE FORME, PAS D'EXÉCUTION. La leçon la plus chère
 // du chantier Make s'applique ici mot pour mot : « un blueprint ACCEPTÉ n'est
 // pas un blueprint VALIDE ». Les ConnectionArn de la sonde sont factices, rien
@@ -43,6 +48,17 @@
 //   L'ERREUR EST NATIVE. `Retry` et `Catch` s'attachent à un état : un port
 //   d'erreur d'APS ne coûte pas un état de plus, contrairement au gestionnaire
 //   accroché d'un module Make.
+//
+//   ET LES PORTS MÉTIER N'EXISTENT PAS. C'est le trou que le premier dessin
+//   complet a rendu visible. Le pivot route sur des ports que le MOTEUR
+//   calcule : un `deliver` sort par `miss` quand le listing S3 est vide, un
+//   `search` par `empty` quand il ne trouve rien. En ASL, aucun état ne pose
+//   ces valeurs — les Choice émis testent `$.port` et `$.decision`, que rien
+//   ne produit, et tomberaient donc TOUJOURS en Default. Traduire un port
+//   n'est pas le recopier en chaîne : c'est le réécrire en condition sur le
+//   résultat réel (`$.s3.Contents` absent pour un `miss`). C'est un travail
+//   PAR VERBE, et c'est ce qui sépare une machine d'états qui se dessine
+//   d'une machine d'états qui décide.
 //
 //   MAIS ASL N'EXÉCUTE PAS DE LOGIQUE. Les intrinsèques (`States.Format`,
 //   `States.ArrayGetItem`…) transforment, elles ne décident pas. Traduire une
@@ -118,7 +134,7 @@ const FORMES = {
   http_request: { etat: 'Task', dit: function () { return 'Task · http:invoke'; },
                   pourquoi: 'appel HTTP natif via une EventBridge Connection, sans Lambda' },
   deliver:      { etat: 'Task', dit: function () { return 'Task · aws-sdk:s3:listObjectsV2'; },
-                  pourquoi: 'S3 est une intégration native d\'ASL — c\'est la cible la mieux placée pour ce verbe' },
+                  pourquoi: 'S3 est une intégration native d\'ASL (confirmé en console : « S3: ListObjectsV2 ») — c\'est la cible la mieux placée pour ce verbe' },
 };
 
 function compositionDe(famille, params) {
