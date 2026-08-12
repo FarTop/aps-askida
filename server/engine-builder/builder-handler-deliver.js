@@ -14,6 +14,7 @@
 'use strict';
 
 const BuilderContext = require('./builder-context.js');
+const Essences       = require('./builder-essences.js');
 
 function r(val, ctx) { return BuilderContext.resolve(val, ctx); }
 
@@ -154,70 +155,16 @@ async function deliver(step, ctx, deps) {
           { type: 'subtitle', filter: '.srt,.vtt',             variable: p.s3VarSrt   || 's3_srt_url' },
         ];
 
-    const cardinaliteErreurs = [];
-    const TYPE_TO_NIVEAU = { 'Série': 'serie', 'Saison': 'saison', 'Episode': 'episode', 'Unitaire': 'unitaire' };
-    const niveauCourant  = TYPE_TO_NIVEAU[ctx.vars?.TypeCollection] || '';
-
-    // Les variables que le MANIFESTE écarte à ce niveau — un `season_box` sous
-    // un unitaire, un `title` sous un épisode. Recueillies plutôt que
-    // simplement sautées : sans elles, le Lookup ne peut pas distinguer « ce
-    // format ne s'applique pas ici » (nominal) d'un repli qui pointe une
-    // variable inexistante (faute de configuration). Il écrivait « repli non
-    // résolu » dans les deux cas, ce qui donne l'air cassé à un run parfait.
-    const horsNiveau = [];
-
-    mappings.forEach(function (mapping) {
-      if (!mapping.variable) return;
-      if (Array.isArray(mapping.appliesTo) && mapping.appliesTo.length && niveauCourant && mapping.appliesTo.indexOf(niveauCourant) === -1) {
-        horsNiveau.push(mapping.variable);
-        return;
-      }
-      const filters = (mapping.filter || '').split(',').map(f => f.trim().toLowerCase()).filter(Boolean);
-      if (!filters.length) return;
-      const matchedCandidates = keys.filter(k => {
-        const kl = k.toLowerCase();
-        return filters.some(f => kl.includes(f));
-      });
-      const matchedKey = matchedCandidates.length > 1
-        ? (matchedCandidates.find(k => !k.match(/-\d+\.[^.]+$/)) || matchedCandidates[0])
-        : matchedCandidates[0];
-      if (matchedKey) {
-        BuilderContext.setVar(ctx, mapping.variable, base + matchedKey);
-      }
-
-      const n = matchedCandidates.length;
-      switch (mapping.cardinalite) {
-        case 'exactement_un':
-          if (n !== 1) cardinaliteErreurs.push(mapping.type + ' : attendu exactement 1, trouvé ' + n);
-          break;
-        case 'au_moins_un':
-          if (n < 1) cardinaliteErreurs.push(mapping.type + ' : attendu au moins 1, trouvé ' + n);
-          break;
-        case 'au_plus_n': {
-          const max = mapping.n || 1;
-          if (n > max) cardinaliteErreurs.push(mapping.type + ' : attendu au plus ' + max + ', trouvé ' + n);
-          break;
-        }
-      }
+    // La reconnaissance des essences vit dans builder-essences.js : fonction
+    // pure, partagée avec la Lambda que réclame AWS Step Functions. ASL ne sait
+    // pas reconnaître un fichier par motif de nom, et deux implémentations qui
+    // divergent livreraient à une adresse ce qu'elles vérifieraient à une
+    // autre. Le handler ne fait plus que ranger le résultat dans le contexte.
+    const reconnu = Essences.reconnaitre(mappings, keys, base, ctx.vars?.TypeCollection);
+    Object.entries(reconnu.variables).forEach(function ([nom, valeur]) {
+      BuilderContext.setVar(ctx, nom, valeur);
     });
-
-    // Repli par TOKEN, pour les visuels qu'aucune essence du manifeste ne
-    // revendique par son `reconnu_par`. Il pose les mêmes noms de variables que
-    // la boucle ci-dessus — et il ignorait le niveau, ce qui neutralisait
-    // silencieusement le découpage `appliesTo` du manifeste : un fichier
-    // « ..._box.png » égaré dans le dossier d'une série y aurait posé un
-    // `box_art`, format réservé à l'unitaire. Invisible tant que S3 est rangé
-    // par niveau (le listing d'une série ne voit pas les objets de ses
-    // saisons), donc jamais constaté — mais le moteur doit faire ce que le
-    // manifeste déclare, pas ce que le rangement veut bien lui épargner.
-    const ARTWORK_TOKENS = ['cover', 'poster', 'hero', 'box', 'season', 'episodic', 'title'];
-    const IMG_EXT = /\.(jpe?g|png)$/i;
-    ARTWORK_TOKENS.forEach(function (tok) {
-      const nomVar = 's3_' + tok + '_url';
-      if (horsNiveau.indexOf(nomVar) !== -1) return;
-      const hit = keys.find(k => IMG_EXT.test(k) && k.toLowerCase().includes(tok));
-      if (hit) BuilderContext.setVar(ctx, nomVar, base + hit);
-    });
+    const cardinaliteErreurs = reconnu.cardinalite;
 
     // Cumulé sur tout le run : un PUBLISH enchaîne plusieurs Deliver (Check
     // Collection, Check Asset, Recheck) et l'un d'eux peut n'avoir aucun
@@ -225,7 +172,7 @@ async function deliver(step, ctx, deps) {
     // avait établi.
     const dejaHors = (ctx.results && ctx.results._hors_niveau) || [];
     BuilderContext.storeResult(ctx, '_hors_niveau',
-      dejaHors.concat(horsNiveau.filter(v => dejaHors.indexOf(v) === -1)));
+      dejaHors.concat(reconnu.horsNiveau.filter(v => dejaHors.indexOf(v) === -1)));
 
     const result = { status: res.status, count, prefix: objectKey, keys, rawXml: resText, cardinaliteErreurs: cardinaliteErreurs.length ? cardinaliteErreurs : undefined };
     BuilderContext.storeResult(ctx, resultVar, result);
