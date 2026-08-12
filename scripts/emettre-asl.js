@@ -376,6 +376,64 @@ async function main() {
   console.log('Lambdas   : ' + JSON.stringify(Object.entries(definition.States)
     .filter(([, s]) => s.Resource && /lambda/.test(s.Resource)).map(([n]) => n)));
   console.log('Fichier   : ' + SORTIE);
+  // ── D'OÙ CHAQUE RÉFÉRENCE VIENDRAIT, CHEZ ASL ─────────────────
+  // Trois familles, et les confondre ferait promettre une traduction qui
+  // n'existe pas :
+  //
+  //   lisible    l'étape range sa réponse sous un ResultPath : la référence est
+  //              un JSONPath dans l'état qui circule
+  //   aplatie    une métadonnée Iconik (TypeCollection, BayardID) qu'un Search
+  //              expose sous son nom nu. Le catalogue ne peut pas les nommer
+  //              d'avance — elles dépendent de l'organisation — mais elles sont
+  //              DÉRIVABLES : `<résultat du search>.ResponseBody.objects[0]
+  //              .metadata.<nom>`
+  //   calculée   une valeur que le HANDLER fabrique (`s3_cover_url` sort d'un
+  //              listing S3 reconnu par motif de nom). Aucun JSONPath ne la
+  //              rend : c'est de la logique, donc une Lambda
+  const familles = { lisible: [], aplatie: [], calculee: [] };
+  {
+    const toutes = plan.groupes.flatMap(g => g.etapes);
+    const parVar = new Map();
+    toutes.forEach(e => (e.produit || []).forEach(n => parVar.has(n) || parVar.set(n, e)));
+    const lues = new Set();
+    const voir = function (v) {
+      if (typeof v === 'string') {
+        const re = /\{([^{}"':]+)\}/g; let m;
+        while ((m = re.exec(v))) {
+          const dedans = m[1].replace(/^[a-zA-Z_]\w*\(|\)$/g, '');
+          lues.add(dedans.split(/[.[]/)[0]);
+        }
+        return;
+      }
+      if (Array.isArray(v)) return v.forEach(voir);
+      if (v && typeof v === 'object') return Object.values(v).forEach(voir);
+    };
+    toutes.forEach(function (e) {
+      voir(e.params || {});
+      // Un champ de décision s'écrit souvent SANS accolades : il échappait au
+      // relevé, et c'est ainsi que TypeCollection et BayardID sont passés
+      // inaperçus dans la première mesure.
+      const f = (e.params || {}).field;
+      if (f) lues.add(String(f).replace(/^\{|\}$/g, '').split(/[.[]/)[0]);
+    });
+    const RACINE = /^(collection|asset|item|user|now|trigger)$/;
+    lues.forEach(function (r) {
+      if (!r || RACINE.test(r)) return;
+      const e = parVar.get(r);
+      if (!e) { familles.aplatie.push(r); return; }
+      // Une variable déclarée par une essence de manifeste est FABRIQUÉE par le
+      // handler, pas rangée telle quelle par l'appel.
+      (/^s3_.*_url$/.test(r) ? familles.calculee : familles.lisible).push(r + ' ← ' + e.label);
+    });
+  }
+  console.log('\nD\'OÙ VIENNENT LES RÉFÉRENCES, CHEZ ASL');
+  console.log('   ' + familles.lisible.length + ' lisible(s) — un JSONPath dans l\'état qui circule');
+  console.log('   ' + familles.aplatie.length + ' aplatie(s)  — métadonnée d\'un Search, dérivable de son résultat');
+  familles.aplatie.forEach(r => console.log('        ' + r));
+  console.log('   ' + familles.calculee.length + ' calculée(s) — fabriquée par le handler : demande une Lambda');
+  familles.calculee.slice(0, 3).forEach(r => console.log('        ' + r));
+  if (familles.calculee.length > 3) console.log('        … et ' + (familles.calculee.length - 3) + ' autre(s)');
+
   const nonTrad = (ctx.intraduisibles || []).concat(corpsIntraduisibles);
   if (nonTrad.length) {
     console.log('\n⚠ ' + nonTrad.length + ' aiguillage(s) NON traduits — la branche est omise,');
