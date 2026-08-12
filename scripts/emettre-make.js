@@ -279,10 +279,23 @@ function emettre(plan, groupe, rang) {
             ? { parameters: { hook: plan.idHook, maxResults: 1 } } : undefined);
         x += PAS_X;
       } else if (e.module) {
+        // Le CLICHÉ DU SCHÉMA, dans `metadata.parameters`. Un module posé à la
+        // main dans l'éditeur le porte ; les nôtres, écrits par API, n'avaient
+        // que leur position. Airtable montre le même écart :
+        //
+        //   airtable   metadata : expect, restore, designer, interface, parameters
+        //   nous       metadata : designer
+        //
+        // C'est la dernière différence structurelle qui reste entre un module
+        // qui fonctionne dans l'éditeur et le nôtre. L'hypothèse est que
+        // l'éditeur s'appuie sur ce cliché pour savoir ce que le module
+        // attend — sa connexion comprise — et qu'à défaut il l'appelle nu.
         principal = poser(flow, x, ligne,
           SANS_APP ? 'util:SetVariable2' : PREFIXE_APP + plan.app + ':' + e.module,
           e.label + (SANS_APP ? ' [' + e.module + ']' : ''),
-          { parameters: parametresDe(plan, e) });
+          { parameters: parametresDe(plan, e),
+            metadata: { designer: { x: x, y: ligne * PAS_Y, name: e.label },
+                        parameters: (plan.schemas || {})[e.module] || [] } });
         // La connexion se pose DANS `parameters`, sous `__IMTCONN__`. Sans
         // elle, le module est là, nommé, configuré — et appelle Iconik en
         // anonyme. C'est le pire des trois états : il a l'air complet.
@@ -482,8 +495,24 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
   // son URL, et l'URL est justement ce qu'on aura collé dans Iconik. Un
   // déclencheur qui change d'adresse à chaque publication ne déclenche plus
   // rien.
+  // Le schéma déclaré de chaque module utilisé, lu chez la cible plutôt que
+  // reconstruit : c'est exactement ce que l'éditeur recopie dans le blueprint
+  // quand un humain pose un module.
+  plan.schemas = {};
+  const utilises = [...new Set((plan.groupes || []).flatMap(g => g.etapes)
+    .map(e => e.module).filter(Boolean))];
+  for (const nom of utilises) {
+    const r = await ap(accesMake, 'GET', `/sdk/apps/${plan.app}/1/modules/${nom}/parameters`);
+    plan.schemas[nom] = Array.isArray(r.corps) ? r.corps : [];
+  }
+  console.log('Schémas    : ' + utilises.length + ' modules lus');
+
   const nomHook = 'APS | ' + plan.flux.nom;
-  const rh = await ap(accesMake, 'GET', `/hooks?teamId=${equipeMake}`);
+  // La limite explicite n'est pas du zèle : `/hooks` pagine à 50, l'équipe en
+  // a 59, et la réutilisation par nom ne trouvait donc jamais le nôtre — un
+  // hook de plus à chaque émission, avec une URL neuve à chaque fois. Le
+  // symptôme exact que la réutilisation devait empêcher.
+  const rh = await ap(accesMake, 'GET', `/hooks?teamId=${equipeMake}&pg%5Blimit%5D=500`);
   let hook = ((rh.corps && rh.corps.hooks) || []).find(h => h.name === nomHook);
   if (!hook && ECRIRE) {
     // `method`, `headers` et `stringify` sont REQUIS, alors que le schéma de la
