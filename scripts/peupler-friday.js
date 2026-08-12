@@ -78,16 +78,26 @@ const CIBLES = [
       // les traduisait vers av_subgenre_comedy et av_subgenre_adventure, deux
       // codes qui n'existent pas chez Amazon.
       Genres:              ['av_genre_comedy', 'av_genre_adventure'],
-      // ⚠ LES PERSONNES. Une même personne dans deux métiers casse la
-      //    livraison : VOD Factory crée les personnes par `external_id`
-      //    global, et le second métier repart en 422 (« The external id has
-      //    already been taken »), après quoi `persons.N.external_id` est
-      //    déclaré invalide dans le contenu. Ice Cube en acteur ET auteur a
-      //    suffi à faire échouer tout l'envoi. Un métier par personne.
+      // LES PERSONNES, et une fausse piste qu'il vaut mieux garder écrite.
+      // Ice Cube est ici acteur ET auteur, DJ Pooh auteur d'origine ET auteur.
+      // On a d'abord cru ce cas interdit, sur deux signaux mal lus :
+      //   • les 422 de `POST /api/persons` — ils disent seulement « cette
+      //     personne existe déjà ». Le corps envoyé est {external_id, name},
+      //     SANS `job` : une personne est une entité globale chez VOD Factory,
+      //     le métier est une relation portée par le contenu. La séquence les
+      //     ignore d'ailleurs explicitement (feIgnoreCodes: [409, 422]).
+      //   • « persons.1.external_id is invalid » — les index 1 et 3 étaient
+      //     précisément les entrées corrompues par le défaut de déballage des
+      //     valeurs multiples (`ice-cube-chris-tucker`). Ces external_id
+      //     n'existaient chez personne.
+      // Un seul bug, deux symptômes, et j'en avais déduit deux causes.
+      // Vérifié le 2026-08-12 : ce jeu part en HTTP 200. Ne PAS interdire à la
+      // saisie qu'un réalisateur soit aussi acteur — c'est courant, et le
+      // partenaire l'accepte.
       Realisateur:         ['Gary Gray'],
       Acteur:              ['Ice Cube', 'Chris Tucker'],
       AuteurOrigine:       ['DJ Pooh'],
-      Auteur:              ['Cube Ice'],
+      Auteur:              ['Ice Cube', 'DJ Pooh'],
       Producteur:          ['Askida Productions'],
       DatedeDebutdeDroits: '2026-09-01T00:00:00+02:00',
       DatedeFindeDroits:   '2027-08-31T23:59:00+02:00',

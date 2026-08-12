@@ -191,6 +191,22 @@ async function lookup(step, ctx, deps) {
       }
 
       if (_isUnresolvedPlaceholder(val)) {
+        // HORS PÉRIMÈTRE ≠ REPLI CASSÉ. Un unitaire n'a pas de visuel de
+        // saison, un épisode pas de visuel de série : la variable manque parce
+        // que le manifeste a écarté cette essence à ce niveau, pas parce que
+        // quelqu'un s'est trompé de nom. Le niveau est déclaré UNE fois, dans
+        // le manifeste — le Lookup ne le redéclare pas, il lit ce que Deliver
+        // a écarté (`_hors_niveau`). Sans cette distinction, un run parfait
+        // affichait trois lignes rouges et donnait l'air d'être cassé.
+        const nomVar = String(val).trim().replace(/^\{|\}$/g, '');
+        if ((ctx.results?._hors_niveau || []).indexOf(nomVar) !== -1) {
+          trace.push({
+            de: fromKey, vers: toKey, statut: 'hors_niveau', origine: null,
+            repli: row.fallback || null, heritage: politique,
+            motif: 'ne s\'applique pas au niveau ' + (niveau || '?') + ' — le manifeste ne déclare pas cette essence ici',
+          });
+          return;
+        }
         trace.push({
           de: fromKey, vers: toKey, statut: 'non_resolu', origine: origine,
           repli: row.fallback || null, heritage: politique,

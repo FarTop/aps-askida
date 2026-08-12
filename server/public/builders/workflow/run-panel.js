@@ -374,8 +374,13 @@
     const trace = snap.results && snap.results['_lk_trace_' + step.id];
     if (!Array.isArray(trace) || !trace.length) return null;
     const ok = trace.filter(function (t) { return t.statut === 'ok'; });
+    // Les règles hors périmètre du niveau ne comptent pas au dénominateur :
+    // « 21 sur 30 » donnait l'air d'un manque là où neuf règles ne concernaient
+    // simplement pas ce niveau-là.
+    const hors = trace.filter(function (t) { return t.statut === 'hors_niveau'; });
     const sec = _section();
-    sec.appendChild(_titre(ok.length + ' correspondance(s) sur ' + trace.length + ' règle(s)'));
+    sec.appendChild(_titre(ok.length + ' correspondance(s) sur ' + (trace.length - hors.length) + ' règle(s) applicable(s)' +
+      (hors.length ? '  ·  ' + hors.length + ' hors périmètre du niveau' : '')));
 
     trace.forEach(function (t) {
       const fleche = t.de + ' → ' + t.vers;
@@ -415,7 +420,10 @@
         }
         sec.appendChild(row);
       } else {
-        sec.appendChild(_ligne(fleche, t.motif || 'non renseigné', 'ko'));
+        // `hors_niveau` en neutre, jamais en rouge : ce n'est pas un manque,
+        // c'est une règle qui ne concerne pas ce niveau.
+        sec.appendChild(_ligne(fleche, t.motif || 'non renseigné',
+          t.statut === 'hors_niveau' ? null : 'ko'));
       }
     });
     return sec;

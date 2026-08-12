@@ -154,6 +154,26 @@ async function main() {
   verifier('deux genres traduits un par un',
     ctxG.results.g.genres, ['av_genre_comedy', 'av_genre_adventure']);
 
+  console.log('\n── Hors périmètre du niveau ≠ repli cassé ───────────────');
+  // Deux règles au repli identiquement non résolu, et deux verdicts opposés :
+  // l'une désigne une essence que le manifeste écarte à ce niveau (nominal),
+  // l'autre une variable que personne n'a jamais posée (faute de config).
+  // Le niveau n'est déclaré qu'au manifeste ; le Lookup lit ce que Deliver a
+  // écarté.
+  const ctxN = contexte('Unitaire', []);
+  ctxN.results.search_results = { objects: [{ id: 'c-unitaire' }] };
+  ctxN.results._hors_niveau = ['s3_season_url'];
+  await lookup({ id: 'lk-niveau', params: { lkInputVar: 'search_results.objects[0]', lkOutputVar: 'u', lkRows: [
+    { key: 'URLSeasonArt', value: 'images.amazon.season_box_art', fallback: '{s3_season_url}' },
+    { key: 'URLBoxArt',    value: 'images.amazon.box_art',        fallback: '{s3_bidon_url}' },
+  ] } }, ctxN, {});
+  const parNiveau = {};
+  ctxN.results['_lk_trace_lk-niveau'].forEach(t => { parNiveau[t.de] = t; });
+  verifier('essence écartée par le manifeste → hors_niveau',
+    parNiveau.URLSeasonArt.statut, 'hors_niveau');
+  verifier('variable inconnue → reste non_resolu',
+    parNiveau.URLBoxArt.statut, 'non_resolu');
+
   console.log('\n── La trace des emprunts ────────────────────────────────');
   const trace = ctx.results['_lk_trace_lookup-preuve'];
   const parChamp = {};
