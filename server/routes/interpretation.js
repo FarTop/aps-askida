@@ -37,12 +37,29 @@ const prisma = new PrismaClient({
 
 // Les cibles. Déclarées même quand elles ne sont pas prêtes : une liste qui
 // cache ce qui manque laisse croire que Make est la seule option envisagée.
+// UNE PORTÉE DE BOUCLE N'EST PAS UNE COUTURE PARTOUT. Le corps d'une boucle est
+// une portée du pivot ; ce que la cible en FAIT lui appartient, et le dire de
+// travers fausse le plan de celui qui monte le workflow.
+//
+//   Make    n'a pas de sous-fonctions : le corps devient un scénario à part,
+//           déclenché par webhook. C'est une vraie couture.
+//   ASL     a `Map` / `ItemProcessor` : le corps reste DANS le workflow. Pas de
+//           couture — mais pas d'espace de noms global non plus, donc ce qui
+//           entre dans le Map doit être passé explicitement (`ItemSelector`).
+//   n8n     non déterminé. On ne l'invente pas : `null` dit « pas mesuré »,
+//           ce qui vaut mieux qu'une affirmation jamais vérifiée.
+//
+// Le contrat d'entrée reste calculé dans les deux cas — seul son VÉHICULE
+// change (charge utile du webhook / ItemSelector). C'est justement ce qui rend
+// le calcul indépendant de la cible utile.
 const CIBLES = {
   make: { nom: 'Make', pret: true,
+          portee: { coupe: true, dit: 'scénario à part', unite: 'scénario', vehicule: 'la charge utile de l\'appel webhook' },
           decoupe: 'Make n\'a pas de sous-fonctions : un corps de boucle ne peut pas être appelé sur place, il devient un scénario à part déclenché par webhook.' },
   asl:  { nom: 'AWS Step Functions', pret: false,
-          decoupe: 'ASL n\'a aucun espace de noms global : un workflow qui lit des variables d\'ambiance ne compile pas.' },
-  n8n:  { nom: 'n8n', pret: false, decoupe: null },
+          portee: { coupe: false, dit: 'état Map · ItemProcessor', unite: 'machine d\'états', vehicule: 'ItemSelector' },
+          decoupe: 'ASL n\'a aucun espace de noms global : ce qui entre dans un Map doit être passé explicitement, jamais lu d\'ambiance.' },
+  n8n:  { nom: 'n8n', pret: false, portee: null, decoupe: null },
 };
 
 // ── LA CONCORDANCE DE FORME ─────────────────────────────────────
@@ -488,7 +505,7 @@ function referencesDe(valeur, out) {
   return out;
 }
 
-function contratsDEntree(groupes, doc) {
+function contratsDEntree(groupes, doc, cible) {
   // Qui produit quoi, et dans quel scénario.
   const producteur = new Map();
   groupes.forEach(function (g, i) {
@@ -529,9 +546,13 @@ function contratsDEntree(groupes, doc) {
     g.entrees = {
       itere: itere.sort(),
       traversantes: traversantes.sort(),
-      // Ce que ça coûte de le dire : sans véhicule déclaré, le scénario reçoit
+      // Ce que ça coûte de le dire : sans véhicule déclaré, la portée reçoit
       // un appel vide et lit des valeurs absentes — sans rien signaler.
       complet: traversantes.length === 0,
+      // PAR OÙ la valeur doit passer chez cette cible-là. Sans ce mot, « sans
+      // véhicule déclaré » laisse le lecteur chercher lequel — et la réponse
+      // n'est pas la même selon qu'on monte un webhook Make ou un Map ASL.
+      vehicule: (cible && cible.portee && cible.portee.vehicule) || null,
     };
   });
 }
@@ -600,14 +621,38 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
     // Découpage en scénarios. La seule couture qu'on sache justifier aujourd'hui
     // est le corps de boucle ; elle est donc la seule appliquée, et sa RAISON
     // voyage avec elle plutôt qu'en note de bas de page.
-    const groupes = [{ nom: 'Scénario 1', role: 'entrée', raison: null, etapes: [] }];
+    // L'unité principale porte le nom que la cible lui donne. « Scénario 1 »
+    // devant une machine d'états ASL est un mot de Make posé sur autre chose —
+    // et le lecteur cherche alors un objet qui n'existe pas.
+    const _unite = (cible.portee && cible.portee.unite) || 'scénario';
+    const _titre = _unite.charAt(0).toUpperCase() + _unite.slice(1);
+    // Numéroté seulement si la cible découpe : un « 1 » annonce un « 2 ».
+    const groupes = [{ nom: _titre + ((cible.portee && cible.portee.coupe === false) ? '' : ' 1'),
+                       role: 'entrée', raison: null, etapes: [] }];
     const groupeDe = new Map();
     etapes.forEach(function (e) {
       let g;
       if (e.parent) {
         if (!groupeDe.has(e.parent)) {
-          groupes.push({ nom: 'Scénario ' + (groupes.length + 1), role: 'corps de boucle',
-                         raison: cible.decoupe, appelePar: 'Scénario 1', etapes: [] });
+          // La portée existe TOUJOURS — c'est une réalité du pivot. Ce qui
+          // change d'une cible à l'autre, c'est si elle devient une unité
+          // séparée (`coupe`) ou un état imbriqué, et donc si l'écran doit
+          // annoncer une couture.
+          const po = cible.portee;
+          const coupe = po ? po.coupe : true;
+          groupes.push({
+            nom: coupe ? 'Scénario ' + (groupes.length + 1) : 'Portée ' + (groupes.length + 1),
+            role: 'corps de boucle',
+            realise: po ? po.dit : null,
+            coupe: coupe,
+            // La raison ne s'affiche que là où il y a vraiment une couture :
+            // l'annoncer à une cible qui imbrique ferait chercher un webhook
+            // qui n'a pas lieu d'être.
+            raison: coupe ? cible.decoupe : null,
+            // Le nom RÉEL de l'unité principale, pas une chaîne figée : elle
+            // s'appelle « Scénario 1 » chez Make et autrement ailleurs.
+            appelePar: coupe ? groupes[0].nom : null,
+            etapes: [] });
           groupeDe.set(e.parent, groupes.length - 1);
         }
         g = groupes[groupeDe.get(e.parent)];
@@ -723,7 +768,7 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
     }
 
     prevoirLectures(groupes);
-    contratsDEntree(groupes, flux.document);
+    contratsDEntree(groupes, flux.document, cible);
     const toutes = groupes.flatMap(g => g.etapes);
     const lectures = toutes.reduce((n, e) => n + (e.prealables || []).length, 0);
     res.json({
@@ -754,7 +799,14 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
         traduites: toutes.filter(e => e.etat === 'traduit').length,
         degradees: toutes.filter(e => e.etat === 'degrade').length,
         bloquantes: toutes.filter(e => e.etat === 'bloquant').length,
-        scenarios: groupes.length,
+        // Le nombre d'unités DÉPLOYABLES chez la cible, pas le nombre de
+        // portées du pivot. Une portée qui devient un état Map ne fait pas une
+        // unité de plus : annoncer « 2 scénarios » à ASL laissait croire à deux
+        // objets à créer, à connecter et à surveiller — alors qu'il n'y en a
+        // qu'un. C'est un chiffre que le lecteur utilise pour estimer un
+        // travail.
+        scenarios: 1 + groupes.slice(1).filter(g => g.coupe).length,
+        unite: (cible.portee && cible.portee.unite) || 'scénario',
         // Les lectures de ressource ne sont pas des étapes du workflow : ce
         // sont des modules que la CIBLE exige en plus. Les compter à part est
         // la seule façon honnête de le dire — les mêler aux étapes ferait

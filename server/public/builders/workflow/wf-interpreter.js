@@ -109,7 +109,11 @@ const WfInterpreter = (() => {
      // quelque chose de petit — et c'est exactement le chiffre qui inquiète
      // les collègues sur la consommation.
      ['modules', v.modules, 'modules chez la cible'],
-     ['scenarios', v.scenarios, v.scenarios > 1 ? 'scénarios' : 'scénario'],
+     // Le mot vient de la CIBLE : Make crée des scénarios, ASL une machine
+     // d'états. Le figer ici ferait annoncer « 2 scénarios » à une cible qui
+     // n'en connaît pas — et ce compte sert à estimer un travail.
+     ['scenarios', v.scenarios,
+      (v.unite || 'scénario') + (v.scenarios > 1 ? 's' : '')],
      // Les fonctions d'expression ne sont ni des étapes ni des ressources :
      // elles n'apparaissaient dans aucun compte et se découvraient à
      // l'émission. Deux d'entre elles (`slug`, `filebase`) ont une sémantique
@@ -220,7 +224,8 @@ const WfInterpreter = (() => {
     teteD.appendChild(el('h3', null, 'Destination'));
     teteD.appendChild(el('span', 'itp-role', d.cible.nom));
     teteD.appendChild(el('span', 'itp-carte-compte',
-      (d.verdict.scenarios || 1) + ' scénario(s)'));
+      (d.verdict.scenarios || 1) + ' ' + (d.verdict.unite || 'scénario')
+      + ((d.verdict.scenarios || 1) > 1 ? 's' : '')));
     dst.appendChild(teteD);
     (d.groupes || []).forEach(function (g, i) {
       if (i > 0 && g.raison) {
@@ -473,7 +478,8 @@ const WfInterpreter = (() => {
       });
     }
     L.push('Plan           : ' + v.traduites + ' traduites, ' + v.degradees
-           + ' dégradées, ' + v.bloquantes + ' bloquantes, ' + v.scenarios + ' scénario(s)'
+           + ' dégradées, ' + v.bloquantes + ' bloquantes, ' + v.scenarios
+           + ' ' + (v.unite || 'scénario') + (v.scenarios > 1 ? 's' : '')
            + (v.lectures ? ', ' + v.lectures + ' lecture(s) de ressource' : ''));
     // Les fonctions d'expression voyagent avec le plan : celui qui remonte le
     // workflow chez la cible doit savoir que `filebase` compose des chemins S3,
