@@ -1,0 +1,98 @@
+{
+  "Comment": "APS — sonde de formes ASL du 2026-08-12. N'est pas destinee a s'executer : elle existe pour faire VALIDER par AWS les quatre hypotheses de scripts/rendre-asl.js. (1) un Task HTTP natif sans Lambda, (2) Retry+Catch attaches a l'etat, (3) un sondage qui BOUCLE en trois etats, (4) un Map dont l'ItemSelector transporte une valeur du parent.",
+  "StartAt": "Collection",
+  "States": {
+    "Collection": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Parameters": {
+        "ApiEndpoint": "https://app.iconik.io/API/search/v1/search/",
+        "Method": "POST",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+        },
+        "RequestBody": {
+          "doc_types": ["collections"],
+          "query.$": "States.Format('metadata.BayardID:\"{}\"', $.bayardId)"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "IconikInjoignable"
+        }
+      ],
+      "ResultPath": "$.collection",
+      "Next": "ChaqueAsset"
+    },
+
+    "ChaqueAsset": {
+      "Type": "Map",
+      "ItemsPath": "$.collection.ResponseBody.objects",
+      "ItemSelector": {
+        "item.$": "$$.Map.Item.Value",
+        "ancestorPath.$": "$.ancestorPath"
+      },
+      "ItemProcessor": {
+        "ProcessorConfig": { "Mode": "INLINE" },
+        "StartAt": "DeclencherExport",
+        "States": {
+          "DeclencherExport": {
+            "Type": "Pass",
+            "Result": { "jobId": "faux-pour-la-validation" },
+            "ResultPath": "$.export",
+            "Next": "Patienter"
+          },
+          "Patienter": {
+            "Type": "Wait",
+            "Seconds": 20,
+            "Next": "OuEnEstLExport"
+          },
+          "OuEnEstLExport": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::http:invoke",
+            "Parameters": {
+              "ApiEndpoint": "https://app.iconik.io/API/jobs/v1/jobs/",
+              "Method": "GET",
+              "Authentication": {
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+              }
+            },
+            "ResultPath": "$.job",
+            "Next": "Termine"
+          },
+          "Termine": {
+            "Type": "Choice",
+            "Choices": [
+              {
+                "Variable": "$.job.ResponseBody.status",
+                "StringEquals": "FINISHED",
+                "Next": "Livrer"
+              },
+              {
+                "Variable": "$.job.ResponseBody.status",
+                "StringEquals": "FAILED",
+                "Next": "ExportRate"
+              }
+            ],
+            "Default": "Patienter"
+          },
+          "Livrer": { "Type": "Succeed" },
+          "ExportRate": { "Type": "Fail", "Error": "ExportIconikEchoue" }
+        }
+      },
+      "Next": "Fin"
+    },
+
+    "Fin": { "Type": "Succeed" },
+    "IconikInjoignable": { "Type": "Fail", "Error": "IconikInjoignable" }
+  }
+}

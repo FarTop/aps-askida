@@ -8,14 +8,28 @@
 // params)` rend `{dit, pourquoi, mesure, modules[], nombre}` — l'écran
 // d'interprétation ne sait pas de quelle cible il parle.
 //
-// ── UN AVERTISSEMENT QUI VAUT POUR TOUTE LA TABLE ───────────────
-// Rien ici n'est MESURÉ. Le chantier Make a montré que la seule méthode qui
-// marche est de demander à la cible — poser un objet à la main, le relire par
-// l'API, comparer. Huit hypothèses à l'aveugle avaient échoué avant la
-// première mesure. Cette table est donc entièrement déduite de la
-// spécification ASL, et chaque entrée porte `source: 'doc'` pour le dire.
-// Elle sert à ESTIMER, pas à émettre. La première machine d'états créée pour
-// de vrai la corrigera.
+// ── CE QUI EST VÉRIFIÉ, ET JUSQU'OÙ ─────────────────────────────
+// Le 2026-08-12, `scripts/sonde-asl.json` a été collé dans Workflow Studio
+// (compte 632075073384, eu-west-3). La console a ACCEPTÉ la définition et
+// redessiné le graphe. Quatre hypothèses validées d'un coup :
+//
+//   Task http:invoke   les deux états s'affichent « HTTP Endpoint » — appel
+//                      HTTP natif, sans Lambda
+//   Catch              sort de l'état comme une branche, pas comme un état
+//   LA BOUCLE          `Termine → Default → Patienter` : la flèche remonte.
+//                      Un sondage coûte TROIS états, quel que soit le nombre
+//                      d'essais
+//   Map + ItemSelector « Source de l'élément : JSON Payload » — le contrat
+//                      d'entrée a bien un véhicule
+//
+// MAIS C'EST UNE VALIDATION DE FORME, PAS D'EXÉCUTION. La leçon la plus chère
+// du chantier Make s'applique ici mot pour mot : « un blueprint ACCEPTÉ n'est
+// pas un blueprint VALIDE ». Les ConnectionArn de la sonde sont factices, rien
+// n'a tourné. Ce qui reste à prouver est donc tout ce qui se voit à
+// l'exécution : que `http:invoke` sait porter l'authentification d'Iconik, que
+// le corps de requête part comme attendu, que `$.job.ResponseBody.status` est
+// le bon chemin de lecture. Une EventBridge Connection réelle est le prochain
+// pas.
 //
 // ── CE QUE ASL CHANGE PAR RAPPORT À MAKE ────────────────────────
 // Trois différences renversent des coûts, et c'est pour elles qu'un chiffrage
@@ -47,7 +61,7 @@ const COMPOSITIONS = {
     dit: 'boucle native',
     pourquoi: 'ASL sait boucler : un sondage est un cycle Task → Choice → Wait, '
             + 'pas une chaîne déroulée — le nombre d\'essais ne change pas le nombre d\'états',
-    source: 'doc',
+    source: 'forme validée en console le 2026-08-12',
     etats: function () {
       return [
         { etat: 'Task',   role: 'interroger l\'endpoint' },
@@ -112,7 +126,7 @@ function compositionDe(famille, params) {
   if (!c) return null;
   const etats = c.etats(params || {});
   return { dit: c.dit, pourquoi: c.pourquoi,
-           mesure: 'déduit de la spécification ASL — jamais vérifié sur un compte AWS',
+           mesure: c.source || 'déduit de la spécification ASL',
            lambda: !!c.lambda,
            modules: etats.map(e => ({ module: e.etat, role: e.role })),
            nombre: etats.length };
@@ -121,7 +135,10 @@ function compositionDe(famille, params) {
 module.exports = { COMPOSITIONS, FORMES, compositionDe };
 
 if (require.main === module) {
-  console.log('CE QU\'UN VERBE DEVIENT EN ASL — déduit de la spec, jamais mesuré\n');
+  console.log('CE QU\'UN VERBE DEVIENT EN ASL\n');
+  console.log('Formes validées en console le 2026-08-12 (sonde-asl.json) : http:invoke,');
+  console.log('Catch, la BOUCLE de sondage, Map + ItemSelector. Validation de FORME —');
+  console.log('rien n\'a encore tourné.\n');
   Object.entries(COMPOSITIONS).forEach(function ([nom, c]) {
     const etats = c.etats({});
     console.log('  ' + nom.padEnd(14) + c.dit.padEnd(22) + etats.length + ' état(s)'
