@@ -43,29 +43,29 @@
         }
       },
       "ResultPath": "$.http_request_msdcfihl_3",
-      "Next": "Asset éditorial",
+      "Next": "Asset editorial",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
           "ResultPath": "$.erreur",
-          "Next": "Asset éditorial"
+          "Next": "Asset editorial"
         }
       ]
     },
-    "Asset éditorial · quel port ?": {
+    "Asset editorial - quel port": {
       "Type": "Choice",
       "Choices": [
         {
           "Variable": "$.port",
           "StringEquals": "empty",
-          "Next": "Programme ?"
+          "Next": "Programme"
         }
       ],
-      "Default": "Métadonnées de livraison"
+      "Default": "Metadonnees de livraison"
     },
-    "Asset éditorial": {
+    "Asset editorial": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
       "Parameters": {
@@ -76,44 +76,44 @@
         }
       },
       "ResultPath": "$.http_request_assetedito_1",
-      "Next": "Asset éditorial · quel port ?",
+      "Next": "Asset editorial - quel port",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
           "ResultPath": "$.erreur",
-          "Next": "Programme ?"
+          "Next": "Programme"
         }
       ]
     },
-    "Programme ?": {
+    "Programme": {
       "Type": "Choice",
       "Choices": [
         {
           "Variable": "$.decision",
           "StringEquals": "Série",
-          "Next": "Bayard ID ?"
+          "Next": "Bayard ID"
         },
         {
           "Variable": "$.decision",
           "StringEquals": "Saison",
-          "Next": "Bayard ID ?"
+          "Next": "Bayard ID"
         },
         {
           "Variable": "$.decision",
           "StringEquals": "Episode",
-          "Next": "Bayard ID ?"
+          "Next": "Bayard ID"
         },
         {
           "Variable": "$.decision",
           "StringEquals": "Unitaire",
-          "Next": "Bayard ID ?"
+          "Next": "Bayard ID"
         }
       ],
-      "Default": "Set Metadata (Échec)"
+      "Default": "Set Metadata Echec"
     },
-    "Set Metadata (Échec)": {
+    "Set Metadata Echec": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
       "Parameters": {
@@ -148,7 +148,7 @@
       "ResultPath": "$.history_msdcfrwd_5_copie_msoip6hj_1",
       "Next": "Fin"
     },
-    "Bayard ID ?": {
+    "Bayard ID": {
       "Type": "Choice",
       "Choices": [
         {
@@ -181,7 +181,7 @@
         }
       ]
     },
-    "Check Collection · quel port ?": {
+    "Check Collection - quel port": {
       "Type": "Choice",
       "Choices": [
         {
@@ -190,7 +190,7 @@
           "Next": "Search"
         }
       ],
-      "Default": "Set Metadata (URLs)"
+      "Default": "Set Metadata URLs"
     },
     "Check Collection": {
       "Type": "Task",
@@ -200,18 +200,18 @@
         "Prefix": "a-renseigner"
       },
       "ResultPath": "$.s3",
-      "Next": "Check Collection · quel port ?",
+      "Next": "Check Collection - quel port",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
           "ResultPath": "$.erreur",
-          "Next": "Set Metadata (URLs)"
+          "Next": "Set Metadata URLs"
         }
       ]
     },
-    "Set Metadata (URLs)": {
+    "Set Metadata URLs": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
       "Parameters": {
@@ -280,7 +280,7 @@
             "States.ALL"
           ],
           "ResultPath": "$.erreur",
-          "Next": "Set Metadata (Échec) 2"
+          "Next": "Set Metadata Echec 2"
         }
       ]
     },
@@ -319,7 +319,7 @@
       "ResultPath": "$.history_msepbwoc_9",
       "Next": "Fin"
     },
-    "Set Metadata (Échec) 2": {
+    "Set Metadata Echec 2": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
       "Parameters": {
@@ -330,18 +330,18 @@
         }
       },
       "ResultPath": "$.http_request_msepbug0_8_fail",
-      "Next": "History (Échec)",
+      "Next": "History Echec",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
           "ResultPath": "$.erreur",
-          "Next": "History (Échec)"
+          "Next": "History Echec"
         }
       ]
     },
-    "History (Échec)": {
+    "History Echec": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
       "Parameters": {
@@ -354,13 +354,13 @@
       "ResultPath": "$.history_msepbwoc_9_echec",
       "Next": "Fin"
     },
-    "Search · quel port ?": {
+    "Search - quel port": {
       "Type": "Choice",
       "Choices": [
         {
           "Variable": "$.port",
           "StringEquals": "empty",
-          "Next": "Set Metadata (URLs)"
+          "Next": "Set Metadata URLs"
         }
       ],
       "Default": "Loop"
@@ -376,14 +376,14 @@
         }
       },
       "ResultPath": "$.http_request_mseo2m4r_1",
-      "Next": "Search · quel port ?",
+      "Next": "Search - quel port",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
           "ResultPath": "$.erreur",
-          "Next": "Set Metadata (URLs)"
+          "Next": "Set Metadata URLs"
         }
       ]
     },
@@ -403,7 +403,7 @@
           "Fin du corps": {
             "Type": "Succeed"
           },
-          "Video Info · quel port ?": {
+          "Video Info - quel port": {
             "Type": "Choice",
             "Choices": [
               {
@@ -425,9 +425,9 @@
               }
             },
             "ResultPath": "$.http_request_video_info_1",
-            "Next": "Video Info · quel port ?"
+            "Next": "Video Info - quel port"
           },
-          "Check Asset · quel port ?": {
+          "Check Asset - quel port": {
             "Type": "Choice",
             "Choices": [
               {
@@ -446,7 +446,7 @@
               "Prefix": "a-renseigner"
             },
             "ResultPath": "$.s3",
-            "Next": "Check Asset · quel port ?"
+            "Next": "Check Asset - quel port"
           },
           "Action": {
             "Type": "Task",
@@ -461,12 +461,12 @@
             "ResultPath": "$.http_request_mserkbl2_10",
             "Next": "Wait"
           },
-          "Wait · attendre": {
+          "Wait - attendre": {
             "Type": "Wait",
             "Seconds": 20,
             "Next": "Wait"
           },
-          "Wait · terminé ?": {
+          "Wait - termine": {
             "Type": "Choice",
             "Choices": [
               {
@@ -475,7 +475,7 @@
                 "Next": "Recheck"
               }
             ],
-            "Default": "Wait · attendre"
+            "Default": "Wait - attendre"
           },
           "Wait": {
             "Type": "Task",
@@ -488,7 +488,7 @@
               }
             },
             "ResultPath": "$.sonde",
-            "Next": "Wait · terminé ?",
+            "Next": "Wait - termine",
             "Catch": [
               {
                 "ErrorEquals": [
@@ -511,7 +511,7 @@
           }
         }
       },
-      "Next": "Set Metadata (URLs)"
+      "Next": "Set Metadata URLs"
     },
     "Create ID Generator": {
       "Type": "Task",
@@ -542,18 +542,18 @@
         }
       ]
     },
-    "Métadonnées de livraison · quel port ?": {
+    "Metadonnees de livraison - quel port": {
       "Type": "Choice",
       "Choices": [
         {
           "Variable": "$.port",
           "StringEquals": "not_found",
-          "Next": "Programme ?"
+          "Next": "Programme"
         }
       ],
-      "Default": "Programme ?"
+      "Default": "Programme"
     },
-    "Métadonnées de livraison": {
+    "Metadonnees de livraison": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
       "Parameters": {
@@ -564,7 +564,7 @@
         }
       },
       "ResultPath": "$.http_request_mdlivraison_1",
-      "Next": "Métadonnées de livraison · quel port ?"
+      "Next": "Metadonnees de livraison - quel port"
     }
   }
 }

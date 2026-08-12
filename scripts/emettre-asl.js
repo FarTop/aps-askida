@@ -56,10 +56,21 @@ const PORT_ERREUR  = /^(error|err|erreur|fail|timeout)$/;
 // Un nom d'état ASL doit être unique dans sa portée. On part du libellé, qui
 // est ce que l'opérateur lit, et on ne retombe sur l'identifiant que s'il se
 // répète — un « Set Metadata » deux fois vaut mieux que deux « http_request_7 ».
+//
+// EN ASCII SIMPLE, et ce n'est pas de la coquetterie. La première émission
+// portait « Asset éditorial · quel port ? » : la console AWS a rendu sept
+// erreurs, dont « Expected comma or closing brace » — une faute de PARSING,
+// alors que le JSON était valide et que toutes les références existaient
+// (contrôle exhaustif refait à la main). Le seul écart restant était le jeu de
+// caractères des noms. On s'en tient donc à ce qu'AWS emploie dans ses propres
+// exemples : lettres, chiffres, espaces, tirets, tirets bas.
 function nommeur() {
   const pris = new Set();
   return function (label, id) {
-    let base = String(label || id || 'Etat').replace(/["\\]/g, '').trim().slice(0, 70) || 'Etat';
+    let base = String(label || id || 'Etat')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // accents retirés
+      .replace(/[^A-Za-z0-9 _-]+/g, ' ')                  // le reste devient espace
+      .replace(/\s+/g, ' ').trim().slice(0, 70) || 'Etat';
     if (!pris.has(base)) { pris.add(base); return base; }
     let n = 2;
     while (pris.has(base + ' ' + n)) n++;
@@ -142,8 +153,8 @@ function etatsDe(etapes, nommer, contexte) {
     } else if (e.core === 'wait') {
       // La composition VALIDÉE en console : trois états qui bouclent. On pose
       // les deux compagnons ici, et l'état nommé porte l'interrogation.
-      const nAttendre = nom + ' · attendre';
-      const nVerdict  = nom + ' · terminé ?';
+      const nAttendre = nom + ' - attendre';
+      const nVerdict  = nom + ' - termine';
       States[nAttendre] = { Type: 'Wait',
         Seconds: Number((e.params || {}).delaySeconds) || 20, Next: nom };
       States[nVerdict] = { Type: 'Choice',
@@ -194,7 +205,7 @@ function etatsDe(etapes, nommer, contexte) {
     //    sur le nœud, ASL ne connaît que Next — d'où un état supplémentaire que
     //    la table de coûts ne prévoyait pas.
     if (autres.length && etat.Type === 'Task') {
-      const nAiguillage = nom + ' · quel port ?';
+      const nAiguillage = nom + ' - quel port';
       etat.Next = nAiguillage;
       States[nAiguillage] = {
         Type: 'Choice',
@@ -292,6 +303,17 @@ async function main() {
         problemes.push(ou + ' : « ' + nom + ' » n\'a ni Next ni End');
       }
       if (s.ItemProcessor) controler(s.ItemProcessor.States, 'corps de boucle');
+    });
+  })(definition.States, 'racine');
+
+  // Un nom hors ASCII simple est refusé par la console AWS — mesuré le
+  // 2026-08-12. On le signale AVANT de faire coller quoi que ce soit.
+  (function nomsSurs(states, ou) {
+    Object.keys(states).forEach(function (n) {
+      if (!/^[A-Za-z0-9 _-]+$/.test(n)) problemes.push(ou + ' : nom d\'état hors ASCII simple — « ' + n + ' »');
+      if (n.length > 80) problemes.push(ou + ' : nom d\'état de plus de 80 caractères — « ' + n + ' »');
+      const s = states[n];
+      if (s.ItemProcessor) nomsSurs(s.ItemProcessor.States, 'corps de boucle');
     });
   })(definition.States, 'racine');
 
