@@ -92,10 +92,17 @@ body {
   border-radius: 8px; padding: 12px; margin-bottom: 10px;
 }
 .mp-row-tete {
+  /* La colonne d'héritage s'insère AVANT la croix de suppression : elle décrit
+     la règle, pas l'action sur la ligne. */
   display: grid;
-  grid-template-columns: 1fr 1fr 110px 90px 1fr 28px;
+  grid-template-columns: 1fr 1fr 110px 90px 1fr 140px 28px;
   gap: 8px; align-items: center;
 }
+/* Un champ dont l'héritage n'est pas décidé se voit : sur une correspondance
+   qui alimente une arborescence, « non défini » veut dire « on ne sait pas ce
+   qui se passe quand le niveau est vide » — c'est un trou, pas un défaut. */
+.mp-heritage { color: var(--adm-text); }
+.mp-heritage:has(option[value=""]:checked) { color: var(--adm-dim); font-style: italic; }
 .mp-row input, .mp-row select {
   background: #262c32; color: var(--adm-text);
   border: 1px solid #3a4147; border-radius: 6px;

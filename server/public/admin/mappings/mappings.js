@@ -16,6 +16,36 @@
   const TYPES_LIGNE  = ['string', 'list', 'integer', 'float', 'boolean'];
   const FORMATS_LIGNE = ['', 'slug'];
 
+  // ── L'HÉRITAGE D'UN CHAMP DANS UNE ARBORESCENCE ────────────────────────────
+  // VOD Factory exige les mêmes attributs à CHAQUE niveau d'une série — série,
+  // saison, épisode. Les rendre tous obligatoires partout reviendrait à faire
+  // ressaisir dix champs sur chaque épisode d'un catalogue ; ne rien exiger
+  // livrerait des fiches vides et bloquerait l'arbre entier, puisqu'une saison
+  // ne part pas tant que sa série n'est pas partie.
+  //
+  // La résolution se fait donc à la publication, en remontant tant que c'est
+  // vide. Ce qui varie d'un champ à l'autre, c'est le DROIT de remonter :
+  //
+  //   propre      ne remonte jamais. Chaque niveau a le sien (title).
+  //   cascade     remonte librement — constantes de l'œuvre : studio, langue
+  //               originale, pays, genres. Hériter est ici la vérité.
+  //   signalee    remonte, mais la livraison DIT qu'elle a emprunté. Le
+  //               synopsis d'une série posé sur un épisode remplit le champ et
+  //               livre un texte qui ne le décrit pas : ce n'est pas une donnée
+  //               manquante, c'est une donnée trompeuse. On ne l'interdit pas
+  //               — ça rebloquerait tout — on la rend visible.
+  //   fusion      union du niveau et de ses ancêtres, jamais un remplacement.
+  //               Un épisode qui déclare un invité doit GARDER le casting
+  //               récurrent de la série ; un simple « sinon » le ferait
+  //               disparaître.
+  const HERITAGES = ['', 'propre', 'cascade', 'signalee', 'fusion'];
+  // Libellés courts : la colonne fait 140 px, et « propre au niveau » y était
+  // coupé en « propre au nive… ». Un libellé tronqué ne dit plus rien ; le
+  // détail vit dans l'infobulle du sélecteur.
+  const HERITAGE_LIB = { '': '(non défini)', propre: 'propre',
+                         cascade: 'hérité', signalee: 'hérité ⚠',
+                         fusion: 'fusionné' };
+
   let mappings = [];   // liste chargée
   let courant = null;  // correspondance en édition { id?, name, rows[] }
 
@@ -161,6 +191,18 @@
     fallback.value = row.fallback || '';
     fallback.addEventListener('input', function () { row.fallback = fallback.value; });
 
+    // Héritage — comment le champ se résout dans une arborescence.
+    const heritage = document.createElement('select');
+    heritage.className = 'mp-heritage';
+    heritage.title = 'Comment ce champ se résout quand le niveau ne le porte pas';
+    HERITAGES.forEach(function (h) {
+      const o = document.createElement('option');
+      o.value = h; o.textContent = HERITAGE_LIB[h];
+      if ((row.heritage || '') === h) o.selected = true;
+      heritage.appendChild(o);
+    });
+    heritage.addEventListener('change', function () { row.heritage = heritage.value; });
+
     // Retirer la ligne
     const suppr = document.createElement('button');
     suppr.type = 'button';
@@ -177,6 +219,7 @@
     tete.appendChild(type);
     tete.appendChild(format);
     tete.appendChild(fallback);
+    tete.appendChild(heritage);
     tete.appendChild(suppr);
     bloc.appendChild(tete);
 
@@ -267,6 +310,7 @@
         const propre = { key: r.key || '', value: r.value || '', type: r.type || 'string' };
         if (r._format) propre._format = r._format;
         if (r.fallback) propre.fallback = r.fallback;
+        if (r.heritage) propre.heritage = r.heritage;
         const children = (r.children || []).filter(function (c) { return (c.key || '').trim() && (c.value || '').trim(); });
         if (children.length) propre.children = children;
         return propre;
