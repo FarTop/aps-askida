@@ -109,13 +109,30 @@ const WfInterpreter = (() => {
      // quelque chose de petit — et c'est exactement le chiffre qui inquiète
      // les collègues sur la consommation.
      ['modules', v.modules, 'modules chez la cible'],
-     ['scenarios', v.scenarios, v.scenarios > 1 ? 'scénarios' : 'scénario']]
+     ['scenarios', v.scenarios, v.scenarios > 1 ? 'scénarios' : 'scénario'],
+     // Les fonctions d'expression ne sont ni des étapes ni des ressources :
+     // elles n'apparaissaient dans aucun compte et se découvraient à
+     // l'émission. Deux d'entre elles (`slug`, `filebase`) ont une sémantique
+     // qui nous est PROPRE : mal portées, elles composent d'autres chemins S3
+     // que ceux qu'APS vérifie ensuite — la livraison part ailleurs sans que
+     // rien ne le signale.
+     ['fonctions', (d.fonctions || []).length,
+      (d.fonctions || []).length > 1 ? 'fonctions à porter' : 'fonction à porter']]
       .forEach(function (t) {
         if (t[0] === 'lectures' && !t[1]) return;
+        if (t[0] === 'fonctions' && !t[1]) return;
         const c = el('span', 'itp-compte');
         c.dataset.genre = t[0];
         c.appendChild(el('b', null, t[1] == null ? '—' : t[1]));
         c.appendChild(el('span', null, ' ' + t[2]));
+        // Le détail au survol : un compte seul dit qu'il y a du travail, pas
+        // lequel. `propre` d'abord — c'est le seul portage qui casse en silence.
+        if (t[0] === 'fonctions') {
+          c.title = (d.fonctions || [])
+            .map(f => f.signature + '  ×' + f.occurrences + '  [' + f.porte + ']'
+                    + (f.note ? '\n    ' + f.note : ''))
+            .join('\n');
+        }
         droite.appendChild(c);
       });
     barre.appendChild(droite);
@@ -458,6 +475,18 @@ const WfInterpreter = (() => {
     L.push('Plan           : ' + v.traduites + ' traduites, ' + v.degradees
            + ' dégradées, ' + v.bloquantes + ' bloquantes, ' + v.scenarios + ' scénario(s)'
            + (v.lectures ? ', ' + v.lectures + ' lecture(s) de ressource' : ''));
+    // Les fonctions d'expression voyagent avec le plan : celui qui remonte le
+    // workflow chez la cible doit savoir que `filebase` compose des chemins S3,
+    // et qu'une approximation les fait diverger sans rien signaler.
+    if ((d.fonctions || []).length) {
+      L.push('');
+      L.push('Fonctions d\'expression à porter :');
+      d.fonctions.forEach(function (f) {
+        L.push('  ' + f.signature + '  ×' + f.occurrences + '  [' + f.porte + ']');
+        L.push('    ' + f.fait);
+        if (f.note) L.push('    ⚠ ' + f.note);
+      });
+    }
     L.push('');
     (d.groupes || []).forEach(function (g) {
       L.push('  scénario "' + g.nom + '" (' + g.role + ')');

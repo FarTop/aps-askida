@@ -22,6 +22,11 @@ const RENDU = require('../../scripts/rendre-make.js');
 // Comme pour la correspondance des verbes : c'est le portage qui décide, cet
 // écran ne fait que lire. Le module n'écrit rien quand on le requiert.
 const PORT  = require('../../scripts/porter-ressources-make.js');
+// Les fonctions d'expression du pivot (`slug`, `filebase`, `pad`…). Déclarées
+// une fois, indépendamment de toute cible : ce sont des primitives du format,
+// pas des verbes Iconik. Un émetteur qui les ignore produit des chemins S3
+// différents de ceux qu'APS vérifie ensuite.
+const FONC = require('../../scripts/fonctions-pivot.js');
 // Le catalogue est le seul à savoir quels ports une étape expose — ceux d'une
 // décision se calculent depuis sa configuration.
 const CAT   = require('../public/builders/workflow/pivot-catalog-iconik.js');
@@ -740,6 +745,10 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
                      return n + (e.ecarts || []).filter(x => x.consequence === kv[0]).length; }, 0) };
         }).filter(x => x.nombre),
       aptitude: aptitudeDe(toutes.flatMap(e => e.ecarts || [])),
+      // Ce que ce workflow-ci oblige à porter en plus des verbes. Une
+      // expression n'est ni une étape ni une ressource : elle n'apparaissait
+      // dans aucun compte, et se découvrait à l'émission.
+      fonctions: FONC.fonctionsUtilisees(flux.document),
       verdict: {
         etapes: toutes.length,
         traduites: toutes.filter(e => e.etat === 'traduit').length,
