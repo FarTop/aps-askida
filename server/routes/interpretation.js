@@ -493,6 +493,22 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
     const parFamille = new Map(defs.map(d => [d.family, d]));
     const noms = await nomsDesRessources();
 
+    // Les manifestes RÉFÉRENCÉS, par id. Seul contenu de ressource dont le plan
+    // ait besoin : c'est lui qui nomme les sorties de Deliver (`essences[].sortie`).
+    // Les autres ressources ne servent ici que par leur nom, déjà chargé.
+    const manifestes = {};
+    {
+      const ids = new Set();
+      etapes.forEach(function (e) {
+        const id = e.etape && e.etape.params && e.etape.params.manifestId;
+        if (id) ids.add(id);
+      });
+      if (ids.size) {
+        const lignes = await prisma.manifest.findMany({ where: { id: { in: [...ids] } } });
+        lignes.forEach(m => { manifestes[m.id] = m; });
+      }
+    }
+
     // Découpage en scénarios. La seule couture qu'on sache justifier aujourd'hui
     // est le corps de boucle ; elle est donc la seule appliquée, et sa RAISON
     // voyage avec elle plutôt qu'en note de bas de page.
@@ -581,6 +597,14 @@ router.get('/builder-flows/:id/interpretation', async (req, res) => {
         // n'émettrait qu'un squelette — des modules justes, vides de tout
         // réglage.
         params: (e.etape && e.etape.params) || {},
+        // CE QUE L'ÉTAPE PRODUIT, nommé. Un émetteur ne peut traduire une
+        // référence qu'à condition de savoir quelle étape la pose : ni Make ni
+        // ASL n'ont d'espace de noms global, donc une variable dont personne
+        // ne se déclare l'auteur est intraduisible par construction.
+        // Le catalogue le sait déjà pour la plupart des verbes ; Deliver avait
+        // besoin de son manifeste pour nommer ses sorties (`s3_*_url`), d'où
+        // `manifestes` passé ici.
+        produit: CAT.variablesDe(e.etape || e, { manifests: manifestes }).map(v => v.nom),
         composition: compo,
         natif: natif,
         orphelin: orphelin,

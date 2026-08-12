@@ -167,10 +167,27 @@ function parametresDe(plan, etape) {
 function traducteurDe(plan) {
   // Quelle étape produit quelle variable.
   const parVariable = new Map();
+  // Le CHAMP à lire chez la cible, quand il ne se confond pas avec « la
+  // première sortie du module ».
+  const champProduit = new Map();
   (plan.groupes || []).flatMap(g => g.etapes).forEach(function (e) {
     const p = e.params || {};
     ['resultVar', 'lkOutputVar', 'varName'].forEach(function (k) {
       if (p[k]) parVariable.set(String(p[k]), e.id);
+    });
+    // `produit` vient du catalogue, via le plan : ce que l'étape est CONNUE
+    // pour poser, au-delà des trois champs de configuration ci-dessus. C'est
+    // par lui que les sorties de Deliver (`s3_cover_url`…) cessent d'être des
+    // orphelines — leur nom est dans le manifeste, il fallait le remonter.
+    (e.produit || []).forEach(function (nom) {
+      if (!nom || parVariable.has(String(nom))) return;
+      parVariable.set(String(nom), e.id);
+      // Une étape qui pose PLUSIEURS variables nommées les expose sous ces
+      // noms-là : `{s3_cover_url}` se lit `{{42.s3_cover_url}}`, pas « premier
+      // champ du module ». Sans cette précision, la référence désignait le bon
+      // module et le mauvais champ — une erreur plus sournoise que l'absence,
+      // parce qu'elle a l'air résolue.
+      champProduit.set(String(nom), String(nom));
     });
   });
 
@@ -188,16 +205,33 @@ function traducteurDe(plan) {
   const orphelines = new Map();
   const traversantes = new Map();
   const sansChamp = new Map();
+  const fonctions = new Map();
   return {
     orphelines: orphelines,
     traversantes: traversantes,
     sansChamp: sansChamp,
+    fonctions: fonctions,
     // `moduleDe` est rempli au fil du parcours : une étape productrice est
     // toujours posée avant celles qui la consomment, l'ordre du flux le
     // garantit.
     traduire: function (valeur, moduleDe, idDeclencheur) {
       if (typeof valeur !== 'string') return valeur;
-      return valeur.replace(/\{([^{}"':]+)\}/g, function (tout, ref) {
+      // Nommée et récursive : une référence peut en contenir une autre —
+      // `{filebase(item.title)}` est une fonction dont l'argument est une
+      // référence ordinaire. Un callback anonyme ne pouvait pas se rappeler.
+      const resoudre = function (tout, ref) {
+        // UN APPEL DE FONCTION N'EST PAS UNE VARIABLE. `{filebase(item.title)}`
+        // était compté « sans origine déclarée » alors que `item.title` est
+        // parfaitement produit : ce qui manque n'est pas la donnée, c'est
+        // l'équivalent de `filebase` chez la cible. Confondre les deux fait
+        // chercher une étape productrice qui n'a jamais eu à exister, et masque
+        // le vrai travail — porter la fonction. On les compte donc à part.
+        const appel = ref.match(/^([a-zA-Z_][\w]*)\s*\((.*)\)$/);
+        if (appel) {
+          fonctions.set(appel[1], (fonctions.get(appel[1]) || 0) + 1);
+          const dedans = resoudre('{' + appel[2] + '}', appel[2]);
+          return appel[1] + '(' + dedans + ')';
+        }
         const racine = ref.split(/[.[]/)[0];
         const reste = ref.slice(racine.length);
         // Le déclencheur : Iconik poste sa charge utile au webhook, qui est le
@@ -216,6 +250,7 @@ function traducteurDe(plan) {
           // la première sortie DÉCLARÉE du module, qui est l'information la
           // plus proche qu'on ait.
           if (reste) return '{{' + m.id + reste + '}}';
+          if (champProduit.has(racine)) return '{{' + m.id + '.' + champProduit.get(racine) + '}}';
           const sorties = (plan.interfaces || {})[m.module] || [];
           const champ = sorties.length ? '.' + sorties[0] : '';
           if (!champ) sansChamp.set(ref, (sansChamp.get(ref) || 0) + 1);
@@ -232,7 +267,8 @@ function traducteurDe(plan) {
         }
         orphelines.set(ref, (orphelines.get(ref) || 0) + 1);
         return tout;                       // laissée telle quelle, et comptée
-      });
+      };
+      return valeur.replace(/\{([^{}"':]+)\}/g, resoudre);
     },
   };
 }
@@ -665,6 +701,14 @@ const l = (s, n) => String(s == null ? '' : s).padEnd(n);
     console.log('\n◦ ' + sc.length + ' référence(s) sans champ ni sortie déclarée :');
     sc.forEach(([r, n]) => console.log('   {' + r + '}  ×' + n
       + '  → module désigné, champ inconnu'));
+  }
+  const fns = [...plan.traducteur.fonctions.entries()].sort((a, b) => b[1] - a[1]);
+  if (fns.length) {
+    console.log('\nƒ ' + fns.length + ' fonction(s) d\'expression à porter chez la cible :');
+    fns.forEach(([f, n]) => console.log('   ' + f + '()  ×' + n));
+    console.log('   Leur ARGUMENT est résolu ; la fonction elle-même n\'a pas');
+    console.log('   d\'équivalent déclaré. Ce n\'est pas une donnée manquante,');
+    console.log('   c\'est une expression à traduire — deux travaux différents.');
   }
   const orph = [...plan.traducteur.orphelines.entries()].sort((a, b) => b[1] - a[1]);
   if (orph.length) {

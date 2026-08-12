@@ -26,7 +26,17 @@ const PivotCatalogIconik = (() => {
     trigger:       { ports: ['out'] },
     decision:      { ports: ['default'], dynamicPorts: 'conditions' },
     loop:          { ports: ['out'], hasBody: true },
-    verify:        { ports: ['ok', 'fail', 'error'] },
+    // Vérifié : checker(), builder-handler-verify.js:146-147 — pose TOUJOURS
+    // ces deux-là, quel que soit le verdict. `checkerSummary` est lu tel quel
+    // par les messages d'historique de STATUSES et du callback.
+    verify:        { ports: ['ok', 'fail', 'error'],
+      variables: function () {
+        return [
+          { nom: 'checkerResult',  aide: 'verdict complet (failures[])' },
+          { nom: 'checkerSummary', aide: 'résumé lisible des contrôles en échec' }
+        ];
+      }
+    },
     wait:          { ports: ['out', 'timeout', 'error'] },
     set_variable:  { ports: ['out'] },
     transform:     { ports: ['out'] },
@@ -44,7 +54,41 @@ const PivotCatalogIconik = (() => {
     http_request:  { ports: ['out', 'error'] },
     http_sequence: { ports: ['out', 'err'] },
     history:       { ports: ['out', 'error'] },
-    deliver:       { ports: ['out', 'miss', 'error'] },
+    // Deliver pose une variable PAR ESSENCE du manifeste — leur nom est le
+    // champ `sortie` de chacune (`s3_cover_url`, `s3_video_url`…), et le
+    // handler les écrit depuis le listing S3 (builder-handler-deliver.js).
+    //
+    // Elles n'étaient déclarées NULLE PART, alors que le manifeste les nomme
+    // noir sur blanc. Conséquence mesurée le 2026-08-12 sur PUBLISH : sept des
+    // huit références « sans origine déclarée » de l'analyse d'émission sont
+    // ces sorties-là. Elles passaient pour des variables d'ambiance — c'est-à-
+    // dire pour une dépendance intraduisible — alors qu'une étape du workflow
+    // les produit et le dit. Ni Make ni ASL n'ont d'espace de noms global : une
+    // référence non déclarée ne survit à aucun portage, et celles-ci n'avaient
+    // aucune raison d'en être.
+    //
+    // `incertain` parce qu'une essence hors du niveau courant n'est PAS posée
+    // (filtre `appliesTo`) : la variable existe dans le contrat, pas forcément
+    // à l'exécution. L'analyse statique ne connaît pas le niveau.
+    deliver:       { ports: ['out', 'miss', 'error'],
+      variables: function (etape, resolutions) {
+        const p = etape.params || {};
+        const out = [];
+        if (p.resultVar) out.push({ nom: p.resultVar, aide: 'résultat du listing S3' });
+        const manifeste = resolutions && resolutions.manifests && p.manifestId
+          ? resolutions.manifests[p.manifestId] : null;
+        // `s3Mappings` est la forme déjà résolue (format d'échange WFD) ;
+        // `essences` la forme d'origine de la ressource. On lit celle qu'on a.
+        const essences = manifeste ? (manifeste.essences || []) : (p.s3Mappings || []);
+        essences.forEach(function (e) {
+          const nom = e.sortie || e.variable;
+          if (!nom) return;
+          out.push({ nom: nom, incertain: true,
+                     aide: 'URL S3 de l\'essence « ' + (e.role || e.type || '?') + ' », si elle s\'applique à ce niveau' });
+        });
+        return out;
+      }
+    },
     // Post-it : annotation visuelle, portée de WFD (family `postit`,
     // wfd-components.js:72). Aucun port — donc jamais d'arête, donc jamais
     // exécuté ni atteint par le parcours. `annotation: true` est le drapeau
@@ -355,15 +399,26 @@ const PivotCatalogIconik = (() => {
   // vérifié fait TOUJOURS. Une étape non déclarée ici renvoie [] : absence de
   // preuve, pas preuve d'absence — le sélecteur doit rester honnête plutôt que
   // d'inventer un champ jamais vérifié.
-  function variablesDe(etape) {
+  // `resolutions` est OPTIONNEL — le panneau du canevas n'en a pas, et n'en a
+  // pas besoin : il propose des noms. Un émetteur, lui, doit savoir quelles
+  // variables une étape produit RÉELLEMENT, et pour Deliver cela dépend du
+  // manifeste référencé. Sans l'argument, le comportement est inchangé.
+  function variablesDe(etape, resolutions) {
     if (!etape) return [];
     if (etape.facade && FACADES[etape.facade] && typeof FACADES[etape.facade].variables === 'function') {
-      return FACADES[etape.facade].variables(etape) || [];
+      return FACADES[etape.facade].variables(etape, resolutions) || [];
     }
     // Pas de façade : Core pur (ex. Lookup posé sans façade Iconik). Une
     // façade prime toujours (même règle que config-schema.js `pour(etape)`).
-    const core = etape.core && CORES[etape.core];
-    if (core && typeof core.variables === 'function') return core.variables(etape) || [];
+    //
+    // Une façade SANS `variables` retombe ici, sur le Core qu'elle vise —
+    // `aws_s3.deliver` n'en déclare pas, et c'est le Core `deliver` qui sait
+    // quoi rendre. Le nom du Core se déduit de la façade quand l'étape ne le
+    // porte pas : le pivot autorise les deux formes.
+    const nomCore = etape.core
+      || (etape.facade && FACADES[etape.facade] && FACADES[etape.facade].core);
+    const core = nomCore && CORES[nomCore];
+    if (core && typeof core.variables === 'function') return core.variables(etape, resolutions) || [];
     return [];
   }
 
