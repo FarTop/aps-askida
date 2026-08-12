@@ -282,3 +282,172 @@ tableau.
 **Et la mesure a battu la déduction, encore.** Le blocage en cascade
 (`parent_not_sent`) ne se déduisait d'aucune documentation : il a fallu
 appeler `action-statuses` sur une vraie série pour le voir.
+
+---
+
+# Journal APS — 2026-08-12, troisième partie : l'héritage prouvé, puis le virage
+
+> Longue session. L'héritage arbitré le matin devient du code prouvé en réel ;
+> la correspondance est confrontée aux référentiels du partenaire ; le callback
+> est construit. Puis une décision de direction fait basculer le chantier :
+> Make est abandonné, AWS Step Functions prend sa place — et une cible plus
+> contraignante fait apparaître ce qu'une cible permissive absorbait en silence.
+
+## L'héritage, du code à la preuve
+
+`iconik.resolve_ancestors` lisait déjà les métadonnées complètes de chaque
+ancêtre pour composer le chemin S3, et n'en gardait que trois champs. Poser la
+pile entière n'a donc coûté **aucun appel réseau** : elle était là, on la
+jetait.
+
+Quatre runs réels sur QA | ASKIDA, tous `success` :
+
+```
+série            part complète, 6 personnes distinctes
+saison (nue)     12 champs hérités, 3 signalés
+épisode 01       la fusion enrichit le casting
+épisode 02       remonte DEUX niveaux, cascade + signalée + fusion
+```
+
+Et la ligne réellement écrite dans Iconik :
+
+```
+⚠ hérité : DatedeDebutdeDroits ← Série, DatedeFindeDroits ← Série,
+           Synopsis ← Série, SynopsisCourt ← Série, TitreOriginal ← Série
+```
+
+Le synopsis passe en silence au niveau saison et signalé au niveau épisode :
+la politique par niveau fait exactement ce pour quoi elle a été ajoutée.
+
+## Ce que le run réel a trouvé et que la preuve ne pouvait pas voir
+
+`preuve-heritage.js` passait à 100 % pendant que le moteur livrait un unique
+`ice-cube-chris-tucker` à Amazon. Mon jeu de test posait les métadonnées sous la
+forme que le CODE attendait ; le search Iconik les livre **sérialisées** par les
+variables de contexte. Deux acteurs devenaient une personne.
+
+Le même défaut existait, **préexistant**, sur les champs à table de traduction :
+la table cherchait la chaîne entière `["av_genre_comedy","av_genre_adventure"]`
+comme clé. Un genre passait, deux cassaient tout l'envoi.
+
+## La correspondance, confrontée aux référentiels
+
+Cinq des huit traductions de genres pointaient vers des codes **qui n'existent
+pas** chez Amazon. La table ne se contentait pas d'être inutile : quand elle
+s'appliquait, elle traduisait du juste vers du faux. Confrontée aux 432 codes
+officiels, elle devient une table de rattrapage à 20 entrées.
+
+`Unitaire` n'avait aucune entrée dans la table de `type`, alors que la règle
+porte un repli `{TypeCollection}` : un unitaire sans `ContenuPrime` envoyait la
+chaîne « Unitaire ». Les trois autres niveaux passaient par coïncidence.
+
+**Deux fausses pistes que j'ai créées, et qu'il faut connaître :**
+
+*« Une personne ne peut porter qu'un métier »* — FAUX. Les 422 de
+`POST /api/persons` disent seulement « existe déjà » (le corps n'a pas de
+`job` : le métier est une relation du contenu) et la séquence les ignore.
+« persons.1.external_id is invalid » désignait les entrées corrompues par le
+défaut de déballage. Un seul bug, deux symptômes, et j'en avais déduit deux
+causes.
+
+*`Magazine → program`* — régression que j'ai introduite en me fiant à la doc
+p.7, qui ne liste que quatre valeurs de `type`. Le schéma MCP en déclare six.
+
+## Le PDF n'est pas le serveur
+
+Le MCP de préprod existe (la doc ne documente que celui de production) et
+expose **37 outils** là où le PDF en documente 24 — dont
+`get_content_action_statuses`, que j'avais déclaré absent. Ses schémas portent
+les contraintes qu'aucune page ne donne : `rating` en enum, « max 3 genres pour
+Amazon », les longueurs maximales, `duration` en secondes.
+
+**Ce que l'API REST ne dit pas, le MCP le dit.**
+
+## Le virage
+
+Décision de l'utilisateur : **Make est abandonné comme cible d'émission**,
+AWS Step Functions prend sa place. Modèle économique intenable, prestation
+Bayard proche de sa fin. Il envisageait trois cibles ; recommandation retenue :
+une seule à la fois, et la plus contraignante d'abord — ASL n'a aucun espace de
+noms global, donc elle teste le pivot bien plus durement.
+
+L'argument qui a pesé, et qui vaut pour TOUT émetteur : les 14 scénarios Make en
+production ont été reconstruits par des collègues **depuis la documentation
+produite par APS**, jamais depuis un émetteur. C'est le seul transfert vers une
+cible qui ait réellement eu lieu.
+
+## Rendre le pivot traduisible — avant d'écrire une ligne d'ASL
+
+Huit références « sans origine déclarée » sur PUBLISH. Elles n'étaient pas
+ambiantes : le nœud Deliver les pose, et le manifeste les NOMME. L'information
+existait, elle n'était remontée nulle part.
+
+```
+avant   8 sans origine
+après   0 · 1 contrat d'entrée nommé · 1 fonction d'expression à porter
+```
+
+Trois fois dans la journée, le même motif : **le pivot en sait plus long que ses
+consommateurs**. Les sorties de Deliver étaient nommées par le manifeste, les
+ports déclarés par le catalogue, l'aplatissement des métadonnées déclaré depuis
+longtemps. Personne ne le leur avait demandé.
+
+## Ce qu'ASL renverse, et ce qu'il coûte
+
+```
+ASL SAIT BOUCLER          un sondage = 3 états, contre 59 modules déroulés
+L'ERREUR EST NATIVE       Catch s'attache à l'état, ne coûte rien
+MAIS AUCUNE LOGIQUE       traduire, hériter, tenir un registre → Lambda
+ET PAS DE PORTS MÉTIER    `miss`/`empty` se réécrivent en conditions
+```
+
+PUBLISH : **91 modules chez Make, 41 états chez ASL.** La console AWS accepte
+la définition complète et la dessine — S3 en intégration native, Lambda,
+Map/ItemProcessor, la boucle de sondage, les Catch attachés.
+
+## Les Lambdas — deux sur trois
+
+`aps-essences` et `aps-lookup` **ne réimplémentent rien** : elles appellent les
+modules du moteur natif, extraits en fonctions pures. Ce n'est pas une
+commodité. Ces variables composent les URL livrées au partenaire puis vérifiées
+par APS : deux implémentations qui divergent contrôleraient une autre adresse
+que celle qu'elles ont envoyée.
+
+L'extraction a d'ailleurs révélé un **défaut réel** : le repli par token
+écrasait l'essence correctement triée, sans le tri qui écarte les doublons
+d'upload. `friday_cover-2.png` serait parti à la place de l'original.
+
+## Le chiffrage
+
+```
+                       Make            ASL          écart
+1er essai              $0,056          $0,0012      ×46
+5e essai               $0,067          $0,0016      ×42
+20 essais              $0,107          $0,0029      ×37
+```
+
+Tarif Step Functions **relevé** (Europe Paris) : 0,0297 $ / 1000 transitions.
+Mon estimation de mémoire était 19 % en dessous — l'ordre de grandeur tenait, le
+chiffre non.
+
+Et l'offre gratuite **n'expire pas** : 4 000 transitions par mois, soit
+**75 publications gratuites**. La question cesse d'être « lequel coûte moins »
+pour devenir « accepte-t-on de posséder trois Lambdas et une table DynamoDB ».
+
+## Méthode
+
+**Le run réel bat la preuve hors ligne.** Trois fois aujourd'hui.
+
+**Un contrôle qui valide du vide est pire que pas de contrôle.** Mon émetteur
+ASL affichait « ✅ cohérence interne » sur un graphe dont les 21 états menaient
+tous à la sortie : il vérifiait que les cibles existent, et « Fin » existe. Le
+contrôle de connexité, ajouté après, a trouvé deux bugs de plus au premier
+essai. Même leçon que l'audit de correspondance, qui accusait huit pays d'être
+invalides parce qu'il cherchait le mauvais champ.
+
+**Un diagnostic qui ne bouge pas après correction n'était pas le bon
+diagnostic.** Deux collages ASL ont rendu exactement les mêmes sept erreurs aux
+mêmes lignes ; j'ai conclu à un problème de caractères et « corrigé ». Le
+fichier était simplement tronqué à la ligne 200 sur 570. C'est la faute que la
+mémoire du chantier Make décrit — enchaîner les hypothèses au lieu de s'arrêter
+sur celle qui ne tient pas.
