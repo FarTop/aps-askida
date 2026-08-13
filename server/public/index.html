@@ -15,8 +15,12 @@
       <img src="_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
     </div>
     <div class="aps-header-right">
+      <!-- « Home » retiré le 2026-08-13 : sur la page d'accueil, ce lien
+           pointait sur elle-même et portait `active`, donc `pointer-events:none`.
+           Ce n'était pas un bouton mais le repère « vous êtes ici » d'une barre
+           de quatre. Les trois autres étant mis de côté (cf. navbar.css), il
+           n'indiquait plus rien. La barre reste en place pour ce qui viendra. -->
       <nav class="aps-navbar" aria-label="Navigation APS">
-        <a class="aps-nav-link active" href="index.html">Home</a>
         <a class="aps-nav-link" href="studio/studio.html">Studio</a>
         <a class="aps-nav-link" href="scenario/overview/overview.html">Scénarios</a>
         <a class="aps-nav-link" href="viewer/aps/aps.html">Viewer</a>
