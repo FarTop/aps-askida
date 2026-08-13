@@ -455,7 +455,7 @@
         "ApiEndpoint": "https://app.iconik.io/API/",
         "Method": "GET",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-vodfactory-preprod-api/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-vodfactory-preprod-api/6401b584-853f-4964-ac97-b050f65cc883"
         }
       },
       "Assign": {
@@ -482,7 +482,7 @@
         "ApiEndpoint": "https://app.iconik.io/API/",
         "Method": "GET",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-vodfactory-preprod-api/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-vodfactory-preprod-api/6401b584-853f-4964-ac97-b050f65cc883"
         }
       },
       "Assign": {
