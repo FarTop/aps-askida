@@ -141,3 +141,24 @@ header.aps-header{
 }
 
 header.aps-header{ position: relative; }
+
+/* =========================================================
+   LIENS MIS DE CÔTÉ — 2026-08-13
+   Studio, Scénarios et Viewer sont des surfaces posées pour plus tard.
+   Elles ne sont pas abandonnées : elles encombrent la navigation pendant
+   qu'on travaille sur l'existant.
+
+   POUR LES RÉTABLIR : supprimer le bloc ci-dessous, rien d'autre. Le balisage
+   est intact dans les six pages qui les portent (index, doc, studio, scenario,
+   viewer/aps, viewer/core) — aucune n'a été touchée, et les pages elles-mêmes
+   restent accessibles par leur URL.
+
+   `display:none` les retire aussi de l'arbre d'accessibilité : un lecteur
+   d'écran ne les annoncera pas non plus, ce qui est le comportement voulu —
+   masquer à l'oeil seulement aurait laissé une navigation fantôme.
+   ========================================================= */
+.aps-nav-link[href*="studio/studio.html"],
+.aps-nav-link[href*="scenario/overview/overview.html"],
+.aps-nav-link[href*="viewer/aps/aps.html"]{
+  display:none;
+}
