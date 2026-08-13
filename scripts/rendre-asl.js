@@ -27,14 +27,34 @@
 // ListObjectsV2 », les ARN de Lambda « Lambda: Invoke », le Map porte son
 // corps, et la boucle de sondage tourne bien à l'intérieur.
 //
-// MAIS C'EST UNE VALIDATION DE FORME, PAS D'EXÉCUTION. La leçon la plus chère
-// du chantier Make s'applique ici mot pour mot : « un blueprint ACCEPTÉ n'est
-// pas un blueprint VALIDE ». Les ConnectionArn de la sonde sont factices, rien
-// n'a tourné. Ce qui reste à prouver est donc tout ce qui se voit à
-// l'exécution : que `http:invoke` sait porter l'authentification d'Iconik, que
-// le corps de requête part comme attendu, que `$.job.ResponseBody.status` est
-// le bon chemin de lecture. Une EventBridge Connection réelle est le prochain
-// pas.
+// ── PUIS LE 2026-08-13 : JSONATA, ET UN PREMIER RUN RÉEL ────────
+// Trois validations de plus, dans cet ordre :
+//
+//   sonde-jsonata.json   15 états. Les cinq formes dont dépend la conversion :
+//                        Assign à la racine, Arguments/$states.result, Choice
+//                        en Condition, $merge en ligne, et surtout un Map SANS
+//                        ItemSelector dont le corps lit une variable de la
+//                        portée extérieure. Acceptée et dessinée.
+//   sonde-auth.json      UN appel, en lecture seule, avec une EventBridge
+//                        Connection RÉELLE. C'est le premier run exécuté du
+//                        chantier — et il a échoué, pour une raison qui n'a
+//                        rien à voir avec la définition : la relation
+//                        d'approbation du rôle n'autorisait pas
+//                        states.amazonaws.com à l'endosser. Le mécanisme, lui,
+//                        a fonctionné : TaskScheduled pointait bien sur la
+//                        connexion.
+//   PUBLISH complet      63 états en JSONata, 6 Map dont des Map IMBRIQUÉS
+//                        (les cinq boucles du Partner vivent dans le corps de
+//                        la boucle principale), 116 expressions. Accepté sans
+//                        une seule erreur.
+//
+// MAIS C'EST TOUJOURS UNE VALIDATION DE FORME. La leçon la plus chère du
+// chantier Make s'applique mot pour mot : « un blueprint ACCEPTÉ n'est pas un
+// blueprint VALIDE ». Ce qui reste à prouver ne se voit qu'à l'exécution : que
+// l'authentification passe bout en bout, que les corps de requête partent comme
+// attendu, que les chemins de lecture sont les bons. La console a dit oui à
+// chaque étape de ce chantier, y compris quand l'ARN de connexion était un UUID
+// de zéros et quand l'URL du partenaire pointait sur app.iconik.io.
 //
 // ── CE QUE ASL CHANGE PAR RAPPORT À MAKE ────────────────────────
 // Trois différences renversent des coûts, et c'est pour elles qu'un chiffrage
