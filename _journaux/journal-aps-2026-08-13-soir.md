@@ -190,8 +190,48 @@ d'erreur qu'on préfère.
   commentaires du 14 alors qu'on était le 13. Corrigé, sauf un message de commit
   déjà poussé.
 
+## La direction, arrêtée en fin de session
+
+Le mot de la fin appartient au maintainer, et il déplace la cible :
+
+> *« Je veux pouvoir créer des machines depuis APS. Le but étant de ne pas avoir
+> besoin d'aller sur AWS, à part si incidents — mais ça reste, à mon sens, un
+> travail d'IT. On a des architectes certifiés AWS ; moi, je veux tout faire à
+> partir des builders. »*
+
+Ce n'est pas un élargissement du périmètre, c'est la suite prévue. J'ai eu le
+tort de parler d'APS « passant de lecteur à acteur » sur AWS — c'était faux :
+APS écrit depuis toujours, et l'émission vers un orchestrateur tiers a déjà eu
+lieu chez Make, app et scénarios compris.
+
+Et l'écran existe déjà. `wf-interpreter.js` porte un sélecteur de cible où `asl`
+figure, et son en-tête annonçait la suite depuis le 11 août : *« un plan, au
+sens de `terraform plan`. Lire et approuver d'abord, soumettre ensuite — deux
+gestes, pas un. »* Le second geste n'a jamais été construit ; pour Make,
+l'émission s'est faite en ligne de commande.
+
+Il manque trois choses : une clé (utilisateur IAM dédié — un rôle n'a pas de
+clé), un `sfn-service.js` sur le modèle de `s3-service.js`, et le bouton
+**Soumettre** dans l'Interpréteur *avec le retour du run dans le Builder*. Sans
+ce dernier point, on aurait déplacé le clic sans supprimer l'aller-retour.
+
+La fiche Infrastructure de la plateforme et sa connexion sont créées, inactives,
+en attente de la clé.
+
+**MCP a été écarté, après vérification.** `stepfunctions-tool-mcp-server` existe
+mais fait l'inverse : il expose des machines d'états déjà créées comme outils
+pour un agent. Un serveur de gestion n'est qu'une RFC. Les serveurs génériques
+sauraient créer, mais MCP existe pour qu'une IA *choisisse* un outil — APS sait
+exactement lequel appeler, et n'a pas besoin d'une couche de sélection.
+
+Ce serveur mérite quand même d'être noté, pour une raison qui n'était pas au
+programme : il rend une machine d'états **invocable par un agent**. Le jour où
+PUBLISH tournera sur AWS, un tag suffira pour que le workflow qu'APS a émis
+devienne un outil. C'est l'image en miroir du chantier.
+
 ## Demain
 
 Un copier-coller de l'admin sur la relation d'approbation, et le premier run
-réel de PUBLISH devient possible. Ensuite : `history` en mode `update`,
-`verify`, `resolve_ancestors`, puis la première Lambda.
+réel de PUBLISH devient possible. Ensuite, dans l'ordre : la clé et
+`sfn-service.js`, puis `history` en mode `update`, `verify`,
+`resolve_ancestors`, et la première Lambda.
