@@ -1,0 +1,49 @@
+<!-- APS — connexion.html — 2026-08-13
+     Comme la page d'activation : autonome, sans navigation, sans dépendance.
+     Elle réutilise activation.css — deux pages publiques, une seule apparence,
+     et une seule feuille à corriger. -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connexion — APS</title>
+  <link rel="stylesheet" href="activation.css" />
+</head>
+<body>
+
+  <main class="ac-carte">
+    <img src="_shared/assets/aps-logo.svg" alt="Askida" class="ac-logo" />
+
+    <form id="cx-formulaire" autocomplete="on">
+      <h1 class="ac-titre">Connexion</h1>
+      <p class="ac-texte">
+        Se connecter ne ferme aucune porte : APS reste accessible sans compte.
+        C'est ce qui permet de vérifier ses accès avant qu'ils ne s'appliquent.
+      </p>
+
+      <label class="ac-label" for="cx-email">Adresse e-mail</label>
+      <input class="ac-input" id="cx-email" type="email" autocomplete="username" required />
+
+      <label class="ac-label" for="cx-mdp">Mot de passe</label>
+      <input class="ac-input" id="cx-mdp" type="password" autocomplete="current-password" required />
+
+      <button class="ac-bouton" id="cx-valider" type="submit">Se connecter</button>
+      <p class="ac-message" id="cx-message" aria-live="polite"></p>
+
+      <p class="ac-aide">
+        Pas encore de mot de passe ? Votre compte s'active par un lien
+        d'invitation — demandez-le à la personne qui vous a inscrit.
+      </p>
+    </form>
+
+    <div id="cx-fait" hidden>
+      <h1 class="ac-titre">Vous êtes connecté</h1>
+      <p class="ac-texte" id="cx-resume"></p>
+      <a class="ac-lien" href="index.html">Aller à Askida Platform Studio</a>
+    </div>
+  </main>
+
+  <script src="connexion.js"></script>
+</body>
+</html>

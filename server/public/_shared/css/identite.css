@@ -1,0 +1,33 @@
+/* identite.css — Qui est connecté, dans le header (partagé)
+   Pendant d'org-context-selector.css : même bande, même discrétion. Le nom se
+   lit, le reste s'efface — c'est un repère, pas un panneau. */
+
+.idt {
+  display: flex; align-items: center; gap: 8px;
+  margin-right: 12px;
+  font-size: 12px;
+}
+
+.idt-nom { color: #eef0f1; font-weight: 600; }
+.idt-detail { color: #a6b0b8; }
+.idt-anonyme { color: #a6b0b8; font-style: italic; }
+
+/* Le compte sans groupe ou sans organisation : visible, jamais bloquant.
+   Aujourd'hui ça n'empêche rien — c'est justement pour ça qu'il faut le voir
+   maintenant plutôt que le découvrir le jour où ça bloquera. */
+.idt-alerte { color: #d6d233; cursor: help; }
+
+.idt-lien {
+  color: #a6b0b8; text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.18); border-radius: 8px;
+  padding: 4px 9px; font-size: 11.5px;
+  background: rgba(0,0,0,0.25);
+}
+.idt-lien:hover { color: #eef0f1; border-color: rgba(255,255,255,0.32); }
+.idt-bouton { font: inherit; font-size: 11.5px; cursor: pointer; }
+
+@media (max-width: 1100px) {
+  /* Sur un écran étroit, le nom suffit : le détail des groupes et le compte
+     d'outils sont une vérification, pas une information permanente. */
+  .idt-detail { display: none; }
+}

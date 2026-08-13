@@ -71,6 +71,7 @@ const docContextRouter     = require('./routes/doc-context');
 // organisations qu'il couvre et les outils qu'il ouvre.
 const groupesRouter        = require('./routes/groupes');
 const utilisateursRouter   = require('./routes/utilisateurs');
+const authRouter           = require('./routes/auth');
 
 app.use('/api/flows',      flowsRouter);
 app.use('/api/connexions', connexionsRouter);
@@ -90,6 +91,7 @@ app.use('/api/doc-owners',    docOwnersRouter);
 app.use('/api/doc-context',   docContextRouter);
 app.use('/api/groupes',       groupesRouter);
 app.use('/api/utilisateurs',  utilisateursRouter);
+app.use('/api/auth',          authRouter);
 app.use('/api/jobs',         syncJobsRouter);
 app.use('/api/iconik',       iconikProxy);
 app.use('/api/package',    packageRouter);
