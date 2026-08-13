@@ -52,6 +52,9 @@ const COMPTE = process.env.AWS_COMPTE || '632075073384';
 const REGION = process.env.AWS_REGION || 'eu-west-3';
 const ARN_CONNEXION = 'arn:aws:events:' + REGION + ':' + COMPTE
                     + ':connection/aps-iconik/00000000-0000-0000-0000-000000000000';
+// Les endpoints du pivot sont des chemins relatifs (« /API/jobs/v1/… ») : le
+// moteur natif les colle à la connexion Iconik. ASL veut une URL entière.
+const BASE_ICONIK = process.env.ICONIK_BASE || 'https://app.iconik.io';
 
 // Les ports qui ne sont NI le passage nominal NI une erreur. Chacun devient une
 // branche de Choice après l'état — c'est là que le compte d'états gonfle.
@@ -84,25 +87,116 @@ function nommeur() {
   };
 }
 
+// Les racines que le déclencheur fournit : elles vivent à la racine de l'état,
+// personne n'a à les produire.
+const RACINE = /^(collection|asset|item|user|now|trigger)\b/;
+
 // Une référence du pivot (`{TypeCollection}`, `{search_results.objects}`)
 // devient un JSONPath ASL. Le pivot lit dans un espace de noms global ; ASL lit
 // dans l'état qui circule — d'où le `$.` de tête. Un gabarit qui contient
 // autre chose qu'une référence seule n'est pas traduisible : ASL ne concatène
 // pas dans une condition.
-function jsonPath(gabarit, source) {
+//
+// `adresser` est le résolveur de la portée (voir `adressesDe`) : c'est LUI qui
+// sait si la valeur est rangée par une étape, aplatie d'un Search, ou nulle
+// part. Le gabarit ne fait que découper le nom de son suffixe.
+function jsonPath(gabarit, adresser, aplatie) {
   const t = String(gabarit || '').trim();
   const m = t.match(/^\{([^{}]+)\}$/);
   const ref = m ? m[1] : t;
   if (ref.startsWith('$')) return ref;
   const propre = ref.replace(/[^A-Za-z0-9_.[\]]/g, '_');
-  // UNE MÉTADONNÉE APLATIE se relit de son Search. `source` porte le
-  // ResultPath de la dernière étape en amont qui aplatit ; sans elle, on
-  // retombe sur la racine — ce qui était le comportement d'avant, et qui
-  // décrivait un état que personne ne remplit.
-  if (source && !/^(collection|asset|item|user|now|trigger)\b/.test(propre)) {
-    return source + '.ResponseBody.objects[0].metadata.' + propre;
-  }
-  return '$.' + propre;
+  if (RACINE.test(propre)) return '$.' + propre;
+  return adresser(propre, { aplatie: aplatie !== false });
+}
+
+// ── OÙ CHAQUE VALEUR VIT VRAIMENT, DANS L'ÉTAT QUI CIRCULE ──────
+// Trois provenances, et les confondre fait relire une valeur à une adresse qui
+// n'est pas la sienne — la faute la plus silencieuse qui soit, puisque le
+// graphe reste valide et se dessine.
+//
+//   rangée    une étape la renvoie et le catalogue le DIT (`depuis`) :
+//             `<résultat de l'étape>.ResponseBody.<champ>`
+//   aplatie   une métadonnée d'objet Iconik, à relire du Search qui a ramené
+//             CET objet-là — d'où l'index par type d'objet
+//   sans      rien dans cette portée ne la pose. On ne devine pas : on rend le
+//             nom nu ET on l'inscrit au contrat d'entrée de la portée, pour que
+//             l'appelant la projette (ItemSelector) ou que le contrôle la crie
+function adressesDe(etapes, chemin) {
+  const rangees   = new Map();               // nom → JSONPath complet
+  const mdParObjet = new Map();              // idEtape → { objet → JSONPath du Search }
+  const mdToutes   = new Map();              // idEtape → dernier aplatisseur, tous objets
+
+  const courantParObjet = {};
+  let courante = null;
+  etapes.forEach(function (e) {
+    mdParObjet.set(e.id, Object.assign({}, courantParObjet));
+    mdToutes.set(e.id, courante);
+    // Ce que l'étape RANGE, déclaré par le catalogue. Sans `depuis`, la valeur
+    // est calculée par le handler : aucun JSONPath ne la rend, on ne prétend pas.
+    CAT.variablesDe({ facade: e.verbe, core: e.core, params: e.params || {} })
+      .forEach(function (v) {
+        if (v && v.depuis && !rangees.has(v.nom)) {
+          rangees.set(v.nom, chemin(e) + '.ResponseBody.' + v.depuis);
+        }
+      });
+    if (CAT.aplatitMetadonnees({ facade: e.verbe, core: e.core, params: e.params || {} })) {
+      courante = chemin(e);
+      const objet = CAT.objetDe({ facade: e.verbe, core: e.core, params: e.params || {} });
+      if (objet) courantParObjet[objet] = courante;
+    }
+  });
+
+  return function (idEtape, besoins) {
+    return function (ref, opts) {
+      const o = opts || {};
+      // Par PRÉFIXE LE PLUS LONG : le catalogue déclare `X` et `X.objects`
+      // séparément, parce que les deux existent réellement et ne se déduisent
+      // pas l'un de l'autre (`{X.objects}` ne vaut PAS l'adresse de `X` suivie
+      // de « .objects » — c'est le même tableau, écrit deux fois).
+      const parts = String(ref).split('.');
+      for (let i = parts.length; i > 0; i--) {
+        const cle = parts.slice(0, i).join('.');
+        if (rangees.has(cle)) {
+          const reste = parts.slice(i);
+          return rangees.get(cle) + (reste.length ? '.' + reste.join('.') : '');
+        }
+      }
+      const nom = parts[0];
+      if (o.aplatie) {
+        const src = (o.objet && (mdParObjet.get(idEtape) || {})[o.objet]) || mdToutes.get(idEtape);
+        if (src) return src + '.ResponseBody.objects[0].metadata.' + ref;
+      }
+      if (besoins && !besoins.has(nom)) besoins.set(nom, { nom: nom, objet: o.objet || null, aplatie: !!o.aplatie });
+      return '$.' + ref;
+    };
+  };
+}
+
+// Un gabarit de texte (« /API/jobs/v1/jobs/{exportJobId}/ ») en ASL. Une valeur
+// qui contient une référence ne peut pas rester une chaîne : elle devient un
+// champ `<clé>.$` porté par `States.Format`, dont les `{}` sont les trous.
+// Sans ça, le sondage interrogeait littéralement l'URL « …/{exportJobId}/ ».
+function gabaritAsl(texte, adresser, intraduisibles, ou) {
+  const t = String(texte || '');
+  if (!/\{[^{}]+\}/.test(t)) return { valeur: t };
+  const args = [];
+  let refuse = false;
+  const format = t.replace(/\{([^{}]+)\}/g, function (_, ref) {
+    // Un appel de fonction n'est pas une adresse : `filebase(item.title)`
+    // demande un calcul, et ASL ne calcule pas. On le dit plutôt que d'émettre
+    // une URL qui aurait l'air juste.
+    if (/^[A-Za-z_]\w*\s*\(/.test(ref.trim())) {
+      refuse = true;
+      intraduisibles.push({ etat: ou, port: '(gabarit)', op: 'fonction ' + ref.trim() });
+      return '{' + ref + '}';
+    }
+    args.push(jsonPath('{' + ref + '}', adresser, true));
+    return '{}';
+  });
+  if (refuse) return { valeur: t };
+  const litteral = format.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return { intrinseque: "States.Format('" + litteral + "', " + args.join(', ') + ')' };
 }
 
 // ── LES ÉTATS D'UNE PORTÉE ──────────────────────────────────────
@@ -112,11 +206,17 @@ function etatsDe(etapes, nommer, contexte) {
   // Où chaque étape range sa réponse. Les règles de port en ont besoin :
   // reconnaître un `miss` demande de relire le résultat réel, pas une chaîne.
   const sortieDe = new Map();
-  // La dernière étape AMONT qui aplatit les métadonnées, dans l'ordre du flux.
-  // C'est elle qui donne son adresse réelle à `{TypeCollection}` — le pivot le
-  // lit d'ambiance, ASL doit le relire d'un résultat.
-  const sourceMd = new Map();
   const intraduisibles = contexte.intraduisibles || (contexte.intraduisibles = []);
+  // LE CONTRAT D'ENTRÉE DE LA PORTÉE, constaté plutôt que déclaré : chaque
+  // référence qu'aucune étape d'ici ne pose s'y inscrit toute seule. C'est ce
+  // que l'appelant doit projeter dans l'ItemSelector du Map — sans quoi le
+  // corps de boucle lit dans le vide, ce qu'il faisait pour `TypeCollection`.
+  const besoins = contexte.besoins || (contexte.besoins = new Map());
+  // Le ResultPath d'une étape, calculable AVANT que son état soit bâti : une
+  // référence peut viser une étape que la boucle d'émission n'a pas encore vue.
+  const chemin = function (e) { return '$.' + String(e.id || 'r').replace(/[^A-Za-z0-9]/g, '_'); };
+  const resolveur = adressesDe(etapes, chemin);
+  const adresserChez = function (e) { return resolveur(e.id, besoins); };
   etapes.forEach(e => nomDe.set(e.id, nommer(e.label, e.id)));
 
   // Successeurs par étape et par port, reconstruits depuis `depuis` (le plan
@@ -147,14 +247,6 @@ function etatsDe(etapes, nommer, contexte) {
   const FIN = contexte.fin;
   States[FIN] = { Type: 'Succeed' };
 
-  let mdCourante = null;
-  etapes.forEach(function (e) {
-    sourceMd.set(e.id, mdCourante);
-    if (CAT.aplatitMetadonnees({ facade: e.verbe, core: e.core, params: e.params || {} })) {
-      mdCourante = '$.' + String(e.id || 'r').replace(/[^A-Za-z0-9]/g, '_');
-    }
-  });
-
   etapes.forEach(function (e) {
     const nom     = nomDe.get(e.id);
     const nominal = suivantDe(e.id, PORT_NOMINAL) || FIN;
@@ -173,7 +265,7 @@ function etatsDe(etapes, nommer, contexte) {
       // `$.decision == "Série"` produisait un aiguillage qui ne décide rien —
       // rien ne pose `$.decision`. Chaque condition est appariée à son port par
       // son `label`, qui EST le nom du port.
-      const champ = jsonPath((e.params || {}).field, sourceMd.get(e.id));
+      const champ = jsonPath((e.params || {}).field, adresserChez(e), true);
       const conds = ((e.params || {}).conditions) || [];
       const Choices = [];
       (autres.concat((suites.get(e.id) || []).filter(x => PORT_NOMINAL.test(x.port))))
@@ -200,13 +292,33 @@ function etatsDe(etapes, nommer, contexte) {
     }
 
     if (e.core === 'loop') {
+      // L'ItemSelector EST le contrat d'entrée du corps. Deux sources, et la
+      // seconde manquait entièrement : ce que le plan déclare traversant (une
+      // variable nommée, lue dans les paramètres du corps) ET ce que le corps
+      // s'est révélé lire en étant émis — au premier rang `TypeCollection`, que
+      // personne ne déclare jamais parce que dans le moteur natif elle est
+      // d'ambiance. Le corps la lisait donc à `$.TypeCollection`, dans un état
+      // où rien ne l'avait posée.
+      //
+      // L'adresse se calcule ICI, dans la portée parente, et c'est tout
+      // l'intérêt : le corps n'a pas à savoir d'où la valeur vient.
+      const adresser = adresserChez(e);
+      const projetees = {};
+      (contexte.traversantes || []).forEach(function (v) {
+        projetees[v + '.$'] = adresser(v, { aplatie: false });
+      });
+      (contexte.besoinsDuCorps || []).forEach(function (b) {
+        projetees[b.nom + '.$'] = adresser(b.nom, { aplatie: b.aplatie, objet: b.objet });
+      });
       etat = {
         Type: 'Map',
-        ItemsPath: '$.items',
-        ItemSelector: Object.assign({ 'item.$': '$$.Map.Item.Value' },
-          (contexte.traversantes || []).reduce(function (acc, v) {
-            acc[v + '.$'] = '$.' + v; return acc;
-          }, {})),
+        // SUR QUOI la boucle itère. C'était `$.items` en dur — un champ que
+        // rien ne pose : le Map aurait tourné à vide, et la console n'avait
+        // aucune raison de le dire. Le pivot le déclare depuis toujours
+        // (`loopVariablePath`), personne ne le lui demandait.
+        ItemsPath: jsonPath((e.params || {}).loopVariablePath || '$.items',
+                            adresserChez(e), false),
+        ItemSelector: Object.assign({ 'item.$': '$$.Map.Item.Value' }, projetees),
         ItemProcessor: contexte.corps || { ProcessorConfig: { Mode: 'INLINE' },
                                            StartAt: 'CorpsVide', States: { CorpsVide: { Type: 'Succeed' } } },
         Next: nominal,
@@ -223,10 +335,19 @@ function etatsDe(etapes, nommer, contexte) {
                     StringEquals: String((e.params || {}).checkValue || 'FINISHED'),
                     Next: nominal }],
         Default: nAttendre };
+      // L'URL du sondage porte l'identifiant du job d'export
+      // (« /API/jobs/v1/jobs/{exportJobId}/ »). Elle partait telle quelle :
+      // le sondage interrogeait littéralement une URL à accolades, sur un
+      // chemin relatif de surcroît. La référence est maintenant adressée, et
+      // l'assemblage confié à `States.Format`.
+      const cible = String((e.params || {}).endpoint || 'https://exemple.invalid');
+      const url = gabaritAsl(cible.startsWith('/') ? BASE_ICONIK + cible : cible,
+                             adresserChez(e), intraduisibles, nom);
+      const params = { Method: 'GET', Authentication: { ConnectionArn: ARN_CONNEXION } };
+      if (url.intrinseque) params['ApiEndpoint.$'] = url.intrinseque;
+      else                 params.ApiEndpoint     = url.valeur;
       etat = { Type: 'Task', Resource: 'arn:aws:states:::http:invoke',
-               Parameters: { ApiEndpoint: String((e.params || {}).endpoint || 'https://exemple.invalid'),
-                             Method: 'GET',
-                             Authentication: { ConnectionArn: ARN_CONNEXION } },
+               Parameters: params,
                ResultPath: '$.sonde', Next: nVerdict };
       // Surtout PAS d'entrée de portée ici : le Wait est un état du milieu du
       // flux. Une première version le posait en StartAt, ce qui rendait les
@@ -265,9 +386,17 @@ function etatsDe(etapes, nommer, contexte) {
               'listing.$': '$.s3',
               essences: e.essences || (e.params && e.params.s3Mappings) || [],
               base: 's3://a-renseigner/',
-              'typeCollection.$': sourceMd.get(e.id)
-                ? sourceMd.get(e.id) + '.ResponseBody.objects[0].metadata.TypeCollection'
-                : '$.TypeCollection',
+              // Le niveau courant, qui décide quelles essences s'appliquent.
+              // L'adresse ne se devine plus : le catalogue déclare CETTE
+              // lecture (`lectures`), y compris de quel objet elle se lit — la
+              // collection publiée, jamais le dernier Search venu, qui sur
+              // PUBLISH cherche des assets.
+              'typeCollection.$': (function () {
+                const lu = CAT.lecturesDe({ facade: e.verbe, core: e.core, params: e.params || {} })
+                  .find(x => x && x.nom === 'TypeCollection');
+                return adresserChez(e)('TypeCollection',
+                  { aplatie: true, objet: lu ? lu.objet : null });
+              })(),
             },
           },
           ResultSelector: { 'variables.$': '$.Payload.variables',
@@ -281,9 +410,9 @@ function etatsDe(etapes, nommer, contexte) {
                  Next: nominal };
       } else {
         etat = { Type: 'Task', Resource: 'arn:aws:states:::http:invoke',
-                 Parameters: { ApiEndpoint: 'https://app.iconik.io/API/', Method: 'GET',
+                 Parameters: { ApiEndpoint: BASE_ICONIK + '/API/', Method: 'GET',
                                Authentication: { ConnectionArn: ARN_CONNEXION } },
-                 ResultPath: '$.' + (e.id || 'r').replace(/[^A-Za-z0-9]/g, '_'),
+                 ResultPath: chemin(e),
                  Next: nominal };
       }
     }
@@ -340,20 +469,27 @@ async function main() {
   const portees = plan.groupes.slice(1);
 
   // Le corps de boucle d'abord : le Map de la racine doit pouvoir le porter.
-  let corps = null, traversantes = [];
+  // Et il en ressort MAINTENANT ce qu'il lui faut recevoir — un contrat
+  // d'entrée constaté à l'émission, que le plan seul ne pouvait pas voir : il
+  // recense les références des PARAMÈTRES, or `TypeCollection` n'apparaît dans
+  // aucun paramètre. C'est le handler qui la lit.
+  let corps = null, traversantes = [], besoinsDuCorps = [];
   if (portees.length) {
     const p = portees[0];
     traversantes = (p.entrees && p.entrees.traversantes) || [];
     const ctxCorps = { fin: nommer('Fin du corps'), traversantes: traversantes };
     const bati = etatsDe(p.etapes, nommer, ctxCorps);
     p._intraduisibles = ctxCorps.intraduisibles || [];
+    besoinsDuCorps = Array.from((ctxCorps.besoins || new Map()).values())
+      .filter(b => traversantes.indexOf(b.nom) === -1);
     corps = { ProcessorConfig: { Mode: 'INLINE' },
               StartAt: bati.nomDe.get(p.etapes[0].id),
               States: bati.States };
   }
 
   const corpsIntraduisibles = (portees.length && portees[0]._intraduisibles) || [];
-  const ctx = { fin: nommer('Fin'), corps: corps, traversantes: traversantes };
+  const ctx = { fin: nommer('Fin'), corps: corps, traversantes: traversantes,
+                besoinsDuCorps: besoinsDuCorps };
   const bati = etatsDe(racine.etapes, nommer, ctx);
 
   const definition = {
@@ -412,6 +548,63 @@ async function main() {
       if (s.ItemProcessor) controler(s.ItemProcessor.States, 'corps de boucle');
     });
   })(definition.States, 'racine');
+
+  // ── TOUTE RÉFÉRENCE A-T-ELLE UN PORTEUR ? ─────────────────────
+  // Le contrôle qui manquait, et il est du même genre que la connexité : un
+  // JSONPath vers un champ que rien ne pose est PARFAITEMENT valide pour AWS —
+  // la définition est acceptée, dessinée, et le run échoue en States.Runtime
+  // (ou pire, lit vide sans broncher). Personne ne peut le voir en relisant le
+  // graphe : c'est exactement ce qui est arrivé à `TypeCollection` et à
+  // `exportJobId`, restés introuvables pendant que la console disait oui.
+  //
+  // Un porteur, c'est un ResultPath posé dans la portée, une racine du
+  // déclencheur, ou — dans un corps de boucle — une clé projetée par
+  // l'ItemSelector. Rien d'autre ne remplit l'état.
+  const sansPorteur = [];
+  (function verifier(states, porteurs, ou) {
+    const dispo = new Set(porteurs);
+    Object.values(states).forEach(function (s) {
+      if (typeof s.ResultPath === 'string') {
+        const m = s.ResultPath.match(/^\$\.([A-Za-z0-9_]+)/);
+        if (m) dispo.add(m[1]);
+      }
+    });
+    const lues = [];
+    const chemins = function (v) {
+      if (typeof v === 'string') {
+        if (v.startsWith('$$')) return;
+        if (v.startsWith('States.')) {
+          (v.match(/\$\.[A-Za-z0-9_]+/g) || []).forEach(x => lues.push(x));
+          return;
+        }
+        if (v.startsWith('$.')) lues.push(v);
+        return;
+      }
+      if (Array.isArray(v)) return v.forEach(chemins);
+      if (v && typeof v === 'object') {
+        Object.entries(v).forEach(function ([k, x]) {
+          if (k === 'ItemProcessor') return;          // portée fille, vérifiée à part
+          // Dans un ResultSelector, `$` désigne le RÉSULTAT de la tâche, pas
+          // l'état qui circule : `$.Payload` y est parfaitement légitime.
+          // Confondre les deux racines faisait accuser quatre adresses justes.
+          if (k === 'ResultSelector') return;
+          if (k.endsWith('.$') || k === 'Variable' || k === 'ItemsPath') chemins(x);
+          else if (x && typeof x === 'object') chemins(x);
+        });
+      }
+    };
+    Object.values(states).forEach(chemins);
+    lues.forEach(function (p) {
+      const nom = p.slice(2).split(/[.[]/)[0];
+      if (!nom || dispo.has(nom) || RACINE.test(nom)) return;
+      sansPorteur.push(ou + ' : « ' + p + ' » — rien dans cette portée ne pose « ' + nom + ' »');
+    });
+    Object.values(states).forEach(function (s) {
+      if (!s.ItemProcessor) return;
+      const projetees = Object.keys(s.ItemSelector || {}).map(k => k.replace(/\.\$$/, ''));
+      verifier(s.ItemProcessor.States, projetees, 'corps de boucle');
+    });
+  })(definition.States, [], 'racine');
 
   // Un nom hors ASCII simple est refusé par la console AWS — mesuré le
   // 2026-08-12. On le signale AVANT de faire coller quoi que ce soit.
@@ -502,6 +695,17 @@ async function main() {
     console.log('\n⚠ ' + nonTrad.length + ' aiguillage(s) NON traduits — la branche est omise,');
     console.log('  jamais émise au jugé : un Choice qui trie faux est pire qu\'un manque.');
     nonTrad.forEach(x => console.log('   ' + x.etat + ' · port « ' + x.port + ' » · ' + x.op));
+  }
+  if (besoinsDuCorps.length || traversantes.length) {
+    console.log('\nCE QUE LE CORPS DE BOUCLE REÇOIT — l\'ItemSelector du Map');
+    traversantes.forEach(v => console.log('   ' + v.padEnd(20) + 'déclaré traversant par le plan'));
+    besoinsDuCorps.forEach(b => console.log('   ' + b.nom.padEnd(20)
+      + 'constaté à l\'émission' + (b.objet ? ' — lu de « ' + b.objet + ' »' : '')));
+  }
+  if (sansPorteur.length) {
+    console.log('\n⚠ ' + sansPorteur.length + ' référence(s) SANS PORTEUR — la console dira oui,');
+    console.log('  le run lira du vide. C\'est de la logique de handler, pas une adresse :');
+    sansPorteur.slice(0, 10).forEach(p => console.log('   ' + p));
   }
   if (problemes.length) {
     console.log('\n⚠ ' + problemes.length + ' problème(s) de cohérence AVANT de coller :');

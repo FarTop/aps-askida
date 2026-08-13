@@ -1,5 +1,5 @@
 {
-  "Comment": "APS — BAYARD | PUBLISH | VODFACTORY — émis le 2026-08-12. SQUELETTE : la forme, pas les paramètres. Les ARN de connexion et de Lambda sont des espaces réservés.",
+  "Comment": "APS — BAYARD | PUBLISH | VODFACTORY — émis le 2026-08-13. SQUELETTE : la forme, pas les paramètres. Les ARN de connexion et de Lambda sont des espaces réservés.",
   "StartAt": "Custom Action",
   "States": {
     "Fin": {
@@ -507,10 +507,11 @@
     },
     "Loop": {
       "Type": "Map",
-      "ItemsPath": "$.items",
+      "ItemsPath": "$.http_request_mseo2m4r_1.ResponseBody.objects",
       "ItemSelector": {
         "item.$": "$$.Map.Item.Value",
-        "ancestorPath.$": "$.ancestorPath"
+        "ancestorPath.$": "$.ancestorPath",
+        "TypeCollection.$": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection"
       },
       "ItemProcessor": {
         "ProcessorConfig": {
@@ -619,11 +620,11 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::http:invoke",
             "Parameters": {
-              "ApiEndpoint": "/API/jobs/v1/jobs/{exportJobId}/",
               "Method": "GET",
               "Authentication": {
                 "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
-              }
+              },
+              "ApiEndpoint.$": "States.Format('https://app.iconik.io/API/jobs/v1/jobs/{}/', $.http_request_mserkbl2_10.ResponseBody.job_id)"
             },
             "ResultPath": "$.sonde",
             "Next": "Wait - termine",
