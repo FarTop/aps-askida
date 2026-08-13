@@ -118,7 +118,25 @@ html,body{ margin:0; background:var(--bg); color:var(--text); font-family:ui-san
   position:absolute; right:10px; top:50%; transform:translateY(-50%);
   background:transparent; border:none; cursor:pointer; font-size:14px; color:var(--text-dim);
 }
+/* Copier un secret. Le retour se dit en CSS depuis `data-etat` plutôt qu'en
+   changeant l'apparence depuis le JS — c'est la règle du dépôt, et ça garde
+   les trois messages au même endroit que le style qui les porte. */
+.btn-copier{
+  position:absolute; right:32px; top:50%; transform:translateY(-50%);
+  background:transparent; border:none; cursor:pointer; font-size:14px; color:var(--text-dim);
+  display:flex; align-items:center; gap:4px; white-space:nowrap;
+}
+.btn-copier::after{ font-size:11px; }
+.btn-copier[data-etat="ok"]     { color:var(--success); }
+.btn-copier[data-etat="ok"]::after     { content:'copié'; }
+.btn-copier[data-etat="manuel"]::after { content:'sélectionné — Ctrl/Cmd+C'; }
+.btn-copier[data-etat="vide"]::after   { content:'rien à copier'; }
 #field-authvalue{ position:relative; }
+/* Un champ de schéma porte son propre bouton, posé dans le flux : ces blocs
+   sont créés à la volée et n'ont pas le positionnement relatif du champ fixe. */
+.champ-secret{ display:flex; align-items:center; gap:6px; }
+.champ-secret input{ flex:1; }
+.champ-secret .btn-copier{ position:static; transform:none; }
 
 /* Overlay */
 .overlay{

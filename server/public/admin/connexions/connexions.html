@@ -117,6 +117,9 @@
       <div class="field" id="field-authvalue" style="display:none">
         <label id="authvalue-label">Token</label>
         <input type="password" id="f-authvalue" placeholder="Valeur du token…" />
+        <button type="button" class="btn-copier" data-etat=""
+                title="Copier la valeur dans le presse-papiers"
+                onclick="copierSecret('f-authvalue', this)">📋</button>
         <button type="button" class="btn-reveal" onclick="toggleReveal()">👁</button>
       </div>
 

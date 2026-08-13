@@ -189,7 +189,25 @@ function rendreChampsPlateforme(valeurs) {
     inp.placeholder = f.help || '';
     inp.value = f.secret ? ((valeurs && valeurs.secret) || '')
                          : (((valeurs && valeurs.champs) || {})[f.name] || '');
-    bloc.appendChild(inp);
+    if (f.secret) {
+      // Même bouton que sur le champ fixe : un secret déclaré par un schéma se
+      // récupère aussi mal que l'autre, et c'est là que vivent les jetons des
+      // plateformes qui en déclarent un.
+      const ligne = document.createElement('div');
+      ligne.className = 'champ-secret';
+      const cop = document.createElement('button');
+      cop.type = 'button';
+      cop.className = 'btn-copier';
+      cop.dataset.etat = '';
+      cop.title = 'Copier la valeur dans le presse-papiers';
+      cop.textContent = '📋';
+      cop.addEventListener('click', function () { copierSecret(inp.id, cop); });
+      ligne.appendChild(inp);
+      ligne.appendChild(cop);
+      bloc.appendChild(ligne);
+    } else {
+      bloc.appendChild(inp);
+    }
 
     if (f.help) {
       const h = document.createElement('div');
@@ -252,6 +270,39 @@ function onAuthChange() {
 function toggleReveal() {
   const inp = document.getElementById('f-authvalue');
   inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// ── Copier un secret ─────────────────────────────────────────
+// APS chiffre ces valeurs et ne les rendait lisibles nulle part : monter une
+// connexion EventBridge le 2026-08-13 a demandé de passer par la console du
+// navigateur pour récupérer un jeton qu'APS avait sous la main. Le champ était
+// masqué, la sélection impossible. Un bouton coûte moins cher que ce détour, et
+// il se reproduira à chaque plateforme cliente.
+//
+// Le retour se dit par `data-etat`, lu par le CSS — pas en touchant à
+// l'apparence depuis ici.
+async function copierSecret(idChamp, bouton) {
+  const inp = document.getElementById(idChamp);
+  if (!inp || !inp.value) return marquerCopie(bouton, 'vide');
+  try {
+    await navigator.clipboard.writeText(inp.value);
+    marquerCopie(bouton, 'ok');
+  } catch (_) {
+    // Presse-papiers refusé (contexte non sécurisé, permission) : on démasque
+    // et on sélectionne, l'opérateur finit au clavier. Un bouton qui échoue en
+    // silence est pire que pas de bouton.
+    const masque = inp.type === 'password';
+    inp.type = 'text';
+    inp.select();
+    if (masque) setTimeout(function () { inp.type = 'password'; }, 5000);
+    marquerCopie(bouton, 'manuel');
+  }
+}
+
+function marquerCopie(bouton, etat) {
+  if (!bouton) return;
+  bouton.dataset.etat = etat;
+  setTimeout(function () { bouton.dataset.etat = ''; }, 2500);
 }
 
 // ── Test de connexion ────────────────────────────────────────
