@@ -7,12 +7,21 @@
   <title>Askida Platform Studio</title>
   <link rel="stylesheet" href="index.css" />
   <link rel="stylesheet" href="_shared/css/navbar.css" />
+  <link rel="stylesheet" href="_shared/css/org-context-selector.css" />
 </head>
 <body>
 
   <header class="aps-header">
     <div class="aps-header-left">
       <img src="_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+    </div>
+    <!-- Le sélecteur d'organisation manquait ICI, et nulle part ailleurs :
+         l'accueil était le seul écran d'où l'on ne pouvait pas savoir dans
+         quelle organisation on travaille. Même emplacement que partout ailleurs
+         (au centre) — un repère qui se déplace d'un écran à l'autre n'est plus
+         un repère. -->
+    <div class="aps-header-center">
+      <div data-role="org-context"></div>
     </div>
     <div class="aps-header-right">
       <!-- « Home » retiré le 2026-08-13 : sur la page d'accueil, ce lien
@@ -199,6 +208,7 @@
     Askida Managed Services · Engineering · Broadcast · Creative · Synergies
   </footer>
 
+  <script src="_shared/js/org-context-selector.js"></script>
   <script src="index.js" defer></script>
 </body>
 </html>
