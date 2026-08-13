@@ -17,6 +17,29 @@
 
 const PivotCatalogIconik = (() => {
 
+  // ── CE QU'UNE ÉTAPE LIT SANS LE DIRE ─────────────────────────────────────
+  // Pendant de `variables` : ce qu'une étape CONSOMME, quand la référence
+  // n'apparaît dans aucun de ses paramètres. Quatre handlers filtrent leurs
+  // essences / contrôles / lignes de journal par le NIVEAU de l'objet courant,
+  // et lisent pour cela `ctx.vars.TypeCollection` — vérifié :
+  // builder-handler-deliver.js:163, builder-handler-verify.js:61,
+  // builder-handler-history.js:56, builder-handler-iconik-resolve-ancestors.js:22.
+  //
+  // Rien ne l'écrivait nulle part, parce que dans le moteur natif la valeur est
+  // d'ambiance : le Search la pose à plat, tout le monde la trouve. Aucune autre
+  // cible n'a d'ambiance — chez ASL la portée d'un Map ne reçoit QUE ce que son
+  // ItemSelector projette. Une lecture qu'on ne déclare pas est une lecture qui
+  // ne franchit aucune frontière de portée, et le corps de boucle lisait donc
+  // dans le vide sans que rien ne le signale.
+  //
+  // `objet` dit de QUI la métadonnée est lue : c'est la collection publiée, pas
+  // l'asset en cours. Sans ce mot, un émetteur la relit du dernier Search venu —
+  // et sur PUBLISH le dernier Search avant la boucle cherche des ASSETS.
+  const LIT_NIVEAU = function () {
+    return [{ nom: 'TypeCollection', objet: 'collection',
+              aide: 'niveau de la collection publiée — filtre ce qui s\'applique ici' }];
+  };
+
   // ── Les 12 Core : ports fixes, ou règle de calcul ────────────────────────
   // `ports` liste les sorties. `dynamicPorts` signale que la liste se calcule
   // depuis la config — le validateur de contenu l'appellera plutôt que de lire
@@ -30,6 +53,7 @@ const PivotCatalogIconik = (() => {
     // ces deux-là, quel que soit le verdict. `checkerSummary` est lu tel quel
     // par les messages d'historique de STATUSES et du callback.
     verify:        { ports: ['ok', 'fail', 'error'],
+      lectures: LIT_NIVEAU,
       variables: function () {
         return [
           { nom: 'checkerResult',  aide: 'verdict complet (failures[])' },
@@ -53,7 +77,7 @@ const PivotCatalogIconik = (() => {
     },
     http_request:  { ports: ['out', 'error'] },
     http_sequence: { ports: ['out', 'err'] },
-    history:       { ports: ['out', 'error'] },
+    history:       { ports: ['out', 'error'], lectures: LIT_NIVEAU },
     // Deliver pose une variable PAR ESSENCE du manifeste — leur nom est le
     // champ `sortie` de chacune (`s3_cover_url`, `s3_video_url`…), et le
     // handler les écrit depuis le listing S3 (builder-handler-deliver.js).
@@ -71,6 +95,7 @@ const PivotCatalogIconik = (() => {
     // (filtre `appliesTo`) : la variable existe dans le contrat, pas forcément
     // à l'exécution. L'analyse statique ne connaît pas le niveau.
     deliver:       { ports: ['out', 'miss', 'error'],
+      lectures: LIT_NIVEAU,
       variables: function (etape, resolutions) {
         const p = etape.params || {};
         const out = [];
@@ -209,6 +234,7 @@ const PivotCatalogIconik = (() => {
     'iconik.resolve_ancestors': {
       core: 'http_request', family: 'resolve_ancestors',
       ports: ['out', 'error'],
+      lectures: LIT_NIVEAU,
       variables: function (etape) {
         const v = (etape.params || {}).varName || 'ancestorPath';
         return [{ nom: v, aide: 'chemin S3 assemblé depuis la chaîne des ancêtres' }];
@@ -244,16 +270,29 @@ const PivotCatalogIconik = (() => {
       // depuis le catalogue seul (dépend de l'objet réellement trouvé) : le
       // sélecteur les complète séparément depuis la vraie liste des champs de
       // l'org (ConfigSources), marquées "si présent" plutôt que certaines.
+      // `depuis` : le champ de la RÉPONSE Iconik où la valeur se relit — pour
+      // une cible sans espace de noms global (cf. `iconik.action`). Heureuse
+      // coïncidence, vérifiée : `storeResult` recopie la forme d'Iconik
+      // (`{objects, total}`), donc le chemin est le même des deux côtés.
+      // Les formes NUES (`id`, `title`…) n'en reçoivent pas : deux Search dans
+      // la même portée les écrasent l'une l'autre, et rien ne dit laquelle un
+      // `{id}` isolé désigne. Mieux vaut les laisser sans adresse — un émetteur
+      // les signalera — que d'en désigner une au hasard.
       variables: function (etape) {
         const rv = (etape.params || {}).resultVar || 'search_results';
         const champsUniques = ['id', 'title', 'object_type', 'external_id'];
         const out = [
-          { nom: rv, aide: 'tableau JSON des objets trouvés' },
-          { nom: rv + '.count', aide: 'nombre de résultats' }
+          { nom: rv, aide: 'tableau JSON des objets trouvés', depuis: 'objects' },
+          // Forme stockée, celle que lisent les boucles (`{X.objects}`) :
+          // storeResult() la pose en plus du setVar — vérifié
+          // builder-handler-iconik-search.js:61-62.
+          { nom: rv + '.objects', aide: 'le même tableau, forme stockée', depuis: 'objects' },
+          { nom: rv + '.count', aide: 'nombre de résultats', depuis: 'total' }
         ];
         champsUniques.forEach(function (c) {
           out.push({ nom: c, aide: 'si un seul résultat — ' + c, incertain: true });
-          out.push({ nom: rv + '.' + c, aide: 'même valeur, forme préfixée', incertain: true });
+          out.push({ nom: rv + '.' + c, aide: 'même valeur, forme préfixée', incertain: true,
+                     depuis: 'objects[0].' + c });
         });
         // Infos techniques (withFormats, 4 août) : posées par _extractTechnical
         // (wfd-engine-handlers.js) UNIQUEMENT si la case est cochée ET qu'un
@@ -293,6 +332,28 @@ const PivotCatalogIconik = (() => {
       ports: ['out', 'error'],
       presets: {
         export_location: { note: 'déclenche une export location Iconik' }
+      },
+      // Vérifié : builder-handler-iconik-action.js:148 et :176 — deux actions
+      // sur les onze posent une variable, et le nom qu'elles posent est fixe.
+      //
+      // `depuis` est le champ de la RÉPONSE d'où la valeur sort. Une variable
+      // rangée telle quelle par l'appel se réadresse dans n'importe quelle
+      // cible (`<résultat>.job_id`) ; une variable que le handler CALCULE, non.
+      // La distinction n'existait pas : elle est ce qui sépare une référence
+      // portable d'une référence qui demande du code. Sans elle, `exportJobId`
+      // passait pour une métadonnée d'ambiance dans l'analyse d'émission —
+      // c'est-à-dire pour intraduisible — alors que l'export qui la produit la
+      // renvoie noir sur blanc, et que le sondage qui suit ne parle que d'elle.
+      variables: function (etape) {
+        const t = (etape.params || {}).actionType || '';
+        if (t === 'export_location' || t === 'export_location_trigger') {
+          return [{ nom: 'exportJobId', depuis: 'job_id',
+                    aide: 'identifiant du job d\'export Iconik, à sonder' }];
+        }
+        if (t === 'file_set_create') {
+          return [{ nom: 'file_set_id', depuis: 'id', aide: 'identifiant du file set créé' }];
+        }
+        return [];
       }
     },
 
@@ -433,6 +494,33 @@ const PivotCatalogIconik = (() => {
     return false;
   }
 
+  // SUR QUEL OBJET une étape qui aplatit vient de travailler — la seule chose
+  // qui distingue « la métadonnée de la collection publiée » de « celle du
+  // dernier asset trouvé ». L'information est dans la configuration de l'étape
+  // (`blocks[].objectType` d'un Search, `fetchSubType` d'un Fetch) ; elle n'était
+  // simplement lue par personne. Rend null quand l'étape n'en désigne aucun :
+  // absence de preuve, jamais un objet par défaut.
+  function objetDe(etape) {
+    const p = (etape && etape.params) || {};
+    const b = Array.isArray(p.blocks) ? p.blocks.find(x => x && x.objectType) : null;
+    return (b && b.objectType) || p.fetchSubType || p.objectType || null;
+  }
+
+  // Ce qu'une étape lit sans que ça paraisse dans ses paramètres. Même contrat
+  // que `variablesDe` : la façade prime, le Core prend le relais, et une étape
+  // non déclarée rend [].
+  function lecturesDe(etape) {
+    if (!etape) return [];
+    if (etape.facade && FACADES[etape.facade] && typeof FACADES[etape.facade].lectures === 'function') {
+      return FACADES[etape.facade].lectures(etape) || [];
+    }
+    const nomCore = etape.core
+      || (etape.facade && FACADES[etape.facade] && FACADES[etape.facade].core);
+    const core = nomCore && CORES[nomCore];
+    if (core && typeof core.lectures === 'function') return core.lectures(etape) || [];
+    return [];
+  }
+
   // ── Pour le convertisseur pivot → WFD ─────────────────────────────────────
 
   // La famille WFD que le moteur attend. Une façade porte son nom d'origine
@@ -536,7 +624,7 @@ const PivotCatalogIconik = (() => {
     facadeConnue, coreConnu, estAnnotation,
     portsDecision, normaliserAretesDecision,
     familleWfd, portsWfd, indexPort,
-    variablesDe, aplatitMetadonnees
+    variablesDe, aplatitMetadonnees, lecturesDe, objetDe
   };
 
 })();
