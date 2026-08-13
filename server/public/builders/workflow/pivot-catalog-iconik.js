@@ -724,7 +724,95 @@ const PivotCatalogIconik = (() => {
 
     'vodfactory.partner': {
       core: 'http_sequence', family: 'http_sequence',
-      ports: ['out', 'err']
+      ports: ['out', 'err'],
+      // ── UNE SÉQUENCE N'EST PAS UN APPEL ──────────────────────────────────
+      // C'est N étapes, chacune un appel HTTP — sept sur BAYARD | ENDPOINTS |
+      // VODFACTORY, dont cinq en `foreach`. Un seul état générique les
+      // représentait toutes : c'est le plus gros écart que le compteur ait
+      // signalé.
+      //
+      // Les étapes vivent dans une ressource `Endpoint`, désignée par
+      // `sequenceId`. Le catalogue ne va JAMAIS les chercher — il ne fait pas
+      // de réseau, c'est sa règle. L'appelant les pose dans `params.steps`
+      // avant d'appeler (même contrat que `options.resolutions` de
+      // pivot-to-wfd.js) ; sans elles, on rend null et l'étape se compte.
+      appel: function (etape) {
+        const p = etape.params || {};
+        const steps = p.steps || [];
+        if (!steps.length) return null;
+
+        // TOUT OU RIEN ? Non — et c'est un arbitrage revu le 2026-08-13. Une
+        // séquence de sept appels réduite à UN état générique cache l'ordre,
+        // le nombre et la nature des appels. Six états justes plus un marqué
+        // « non décrit » en disent beaucoup plus, et ne mentent pas davantage :
+        // le manquant se voit, il se compte, et il est à sa place dans la
+        // chaîne. C'est la règle des aiguillages appliquée dans l'autre sens —
+        // ce qui est faux ne s'émet pas, mais ce qui manque se montre.
+        const appels = [];
+        for (let i = 0; i < steps.length; i++) {
+          const s = steps[i];
+          const mode = s.httpMode || 'simple';
+          const base = {
+            role: 'etape' + (i + 1),
+            methode: (s.method || 'POST').toUpperCase(),
+            chemin: s.endpoint || '/',
+          };
+          // Sauter l'étape quand une valeur manque. Se dit exactement : un
+          // Choice devant l'appel. Le moteur teste aussi qu'une référence non
+          // résolue (« {s3_video_url} » restée telle quelle) compte pour vide —
+          // en JSONata une référence absente n'existe pas, `$exists` suffit.
+          if (s.skipIfEmpty) base.sauterSi = s.skipIfEmpty;
+
+          if (mode === 'simple') {
+            // Un gabarit de corps libre demande l'interpolation à sentinelles
+            // du moteur (`buildBody`, avec expansion des clés pointées et
+            // encodage profond). Pas décrit — l'étape est émise MARQUÉE, à sa
+            // place dans la chaîne, plutôt que de faire disparaître les six
+            // autres avec elle.
+            if (s.body || s.bodyTemplate) {
+              appels.push(Object.assign(base, { nonDecrit: 'gabarit de corps libre' }));
+              continue;
+            }
+            appels.push(base);
+            continue;
+          }
+          if (mode !== 'foreach' || !Array.isArray(s.feFields) || !s.feFields.length) {
+            appels.push(Object.assign(base, { nonDecrit: 'mode ' + mode + ' sans champs déclarés' }));
+            continue;
+          }
+
+          // La charge utile par élément. `src` dit d'où vient chaque champ :
+          // la valeur brute, son slug, ou le rang dans la liste.
+          const corps = {};
+          let refus = false;
+          s.feFields.forEach(function (f) {
+            if (!f || !f.key) return;
+            if (f.src === 'slug')                 corps[f.key] = { element: 'slug' };
+            else if (f.src === 'index')           corps[f.key] = { element: 'rang' };
+            else if (f.src === 'job')             corps[f.key] = s.feJob || null;
+            else if (f.src === 'value' || !f.src) corps[f.key] = { element: 'valeur' };
+            else refus = true;
+          });
+          if (refus) {
+            appels.push(Object.assign(base, { nonDecrit: 'champ de charge utile inconnu' }));
+            continue;
+          }
+
+          appels.push(Object.assign(base, {
+            pourChaque: {
+              source: s.feSourceVar || '',
+              separateur: s.feSeparator !== undefined ? s.feSeparator : ', ',
+            },
+            corps: corps,
+            // Le code HTTP fait partie du nom de l'erreur chez ASL
+            // (`States.Http.StatusCode.409`) : les codes tolérés du pivot se
+            // traduisent donc exactement, sans approximation. Ici 409/422 —
+            // « cette personne existe déjà » n'est pas un échec.
+            codesToleres: s.feIgnoreCodes || [409, 422],
+          }));
+        }
+        return appels.length ? appels : null;
+      }
     },
 
     // Pas de httpMode : id_generator() a son propre handler nommé (comme

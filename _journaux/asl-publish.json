@@ -445,12 +445,222 @@
       "Assign": {
         "lookup_mseoxp6v_2": "{% $states.result %}"
       },
-      "Next": "Partner"
+      "Next": "Partner - etape1"
     },
-    "Partner": {
+    "Partner - etape2": {
+      "Type": "Map",
+      "Comment": "Un appel par valeur de « {Acteur} ».",
+      "Items": "{% $type($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Acteur) = 'array' ? $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Acteur : $filter($map($split($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Acteur, ', '), function($v) { $trim($v) }), function($v) { $v != '' }) %}",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Partner - etape2 - appeler",
+        "States": {
+          "Partner - etape2 - appeler": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::http:invoke",
+            "Arguments": {
+              "ApiEndpoint": "https://partner-service-develop.preprod.otto.vodfactory.com/api/persons",
+              "Method": "POST",
+              "Authentication": {
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-vodfactory-preprod-api/6401b584-853f-4964-ac97-b050f65cc883"
+              },
+              "RequestBody": {
+                "external_id": "{% $replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($lowercase($states.input), /[\\u0300-\\u036f]/, ''), /[àáâãäåāăąǎǟǡǻȁȃȧ]/, 'a'), /[çćĉċč]/, 'c'), /[èéêëēĕėęěȅȇȩ]/, 'e'), /[ìíîïĩīĭįǐȉȋ]/, 'i'), /[ñńņňǹ]/, 'n'), /[òóôõöōŏőơǒǫǭȍȏȫȭȯȱ]/, 'o'), /[ùúûüũūŭůűųưǔǖǘǚǜȕȗ]/, 'u'), /[ýÿŷȳ]/, 'y'), /[ď]/, 'd'), /[ĝğġģǧǵ]/, 'g'), /[ĥȟ]/, 'h'), /[ĵǰ]/, 'j'), /[ķǩ]/, 'k'), /[ĺļľ]/, 'l'), /[ŕŗřȑȓ]/, 'r'), /[śŝşšș]/, 's'), /[ţťț]/, 't'), /[ŵ]/, 'w'), /[źżž]/, 'z'), /[^a-z0-9]+/, '-'), /^-+|-+$/, '') %}",
+                "name": "{% $states.input %}"
+              }
+            },
+            "Next": "Partner - etape2 - suivant",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.Http.StatusCode.409",
+                  "States.Http.StatusCode.422"
+                ],
+                "Comment": "Codes tolérés par le workflow — pas un échec.",
+                "Next": "Partner - etape2 - suivant"
+              }
+            ]
+          },
+          "Partner - etape2 - suivant": {
+            "Type": "Succeed"
+          }
+        }
+      },
+      "Assign": {
+        "http_sequence_msepa760_5_etape2": "{% $states.result %}"
+      },
+      "Next": "Partner - etape3"
+    },
+    "Partner - etape3": {
+      "Type": "Map",
+      "Comment": "Un appel par valeur de « {AuteurOrigine} ».",
+      "Items": "{% $type($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.AuteurOrigine) = 'array' ? $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.AuteurOrigine : $filter($map($split($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.AuteurOrigine, ', '), function($v) { $trim($v) }), function($v) { $v != '' }) %}",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Partner - etape3 - appeler",
+        "States": {
+          "Partner - etape3 - appeler": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::http:invoke",
+            "Arguments": {
+              "ApiEndpoint": "https://partner-service-develop.preprod.otto.vodfactory.com/api/persons",
+              "Method": "POST",
+              "Authentication": {
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-vodfactory-preprod-api/6401b584-853f-4964-ac97-b050f65cc883"
+              },
+              "RequestBody": {
+                "external_id": "{% $replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($lowercase($states.input), /[\\u0300-\\u036f]/, ''), /[àáâãäåāăąǎǟǡǻȁȃȧ]/, 'a'), /[çćĉċč]/, 'c'), /[èéêëēĕėęěȅȇȩ]/, 'e'), /[ìíîïĩīĭįǐȉȋ]/, 'i'), /[ñńņňǹ]/, 'n'), /[òóôõöōŏőơǒǫǭȍȏȫȭȯȱ]/, 'o'), /[ùúûüũūŭůűųưǔǖǘǚǜȕȗ]/, 'u'), /[ýÿŷȳ]/, 'y'), /[ď]/, 'd'), /[ĝğġģǧǵ]/, 'g'), /[ĥȟ]/, 'h'), /[ĵǰ]/, 'j'), /[ķǩ]/, 'k'), /[ĺļľ]/, 'l'), /[ŕŗřȑȓ]/, 'r'), /[śŝşšș]/, 's'), /[ţťț]/, 't'), /[ŵ]/, 'w'), /[źżž]/, 'z'), /[^a-z0-9]+/, '-'), /^-+|-+$/, '') %}",
+                "name": "{% $states.input %}"
+              }
+            },
+            "Next": "Partner - etape3 - suivant",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.Http.StatusCode.409",
+                  "States.Http.StatusCode.422"
+                ],
+                "Comment": "Codes tolérés par le workflow — pas un échec.",
+                "Next": "Partner - etape3 - suivant"
+              }
+            ]
+          },
+          "Partner - etape3 - suivant": {
+            "Type": "Succeed"
+          }
+        }
+      },
+      "Assign": {
+        "http_sequence_msepa760_5_etape3": "{% $states.result %}"
+      },
+      "Next": "Partner - etape4"
+    },
+    "Partner - etape4": {
+      "Type": "Map",
+      "Comment": "Un appel par valeur de « {Auteur} ».",
+      "Items": "{% $type($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Auteur) = 'array' ? $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Auteur : $filter($map($split($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Auteur, ', '), function($v) { $trim($v) }), function($v) { $v != '' }) %}",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Partner - etape4 - appeler",
+        "States": {
+          "Partner - etape4 - appeler": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::http:invoke",
+            "Arguments": {
+              "ApiEndpoint": "https://partner-service-develop.preprod.otto.vodfactory.com/api/persons",
+              "Method": "POST",
+              "Authentication": {
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-vodfactory-preprod-api/6401b584-853f-4964-ac97-b050f65cc883"
+              },
+              "RequestBody": {
+                "external_id": "{% $replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($lowercase($states.input), /[\\u0300-\\u036f]/, ''), /[àáâãäåāăąǎǟǡǻȁȃȧ]/, 'a'), /[çćĉċč]/, 'c'), /[èéêëēĕėęěȅȇȩ]/, 'e'), /[ìíîïĩīĭįǐȉȋ]/, 'i'), /[ñńņňǹ]/, 'n'), /[òóôõöōŏőơǒǫǭȍȏȫȭȯȱ]/, 'o'), /[ùúûüũūŭůűųưǔǖǘǚǜȕȗ]/, 'u'), /[ýÿŷȳ]/, 'y'), /[ď]/, 'd'), /[ĝğġģǧǵ]/, 'g'), /[ĥȟ]/, 'h'), /[ĵǰ]/, 'j'), /[ķǩ]/, 'k'), /[ĺļľ]/, 'l'), /[ŕŗřȑȓ]/, 'r'), /[śŝşšș]/, 's'), /[ţťț]/, 't'), /[ŵ]/, 'w'), /[źżž]/, 'z'), /[^a-z0-9]+/, '-'), /^-+|-+$/, '') %}",
+                "name": "{% $states.input %}"
+              }
+            },
+            "Next": "Partner - etape4 - suivant",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.Http.StatusCode.409",
+                  "States.Http.StatusCode.422"
+                ],
+                "Comment": "Codes tolérés par le workflow — pas un échec.",
+                "Next": "Partner - etape4 - suivant"
+              }
+            ]
+          },
+          "Partner - etape4 - suivant": {
+            "Type": "Succeed"
+          }
+        }
+      },
+      "Assign": {
+        "http_sequence_msepa760_5_etape4": "{% $states.result %}"
+      },
+      "Next": "Partner - etape5"
+    },
+    "Partner - etape5": {
+      "Type": "Map",
+      "Comment": "Un appel par valeur de « {Producteur} ».",
+      "Items": "{% $type($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Producteur) = 'array' ? $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Producteur : $filter($map($split($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Producteur, ', '), function($v) { $trim($v) }), function($v) { $v != '' }) %}",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Partner - etape5 - appeler",
+        "States": {
+          "Partner - etape5 - appeler": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::http:invoke",
+            "Arguments": {
+              "ApiEndpoint": "https://partner-service-develop.preprod.otto.vodfactory.com/api/persons",
+              "Method": "POST",
+              "Authentication": {
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-vodfactory-preprod-api/6401b584-853f-4964-ac97-b050f65cc883"
+              },
+              "RequestBody": {
+                "external_id": "{% $replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($lowercase($states.input), /[\\u0300-\\u036f]/, ''), /[àáâãäåāăąǎǟǡǻȁȃȧ]/, 'a'), /[çćĉċč]/, 'c'), /[èéêëēĕėęěȅȇȩ]/, 'e'), /[ìíîïĩīĭįǐȉȋ]/, 'i'), /[ñńņňǹ]/, 'n'), /[òóôõöōŏőơǒǫǭȍȏȫȭȯȱ]/, 'o'), /[ùúûüũūŭůűųưǔǖǘǚǜȕȗ]/, 'u'), /[ýÿŷȳ]/, 'y'), /[ď]/, 'd'), /[ĝğġģǧǵ]/, 'g'), /[ĥȟ]/, 'h'), /[ĵǰ]/, 'j'), /[ķǩ]/, 'k'), /[ĺļľ]/, 'l'), /[ŕŗřȑȓ]/, 'r'), /[śŝşšș]/, 's'), /[ţťț]/, 't'), /[ŵ]/, 'w'), /[źżž]/, 'z'), /[^a-z0-9]+/, '-'), /^-+|-+$/, '') %}",
+                "name": "{% $states.input %}"
+              }
+            },
+            "Next": "Partner - etape5 - suivant",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.Http.StatusCode.409",
+                  "States.Http.StatusCode.422"
+                ],
+                "Comment": "Codes tolérés par le workflow — pas un échec.",
+                "Next": "Partner - etape5 - suivant"
+              }
+            ]
+          },
+          "Partner - etape5 - suivant": {
+            "Type": "Succeed"
+          }
+        }
+      },
+      "Assign": {
+        "http_sequence_msepa760_5_etape5": "{% $states.result %}"
+      },
+      "Next": "Partner - etape6"
+    },
+    "Partner - etape6": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Comment": "GABARIT GÉNÉRIQUE — l'appel de « vodfactory.partner » n'est pas encore déclaré dans le catalogue.",
+      "Arguments": {
+        "ApiEndpoint": "https://partner-service-develop.preprod.otto.vodfactory.com/api/contents/",
+        "Method": "POST",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-vodfactory-preprod-api/6401b584-853f-4964-ac97-b050f65cc883"
+        }
+      },
+      "Assign": {
+        "http_sequence_msepa760_5_etape6": "{% $states.result %}"
+      },
+      "Next": "Partner - etape7 - a envoyer"
+    },
+    "Partner - etape7 - a envoyer": {
+      "Type": "Choice",
+      "Comment": "Étape ignorée quand « {s3_video_url} » est vide.",
+      "Choices": [
+        {
+          "Condition": "{% $exists($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.s3_video_url) and $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.s3_video_url != '' %}",
+          "Next": "Partner - etape7"
+        }
+      ],
+      "Default": "Verify"
+    },
+    "Partner - etape7": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Comment": "GABARIT GÉNÉRIQUE dans la séquence — gabarit de corps libre. L'appel réel est POST /api/contents/{external_id}/videos.",
       "Arguments": {
         "ApiEndpoint": "https://app.iconik.io/API/",
         "Method": "GET",
@@ -459,7 +669,7 @@
         }
       },
       "Assign": {
-        "http_sequence_msepa760_5": "{% $states.result %}"
+        "http_sequence_msepa760_5_etape7": "{% $states.result %}"
       },
       "Next": "Verify",
       "Catch": [
@@ -473,6 +683,52 @@
           "Next": "Verify"
         }
       ]
+    },
+    "Partner - etape1": {
+      "Type": "Map",
+      "Comment": "Un appel par valeur de « {Realisateur} ».",
+      "Items": "{% $type($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Realisateur) = 'array' ? $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Realisateur : $filter($map($split($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.Realisateur, ', '), function($v) { $trim($v) }), function($v) { $v != '' }) %}",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Partner - etape1 - appeler",
+        "States": {
+          "Partner - etape1 - appeler": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::http:invoke",
+            "Arguments": {
+              "ApiEndpoint": "https://partner-service-develop.preprod.otto.vodfactory.com/api/persons",
+              "Method": "POST",
+              "Authentication": {
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-vodfactory-preprod-api/6401b584-853f-4964-ac97-b050f65cc883"
+              },
+              "RequestBody": {
+                "external_id": "{% $replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($replace($lowercase($states.input), /[\\u0300-\\u036f]/, ''), /[àáâãäåāăąǎǟǡǻȁȃȧ]/, 'a'), /[çćĉċč]/, 'c'), /[èéêëēĕėęěȅȇȩ]/, 'e'), /[ìíîïĩīĭįǐȉȋ]/, 'i'), /[ñńņňǹ]/, 'n'), /[òóôõöōŏőơǒǫǭȍȏȫȭȯȱ]/, 'o'), /[ùúûüũūŭůűųưǔǖǘǚǜȕȗ]/, 'u'), /[ýÿŷȳ]/, 'y'), /[ď]/, 'd'), /[ĝğġģǧǵ]/, 'g'), /[ĥȟ]/, 'h'), /[ĵǰ]/, 'j'), /[ķǩ]/, 'k'), /[ĺļľ]/, 'l'), /[ŕŗřȑȓ]/, 'r'), /[śŝşšș]/, 's'), /[ţťț]/, 't'), /[ŵ]/, 'w'), /[źżž]/, 'z'), /[^a-z0-9]+/, '-'), /^-+|-+$/, '') %}",
+                "name": "{% $states.input %}"
+              }
+            },
+            "Next": "Partner - etape1 - suivant",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.Http.StatusCode.409",
+                  "States.Http.StatusCode.422"
+                ],
+                "Comment": "Codes tolérés par le workflow — pas un échec.",
+                "Next": "Partner - etape1 - suivant"
+              }
+            ]
+          },
+          "Partner - etape1 - suivant": {
+            "Type": "Succeed"
+          }
+        }
+      },
+      "Assign": {
+        "http_sequence_msepa760_5": "{% $states.result %}"
+      },
+      "Next": "Partner - etape2"
     },
     "Verify": {
       "Type": "Task",

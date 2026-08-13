@@ -91,7 +91,22 @@ const nomAws = function (nom) {
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 };
 let CONNEXIONS = new Map();               // id APS → { nom, authType }
+let SEQUENCES  = new Map();               // id Endpoint → steps[]
 const connexionsManquantes = new Map();   // nom AWS → nom APS
+
+// LA BASE D'URL DE L'ÉTAPE. Le pivot écrit ses adresses en relatif
+// (« /api/persons ») ; le moteur les colle à l'`endpoint` de la connexion — le
+// champ s'appelle `endpoint`, pas `baseUrl`, et le confondre coûte une URL
+// plausible et fausse. Sans connexion, c'est Iconik, la plateforme du flux.
+//
+// Émis avec la base d'Iconik, l'appel partenaire visait
+// « app.iconik.io/api/persons » : une adresse bien formée, acceptée par la
+// console, et qui ne mène nulle part.
+function baseDe(connexionId) {
+  const c = connexionId && CONNEXIONS.get(connexionId);
+  const b = c && c.endpoint;
+  return b ? String(b).replace(/\/+$/, '') : BASE_ICONIK;
+}
 
 function arnDe(connexionId) {
   if (!connexionId) return ARN_CONNEXION;            // Iconik, la plateforme du flux
@@ -375,7 +390,40 @@ function champ(texte, adresser, intraduisibles, ou) {
 // d'Iconik), l'ÉMETTEUR sait l'écrire dans sa cible (c'est une affaire de
 // langage). Un gabarit seul ne pouvait pas porter ça — une valeur peut avoir
 // besoin d'être assemblée PUIS retravaillée.
+// ── LE SLUG DU MOTEUR, EN JSONATA ───────────────────────────────
+// `_wfdSlugify` normalise en NFD pour retirer les accents. JSONata NE SAIT PAS
+// normaliser l'Unicode — il faut donc une table. Écrite à la main elle aurait
+// été fausse : elle est DÉRIVÉE de la règle du moteur (tout caractère latin
+// dont NFD rend une seule lettre ASCII), puis vérifiée par balayage exhaustif
+// de U+0020 à U+024F, zéro écart.
+//
+// Ce que la table ne contient PAS est aussi important : `œ`, `æ`, `ß`, `ł`, `đ`
+// ne se décomposent pas en NFD, donc le moteur les écrase en tiret — « Sœur »
+// devient « s-ur ». On reproduit ça. Un émetteur transcrit, il n'améliore pas :
+// « soeur » serait plus joli et produirait un external_id différent de celui du
+// moteur, sur une clé d'identité chez le partenaire.
+const SLUG_TABLE = [
+  ['àáâãäåāăąǎǟǡǻȁȃȧ', 'a'], ['çćĉċč', 'c'], ['èéêëēĕėęěȅȇȩ', 'e'],
+  ['ìíîïĩīĭįǐȉȋ', 'i'], ['ñńņňǹ', 'n'], ['òóôõöōŏőơǒǫǭȍȏȫȭȯȱ', 'o'],
+  ['ùúûüũūŭůűųưǔǖǘǚǜȕȗ', 'u'], ['ýÿŷȳ', 'y'], ['ď', 'd'], ['ĝğġģǧǵ', 'g'],
+  ['ĥȟ', 'h'], ['ĵǰ', 'j'], ['ķǩ', 'k'], ['ĺļľ', 'l'], ['ŕŗřȑȓ', 'r'],
+  ['śŝşšș', 's'], ['ţťț', 't'], ['ŵ', 'w'], ['źżž', 'z'],
+];
+
+function slugJsonata(e) {
+  // Minuscules, PUIS retrait des signes combinants — « İ » devient en minuscule
+  // « i » suivi d'un point combinant, et sans ce retrait il resterait un tiret.
+  let x = '$replace($lowercase(' + e + "), /[\\u0300-\\u036f]/, '')";
+  SLUG_TABLE.forEach(function (p) {
+    x = '$replace(' + x + ', /[' + p[0] + ']/, ' + ASL.txt(p[1]) + ')';
+  });
+  x = '$replace(' + x + ", /[^a-z0-9]+/, '-')";
+  return '$replace(' + x + ", /^-+|-+$/, '')";
+}
+
 const TRANSFORMATIONS = {
+  // Le slug d'une valeur de liste, tel que le moteur le fabrique.
+  slugAps: slugJsonata,
   // Le nom de fichier d'un export Iconik : espaces en tirets bas, puis tout ce
   // qui n'est ni alphanumérique ni `_ - /` disparaît (handler :1305). Ce n'est
   // pas cosmétique : c'est l'adresse S3 finale, celle qu'APS revérifiera par
@@ -400,6 +448,16 @@ function corpsResolu(v, adresser, intraduisibles, ou) {
       return v.gabarit;
     }
     return ASL.jsonata(f(g.jsonata ? g.jsonata : ASL.txt(g.valeur)));
+  }
+  // Une feuille qui parle de L'ÉLÉMENT COURANT d'une boucle. Dans un Map,
+  // l'entrée de chaque itération EST l'élément — d'où `$states.input`, et le
+  // rang qui se lit dans l'objet de contexte.
+  if (v && typeof v === 'object' && !Array.isArray(v) && typeof v.element === 'string') {
+    if (v.element === 'valeur') return '{% $states.input %}';
+    if (v.element === 'slug')   return ASL.jsonata(TRANSFORMATIONS.slugAps('$states.input'));
+    if (v.element === 'rang')   return '{% $states.context.Map.Item.Index %}';
+    intraduisibles.push({ etat: ou, port: '(corps)', op: 'élément ' + v.element });
+    return null;
   }
   if (typeof v === 'string') return champ(v, adresser, intraduisibles, ou);
   if (Array.isArray(v)) return v.map(x => corpsResolu(x, adresser, intraduisibles, ou));
@@ -461,13 +519,19 @@ function etatsDe(etapes, nommer, contexte) {
   // l'étape qui agit vraiment.
   const appelsDe = new Map();
   etapes.forEach(function (e) {
-    const a = CAT.appelDe({ facade: e.verbe, core: e.core, params: e.params || {} });
+    // La séquence résolue prime sur le `steps` résiduel des paramètres : sur
+    // PUBLISH, le pivot en porte UN et la ressource en a SEPT.
+    const params = Object.assign({}, e.params || {});
+    if (params.sequenceId && SEQUENCES.has(params.sequenceId)) {
+      params.steps = SEQUENCES.get(params.sequenceId);
+    }
+    const a = CAT.appelDe({ facade: e.verbe, core: e.core, params: params });
     if (a && a.length) appelsDe.set(e.id, a);
   });
-  const baseDe = new Map();
+  const libelleDe = new Map();
   etapes.forEach(function (e) {
     const base = nommer(e.label, e.id);
-    baseDe.set(e.id, base);
+    libelleDe.set(e.id, base);
     const a = appelsDe.get(e.id);
     nomDe.set(e.id, a && a.length > 1 ? base + ' - ' + a[0].role : base);
   });
@@ -643,7 +707,7 @@ function etatsDe(etapes, nommer, contexte) {
       // chemin relatif de surcroît. La référence est maintenant adressée, et
       // l'assemblage confié à la concaténation JSONata.
       const cible = String((e.params || {}).endpoint || 'https://exemple.invalid');
-      const url = gabaritJsonata(cible.startsWith('/') ? BASE_ICONIK + cible : cible,
+      const url = gabaritJsonata(cible.startsWith('/') ? baseDe((e.params || {}).connexionId) + cible : cible,
                                  adresserChez(e), intraduisibles, nom);
       etat = { Type: 'Task', Resource: 'arn:aws:states:::http:invoke',
                Arguments: { ApiEndpoint: url.jsonata ? ASL.jsonata(url.jsonata) : url.valeur,
@@ -775,7 +839,7 @@ function etatsDe(etapes, nommer, contexte) {
           // devient un état, chaîné au suivant. Le dernier porte le Next final.
           // Les noms viennent du LIBELLÉ, pas de l'état d'entrée : sans quoi le
           // second s'appellerait « Set Metadata - relire - ecrire ».
-          const base = baseDe.get(e.id);
+          const base = libelleDe.get(e.id);
           const noms = appels.map((a, i) => (appels.length > 1 ? base + ' - ' + a.role : base));
           const vars = appels.map((a, i) => variableDe(e) + (i === 0 ? '' : '_' + a.role));
 
@@ -783,7 +847,7 @@ function etatsDe(etapes, nommer, contexte) {
             const dernier = i === appels.length - 1;
             const cible = String(a.chemin || '/');
             const args = {
-              ApiEndpoint: champ(cible.startsWith('/') ? BASE_ICONIK + cible : cible,
+              ApiEndpoint: champ(cible.startsWith('/') ? baseDe((e.params || {}).connexionId) + cible : cible,
                                  adr, intraduisibles, noms[i]),
               Method: a.methode || 'GET',
               Authentication: { ConnectionArn: arnDe((e.params || {}).connexionId) },
@@ -808,12 +872,56 @@ function etatsDe(etapes, nommer, contexte) {
               }
               args.RequestBody = corps;
             }
-            const etatAppel = {
+            let etatAppel = {
               Type: 'Task', Resource: 'arn:aws:states:::http:invoke',
               Arguments: args,
               Assign: { [vars[i]]: '{% $states.result %}' },
               Next: dernier ? nominal : noms[i + 1],
             };
+
+            // ── UN APPEL PAR ÉLÉMENT : le Map ──────────────────────────
+            // Le moteur déroule une boucle for sur une liste découpée depuis
+            // une variable. ASL itère nativement — un Map, et l'appel devient
+            // son corps. `$states.input` y est l'élément courant.
+            if (a.pourChaque) {
+              const src = expr(a.pourChaque.source, adr, true);
+              // Le moteur accepte les deux formes : un tableau JSON, ou une
+              // chaîne à séparateur. `$type` tranche à l'exécution, comme lui.
+              const liste = '$type(' + src + ") = 'array' ? " + src
+                          + ' : $filter($map($split(' + src + ', '
+                          + ASL.txt(a.pourChaque.separateur) + '), function($v) { $trim($v) }),'
+                          + " function($v) { $v != '' })";
+              // Les codes tolérés : « cette personne existe déjà » n'est pas un
+              // échec. Le nom de l'erreur porte le code, donc le Catch est
+              // exact — et il mène à la fin du corps, pas à la branche d'erreur.
+              const nFinCorps = noms[i] + ' - suivant';
+              const tolere = (a.codesToleres || []).map(c => 'States.Http.StatusCode.' + c);
+              const corpsEtat = {
+                Type: 'Task', Resource: 'arn:aws:states:::http:invoke',
+                Arguments: args,
+                End: true,
+              };
+              if (tolere.length) {
+                corpsEtat.End = undefined;
+                corpsEtat.Next = nFinCorps;
+                corpsEtat.Catch = [{
+                  ErrorEquals: tolere,
+                  Comment: 'Codes tolérés par le workflow — pas un échec.',
+                  Next: nFinCorps,
+                }];
+              }
+              const corpsStates = { [noms[i] + ' - appeler']: corpsEtat };
+              if (tolere.length) corpsStates[nFinCorps] = { Type: 'Succeed' };
+              etatAppel = {
+                Type: 'Map',
+                Comment: 'Un appel par valeur de « ' + a.pourChaque.source + ' ».',
+                Items: ASL.jsonata(liste),
+                ItemProcessor: { ProcessorConfig: { Mode: 'INLINE' },
+                                 StartAt: noms[i] + ' - appeler', States: corpsStates },
+                Assign: { [vars[i]]: '{% $states.result %}' },
+                Next: dernier ? nominal : noms[i + 1],
+              };
+            }
             // `tolereAbsence` : le moteur natif enveloppe cette relecture d'un
             // try/catch nu — une vue jamais initialisée répond 404 et vaut
             // dictionnaire vide. Sans ce Catch, une cible qui lève sur 404
@@ -825,6 +933,44 @@ function etatsDe(etapes, nommer, contexte) {
                 Next: noms[i + 1],
               }];
             }
+            // Un appel que le catalogue n'a pas su décrire garde sa PLACE dans
+            // la chaîne, marqué. Le lecteur voit qu'il se passe quelque chose
+            // là, et le compteur le sait.
+            if (a.nonDecrit) {
+              etatAppel = {
+                Type: 'Task', Resource: 'arn:aws:states:::http:invoke',
+                Comment: 'GABARIT GÉNÉRIQUE dans la séquence — ' + a.nonDecrit
+                       + '. L\'appel réel est ' + (a.methode || 'POST') + ' ' + a.chemin + '.',
+                Arguments: { ApiEndpoint: BASE_ICONIK + '/API/', Method: 'GET',
+                             Authentication: { ConnectionArn: arnDe((e.params || {}).connexionId) } },
+                Assign: { [vars[i]]: '{% $states.result %}' },
+                Next: dernier ? nominal : noms[i + 1],
+              };
+              generiques.push({ etat: noms[i], verbe: (e.verbe || e.core) + ' › ' + a.nonDecrit });
+            }
+
+            // Sauter l'appel quand la valeur attendue manque : un Choice
+            // devant, qui enjambe l'état. C'est ce que fait `skipIfEmpty`.
+            if (a.sauterSi) {
+              const nGarde = noms[i] + ' - a envoyer';
+              const cible = expr(a.sauterSi, adr, true);
+              States[nGarde] = {
+                Type: 'Choice',
+                Comment: 'Étape ignorée quand « ' + a.sauterSi + ' » est vide.',
+                Choices: [{ Condition: ASL.jsonata('$exists(' + cible + ') and ' + cible + " != ''"),
+                            Next: noms[i] }],
+                Default: dernier ? nominal : noms[i + 1],
+              };
+              // La garde prend la place de l'appel dans le chaînage.
+              if (i === 0) { etat = States[nGarde]; delete States[nGarde]; States[noms[i]] = etatAppel; }
+              else {
+                const precedent = States[noms[i - 1]];
+                if (precedent) precedent.Next = nGarde;
+                States[noms[i]] = etatAppel;
+              }
+              return;
+            }
+
             if (i === 0) etat = etatAppel;
             else States[noms[i]] = etatAppel;
           });
@@ -897,7 +1043,7 @@ function etatsDe(etapes, nommer, contexte) {
         // Du LIBELLÉ, pas de l'état d'entrée : sur une étape à plusieurs
         // appels, `nom` porte déjà le rôle du premier, et l'aiguillage
         // s'appelait « … - asset - quel port » alors qu'il juge le dernier.
-        const nAiguillage = baseDe.get(e.id) + ' - quel port';
+        const nAiguillage = libelleDe.get(e.id) + ' - quel port';
         etatPorteur.Next = nAiguillage;
         States[nAiguillage] = { Type: 'Choice', Choices: Choices, Default: nominal };
       }
@@ -925,9 +1071,22 @@ async function main() {
     const rc = await fetch('http://localhost:' + port + '/api/connexions');
     const lc = await rc.json();
     (Array.isArray(lc) ? lc : (lc.items || [])).forEach(function (c) {
-      CONNEXIONS.set(c.id, { nom: c.name, authType: c.authType });
+      CONNEXIONS.set(c.id, { nom: c.name, authType: c.authType, endpoint: c.endpoint });
     });
   } catch (_) { /* on continue sans : voir arnDe */ }
+
+  // Les séquences d'`Endpoint`, désignées par `sequenceId`. Le pivot ne porte
+  // que l'identifiant — et un `steps` résiduel qui ne compte QU'UNE étape là où
+  // la ressource en a sept. On résout donc ici, avant de bâtir : le catalogue
+  // ne fait pas de réseau, l'émetteur lui pose les étapes dans les paramètres.
+  // Même contrat que l'argument `resolutions` de pivot-to-wfd.js.
+  try {
+    const re = await fetch('http://localhost:' + port + '/api/endpoints');
+    const le = await re.json();
+    (Array.isArray(le) ? le : (le.items || [])).forEach(function (e) {
+      if (e && e.id && Array.isArray(e.steps)) SEQUENCES.set(e.id, e.steps);
+    });
+  } catch (_) { /* sans elles, l'étape retombe sur le gabarit générique */ }
 
   const nommer = nommeur();
   const racine = plan.groupes[0];
@@ -1074,9 +1233,18 @@ async function main() {
       if (typeof v === 'string') {
         const m = v.match(/^\{%\s*([\s\S]*?)\s*%\}$/);
         if (!m) return;
+        // Les paramètres d'une lambda JSONata (`function($v) { … }`) sont
+        // déclarés PAR l'expression : ils ne viennent d'aucun Assign, et les
+        // compter comme lectures faisait crier le contrôle 21 fois sur le seul
+        // `$v` du découpage de liste. Un faux positif use un contrôle aussi
+        // sûrement qu'un faux négatif l'aveugle.
+        const locales = new Set();
+        (m[1].match(/function\s*\(([^)]*)\)/g) || []).forEach(function (f) {
+          (f.match(/\$[A-Za-z_]\w*/g) || []).forEach(x => locales.add(x.slice(1)));
+        });
         (m[1].match(/\$[A-Za-z_]\w*/g) || []).forEach(function (ref) {
           const nom = ref.slice(1);
-          if (nom === 'states') return;
+          if (nom === 'states' || locales.has(nom)) return;
           if (new RegExp('\\' + ref + '\\s*\\(').test(m[1])) return;   // appel de fonction
           lues.push({ nom: nom, ou: v });
         });
