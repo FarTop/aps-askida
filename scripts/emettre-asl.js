@@ -48,6 +48,12 @@ const iSort  = process.argv.indexOf('--sortie');
 const SORTIE = iSort !== -1 ? process.argv[iSort + 1]
                             : path.join(__dirname, '..', '_journaux', 'asl-publish.json');
 
+// QUI LISTE LE BUCKET. `natif` reste le défaut : c'est la forme validée en
+// console le 2026-08-12, et la seule mesurée. `lambda` est la variante à
+// mesurer — voir le commentaire du verbe `deliver`.
+const iList   = process.argv.indexOf('--listing');
+const LISTING = iList !== -1 ? String(process.argv[iList + 1] || 'natif') : 'natif';
+
 const COMPTE = process.env.AWS_COMPTE || '632075073384';
 const REGION = process.env.AWS_REGION || 'eu-west-3';
 const ARN_CONNEXION = 'arn:aws:events:' + REGION + ':' + COMPTE
@@ -382,49 +388,73 @@ function etatsDe(etapes, nommer, contexte) {
                  Comment: 'FONCTION À ÉCRIRE — ' + compo.pourquoi,
                  ResultPath: '$.' + (e.core || 'resultat'), Next: nominal };
       } else if (e.core === 'deliver') {
-        // DEUX états, et c'est structurel. ASL sait LISTER un bucket
-        // (intégration native) mais pas RECONNAÎTRE ce qu'il contient :
-        // associer « friday_s01_season.png » à l'essence `season_box` demande
-        // de comparer des motifs, d'écarter les doublons d'upload, de filtrer
-        // par niveau. Aucune intrinsèque ne fait ça. Le listing seul laisserait
-        // les sept `s3_*_url` introuvables — donc le workflow entier muet sur
-        // ce qu'il a livré.
-        const nReconnu = nom + ' - reconnaitre';
-        etat = { Type: 'Task', Resource: 'arn:aws:states:::aws-sdk:s3:listObjectsV2',
-                 Parameters: { Bucket: 'a-renseigner', Prefix: 'a-renseigner' },
-                 ResultPath: '$.s3', Next: nReconnu };
-        porteur = nReconnu;
-        States[nReconnu] = {
+        // ASL sait LISTER un bucket (intégration native) mais pas RECONNAÎTRE
+        // ce qu'il contient : associer « friday_s01_season.png » à l'essence
+        // `season_box` demande de comparer des motifs, d'écarter les doublons
+        // d'upload, de filtrer par niveau. Aucune intrinsèque ne fait ça. Le
+        // listing seul laisserait les sept `s3_*_url` introuvables — donc le
+        // workflow entier muet sur ce qu'il a livré.
+        //
+        // D'où DEUX compositions possibles, et le choix n'est pas esthétique :
+        //
+        //   natif   S3:ListObjectsV2 puis Lambda. Deux états, zéro identifiant
+        //           à porter — mais le listing est signé par le RÔLE de la
+        //           machine d'états, jamais par des identifiants qu'on lui
+        //           passe. Un bucket qui ne nous appartient pas exige donc une
+        //           action de son propriétaire.
+        //   lambda  la Lambda liste elle-même, avec les identifiants de la
+        //           connexion APS — exactement ce que fait s3-service.js. Un
+        //           état de moins par livraison, et le modèle de connexion
+        //           d'APS se transpose enfin : un nouveau client est une ligne
+        //           en base, pas une négociation IAM.
+        const payload = {
+          essences: e.essences || (e.params && e.params.s3Mappings) || [],
+          base: 's3://a-renseigner/',
+          // Le niveau courant, qui décide quelles essences s'appliquent.
+          // L'adresse ne se devine plus : le catalogue déclare CETTE
+          // lecture (`lectures`), y compris de quel objet elle se lit — la
+          // collection publiée, jamais le dernier Search venu, qui sur
+          // PUBLISH cherche des assets.
+          'typeCollection.$': (function () {
+            const lu = CAT.lecturesDe({ facade: e.verbe, core: e.core, params: e.params || {} })
+              .find(x => x && x.nom === 'TypeCollection');
+            return adresserChez(e)('TypeCollection', { aplatie: true, objet: lu ? lu.objet : null });
+          })(),
+        };
+        const reconnaitre = {
           Type: 'Task',
           Resource: 'arn:aws:states:::lambda:invoke',
           Comment: 'aps-essences — le module builder-essences.js, tel quel. Ne PAS le '
                  + 'réécrire : ces URL sont livrées au partenaire puis vérifiées par APS, '
                  + 'deux implémentations qui divergent contrôleraient une autre adresse '
                  + 'que celle qu\'elles ont envoyée.',
-          Parameters: {
-            FunctionName: 'aps-essences',
-            Payload: {
-              'listing.$': '$.s3',
-              essences: e.essences || (e.params && e.params.s3Mappings) || [],
-              base: 's3://a-renseigner/',
-              // Le niveau courant, qui décide quelles essences s'appliquent.
-              // L'adresse ne se devine plus : le catalogue déclare CETTE
-              // lecture (`lectures`), y compris de quel objet elle se lit — la
-              // collection publiée, jamais le dernier Search venu, qui sur
-              // PUBLISH cherche des assets.
-              'typeCollection.$': (function () {
-                const lu = CAT.lecturesDe({ facade: e.verbe, core: e.core, params: e.params || {} })
-                  .find(x => x && x.nom === 'TypeCollection');
-                return adresserChez(e)('TypeCollection',
-                  { aplatie: true, objet: lu ? lu.objet : null });
-              })(),
-            },
-          },
+          Parameters: { FunctionName: 'aps-essences', Payload: payload },
           ResultSelector: { 'variables.$': '$.Payload.variables',
-                            'cardinaliteRespectee.$': '$.Payload.cardinaliteRespectee' },
+                            'cardinaliteRespectee.$': '$.Payload.cardinaliteRespectee',
+                            'nbObjets.$': '$.Payload.nbObjets' },
           ResultPath: '$.essences',
           Next: nominal,
         };
+
+        if (LISTING === 'lambda') {
+          // La connexion S3 par son id : la Lambda va chercher les identifiants
+          // elle-même. On ne fait JAMAIS transiter une clé par la définition —
+          // une définition de machine d'états se lit en clair dans la console.
+          payload.connexionId = (e.params && e.params.connexionId) || 'a-renseigner';
+          payload.objectKey   = (e.params && e.params.objectKey) || '';
+          reconnaitre.Comment += ' Liste AUSSI le bucket (identifiants de la connexion APS) : '
+            + 'l\'intégration S3 native signe avec le rôle d\'exécution, donc elle ne sait '
+            + 'pas atteindre le bucket d\'un client.';
+          etat = reconnaitre;
+        } else {
+          const nReconnu = nom + ' - reconnaitre';
+          payload['listing.$'] = '$.s3';
+          etat = { Type: 'Task', Resource: 'arn:aws:states:::aws-sdk:s3:listObjectsV2',
+                   Parameters: { Bucket: 'a-renseigner', Prefix: 'a-renseigner' },
+                   ResultPath: '$.s3', Next: nReconnu };
+          porteur = nReconnu;
+          States[nReconnu] = reconnaitre;
+        }
       } else if (e.core === 'trigger') {
         etat = { Type: 'Pass',
                  Comment: 'Le déclencheur vit HORS de la machine d\'états (EventBridge ou StartExecution)',
@@ -454,7 +484,7 @@ function etatsDe(etapes, nommer, contexte) {
       const sortie = sortieDe.get(e.id) || '$';
       const Choices = [];
       autres.forEach(function (x) {
-        const regle = ASL.reglePort(e.verbe, e.core, x.port, sortie);
+        const regle = ASL.reglePort(e.verbe, e.core, x.port, sortie, LISTING);
         if (!regle) {
           intraduisibles.push({ etat: nom, port: x.port, op: 'port de ' + (e.verbe || e.core) });
           return;

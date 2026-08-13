@@ -133,8 +133,15 @@ const FORMES = {
                   pourquoi: 'une machine d\'états n\'a pas de déclencheur interne : il vit à côté' },
   http_request: { etat: 'Task', dit: function () { return 'Task · http:invoke'; },
                   pourquoi: 'appel HTTP natif via une EventBridge Connection, sans Lambda' },
-  deliver:      { etat: 'Task', dit: function () { return 'Task · aws-sdk:s3:listObjectsV2'; },
-                  pourquoi: 'S3 est une intégration native d\'ASL (confirmé en console : « S3: ListObjectsV2 ») — c\'est la cible la mieux placée pour ce verbe' },
+  // DEUX formes, et l'émetteur sait produire les deux (`--listing lambda`).
+  // Ce n'est pas un détail d'implémentation : l'intégration S3 native signe
+  // avec le RÔLE de la machine d'états, jamais avec des identifiants qu'on lui
+  // passe. Elle ne peut donc pas atteindre le bucket d'un client sans que ce
+  // client agisse. La variante Lambda le peut — c'est le modèle de connexion
+  // d'APS, qui ne se transposait pas jusque-là. Mesuré : 41 → 38 états sur
+  // PUBLISH, un de moins par Deliver, pour 0,09 $ d'écart sur 1000 runs.
+  deliver:      { etat: 'Task', dit: function () { return 'Task · s3:listObjectsV2 OU Lambda'; },
+                  pourquoi: 'S3 est une intégration native d\'ASL (confirmé en console : « S3: ListObjectsV2 ») — mais elle signe avec le rôle d\'exécution, donc le listing rejoint la Lambda dès qu\'il faut atteindre le bucket d\'un tiers' },
 };
 
 function compositionDe(famille, params) {
@@ -189,8 +196,12 @@ const OPERATEURS = {
 const PORTS = {
   deliver: {
     // listObjectsV2 renvoie KeyCount : le compte est déjà là, inutile de
-    // fouiller Contents.
-    miss: (r) => ({ Variable: r + '.KeyCount', NumericEquals: 0 }),
+    // fouiller Contents. Quand c'est la Lambda qui liste (variante `lambda`,
+    // la seule qui sache atteindre le bucket d'un client), il n'y a plus de
+    // résultat S3 du tout : le compte vient de la Lambda elle-même.
+    miss: (r, variante) => variante === 'lambda'
+      ? ({ Variable: r + '.nbObjets', NumericEquals: 0 })
+      : ({ Variable: r + '.KeyCount', NumericEquals: 0 }),
   },
   'iconik.search': {
     empty: (r) => ({ Variable: r + '.ResponseBody.objects[0]', IsPresent: false }),
@@ -211,9 +222,9 @@ function conditionDe(op, variable, valeur) {
 // Cherche par FAÇADE puis par CORE : une étape porte « aws_s3.deliver », la
 // table connaît « deliver ». Les deux entrées sont légitimes — une façade peut
 // vouloir sa propre règle, sinon celle du core suffit.
-function reglePort(verbe, core, port, resultat) {
+function reglePort(verbe, core, port, resultat, variante) {
   const t = PORTS[verbe] || PORTS[core];
-  return t && t[port] ? t[port](resultat) : null;
+  return t && t[port] ? t[port](resultat, variante) : null;
 }
 
 module.exports = { COMPOSITIONS, FORMES, OPERATEURS, PORTS, compositionDe, conditionDe, reglePort };

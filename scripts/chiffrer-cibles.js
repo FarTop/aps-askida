@@ -50,6 +50,17 @@ const TARIFS = {
 const PUBLISH = {
   make: { total: 118, sansSondage: 118 - 59, sondageParEssai: 3 },
   asl:  { total: 41,  sansSondage: 41 - 3,   sondageParEssai: 3, lambdas: 3 },
+  // La variante où c'est la Lambda qui liste le bucket, et non l'intégration
+  // S3 native (`emettre-asl.js --listing lambda`). Mesurée, pas déduite : trois
+  // états de moins sur PUBLISH, un par Deliver. Le nombre d'APPELS de Lambda ne
+  // bouge pas — le listing rejoint une invocation qui avait déjà lieu.
+  //
+  // Ce qu'elle achète n'est pas là-dedans : elle est la SEULE qui sache
+  // atteindre le bucket d'un client. L'intégration S3 native signe avec le rôle
+  // d'exécution de la machine d'états, jamais avec des identifiants qu'on lui
+  // passe — donc un bucket qui ne nous appartient pas exige une action de son
+  // propriétaire, à chaque client, à chaque démo.
+  aslLambda: { total: 38, sansSondage: 38 - 3, sondageParEssai: 3, lambdas: 3 },
 };
 
 // Trois scénarios : l'export S3 aboutit vite, moyennement, ou épuise les essais.
@@ -64,11 +75,12 @@ function coutMake(essais) {
   return { unites: ops, cout: ops * TARIFS.makeParOperation };
 }
 
-function coutAsl(essais) {
+function coutAsl(essais, variante) {
   // Une transition par état parcouru, plus le cycle de sondage.
-  const transitions = PUBLISH.asl.sansSondage + PUBLISH.asl.sondageParEssai * essais;
+  const v = PUBLISH[variante || 'asl'];
+  const transitions = v.sansSondage + v.sondageParEssai * essais;
   const cout = transitions * TARIFS.aslParTransition
-             + PUBLISH.asl.lambdas * TARIFS.lambdaParAppel;
+             + v.lambdas * TARIFS.lambdaParAppel;
   return { unites: transitions, cout: cout };
 }
 
@@ -111,3 +123,21 @@ console.log('    Ce coût-là est humain, il ne figure sur aucune facture, et');
 console.log('    c\'est le seul qui ne baisse pas avec le volume.');
 console.log('  · Le registre (aps-registry) demandera une table DynamoDB :');
 console.log('    encore un service à posséder, sauvegarder et payer.');
+
+// ── QUI LISTE LE BUCKET : le prix n'est pas l'argument ───────────
+const nat = coutAsl(5, 'asl'), lam = coutAsl(5, 'aslLambda');
+console.log('\n── SI LA LAMBDA LISTE LE BUCKET (--listing lambda) ─────');
+console.log('  états      ' + PUBLISH.asl.total + ' → ' + PUBLISH.aslLambda.total
+          + '   (un de moins par Deliver, mesuré sur PUBLISH)');
+console.log('  transitions ' + nat.unites + ' → ' + lam.unites + ' par publication');
+console.log('  coût        $' + nat.cout.toFixed(4) + ' → $' + lam.cout.toFixed(4)
+          + '   soit ' + ((nat.cout - lam.cout) * 1000).toFixed(2) + ' $ pour 1000 publications');
+console.log('  gratuité    ' + Math.floor(4000 / nat.unites) + ' → '
+          + Math.floor(4000 / lam.unites) + ' publications offertes par mois');
+console.log('  L\'écart d\'argent est DÉRISOIRE, et c\'est l\'information : cette');
+console.log('  bascule ne s\'arbitre pas au prix. Elle s\'arbitre sur l\'autonomie —');
+console.log('  la version native ne peut pas atteindre le bucket d\'un client sans');
+console.log('  que ce client agisse, la version Lambda le peut avec une simple');
+console.log('  ligne de connexion, comme le moteur natif d\'APS depuis toujours.');
+console.log('  Ce qu\'elle coûte en revanche : l\'argument « S3 est une intégration');
+console.log('  native d\'ASL » tombe, et la Lambda gagne un accès à des secrets.');
