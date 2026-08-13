@@ -252,7 +252,65 @@ const PivotCatalogIconik = (() => {
     // introuvable), jamais une erreur HTTP.
     'iconik.fetch': {
       core: 'http_request', family: 'fetch',
-      ports: ['out', 'not_found']
+      ports: ['out', 'not_found'],
+      // Vérifié : builder-handler-iconik-fetch.js, quatre sous-types qui ne
+      // rangent PAS la même chose — d'où l'aiguillage, recopié de :22-25.
+      //
+      // `gabaritSous` est le mécanisme que `depuis` ne couvrait pas : ici le
+      // suffixe d'une référence n'est pas recopié, il est TRANSFORMÉ.
+      // `{serieMetadata.TypeCollection}` ne vaut pas « …ResponseBody.
+      // TypeCollection » mais « …metadata_values.TypeCollection.field_values
+      // [0].value » (:148-155). Une adresse recopiée au lieu d'être traduite
+      // reste un JSONPath valide, que la cible accepte et qui lit du vide.
+      //
+      // Ce qui n'est PAS déclaré, et pourquoi : `<var>_metadata`,
+      // `<var>_keyframes` et les champs NUS posés par `withMetadata` (:211)
+      // viennent d'un SECOND appel HTTP, pas de la réponse de celui-ci. Aucun
+      // chemin ne les rend — chez une cible sans logique, ce sont des états
+      // supplémentaires à émettre, pas des adresses. Les laisser sans adresse
+      // les fait signaler, ce qui est le comportement voulu.
+      variables: function (etape) {
+        const p = etape.params || {};
+        const sub = p.fetchSubType || (p.savedSearchId ? 'savedsearch'
+          : p.fetchType === 'collection' ? 'collection'
+          : (p.fetchTarget === 'metadata' || p.fetchMdView) ? 'metadata'
+          : 'asset');
+        if (sub === 'savedsearch') {
+          const v = p.savedSearchVar || 'search_results';
+          return [
+            { nom: v, depuis: '', aide: 'réponse de la recherche enregistrée' },
+            // Une LONGUEUR, pas un champ de la réponse (:38) : aucune adresse
+            // ne la rend, il faut la calculer (States.ArrayLength chez ASL).
+            { nom: v + '_count', aide: 'nombre de résultats' }
+          ];
+        }
+        if (sub === 'collection') {
+          const v = p.fetchVar || p.storeAs || 'collection';
+          return [
+            { nom: v, depuis: '', aide: 'la collection trouvée' },
+            { nom: v + '.id',        aide: 'identifiant de la collection' },
+            { nom: v + '.title',     aide: 'titre de la collection' },
+            { nom: v + '.parent_id', aide: 'identifiant de la collection parente' }
+          ];
+        }
+        if (sub === 'metadata') {
+          const v = p.fetchVar || p.storeAs || 'metadata';
+          return [{ nom: v, depuis: '', aide: 'métadonnées de l\'objet visé',
+                    // Les NOMS de champs dépendent de l'organisation : le
+                    // catalogue ne peut pas les lister (même honnêteté que
+                    // pour l'aplatissement d'un Search). Il peut, lui, dire où
+                    // ils vivent — ce qui suffit à les adresser tous.
+                    gabaritSous: 'metadata_values.{}.field_values[0].value' }];
+        }
+        const v = p.fetchVar || p.storeAs || 'asset';
+        const out = [{ nom: v, depuis: '', aide: 'l\'asset trouvé' }];
+        if (p.withMetadata) out.push({ nom: v + '_metadata', aide: 'métadonnées — SECOND appel' });
+        if (p.withKeyframes) {
+          out.push({ nom: v + '_keyframes',   aide: 'keyframes — SECOND appel' });
+          out.push({ nom: v + '_keyframe_url', aide: 'URL de la première keyframe', incertain: true });
+        }
+        return out;
+      }
     },
 
     'iconik.search': {
@@ -323,7 +381,13 @@ const PivotCatalogIconik = (() => {
       // 'presence', le moteur n'aplatit RIEN (c'est un test, pas une source de
       // données — wfd-engine-handlers.js:4175-4180). Le sélecteur doit le
       // savoir pour ne pas proposer des champs qui n'existeront jamais.
-      metadonneesAplatiesSi: function (etape) { return ((etape.params || {}).mode || 'retrieve') !== 'presence'; }
+      metadonneesAplatiesSi: function (etape) { return ((etape.params || {}).mode || 'retrieve') !== 'presence'; },
+      // OÙ vit une métadonnée aplatie, dans la réponse. Le pendant de
+      // `metadonneesAplatiesSi` : celui-ci dit QUE l'étape aplatit, celui-là
+      // dit OÙ relire ce qu'elle a aplati. La formule était écrite en dur dans
+      // l'émetteur ASL, qui n'avait aucun moyen de la connaître — un émetteur
+      // n'a pas à savoir comment Iconik range ses métadonnées.
+      gabaritMetadonnee: 'objects[0].metadata.{}'
     },
 
     'iconik.action': {
@@ -500,6 +564,14 @@ const PivotCatalogIconik = (() => {
   // (`blocks[].objectType` d'un Search, `fetchSubType` d'un Fetch) ; elle n'était
   // simplement lue par personne. Rend null quand l'étape n'en désigne aucun :
   // absence de preuve, jamais un objet par défaut.
+  // Le gabarit d'adresse d'une métadonnée aplatie, `{}` valant son nom. Rend
+  // null si l'étape n'en déclare pas : une valeur qu'on sait aplatie mais dont
+  // on ignore l'emplacement n'a pas d'adresse, et mieux vaut le dire.
+  function gabaritMetadonneeDe(etape) {
+    if (!etape || !etape.facade || !FACADES[etape.facade]) return null;
+    return FACADES[etape.facade].gabaritMetadonnee || null;
+  }
+
   function objetDe(etape) {
     const p = (etape && etape.params) || {};
     const b = Array.isArray(p.blocks) ? p.blocks.find(x => x && x.objectType) : null;
@@ -624,7 +696,7 @@ const PivotCatalogIconik = (() => {
     facadeConnue, coreConnu, estAnnotation,
     portsDecision, normaliserAretesDecision,
     familleWfd, portsWfd, indexPort,
-    variablesDe, aplatitMetadonnees, lecturesDe, objetDe
+    variablesDe, aplatitMetadonnees, lecturesDe, objetDe, gabaritMetadonneeDe
   };
 
 })();

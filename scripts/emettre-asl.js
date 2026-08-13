@@ -122,28 +122,41 @@ function jsonPath(gabarit, adresser, aplatie) {
 //   sans      rien dans cette portée ne la pose. On ne devine pas : on rend le
 //             nom nu ET on l'inscrit au contrat d'entrée de la portée, pour que
 //             l'appelant la projette (ItemSelector) ou que le contrôle la crie
+//
+// Dans les deux premiers cas le suffixe d'une référence n'est pas toujours
+// recopiable : `{serieMetadata.TypeCollection}` se traduit, il ne se concatène
+// pas. D'où les GABARITS, que le catalogue déclare et qu'on applique ici — un
+// émetteur n'a pas à savoir comment Iconik range ses métadonnées.
+function applique(gabarit, nom) { return String(gabarit).replace('{}', nom); }
+
 function adressesDe(etapes, chemin) {
-  const rangees   = new Map();               // nom → JSONPath complet
-  const mdParObjet = new Map();              // idEtape → { objet → JSONPath du Search }
+  const rangees   = new Map();               // nom → { base, gabaritSous }
+  const mdParObjet = new Map();              // idEtape → { objet → { base, gabarit } }
   const mdToutes   = new Map();              // idEtape → dernier aplatisseur, tous objets
 
   const courantParObjet = {};
   let courante = null;
   etapes.forEach(function (e) {
+    const etape = { facade: e.verbe, core: e.core, params: e.params || {} };
     mdParObjet.set(e.id, Object.assign({}, courantParObjet));
     mdToutes.set(e.id, courante);
     // Ce que l'étape RANGE, déclaré par le catalogue. Sans `depuis`, la valeur
-    // est calculée par le handler : aucun JSONPath ne la rend, on ne prétend pas.
-    CAT.variablesDe({ facade: e.verbe, core: e.core, params: e.params || {} })
-      .forEach(function (v) {
-        if (v && v.depuis && !rangees.has(v.nom)) {
-          rangees.set(v.nom, chemin(e) + '.ResponseBody.' + v.depuis);
-        }
-      });
-    if (CAT.aplatitMetadonnees({ facade: e.verbe, core: e.core, params: e.params || {} })) {
-      courante = chemin(e);
-      const objet = CAT.objetDe({ facade: e.verbe, core: e.core, params: e.params || {} });
-      if (objet) courantParObjet[objet] = courante;
+    // est calculée par le handler ou vient d'un autre appel : aucun JSONPath ne
+    // la rend, on ne prétend pas. `depuis` VIDE est une déclaration à part
+    // entière — « la réponse elle-même » — d'où le test sur le type et non sur
+    // la valeur, qui écartait silencieusement les quatre sous-types de Fetch.
+    CAT.variablesDe(etape).forEach(function (v) {
+      if (!v || typeof v.depuis !== 'string' || rangees.has(v.nom)) return;
+      rangees.set(v.nom, { base: chemin(e) + '.ResponseBody' + (v.depuis ? '.' + v.depuis : ''),
+                           gabaritSous: v.gabaritSous || null });
+    });
+    if (CAT.aplatitMetadonnees(etape)) {
+      const gabarit = CAT.gabaritMetadonneeDe(etape);
+      // Une étape qui aplatit sans dire OÙ ne donne aucune adresse : mieux vaut
+      // la traiter comme absente que fabriquer un chemin plausible.
+      courante = gabarit ? { base: chemin(e), gabarit: gabarit } : null;
+      const objet = CAT.objetDe(etape);
+      if (objet && courante) courantParObjet[objet] = courante;
     }
   });
 
@@ -157,15 +170,23 @@ function adressesDe(etapes, chemin) {
       const parts = String(ref).split('.');
       for (let i = parts.length; i > 0; i--) {
         const cle = parts.slice(0, i).join('.');
-        if (rangees.has(cle)) {
-          const reste = parts.slice(i);
-          return rangees.get(cle) + (reste.length ? '.' + reste.join('.') : '');
+        if (!rangees.has(cle)) continue;
+        const r = rangees.get(cle);
+        const reste = parts.slice(i);
+        if (!reste.length) return r.base;
+        // Le premier segment restant passe par le gabarit quand il y en a un
+        // (un champ de métadonnée ne se lit pas là où son nom le laisse croire) ;
+        // le reste se recopie.
+        if (r.gabaritSous) {
+          return r.base + '.' + applique(r.gabaritSous, reste[0])
+               + (reste.length > 1 ? '.' + reste.slice(1).join('.') : '');
         }
+        return r.base + '.' + reste.join('.');
       }
       const nom = parts[0];
       if (o.aplatie) {
         const src = (o.objet && (mdParObjet.get(idEtape) || {})[o.objet]) || mdToutes.get(idEtape);
-        if (src) return src + '.ResponseBody.objects[0].metadata.' + ref;
+        if (src) return src.base + '.ResponseBody.' + applique(src.gabarit, ref);
       }
       if (besoins && !besoins.has(nom)) besoins.set(nom, { nom: nom, objet: o.objet || null, aplatie: !!o.aplatie });
       return '$.' + ref;
