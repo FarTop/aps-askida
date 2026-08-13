@@ -40,6 +40,96 @@ const PivotCatalogIconik = (() => {
               aide: 'niveau de la collection publiée — filtre ce qui s\'applique ici' }];
   };
 
+  // ── LA REQUÊTE D'UNE RECHERCHE ICONIK ────────────────────────────────────
+  // Le vocabulaire du pivot (`op`, `field`, `value`) vers la syntaxe `query`
+  // d'Iconik, qui est du Lucene. Transcrit de `_apsSearchCritToQueryTerm`
+  // (wfd-engine-handlers.js:4368) — pas réinventé : une recherche qui filtre
+  // autrement que le moteur natif ne ramènerait pas les mêmes objets, et
+  // l'écart ne se verrait qu'au comptage des résultats.
+  //
+  // Les `{références}` sont laissées TELLES QUELLES : c'est l'émetteur qui sait
+  // les adresser dans sa cible. Le catalogue dit la forme, pas l'adresse.
+  const TYPES_RECHERCHE = {
+    asset: 'assets', collection: 'collections', segment: 'segments',
+    saved_search: 'saved_searches', format: 'formats', storage: 'storages',
+  };
+
+  // Les champs qu'Iconik porte en propre. Tout le reste est une métadonnée, et
+  // se cherche sous `metadata.<nom>`. Se tromper de préfixe rend zéro résultat
+  // sans erreur — le pire des silences.
+  const CHAMPS_SYSTEME = ['id', 'title', 'media_type', 'date_created', 'date_modified',
+                          'object_type', 'status', 'archive_status', 'external_id'];
+
+  function echapper(v) {
+    return String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
+  function termeDe(crit, type) {
+    if (!crit || !crit.field) return null;
+    const op = crit.op || 'equals';
+
+    // Chercher DANS une collection. Le nom du champ dépend de ce qu'on
+    // cherche, pas de la case cochée : un asset n'a pas de `parent_id`.
+    // Bug corrigé le 14/07/2026 dans le moteur, reporté ici tel quel —
+    // `in_collections` retrouve les assets, `parent_id` les collections
+    // filles ; deux champs Iconik distincts, pas interchangeables.
+    if (crit.field === '__collection__') {
+      const nom = op === 'in_branch' ? 'ancestor_collections'
+                : (type === 'collections' ? 'parent_id' : 'in_collections');
+      return nom + ':"' + (crit.value || '') + '"';
+    }
+
+    const champ = CHAMPS_SYSTEME.indexOf(crit.field) !== -1
+      ? crit.field : 'metadata.' + crit.field;
+    // ÉCHAPPEMENT : possible sur une valeur littérale, impossible sur une
+    // référence. Le moteur natif résout PUIS échappe ; à l'émission la valeur
+    // n'existe pas encore. Un titre contenant un guillemet casserait donc la
+    // requête. Sans conséquence sur les flux actuels — ce sont des UUID — mais
+    // c'est un écart réel avec le moteur, pas une équivalence.
+    const brut = crit.value || '';
+    const v = brut.indexOf('{') !== -1 ? brut : echapper(brut);
+    switch (op) {
+      case 'equals':       return champ + ':"' + v + '"';
+      case 'not_equals':   return 'NOT ' + champ + ':"' + v + '"';
+      case 'contains':     return champ + ':*' + v + '*';
+      case 'not_contains': return 'NOT ' + champ + ':*' + v + '*';
+      case 'starts_with':  return champ + ':' + v + '*';
+      case 'is_empty':     return 'NOT _exists_:' + champ;
+      case 'is_not_empty': return '_exists_:' + champ;
+      case 'before':       return champ + ':<"' + v + '"';
+      case 'after':        return champ + ':>"' + v + '"';
+      case 'gt':           return champ + ':>' + v;
+      case 'lt':           return champ + ':<' + v;
+      case 'is_true':      return champ + ':true';
+      case 'is_false':     return champ + ':false';
+      // `contains_any` / `contains_all` découpent la valeur sur les virgules.
+      // Impossible quand la valeur est une référence résolue à l'exécution :
+      // on ne découpe pas ce qu'on ne connaît pas encore. Non déclarés plutôt
+      // que découpés au jugé.
+      default: return null;
+    }
+  }
+
+  // Rend `{ query, refuses }`. UN CRITÈRE INTRADUISIBLE INVALIDE TOUTE LA
+  // REQUÊTE, et c'est un choix. Le moteur natif se contente d'avertir et de
+  // sauter le terme ; recopier ce comportement ici émettrait une recherche
+  // plus LARGE que celle voulue, qui ramènerait des objets en trop sans que
+  // rien ne le signale. C'est la même règle que pour les aiguillages : un
+  // filtre qui trie faux est pire qu'un filtre manquant. L'appelant rend alors
+  // `null`, l'étape retombe sur le gabarit générique et se compte comme non
+  // décrite — visible, plutôt que silencieusement fausse.
+  function requeteDe(criteres, type) {
+    const parts = [];
+    const refuses = [];
+    (criteres || []).forEach(function (c) {
+      const t = termeDe(c, type);
+      if (!t) { refuses.push((c && c.op) || '(sans op)'); return; }
+      if (parts.length) parts.push(c.join === 'OR' ? 'OR' : 'AND');
+      parts.push(t);
+    });
+    return { query: parts.length ? '(' + parts.join(' ') + ')' : '', refuses: refuses };
+  }
+
   // ── Les 12 Core : ports fixes, ou règle de calcul ────────────────────────
   // `ports` liste les sorties. `dynamicPorts` signale que la liste se calcule
   // depuis la config — le validateur de contenu l'appellera plutôt que de lire
@@ -310,6 +400,47 @@ const PivotCatalogIconik = (() => {
           out.push({ nom: v + '_keyframe_url', aide: 'URL de la première keyframe', incertain: true });
         }
         return out;
+      },
+
+      // ── LES APPELS D'UN FETCH D'ASSET ────────────────────────────────────
+      // Le commentaire de `variables` ci-dessus le disait déjà : `<var>_metadata`
+      // et `<var>_keyframes` viennent de SECONDS appels HTTP, pas de la réponse
+      // du premier. C'est écrit ici, maintenant — deux états quand
+      // `withMetadata` est coché, trois avec `withKeyframes`.
+      //
+      // REFUSÉ : `withFormats`. Il déclenche `_extractTechnical`, qui liste les
+      // file sets puis BOUCLE sur les formats (wfd-engine-handlers.js:590-610).
+      // Une boucle, pas un appel — ce serait un Map à émettre, et rien ne
+      // s'émet au jugé. Refusés aussi : les sous-types autres qu'`asset`, dont
+      // `collection` par chemin, qui cherche puis vérifie les ancêtres (:721).
+      appel: function (etape) {
+        const p = etape.params || {};
+        if ((p.fetchSubType || 'asset') !== 'asset') return null;
+        if (p.withFormats) return null;
+        const src = p.fetchSource || 'triggered';
+        if (src !== 'id' && src !== 'triggered') return null;
+
+        const id = p.fetchValue || '{asset.id}';
+        const appels = [{ role: 'asset', methode: 'GET',
+                          chemin: '/API/assets/v1/assets/' + id + '/' }];
+        if (p.withMetadata) {
+          const vue = p.fetchMdViewId || p.withMetadataViewId || p.fetchMdView || '';
+          // Le moteur ne protège PAS cette lecture-ci — pas de try/catch,
+          // contrairement à la relecture de set_metadata : un 404 y remonte.
+          // On ne pardonne donc pas non plus. La différence est dans le moteur,
+          // pas dans notre interprétation.
+          appels.push({ role: 'metadonnees', methode: 'GET',
+                        chemin: '/API/metadata/v1/assets/' + id + '/'
+                              + (vue ? 'views/' + vue + '/' : '') });
+        }
+        if (p.withKeyframes) {
+          // Celle-là si (:908-915) : le moteur range un objet vide en cas
+          // d'échec et poursuit.
+          appels.push({ role: 'keyframes', methode: 'GET',
+                        chemin: '/API/files/v1/assets/' + id + '/keyframes/',
+                        tolereAbsence: true });
+        }
+        return appels;
       }
     },
 
@@ -387,7 +518,48 @@ const PivotCatalogIconik = (() => {
       // dit OÙ relire ce qu'elle a aplati. La formule était écrite en dur dans
       // l'émetteur ASL, qui n'avait aucun moyen de la connaître — un émetteur
       // n'a pas à savoir comment Iconik range ses métadonnées.
-      gabaritMetadonnee: 'objects[0].metadata.{}'
+      gabaritMetadonnee: 'objects[0].metadata.{}',
+
+      // ── L'APPEL, ET CE QU'IL REFUSE DE TRADUIRE ──────────────────────────
+      // Un Search APS n'est PAS une requête : c'est N blocs, chaînables
+      // parent → enfant, avec une expression booléenne qui choisit lesquels
+      // sont actifs (`_apsSearchEvalExpression`). Un bloc enfant attend les
+      // identifiants du parent : la chaîne a une dépendance de données, donc
+      // autant d'états que de blocs.
+      //
+      // On ne déclare QUE le cas à un bloc. Les sept workflows n'utilisent que
+      // celui-là — vérifié : trois Search sur PUBLISH, un bloc chacun, sans
+      // expression ni parent. Le reste retombe sur le gabarit générique et se
+      // compte comme non décrit, ce qui est la vérité. Émettre un chaînage
+      // jamais observé serait inventer.
+      appel: function (etape) {
+        const p = etape.params || {};
+        const blocs = p.blocks || [];
+        if (blocs.length !== 1) return null;
+        if ((p.expression || '').trim()) return null;
+        if (blocs[0].parentBlock != null) return null;
+
+        const b = blocs[0];
+        const type = TYPES_RECHERCHE[b.objectType] || b.objectType || 'assets';
+        const req = requeteDe(b.criteria || [], type);
+        if (req.refuses.length) return null;      // voir requeteDe : tout ou rien
+        return [{
+          role: 'chercher', methode: 'POST',
+          chemin: '/API/search/v1/search/',
+          corps: {
+            doc_types: [type],
+            // `query`, pas `filters`. Vérifié en direct le 14/07/2026 et
+            // consigné dans le handler : cet endpoint IGNORE le tableau
+            // `filters` — il est envoyé vide pour la seule forme, et jamais
+            // peuplé. Un émetteur qui déduirait `filters` du pivot produirait
+            // une recherche non filtrée qui a l'air juste.
+            query: req.query,
+            filters: [],
+            limit: p.limit || 500,
+            offset: 0,
+          },
+        }];
+      }
     },
 
     'iconik.action': {
@@ -418,13 +590,106 @@ const PivotCatalogIconik = (() => {
           return [{ nom: 'file_set_id', depuis: 'id', aide: 'identifiant du file set créé' }];
         }
         return [];
+      },
+
+      // Une seule des trente actions est déclarée : celle des workflows VOD
+      // Factory. Les autres (`asset_create`, `acl_set_asset`, `transcode_create`…)
+      // retombent sur le gabarit générique et se comptent — les décrire sans
+      // les avoir vues tourner reviendrait à recopier un `switch` de 300 lignes
+      // en espérant ne pas se tromper.
+      appel: function (etape) {
+        const p = etape.params || {};
+        const t = p.actionType || '';
+        if (t !== 'export_location' && t !== 'export_location_trigger') return null;
+        const cible = p.exportLocationId || p.target || '';
+        if (!cible) return null;
+        const corps = {};
+        if (p.createFolderAsset) corps.export_to_asset_folder = true;
+        if (p.overwrite !== undefined) corps.overwrite = p.overwrite === true || p.overwrite === 'true';
+        if (p.fileName) {
+          // LE NOM DE FICHIER EST ASSAINI AVANT L'ENVOI : espaces en tirets
+          // bas, puis tout ce qui n'est ni alphanumérique ni `_ - /` est
+          // supprimé (wfd-engine-handlers.js:1305). Ce n'est pas cosmétique —
+          // c'est l'adresse S3 finale, celle qu'APS vérifiera ensuite par
+          // listing. Émettre le nom brut donnerait un objet livré à un chemin
+          // et contrôlé à un autre.
+          //
+          // Le catalogue dit QU'IL FAUT assainir, l'émetteur sait COMMENT
+          // l'écrire dans sa cible. Un gabarit seul ne pouvait pas le dire.
+          corps.file_name = { gabarit: p.fileName, transforme: 'nomFichierIconik' };
+        }
+        return [{
+          role: 'exporter', methode: 'POST',
+          chemin: '/API/files/v1/assets/' + (p.assetId || '{asset_id}')
+                + '/export_locations/' + cible + '/',
+          corps: corps,
+        }];
       }
     },
 
     'iconik.set_metadata': {
       core: 'http_request', family: 'update_meta', httpMode: 'simple',
       ports: ['out', 'error'],
-      modes: ['fields', 'view']
+      modes: ['fields', 'view'],
+      // ── L'APPEL HTTP, DÉCLARÉ ────────────────────────────────────────────
+      // Nouveau mécanisme (2026-08-14), et il vient d'un manque : l'émetteur
+      // Make n'a JAMAIS eu besoin de cette information — Make avait des modules
+      // Iconik natifs, l'adresse était l'affaire du module. ASL n'a que
+      // `http:invoke` : il faut lui donner la méthode, l'URL et le corps. Comme
+      // n8n et Node-RED seront dans le même cas, ça ne vit pas chez l'émetteur.
+      //
+      // `appel()` rend la LISTE des requêtes qu'une étape fait vraiment, dans
+      // l'ordre. Pas une par étape : ici il y en a DEUX, et c'est le point.
+      // Iconik n'accepte que PUT sur une vue de métadonnées — écrire trois
+      // champs remplacerait donc les autres. Le moteur relit d'abord, fusionne,
+      // puis écrit (wfd-engine-handlers.js:1246-1258 pour le mode 'view' via
+      // metadata_patch, :1657-1674 pour le mode 'fields'). Les deux modes ont
+      // la même forme ; seule l'URL diffère.
+      //
+      // `fusionne` nomme ce que la seconde requête doit reprendre de la
+      // première. Chez ASL c'est States.JsonMerge, qui est superficielle —
+      // exactement ce que fait `{ ...existing }` dans le handler.
+      appel: function (etape) {
+        const p = etape.params || {};
+        const collection = p.target === 'collection';
+        // Le mode 'view' passe par metadata_patch, qui écrit TOUJOURS sur
+        // /assets/ — même quand la cible est une collection, auquel cas le
+        // moteur bascule sur metadata_collection. Le mode 'fields' choisit
+        // /collections/ ou /assets/ selon la cible, vérifié en console le
+        // 19/07 : écrire sans vue fonctionne sur une collection.
+        const objet = collection ? 'collections' : 'assets';
+        const id    = p.targetId || p.assetId || (collection ? '{collection.id}' : '{asset.id}');
+        const vue   = p.mdViewId || p.viewId || '';
+        const base  = '/API/metadata/v1/' + objet + '/' + id + '/';
+        const url   = vue ? base + 'views/' + vue + '/' : base;
+        // LA FORME ICONIK DU CORPS, écrite ICI et pas chez l'émetteur. Un
+        // émetteur n'a pas à savoir qu'une métadonnée se range sous
+        // `field_values[].value` — c'est la même règle que pour
+        // `gabaritMetadonnee`, qui dit où la RELIRE. Première rédaction :
+        // le catalogue rendait `{ champ: '<valeur>' }` et laissait l'émetteur
+        // en déduire l'enveloppe. C'était une abstraction pour rien, qui
+        // répartissait la connaissance d'Iconik sur deux fichiers.
+        //
+        // Une valeur vide EFFACE le champ (`field_values: []`) — ce n'est pas
+        // un oubli du moteur, c'est ce qu'il fait. Le transcrire tel quel.
+        const valeurs = {};
+        (p.fields || []).forEach(function (f) {
+          if (!f.key) return;
+          const v = f.value || '';
+          valeurs[f.key] = { field_values: v === '' ? [] : [{ value: v }] };
+        });
+        return [
+          { role: 'relire', methode: 'GET', chemin: url,
+            // Une vue jamais initialisée sur cet objet répond 404, et le moteur
+            // le traite comme un dictionnaire vide (try/catch nu). Sans ce mot,
+            // une cible qui lève sur 404 arrêterait un workflow que le moteur
+            // natif poursuit.
+            tolereAbsence: true },
+          { role: 'ecrire', methode: 'PUT', chemin: url,
+            corps: { metadata_values: valeurs },
+            fusionne: { depuis: 'relire', champ: 'metadata_values' } },
+        ];
+      }
     },
 
     'iconik.create_tree': {
@@ -593,6 +858,19 @@ const PivotCatalogIconik = (() => {
     return [];
   }
 
+  // LES REQUÊTES HTTP d'une étape, dans l'ordre où elle les fait. Rend [] si la
+  // façade ne l'a pas encore déclaré — un émetteur doit pouvoir distinguer
+  // « aucun appel » (une décision, un Pass) de « pas encore décrit », et c'est
+  // à lui de le dire plutôt que d'émettre une URL générique en silence.
+  // Le tableau vide vaut donc « rien à déclarer ici », et `appelDe` renvoie
+  // null quand la façade est muette.
+  function appelDe(etape) {
+    if (!etape || !etape.facade || !FACADES[etape.facade]) return null;
+    const f = FACADES[etape.facade];
+    if (typeof f.appel !== 'function') return null;
+    return f.appel(etape) || null;
+  }
+
   // ── Pour le convertisseur pivot → WFD ─────────────────────────────────────
 
   // La famille WFD que le moteur attend. Une façade porte son nom d'origine
@@ -696,7 +974,7 @@ const PivotCatalogIconik = (() => {
     facadeConnue, coreConnu, estAnnotation,
     portsDecision, normaliserAretesDecision,
     familleWfd, portsWfd, indexPort,
-    variablesDe, aplatitMetadonnees, lecturesDe, objetDe, gabaritMetadonneeDe
+    variablesDe, aplatitMetadonnees, lecturesDe, objetDe, gabaritMetadonneeDe, appelDe
   };
 
 })();

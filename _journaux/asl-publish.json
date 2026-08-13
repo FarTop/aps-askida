@@ -1,5 +1,6 @@
 {
   "Comment": "APS — BAYARD | PUBLISH | VODFACTORY — émis le 2026-08-13. SQUELETTE : la forme, pas les paramètres. Les ARN de connexion et de Lambda sont des espaces réservés.",
+  "QueryLanguage": "JSONata",
   "StartAt": "Custom Action",
   "States": {
     "Fin": {
@@ -7,27 +8,38 @@
     },
     "Custom Action": {
       "Type": "Pass",
-      "Comment": "Le déclencheur vit HORS de la machine d'états (EventBridge ou StartExecution)",
+      "Comment": "Le déclencheur vit HORS de la machine d'états (EventBridge ou StartExecution). Cet état ne fait qu'une chose : nommer ce que l'évènement apporte.",
+      "Assign": {
+        "collection": "{% $states.input.collection %}",
+        "asset": "{% $states.input.asset %}",
+        "user": "{% $states.input.user %}",
+        "_trigger": "{% $states.input %}"
+      },
       "Next": "Notify Running"
     },
     "Notify Running": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
+      "Comment": "GABARIT GÉNÉRIQUE — l'appel de « iconik.history » n'est pas encore déclaré dans le catalogue.",
+      "Arguments": {
         "ApiEndpoint": "https://app.iconik.io/API/",
         "Method": "GET",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
         }
       },
-      "ResultPath": "$.history_msdcfrwd_5",
+      "Assign": {
+        "history_msdcfrwd_5": "{% $states.result %}"
+      },
       "Next": "Get Collection ID",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
           "Next": "Get Collection ID"
         }
       ]
@@ -35,21 +47,34 @@
     "Get Collection ID": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
-        "ApiEndpoint": "https://app.iconik.io/API/",
-        "Method": "GET",
+      "Arguments": {
+        "ApiEndpoint": "https://app.iconik.io/API/search/v1/search/",
+        "Method": "POST",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        },
+        "RequestBody": {
+          "doc_types": [
+            "collections"
+          ],
+          "query": "{% '(id:\"' & $collection.id & '\")' %}",
+          "filters": [],
+          "limit": 500,
+          "offset": 0
         }
       },
-      "ResultPath": "$.http_request_msdcfihl_3",
+      "Assign": {
+        "http_request_msdcfihl_3": "{% $states.result %}"
+      },
       "Next": "Asset editorial",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
           "Next": "Asset editorial"
         }
       ]
@@ -58,31 +83,43 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.http_request_assetedito_1.ResponseBody.objects[0]",
-          "IsPresent": false,
+          "Condition": "{% $count($http_request_assetedito_1.ResponseBody.objects) = 0 %}",
           "Next": "Programme"
         }
       ],
-      "Default": "Metadonnees de livraison"
+      "Default": "Metadonnees de livraison - asset"
     },
     "Asset editorial": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
-        "ApiEndpoint": "https://app.iconik.io/API/",
-        "Method": "GET",
+      "Arguments": {
+        "ApiEndpoint": "https://app.iconik.io/API/search/v1/search/",
+        "Method": "POST",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        },
+        "RequestBody": {
+          "doc_types": [
+            "assets"
+          ],
+          "query": "{% '(in_collections:\"' & $collection.id & '\" AND _exists_:metadata.ContenuPrime)' %}",
+          "filters": [],
+          "limit": 500,
+          "offset": 0
         }
       },
-      "ResultPath": "$.http_request_assetedito_1",
+      "Assign": {
+        "http_request_assetedito_1": "{% $states.result %}"
+      },
       "Next": "Asset editorial - quel port",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
           "Next": "Programme"
         }
       ]
@@ -91,77 +128,100 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection",
-          "StringEquals": "Série",
+          "Condition": "{% $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection = 'Série' %}",
           "Next": "Bayard ID"
         },
         {
-          "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection",
-          "StringEquals": "Saison",
+          "Condition": "{% $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection = 'Saison' %}",
           "Next": "Bayard ID"
         },
         {
-          "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection",
-          "StringEquals": "Episode",
+          "Condition": "{% $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection = 'Episode' %}",
           "Next": "Bayard ID"
         },
         {
-          "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection",
-          "StringEquals": "Unitaire",
+          "Condition": "{% $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection = 'Unitaire' %}",
           "Next": "Bayard ID"
         }
       ],
-      "Default": "Set Metadata Echec"
+      "Default": "Set Metadata Echec - relire"
     },
-    "Set Metadata Echec": {
+    "Set Metadata Echec - ecrire": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
-        "ApiEndpoint": "https://app.iconik.io/API/",
-        "Method": "GET",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/metadata/v1/collections/' & $collection.id & '/' %}",
+        "Method": "PUT",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        },
+        "RequestBody": {
+          "metadata_values": "{% $merge([$http_request_msepbug0_8_fail_copie_msoipwx2_2.ResponseBody.metadata_values, {'StatutPublication': {'field_values': [{'value': 'Echoué'}]}}]) %}"
         }
       },
-      "ResultPath": "$.http_request_msepbug0_8_fail_copie_msoipwx2_2",
+      "Assign": {
+        "http_request_msepbug0_8_fail_copie_msoipwx2_2_ecrire": "{% $states.result %}"
+      },
       "Next": "Notify Missing Collection Type",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
           "Next": "Notify Missing Collection Type"
+        }
+      ]
+    },
+    "Set Metadata Echec - relire": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/metadata/v1/collections/' & $collection.id & '/' %}",
+        "Method": "GET",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        }
+      },
+      "Assign": {
+        "http_request_msepbug0_8_fail_copie_msoipwx2_2": "{% $states.result %}"
+      },
+      "Next": "Set Metadata Echec - ecrire",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Assign": {
+            "http_request_msepbug0_8_fail_copie_msoipwx2_2": "{% { \"ResponseBody\": {} } %}"
+          },
+          "Next": "Set Metadata Echec - ecrire"
         }
       ]
     },
     "Notify Missing Collection Type": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
+      "Comment": "GABARIT GÉNÉRIQUE — l'appel de « iconik.history » n'est pas encore déclaré dans le catalogue.",
+      "Arguments": {
         "ApiEndpoint": "https://app.iconik.io/API/",
         "Method": "GET",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
         }
       },
-      "ResultPath": "$.history_msdcfrwd_5_copie_msoip6hj_1",
+      "Assign": {
+        "history_msdcfrwd_5_copie_msoip6hj_1": "{% $states.result %}"
+      },
       "Next": "Fin"
     },
     "Bayard ID": {
       "Type": "Choice",
       "Choices": [
         {
-          "Or": [
-            {
-              "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.BayardID",
-              "IsPresent": false
-            },
-            {
-              "Variable": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.BayardID",
-              "StringEquals": ""
-            }
-          ],
+          "Condition": "{% $not($exists($http_request_msdcfihl_3.ResponseBody.objects[0].metadata.BayardID)) or $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.BayardID = '' %}",
           "Next": "Create ID Generator"
         }
       ],
@@ -170,33 +230,47 @@
     "Collections Parentes": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
+      "Comment": "GABARIT GÉNÉRIQUE — l'appel de « iconik.resolve_ancestors » n'est pas encore déclaré dans le catalogue.",
+      "Arguments": {
         "ApiEndpoint": "https://app.iconik.io/API/",
         "Method": "GET",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
         }
       },
-      "ResultPath": "$.http_request_msdmoljh_1",
+      "Assign": {
+        "http_request_msdmoljh_1": "{% $states.result %}"
+      },
       "Next": "Check Collection",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
           "Next": "Check Collection"
         }
       ]
     },
-    "Check Collection - reconnaitre": {
+    "Check Collection - quel port": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Condition": "{% $deliver_msdlifio_1.nbObjets = 0 %}",
+          "Next": "Search"
+        }
+      ],
+      "Default": "Set Metadata URLs - relire"
+    },
+    "Check Collection": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
-      "Comment": "aps-essences — le module builder-essences.js, tel quel. Ne PAS le réécrire : ces URL sont livrées au partenaire puis vérifiées par APS, deux implémentations qui divergent contrôleraient une autre adresse que celle qu'elles ont envoyée.",
-      "Parameters": {
+      "Comment": "aps-essences — le module builder-essences.js, tel quel. Ne PAS le réécrire : ces URL sont livrées au partenaire puis vérifiées par APS, deux implémentations qui divergent contrôleraient une autre adresse que celle qu'elles ont envoyée. Liste AUSSI le bucket (identifiants de la connexion APS) : l'intégration S3 native signe avec le rôle d'exécution, donc elle ne sait pas atteindre le bucket d'un client.",
+      "Arguments": {
         "FunctionName": "aps-essences",
         "Payload": {
-          "listing.$": "$.s3",
           "essences": [
             {
               "type": "cover",
@@ -288,66 +362,79 @@
               ]
             }
           ],
-          "base": "s3://a-renseigner/",
-          "typeCollection.$": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection"
+          "typeCollection": "{% $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection %}",
+          "connexionId": "cmqp7eg510003q4u5l0qlpidq",
+          "objectKey": "AmazonPrime/{ancestorPath}/"
         }
       },
-      "ResultSelector": {
-        "variables.$": "$.Payload.variables",
-        "cardinaliteRespectee.$": "$.Payload.cardinaliteRespectee"
+      "Assign": {
+        "deliver_msdlifio_1": "{% $states.result.Payload %}"
       },
-      "ResultPath": "$.essences",
-      "Next": "Check Collection - quel port"
-    },
-    "Check Collection - quel port": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.s3.KeyCount",
-          "NumericEquals": 0,
-          "Next": "Search"
-        }
-      ],
-      "Default": "Set Metadata URLs"
-    },
-    "Check Collection": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:s3:listObjectsV2",
-      "Parameters": {
-        "Bucket": "a-renseigner",
-        "Prefix": "a-renseigner"
-      },
-      "ResultPath": "$.s3",
-      "Next": "Check Collection - reconnaitre",
+      "Next": "Check Collection - quel port",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
-          "Next": "Set Metadata URLs"
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
+          "Next": "Set Metadata URLs - relire"
         }
       ]
     },
-    "Set Metadata URLs": {
+    "Set Metadata URLs - ecrire": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
-        "ApiEndpoint": "https://app.iconik.io/API/",
-        "Method": "GET",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/metadata/v1/collections/' & $collection.id & '/' %}",
+        "Method": "PUT",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        },
+        "RequestBody": {
+          "metadata_values": "{% $merge([$http_request_seturls_1.ResponseBody.metadata_values, {'URLCoverArt': {'field_values': [{'value': $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.s3_cover_url}]}, 'URLPosterArt': {'field_values': [{'value': $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.s3_poster_url}]}, 'URLHeroArt': {'field_values': [{'value': $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.s3_hero_url}]}, 'URLTitleArt': {'field_values': [{'value': $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.s3_title_url}]}, 'URLSeasonArt': {'field_values': [{'value': $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.s3_season_url}]}, 'URLBoxArt': {'field_values': [{'value': $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.s3_box_url}]}, 'URLEpisodicArt': {'field_values': [{'value': $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.s3_episodic_url}]}}]) %}"
         }
       },
-      "ResultPath": "$.http_request_seturls_1",
+      "Assign": {
+        "http_request_seturls_1_ecrire": "{% $states.result %}"
+      },
       "Next": "Lookup",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
           "Next": "Lookup"
+        }
+      ]
+    },
+    "Set Metadata URLs - relire": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/metadata/v1/collections/' & $collection.id & '/' %}",
+        "Method": "GET",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        }
+      },
+      "Assign": {
+        "http_request_seturls_1": "{% $states.result %}"
+      },
+      "Next": "Set Metadata URLs - ecrire",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Assign": {
+            "http_request_seturls_1": "{% { \"ResponseBody\": {} } %}"
+          },
+          "Next": "Set Metadata URLs - ecrire"
         }
       ]
     },
@@ -355,27 +442,34 @@
       "Type": "Task",
       "Resource": "arn:aws:lambda:eu-west-3:632075073384:function:aps-lookup",
       "Comment": "FONCTION À ÉCRIRE — traduire une table de correspondance et résoudre l'héritage entre niveaux n'est pas exprimable avec les intrinsèques ASL : c'est de la logique, pas de la transformation",
-      "ResultPath": "$.lookup",
+      "Assign": {
+        "lookup_mseoxp6v_2": "{% $states.result %}"
+      },
       "Next": "Partner"
     },
     "Partner": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
+      "Comment": "GABARIT GÉNÉRIQUE — l'appel de « vodfactory.partner » n'est pas encore déclaré dans le catalogue.",
+      "Arguments": {
         "ApiEndpoint": "https://app.iconik.io/API/",
         "Method": "GET",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
         }
       },
-      "ResultPath": "$.http_sequence_msepa760_5",
+      "Assign": {
+        "http_sequence_msepa760_5": "{% $states.result %}"
+      },
       "Next": "Verify",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
           "Next": "Verify"
         }
       ]
@@ -383,102 +477,178 @@
     "Verify": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
+      "Comment": "GABARIT GÉNÉRIQUE — l'appel de « verify » n'est pas encore déclaré dans le catalogue.",
+      "Arguments": {
         "ApiEndpoint": "https://app.iconik.io/API/",
         "Method": "GET",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
         }
       },
-      "ResultPath": "$.verify_msepbf9r_7",
-      "Next": "Set Metadata",
+      "Assign": {
+        "verify_msepbf9r_7": "{% $states.result %}"
+      },
+      "Next": "Set Metadata - relire",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
-          "Next": "Set Metadata Echec 2"
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
+          "Next": "Set Metadata Echec 2 - relire"
         }
       ]
     },
-    "Set Metadata": {
+    "Set Metadata - ecrire": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
-        "ApiEndpoint": "https://app.iconik.io/API/",
-        "Method": "GET",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/metadata/v1/collections/' & $collection.id & '/' %}",
+        "Method": "PUT",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        },
+        "RequestBody": {
+          "metadata_values": "{% $merge([$http_request_msepbug0_8.ResponseBody.metadata_values, {'StatutPublication': {'field_values': [{'value': 'Posté'}]}, 'DatedePublication': {'field_values': [{'value': $now()}]}}]) %}"
         }
       },
-      "ResultPath": "$.http_request_msepbug0_8",
+      "Assign": {
+        "http_request_msepbug0_8_ecrire": "{% $states.result %}"
+      },
       "Next": "History",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
           "Next": "History"
+        }
+      ]
+    },
+    "Set Metadata - relire": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/metadata/v1/collections/' & $collection.id & '/' %}",
+        "Method": "GET",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        }
+      },
+      "Assign": {
+        "http_request_msepbug0_8": "{% $states.result %}"
+      },
+      "Next": "Set Metadata - ecrire",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Assign": {
+            "http_request_msepbug0_8": "{% { \"ResponseBody\": {} } %}"
+          },
+          "Next": "Set Metadata - ecrire"
         }
       ]
     },
     "History": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
+      "Comment": "GABARIT GÉNÉRIQUE — l'appel de « iconik.history » n'est pas encore déclaré dans le catalogue.",
+      "Arguments": {
         "ApiEndpoint": "https://app.iconik.io/API/",
         "Method": "GET",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
         }
       },
-      "ResultPath": "$.history_msepbwoc_9",
+      "Assign": {
+        "history_msepbwoc_9": "{% $states.result %}"
+      },
       "Next": "Fin"
     },
-    "Set Metadata Echec 2": {
+    "Set Metadata Echec 2 - ecrire": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
-        "ApiEndpoint": "https://app.iconik.io/API/",
-        "Method": "GET",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/metadata/v1/collections/' & $collection.id & '/' %}",
+        "Method": "PUT",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        },
+        "RequestBody": {
+          "metadata_values": "{% $merge([$http_request_msepbug0_8_fail.ResponseBody.metadata_values, {'StatutPublication': {'field_values': [{'value': 'Echoué'}]}}]) %}"
         }
       },
-      "ResultPath": "$.http_request_msepbug0_8_fail",
+      "Assign": {
+        "http_request_msepbug0_8_fail_ecrire": "{% $states.result %}"
+      },
       "Next": "History Echec",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
           "Next": "History Echec"
+        }
+      ]
+    },
+    "Set Metadata Echec 2 - relire": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/metadata/v1/collections/' & $collection.id & '/' %}",
+        "Method": "GET",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        }
+      },
+      "Assign": {
+        "http_request_msepbug0_8_fail": "{% $states.result %}"
+      },
+      "Next": "Set Metadata Echec 2 - ecrire",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Assign": {
+            "http_request_msepbug0_8_fail": "{% { \"ResponseBody\": {} } %}"
+          },
+          "Next": "Set Metadata Echec 2 - ecrire"
         }
       ]
     },
     "History Echec": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
+      "Comment": "GABARIT GÉNÉRIQUE — l'appel de « iconik.history » n'est pas encore déclaré dans le catalogue.",
+      "Arguments": {
         "ApiEndpoint": "https://app.iconik.io/API/",
         "Method": "GET",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
         }
       },
-      "ResultPath": "$.history_msepbwoc_9_echec",
+      "Assign": {
+        "history_msepbwoc_9_echec": "{% $states.result %}"
+      },
       "Next": "Fin"
     },
     "Search - quel port": {
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.http_request_mseo2m4r_1.ResponseBody.objects[0]",
-          "IsPresent": false,
-          "Next": "Set Metadata URLs"
+          "Condition": "{% $count($http_request_mseo2m4r_1.ResponseBody.objects) = 0 %}",
+          "Next": "Set Metadata URLs - relire"
         }
       ],
       "Default": "Loop"
@@ -486,38 +656,46 @@
     "Search": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
-        "ApiEndpoint": "https://app.iconik.io/API/",
-        "Method": "GET",
+      "Arguments": {
+        "ApiEndpoint": "https://app.iconik.io/API/search/v1/search/",
+        "Method": "POST",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        },
+        "RequestBody": {
+          "doc_types": [
+            "assets"
+          ],
+          "query": "{% '(in_collections:\"' & $collection.id & '\")' %}",
+          "filters": [],
+          "limit": 500,
+          "offset": 0
         }
       },
-      "ResultPath": "$.http_request_mseo2m4r_1",
+      "Assign": {
+        "http_request_mseo2m4r_1": "{% $states.result %}"
+      },
       "Next": "Search - quel port",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
-          "Next": "Set Metadata URLs"
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
+          "Next": "Set Metadata URLs - relire"
         }
       ]
     },
-    "Loop": {
+    "Loop - iterer": {
       "Type": "Map",
-      "ItemsPath": "$.http_request_mseo2m4r_1.ResponseBody.objects",
-      "ItemSelector": {
-        "item.$": "$$.Map.Item.Value",
-        "ancestorPath.$": "$.ancestorPath",
-        "TypeCollection.$": "$.http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection"
-      },
+      "Items": "{% $http_request_mseo2m4r_1.ResponseBody.objects %}",
       "ItemProcessor": {
         "ProcessorConfig": {
           "Mode": "INLINE"
         },
-        "StartAt": "Video Info",
+        "StartAt": "Element courant",
         "States": {
           "Fin du corps": {
             "Type": "Succeed"
@@ -526,8 +704,7 @@
             "Type": "Choice",
             "Choices": [
               {
-                "Variable": "$.http_request_video_info_1.ResponseBody",
-                "IsPresent": false,
+                "Condition": "{% $not($exists($http_request_video_info_1.ResponseBody)) %}",
                 "Next": "Check Asset"
               }
             ],
@@ -536,42 +713,24 @@
           "Video Info": {
             "Type": "Task",
             "Resource": "arn:aws:states:::http:invoke",
-            "Parameters": {
+            "Comment": "GABARIT GÉNÉRIQUE — l'appel de « iconik.fetch » n'est pas encore déclaré dans le catalogue.",
+            "Arguments": {
               "ApiEndpoint": "https://app.iconik.io/API/",
               "Method": "GET",
               "Authentication": {
-                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
               }
             },
-            "ResultPath": "$.http_request_video_info_1",
+            "Assign": {
+              "http_request_video_info_1": "{% $states.result %}"
+            },
             "Next": "Video Info - quel port"
-          },
-          "Check Asset - reconnaitre": {
-            "Type": "Task",
-            "Resource": "arn:aws:states:::lambda:invoke",
-            "Comment": "aps-essences — le module builder-essences.js, tel quel. Ne PAS le réécrire : ces URL sont livrées au partenaire puis vérifiées par APS, deux implémentations qui divergent contrôleraient une autre adresse que celle qu'elles ont envoyée.",
-            "Parameters": {
-              "FunctionName": "aps-essences",
-              "Payload": {
-                "listing.$": "$.s3",
-                "essences": [],
-                "base": "s3://a-renseigner/",
-                "typeCollection.$": "$.TypeCollection"
-              }
-            },
-            "ResultSelector": {
-              "variables.$": "$.Payload.variables",
-              "cardinaliteRespectee.$": "$.Payload.cardinaliteRespectee"
-            },
-            "ResultPath": "$.essences",
-            "Next": "Check Asset - quel port"
           },
           "Check Asset - quel port": {
             "Type": "Choice",
             "Choices": [
               {
-                "Variable": "$.s3.KeyCount",
-                "NumericEquals": 0,
+                "Condition": "{% $deliver_mseozji7_4.nbObjets = 0 %}",
                 "Next": "Action"
               }
             ],
@@ -579,25 +738,38 @@
           },
           "Check Asset": {
             "Type": "Task",
-            "Resource": "arn:aws:states:::aws-sdk:s3:listObjectsV2",
-            "Parameters": {
-              "Bucket": "a-renseigner",
-              "Prefix": "a-renseigner"
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "aps-essences — le module builder-essences.js, tel quel. Ne PAS le réécrire : ces URL sont livrées au partenaire puis vérifiées par APS, deux implémentations qui divergent contrôleraient une autre adresse que celle qu'elles ont envoyée. Liste AUSSI le bucket (identifiants de la connexion APS) : l'intégration S3 native signe avec le rôle d'exécution, donc elle ne sait pas atteindre le bucket d'un client.",
+            "Arguments": {
+              "FunctionName": "aps-essences",
+              "Payload": {
+                "essences": [],
+                "typeCollection": "{% $TypeCollection %}",
+                "connexionId": "cmqp7eg510003q4u5l0qlpidq",
+                "objectKey": "AmazonPrime/{ancestorPath}/{filebase(item.title)}"
+              }
             },
-            "ResultPath": "$.s3",
-            "Next": "Check Asset - reconnaitre"
+            "Assign": {
+              "deliver_mseozji7_4": "{% $states.result.Payload %}"
+            },
+            "Next": "Check Asset - quel port"
           },
           "Action": {
             "Type": "Task",
             "Resource": "arn:aws:states:::http:invoke",
-            "Parameters": {
-              "ApiEndpoint": "https://app.iconik.io/API/",
-              "Method": "GET",
+            "Arguments": {
+              "ApiEndpoint": "{% 'https://app.iconik.io/API/files/v1/assets/' & $item.id & '/export_locations/f51748d2-5db4-11f1-bdc2-52e9b30fbd6f/' %}",
+              "Method": "POST",
               "Authentication": {
-                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+              },
+              "RequestBody": {
+                "file_name": "{% $replace($replace($ancestorPath & '/' & $replace($item.title, /\\.[^.]*$/, ''), /\\s+/, '_'), /[^a-zA-Z0-9_\\-\\/]/, '') %}"
               }
             },
-            "ResultPath": "$.http_request_mserkbl2_10",
+            "Assign": {
+              "http_request_mserkbl2_10": "{% $states.result %}"
+            },
             "Next": "Wait"
           },
           "Wait - attendre": {
@@ -609,8 +781,7 @@
             "Type": "Choice",
             "Choices": [
               {
-                "Variable": "$.sonde.ResponseBody.status",
-                "StringEquals": "FINISHED",
+                "Condition": "{% $wait_msermvge_11_sonde.ResponseBody.status = 'FINISHED' %}",
                 "Next": "Recheck"
               }
             ],
@@ -619,111 +790,170 @@
           "Wait": {
             "Type": "Task",
             "Resource": "arn:aws:states:::http:invoke",
-            "Parameters": {
+            "Arguments": {
+              "ApiEndpoint": "{% 'https://app.iconik.io/API/jobs/v1/jobs/' & $http_request_mserkbl2_10.ResponseBody.job_id & '/' %}",
               "Method": "GET",
               "Authentication": {
-                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
-              },
-              "ApiEndpoint.$": "States.Format('https://app.iconik.io/API/jobs/v1/jobs/{}/', $.http_request_mserkbl2_10.ResponseBody.job_id)"
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+              }
             },
-            "ResultPath": "$.sonde",
+            "Assign": {
+              "wait_msermvge_11_sonde": "{% $states.result %}"
+            },
             "Next": "Wait - termine",
             "Catch": [
               {
                 "ErrorEquals": [
                   "States.ALL"
                 ],
-                "ResultPath": "$.erreur",
+                "Assign": {
+                  "erreur": "{% $states.errorOutput %}"
+                },
                 "Next": "Recheck"
               }
             ]
           },
-          "Recheck - reconnaitre": {
-            "Type": "Task",
-            "Resource": "arn:aws:states:::lambda:invoke",
-            "Comment": "aps-essences — le module builder-essences.js, tel quel. Ne PAS le réécrire : ces URL sont livrées au partenaire puis vérifiées par APS, deux implémentations qui divergent contrôleraient une autre adresse que celle qu'elles ont envoyée.",
-            "Parameters": {
-              "FunctionName": "aps-essences",
-              "Payload": {
-                "listing.$": "$.s3",
-                "essences": [],
-                "base": "s3://a-renseigner/",
-                "typeCollection.$": "$.TypeCollection"
-              }
-            },
-            "ResultSelector": {
-              "variables.$": "$.Payload.variables",
-              "cardinaliteRespectee.$": "$.Payload.cardinaliteRespectee"
-            },
-            "ResultPath": "$.essences",
-            "Next": "Fin du corps"
-          },
           "Recheck": {
             "Type": "Task",
-            "Resource": "arn:aws:states:::aws-sdk:s3:listObjectsV2",
-            "Parameters": {
-              "Bucket": "a-renseigner",
-              "Prefix": "a-renseigner"
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "aps-essences — le module builder-essences.js, tel quel. Ne PAS le réécrire : ces URL sont livrées au partenaire puis vérifiées par APS, deux implémentations qui divergent contrôleraient une autre adresse que celle qu'elles ont envoyée. Liste AUSSI le bucket (identifiants de la connexion APS) : l'intégration S3 native signe avec le rôle d'exécution, donc elle ne sait pas atteindre le bucket d'un client.",
+            "Arguments": {
+              "FunctionName": "aps-essences",
+              "Payload": {
+                "essences": [],
+                "typeCollection": "{% $TypeCollection %}",
+                "connexionId": "cmqp7eg510003q4u5l0qlpidq",
+                "objectKey": "AmazonPrime/{ancestorPath}/{filebase(item.title)}"
+              }
             },
-            "ResultPath": "$.s3",
-            "Next": "Recheck - reconnaitre"
+            "Assign": {
+              "deliver_mseozji7_4_copie_mserwa3b_1": "{% $states.result.Payload %}"
+            },
+            "Next": "Fin du corps"
+          },
+          "Element courant": {
+            "Type": "Pass",
+            "Comment": "L'élément de ce tour de boucle, nommé pour que le corps le lise comme « item » — le nom que le pivot emploie. Remplace la clé item de l'ItemSelector.",
+            "Assign": {
+              "item": "{% $states.input %}"
+            },
+            "Next": "Video Info"
           }
         }
       },
-      "Next": "Set Metadata URLs"
+      "Next": "Set Metadata URLs - relire"
+    },
+    "Loop": {
+      "Type": "Pass",
+      "Comment": "CE QUE LA BOUCLE EMPRUNTE AU DEHORS. En JSONata une portée interne lit les variables de la portée extérieure : il suffit donc de les nommer ici. Remplace l'ItemSelector, qui cachait le même contrat dans la définition du Map.",
+      "Assign": {
+        "TypeCollection": "{% $http_request_msdcfihl_3.ResponseBody.objects[0].metadata.TypeCollection %}"
+      },
+      "Next": "Loop - iterer"
     },
     "Create ID Generator": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:eu-west-3:632075073384:function:aps-http_request",
       "Comment": "FONCTION À ÉCRIRE — le registre et le compteur vivent dans la base d'APS. Aucune cible ne les porte : il faut et le code, et une table (DynamoDB) pour l'état",
-      "ResultPath": "$.http_request",
-      "Next": "Set Bayard ID"
+      "Assign": {
+        "http_request_msdkq2jr_1": "{% $states.result %}"
+      },
+      "Next": "Set Bayard ID - relire"
     },
-    "Set Bayard ID": {
+    "Set Bayard ID - ecrire": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
-        "ApiEndpoint": "https://app.iconik.io/API/",
-        "Method": "GET",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/metadata/v1/collections/' & $collection.id & '/' %}",
+        "Method": "PUT",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        },
+        "RequestBody": {
+          "metadata_values": "{% $merge([$http_request_msdd3jip_1.ResponseBody.metadata_values, {'BayardID': {'field_values': [{'value': $http_request_mseo2m4r_1.ResponseBody.objects[0].metadata.generated_id}]}}]) %}"
         }
       },
-      "ResultPath": "$.http_request_msdd3jip_1",
+      "Assign": {
+        "http_request_msdd3jip_1_ecrire": "{% $states.result %}"
+      },
       "Next": "Collections Parentes",
       "Catch": [
         {
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.erreur",
+          "Assign": {
+            "erreur": "{% $states.errorOutput %}"
+          },
           "Next": "Collections Parentes"
         }
       ]
+    },
+    "Set Bayard ID - relire": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/metadata/v1/collections/' & $collection.id & '/' %}",
+        "Method": "GET",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        }
+      },
+      "Assign": {
+        "http_request_msdd3jip_1": "{% $states.result %}"
+      },
+      "Next": "Set Bayard ID - ecrire",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Assign": {
+            "http_request_msdd3jip_1": "{% { \"ResponseBody\": {} } %}"
+          },
+          "Next": "Set Bayard ID - ecrire"
+        }
+      ]
+    },
+    "Metadonnees de livraison - metadonnees": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/metadata/v1/assets/' & $http_request_assetedito_1.ResponseBody.objects[0].id & '/views/64485176-5499-11f1-b566-6af3f91c030b/' %}",
+        "Method": "GET",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        }
+      },
+      "Assign": {
+        "http_request_mdlivraison_1_metadonnees": "{% $states.result %}"
+      },
+      "Next": "Metadonnees de livraison - quel port"
     },
     "Metadonnees de livraison - quel port": {
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.http_request_mdlivraison_1.ResponseBody",
-          "IsPresent": false,
+          "Condition": "{% $not($exists($http_request_mdlivraison_1_metadonnees.ResponseBody)) %}",
           "Next": "Programme"
         }
       ],
       "Default": "Programme"
     },
-    "Metadonnees de livraison": {
+    "Metadonnees de livraison - asset": {
       "Type": "Task",
       "Resource": "arn:aws:states:::http:invoke",
-      "Parameters": {
-        "ApiEndpoint": "https://app.iconik.io/API/",
+      "Arguments": {
+        "ApiEndpoint": "{% 'https://app.iconik.io/API/assets/v1/assets/' & $http_request_assetedito_1.ResponseBody.objects[0].id & '/' %}",
         "Method": "GET",
         "Authentication": {
-          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
         }
       },
-      "ResultPath": "$.http_request_mdlivraison_1",
-      "Next": "Metadonnees de livraison - quel port"
+      "Assign": {
+        "http_request_mdlivraison_1": "{% $states.result %}"
+      },
+      "Next": "Metadonnees de livraison - metadonnees"
     }
   }
 }

@@ -1,0 +1,190 @@
+{
+  "Comment": "APS — sonde JSONata du 2026-08-14. Ne fait RIEN d'utile : elle éprouve les cinq formes dont l'émetteur a besoin si l'on quitte JSONPath. Les ARN sont factices, comme dans sonde-asl.json — on demande un verdict de FORME à la console, pas une exécution. Pendant de sonde-asl.json (2026-08-12), qui avait validé http:invoke, Catch, la boucle de sondage et Map + ItemSelector en JSONPath.",
+  "QueryLanguage": "JSONata",
+  "StartAt": "Declencheur",
+  "States": {
+
+    "Declencheur": {
+      "Type": "Pass",
+      "Comment": "FORME 1 — Assign à la racine. Remplace le contrat d'entrée : ce que le déclencheur pose devient une variable, pas un champ d'un objet qui circule.",
+      "Assign": {
+        "collectionId": "{% $states.input.collection_id %}",
+        "typeCollection": "{% $states.input.type_collection %}"
+      },
+      "Next": "Search"
+    },
+
+    "Search": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Comment": "FORME 2 — Arguments remplace Parameters, sans suffixe .$, et Assign range le résultat sous un nom au lieu d'un ResultPath. C'est ce qui supprime l'accumulation d'objets dans l'état qui circule.",
+      "Arguments": {
+        "ApiEndpoint": "https://app.iconik.io/API/search/v1/search/",
+        "Method": "POST",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+        },
+        "RequestBody": {
+          "doc_types": ["assets"],
+          "filter": {
+            "operator": "AND",
+            "terms": [
+              { "name": "in_collections", "value": "{% $collectionId %}" }
+            ]
+          }
+        }
+      },
+      "Assign": {
+        "search": "{% $states.result %}"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Comment": "L'erreur se relit par $states.errorOutput, et un Catch peut assigner dans la portée EXTÉRIEURE.",
+          "Assign": { "derniereErreur": "{% $states.errorOutput %}" },
+          "Next": "Echec"
+        }
+      ],
+      "Next": "Trouve"
+    },
+
+    "Trouve": {
+      "Type": "Choice",
+      "Comment": "FORME 3 — Condition remplace Variable + comparateur. Un port métier redevient une expression, pas une gymnastique de JSONPath : ici « empty » se dit vraiment.",
+      "Choices": [
+        {
+          "Condition": "{% $count($search.ResponseBody.objects) = 0 %}",
+          "Next": "Echec"
+        }
+      ],
+      "Default": "Relire metadonnees"
+    },
+
+    "Relire metadonnees": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Comment": "FORME 4, premier temps — Iconik n'accepte que PUT sur une vue : on relit d'abord pour ne pas effacer les champs qu'on n'écrit pas.",
+      "Arguments": {
+        "ApiEndpoint": "https://app.iconik.io/API/metadata/v1/collections/{% $collectionId %}/views/00000000-0000-0000-0000-000000000000/",
+        "Method": "GET",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+        }
+      },
+      "Assign": { "mdExistantes": "{% $states.result.ResponseBody.metadata_values %}" },
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Comment": "Une vue jamais initialisée répond 404 et le moteur natif la traite en dictionnaire vide. Le Catch reproduit ce pardon, au lieu d'arrêter un workflow que le moteur poursuit.",
+          "Assign": { "mdExistantes": "{% {} %}" },
+          "Next": "Ecrire metadonnees"
+        }
+      ],
+      "Next": "Ecrire metadonnees"
+    },
+
+    "Ecrire metadonnees": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Comment": "FORME 4, second temps — LA question de la soirée. $merge fusionne l'existant et le nouveau EN LIGNE. En JSONPath il aurait fallu un état Pass de plus, parce que States.JsonMerge n'accepte pas d'objet littéral en argument.",
+      "Arguments": {
+        "ApiEndpoint": "https://app.iconik.io/API/metadata/v1/collections/{% $collectionId %}/views/00000000-0000-0000-0000-000000000000/",
+        "Method": "PUT",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+        },
+        "RequestBody": {
+          "metadata_values": "{% $merge([$mdExistantes, {'BayardID': {'field_values': [{'value': $collectionId}]}}]) %}"
+        }
+      },
+      "Next": "Boucle"
+    },
+
+    "Boucle": {
+      "Type": "Map",
+      "Comment": "FORME 5, et c'est celle qui décide. Items remplace ItemsPath. Surtout : PAS d'ItemSelector. Le corps lit $typeCollection, une variable de la portée extérieure — c'est exactement l'ambiance que le pivot suppose et que le contrat d'entrée du Map contournait à la main.",
+      "Items": "{% $search.ResponseBody.objects %}",
+      "ItemProcessor": {
+        "ProcessorConfig": { "Mode": "INLINE" },
+        "StartAt": "Info video",
+        "States": {
+
+          "Info video": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::http:invoke",
+            "Comment": "$states.input est l'élément courant. $typeCollection vient du dehors, sans avoir été projeté.",
+            "Arguments": {
+              "ApiEndpoint": "{% 'https://app.iconik.io/API/assets/v1/assets/' & $states.input.id & '/' %}",
+              "Method": "GET",
+              "Authentication": {
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+              }
+            },
+            "Assign": { "itemCourant": "{% $states.result.ResponseBody %}" },
+            "Next": "Nom de fichier"
+          },
+
+          "Nom de fichier": {
+            "Type": "Pass",
+            "Comment": "filebase() du pivot — retirer l'extension. gabaritAsl refuse cet appel de fonction en JSONPath, faute d'intrinsèque. JSONata sait le faire, donc une des logiques « hors de portée d'ASL » n'en est plus une.",
+            "Output": {
+              "cle": "{% $typeCollection & '/' & $substringBefore($itemCourant.title, '.') %}"
+            },
+            "Next": "Declencher export"
+          },
+
+          "Declencher export": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::http:invoke",
+            "Arguments": {
+              "ApiEndpoint": "{% 'https://app.iconik.io/API/files/v1/assets/' & $states.input.cle & '/export_locations/00000000-0000-0000-0000-000000000000/' %}",
+              "Method": "POST",
+              "Authentication": {
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+              }
+            },
+            "Assign": { "jobExport": "{% $states.result.ResponseBody.job_id %}" },
+            "Next": "Sonder"
+          },
+
+          "Sonder": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::http:invoke",
+            "Comment": "La boucle de sondage, en JSONata. L'URL s'assemble par concaténation (&) au lieu de States.Format.",
+            "Arguments": {
+              "ApiEndpoint": "{% 'https://app.iconik.io/API/jobs/v1/jobs/' & $jobExport & '/' %}",
+              "Method": "GET",
+              "Authentication": {
+                "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/00000000-0000-0000-0000-000000000000"
+              }
+            },
+            "Assign": { "sonde": "{% $states.result.ResponseBody %}" },
+            "Next": "Termine"
+          },
+
+          "Termine": {
+            "Type": "Choice",
+            "Choices": [
+              { "Condition": "{% $sonde.status = 'FINISHED' %}", "Next": "Fin du corps" }
+            ],
+            "Default": "Patienter"
+          },
+
+          "Patienter": {
+            "Type": "Wait",
+            "Seconds": 20,
+            "Next": "Sonder"
+          },
+
+          "Fin du corps": {
+            "Type": "Succeed"
+          }
+        }
+      },
+      "Next": "Fin"
+    },
+
+    "Echec": { "Type": "Fail", "Error": "APS.Sonde", "Cause": "branche d'echec de la sonde" },
+    "Fin": { "Type": "Succeed" }
+  }
+}

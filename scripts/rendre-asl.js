@@ -155,34 +155,53 @@ function compositionDe(famille, params) {
            nombre: etats.length };
 }
 
+// ── ÉCRIRE UNE VALEUR DANS UNE EXPRESSION JSONATA ───────────────
+// Les chaînes de JSONata sont entre apostrophes simples. Une valeur du pivot
+// peut en contenir (« L'Épisode ») : sans échappement, la condition casse à la
+// validation — et une définition refusée pour une apostrophe est le genre de
+// perte de temps qui ne s'explique pas deux fois.
+function txt(x) {
+  return "'" + String(x == null ? '' : x).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+}
+// Une expression régulière du pivot devient un littéral regex JSONata (`/…/`).
+// On ne touche pas au motif : le traduire serait deviner.
+function rx(x) { return '/' + String(x == null ? '' : x).replace(/\//g, '\\/') + '/'; }
+
 // ── LES OPÉRATEURS D'UNE DÉCISION ───────────────────────────────
-// Le pivot en connaît vingt (builder-handler-decision.js:18-37). ASL n'a que
-// des comparateurs nommés et `StringMatches`, dont les jokers sont des `*` —
-// pas d'expressions régulières. La table dit donc AUSSI ce qui ne passe pas :
-// une règle intraduisible qu'on émettrait au jugé produirait un aiguillage qui
-// a l'air juste et qui trie faux.
+// Le pivot en connaît vingt (builder-handler-decision.js:18-37).
+//
+// RÉÉCRITE EN JSONATA le 2026-08-14. La version JSONPath n'avait que des
+// comparateurs nommés et `StringMatches`, dont le seul joker est `*` : deux
+// opérateurs sur vingt restaient intraduisibles, et les autres s'exprimaient
+// par des empilements de `Or`/`Not` illisibles dans le dessin de la console.
+// JSONata rend une condition qui SE LIT — et `$contains` acceptant un littéral
+// regex, **`matches_regex` cesse d'être hors de portée**. La table ne renvoie
+// plus une structure mais le texte d'une expression ; c'est l'appelant qui
+// l'enrobe de `{% %}`.
 const OPERATEURS = {
-  equals:        (v, x) => ({ Variable: v, StringEquals: x }),
-  not_equals:    (v, x) => ({ Not: { Variable: v, StringEquals: x } }),
-  contains:      (v, x) => ({ Variable: v, StringMatches: '*' + x + '*' }),
-  not_contains:  (v, x) => ({ Not: { Variable: v, StringMatches: '*' + x + '*' } }),
-  starts_with:   (v, x) => ({ Variable: v, StringMatches: x + '*' }),
-  ends_with:     (v, x) => ({ Variable: v, StringMatches: '*' + x }),
-  not_starts_with: (v, x) => ({ Not: { Variable: v, StringMatches: x + '*' } }),
-  not_ends_with:   (v, x) => ({ Not: { Variable: v, StringMatches: '*' + x } }),
-  gt:            (v, x) => ({ Variable: v, NumericGreaterThan: Number(x) }),
-  gte:           (v, x) => ({ Variable: v, NumericGreaterThanEquals: Number(x) }),
-  lt:            (v, x) => ({ Variable: v, NumericLessThan: Number(x) }),
-  lte:           (v, x) => ({ Variable: v, NumericLessThanEquals: Number(x) }),
-  is_empty:      (v)    => ({ Or: [{ Variable: v, IsPresent: false }, { Variable: v, StringEquals: '' }] }),
-  absent:        (v)    => ({ Or: [{ Variable: v, IsPresent: false }, { Variable: v, StringEquals: '' }] }),
-  not_empty:     (v)    => ({ And: [{ Variable: v, IsPresent: true }, { Not: { Variable: v, StringEquals: '' } }] }),
-  present:       (v)    => ({ And: [{ Variable: v, IsPresent: true }, { Not: { Variable: v, StringEquals: '' } }] }),
-  in_list:       (v, x) => ({ Or: String(x).split(',').map(y => ({ Variable: v, StringEquals: y.trim() })) }),
-  not_in_list:   (v, x) => ({ Not: { Or: String(x).split(',').map(y => ({ Variable: v, StringEquals: y.trim() })) } }),
-  // Sans équivalent : StringMatches ne connaît que le joker `*`.
-  matches_regex:     null,
-  not_matches_regex: null,
+  equals:        (v, x) => v + ' = ' + txt(x),
+  not_equals:    (v, x) => v + ' != ' + txt(x),
+  contains:      (v, x) => '$contains(' + v + ', ' + txt(x) + ')',
+  not_contains:  (v, x) => '$not($contains(' + v + ', ' + txt(x) + '))',
+  starts_with:   (v, x) => '$substring(' + v + ', 0, $length(' + txt(x) + ')) = ' + txt(x),
+  ends_with:     (v, x) => '$substring(' + v + ', $length(' + v + ') - $length(' + txt(x) + ')) = ' + txt(x),
+  not_starts_with: (v, x) => '$not(' + OPERATEURS.starts_with(v, x) + ')',
+  not_ends_with:   (v, x) => '$not(' + OPERATEURS.ends_with(v, x) + ')',
+  gt:            (v, x) => '$number(' + v + ') > '  + Number(x),
+  gte:           (v, x) => '$number(' + v + ') >= ' + Number(x),
+  lt:            (v, x) => '$number(' + v + ') < '  + Number(x),
+  lte:           (v, x) => '$number(' + v + ') <= ' + Number(x),
+  // « Absent » et « vide » se disent d'un seul tenant, là où JSONPath demandait
+  // un `Or` de deux règles.
+  is_empty:      (v)    => '$not($exists(' + v + ')) or ' + v + ' = ' + txt(''),
+  absent:        (v)    => '$not($exists(' + v + ')) or ' + v + ' = ' + txt(''),
+  not_empty:     (v)    => '$exists(' + v + ') and ' + v + ' != ' + txt(''),
+  present:       (v)    => '$exists(' + v + ') and ' + v + ' != ' + txt(''),
+  in_list:       (v, x) => v + ' in [' + String(x).split(',').map(y => txt(y.trim())).join(', ') + ']',
+  not_in_list:   (v, x) => '$not(' + v + ' in [' + String(x).split(',').map(y => txt(y.trim())).join(', ') + '])',
+  // Ce que JSONPath ne savait pas faire. `$contains` accepte un littéral regex.
+  matches_regex:     (v, x) => '$contains(' + v + ', ' + rx(x) + ')',
+  not_matches_regex: (v, x) => '$not($contains(' + v + ', ' + rx(x) + '))',
 };
 
 // ── LES PORTS MÉTIER, TRADUITS EN CONDITIONS ────────────────────
@@ -191,8 +210,8 @@ const OPERATEURS = {
 // Chez APS c'est le MOTEUR qui calcule le port — un `deliver` sort par `miss`
 // quand le listing S3 est vide. Chez ASL il faut le relire du résultat réel.
 //
-// `resultat` est le ResultPath sous lequel l'émetteur range la réponse ; les
-// fonctions rendent la règle Choice qui reconnaît le port.
+// `resultat` est l'expression JSONata sous laquelle l'émetteur relit la réponse
+// de l'étape (`$maVariable`) ; les fonctions rendent le TEXTE de la condition.
 const PORTS = {
   deliver: {
     // listObjectsV2 renvoie KeyCount : le compte est déjà là, inutile de
@@ -200,24 +219,33 @@ const PORTS = {
     // la seule qui sache atteindre le bucket d'un client), il n'y a plus de
     // résultat S3 du tout : le compte vient de la Lambda elle-même.
     miss: (r, variante) => variante === 'lambda'
-      ? ({ Variable: r + '.nbObjets', NumericEquals: 0 })
-      : ({ Variable: r + '.KeyCount', NumericEquals: 0 }),
+      ? r + '.nbObjets = 0'
+      : r + '.KeyCount = 0',
   },
   'iconik.search': {
-    empty: (r) => ({ Variable: r + '.ResponseBody.objects[0]', IsPresent: false }),
+    // `$count` sur une valeur absente rend 0 : un seul test couvre « aucun
+    // résultat » et « pas de tableau du tout », là où JSONPath demandait de
+    // sonder la présence de `objects[0]`.
+    empty: (r) => '$count(' + r + '.ResponseBody.objects) = 0',
   },
   'iconik.fetch': {
-    not_found: (r) => ({ Variable: r + '.ResponseBody', IsPresent: false }),
+    not_found: (r) => '$not($exists(' + r + '.ResponseBody))',
   },
   http_sequence: {
-    err: (r) => ({ Variable: r + '.ResponseBody', IsPresent: false }),
+    err: (r) => '$not($exists(' + r + '.ResponseBody))',
   },
 };
 
+// Rend le texte d'une condition, ou null si l'opérateur n'a pas d'équivalent.
 function conditionDe(op, variable, valeur) {
   const f = OPERATEURS[op];
   return f ? f(variable, valeur) : null;
 }
+
+// L'enrobage `{% %}` d'ASL, posé au dernier moment. Isolé ici pour que les
+// tables ci-dessus restent du texte composable : une condition de port peut
+// ainsi être combinée à une autre avant d'être enrobée.
+function jsonata(expr) { return '{% ' + expr + ' %}'; }
 
 // Cherche par FAÇADE puis par CORE : une étape porte « aws_s3.deliver », la
 // table connaît « deliver ». Les deux entrées sont légitimes — une façade peut
@@ -227,7 +255,8 @@ function reglePort(verbe, core, port, resultat, variante) {
   return t && t[port] ? t[port](resultat, variante) : null;
 }
 
-module.exports = { COMPOSITIONS, FORMES, OPERATEURS, PORTS, compositionDe, conditionDe, reglePort };
+module.exports = { COMPOSITIONS, FORMES, OPERATEURS, PORTS,
+                   compositionDe, conditionDe, reglePort, jsonata, txt };
 
 if (require.main === module) {
   console.log('CE QU\'UN VERBE DEVIENT EN ASL\n');
