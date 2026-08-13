@@ -632,7 +632,7 @@ const PivotCatalogIconik = (() => {
       ports: ['out', 'error'],
       modes: ['fields', 'view'],
       // ── L'APPEL HTTP, DÉCLARÉ ────────────────────────────────────────────
-      // Nouveau mécanisme (2026-08-14), et il vient d'un manque : l'émetteur
+      // Nouveau mécanisme (2026-08-13), et il vient d'un manque : l'émetteur
       // Make n'a JAMAIS eu besoin de cette information — Make avait des modules
       // Iconik natifs, l'adresse était l'affaire du module. ASL n'a que
       // `http:invoke` : il faut lui donner la méthode, l'URL et le corps. Comme

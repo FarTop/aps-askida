@@ -1,5 +1,5 @@
 {
-  "Comment": "APS — sonde d'authentification, 2026-08-14. UN SEUL appel, en lecture seule : /API/users/v1/users/current/ est le point d'Iconik qui répond qui vous êtes. Si elle passe, la connexion EventBridge porte bien App-ID + Auth-Token et http:invoke sait s'en servir. Aucune écriture, aucun effet de bord — c'est le premier run réel du chantier, il ne doit rien laisser derrière lui.",
+  "Comment": "APS — sonde d'authentification, 2026-08-13. UN SEUL appel, en lecture seule : /API/users/v1/users/current/ est le point d'Iconik qui répond qui vous êtes. Si elle passe, la connexion EventBridge porte bien App-ID + Auth-Token et http:invoke sait s'en servir. Aucune écriture, aucun effet de bord — c'est le premier run réel du chantier, il ne doit rien laisser derrière lui.",
   "QueryLanguage": "JSONata",
   "StartAt": "Qui suis-je",
   "States": {

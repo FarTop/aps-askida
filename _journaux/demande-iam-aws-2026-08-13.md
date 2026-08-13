@@ -203,7 +203,7 @@ chantier ; seules A et B évitent que la question revienne.*
 ---
 ---
 
-# ANNEXE — ce qui a été constaté en essayant (2026-08-14)
+# ANNEXE — ce qui a été constaté en essayant (2026-08-13)
 
 *Écrite après une session passée dans la console à éprouver ce qui avait été
 accordé. La demande ci-dessus reste valable ; cette annexe dit où elle a visé

@@ -170,7 +170,7 @@ function rx(x) { return '/' + String(x == null ? '' : x).replace(/\//g, '\\/') +
 // ── LES OPÉRATEURS D'UNE DÉCISION ───────────────────────────────
 // Le pivot en connaît vingt (builder-handler-decision.js:18-37).
 //
-// RÉÉCRITE EN JSONATA le 2026-08-14. La version JSONPath n'avait que des
+// RÉÉCRITE EN JSONATA le 2026-08-13. La version JSONPath n'avait que des
 // comparateurs nommés et `StringMatches`, dont le seul joker est `*` : deux
 // opérateurs sur vingt restaient intraduisibles, et les autres s'exprimaient
 // par des empilements de `Or`/`Not` illisibles dans le dessin de la console.

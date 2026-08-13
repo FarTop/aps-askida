@@ -121,7 +121,7 @@ const TAILLE_MAX = 12 * 1024 * 1024;   // 12 Mo : la spec Make en fait 1,7
 // L'en-tête Accept réclamait déjà `application/yaml` ; seul le parseur
 // manquait, et une spec YAML repartait sur « Contenu illisible : JSON
 // attendu ». Or YAML est la sérialisation la plus répandue des OpenAPI —
-// celle de VOD Factory, reçue le 2026-08-14, en est une.
+// celle de VOD Factory, reçue le 2026-08-13, en est une.
 //
 // On tente JSON d'abord : c'est plus strict, donc un document qui y passe est
 // bien du JSON, et l'ordre évite qu'un parseur YAML — permissif par nature —

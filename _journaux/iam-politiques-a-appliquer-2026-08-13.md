@@ -221,7 +221,7 @@ pas de condition de région.
 
 | # | Geste | Attendu | Si ça rate |
 |---|---|---|---|
-| 1 | Step Functions → créer une machine d'états, **rôle existant** `APS-StepFunctions-Execution` | création acceptée | `iam:PassRole` — document 1 · ✅ **obtenu le 14/08** |
+| 1 | Step Functions → créer une machine d'états, **rôle existant** `APS-StepFunctions-Execution` | création acceptée | `iam:PassRole` — document 1 · ✅ **obtenu le 13/08** |
 | 2 | EventBridge → Connexions → créer `aps-iconik` (clé API) | connexion créée, secret rangé | `events:CreateConnection` ✅ puis `iam:CreateServiceLinkedRole` ← **c'est là que ça bloque** |
 | 3 | Copier l'ARN de la connexion, le poser dans la définition | — | — |
 | 4 | Démarrer une exécution | le premier appel HTTP part authentifié | `events:RetrieveConnectionCredentials` sur le RÔLE, pas sur nous |

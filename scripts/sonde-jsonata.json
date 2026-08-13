@@ -1,5 +1,5 @@
 {
-  "Comment": "APS — sonde JSONata du 2026-08-14. Ne fait RIEN d'utile : elle éprouve les cinq formes dont l'émetteur a besoin si l'on quitte JSONPath. Les ARN sont factices, comme dans sonde-asl.json — on demande un verdict de FORME à la console, pas une exécution. Pendant de sonde-asl.json (2026-08-12), qui avait validé http:invoke, Catch, la boucle de sondage et Map + ItemSelector en JSONPath.",
+  "Comment": "APS — sonde JSONata du 2026-08-13. Ne fait RIEN d'utile : elle éprouve les cinq formes dont l'émetteur a besoin si l'on quitte JSONPath. Les ARN sont factices, comme dans sonde-asl.json — on demande un verdict de FORME à la console, pas une exécution. Pendant de sonde-asl.json (2026-08-12), qui avait validé http:invoke, Catch, la boucle de sondage et Map + ItemSelector en JSONPath.",
   "QueryLanguage": "JSONata",
   "StartAt": "Declencheur",
   "States": {

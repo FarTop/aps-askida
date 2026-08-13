@@ -48,7 +48,7 @@ const iSort  = process.argv.indexOf('--sortie');
 const SORTIE = iSort !== -1 ? process.argv[iSort + 1]
                             : path.join(__dirname, '..', '_journaux', 'asl-publish.json');
 
-// QUI LISTE LE BUCKET. `lambda` est le défaut depuis le 2026-08-14 — c'est un
+// QUI LISTE LE BUCKET. `lambda` est le défaut depuis le 2026-08-13 — c'est un
 // arbitrage, et il ne s'est PAS joué au prix (0,09 $ d'écart sur 1000 runs).
 // Ce qui l'a tranché : en `natif`, c'est le RÔLE de la machine d'états qui
 // liste, et la console l'a dit elle-même en refusant de générer la politique
@@ -64,7 +64,7 @@ const LISTING = iList !== -1 ? String(process.argv[iList + 1] || 'lambda') : 'la
 
 const COMPTE = process.env.AWS_COMPTE || '632075073384';
 const REGION = process.env.AWS_REGION || 'eu-west-3';
-// LA CONNEXION EVENTBRIDGE, RÉELLE depuis le 2026-08-14. Elle a remplacé un
+// LA CONNEXION EVENTBRIDGE, RÉELLE depuis le 2026-08-13. Elle a remplacé un
 // UUID de zéros qui a servi de figurant pendant deux jours — la console
 // acceptait la définition sans sourciller, ce qui était précisément le piège :
 // un ARN bien formé et inexistant se dessine comme un vrai.
@@ -1143,7 +1143,7 @@ async function main() {
   // CE QUE LE CATALOGUE NE DÉCRIT PAS ENCORE. La mesure la plus utile du
   // chantier : chaque ligne est un appel HTTP que la définition n'ose pas
   // écrire, et qu'elle remplace par un GET sur la racine de l'API. Compté
-  // plutôt qu'estimé — au 2026-08-14 on partait de 18.
+  // plutôt qu'estimé — au 2026-08-13 on partait de 18.
   const gen = (ctx.generiques || []).concat(corpsGeneriques);
   if (gen.length) {
     const parVerbe = {};

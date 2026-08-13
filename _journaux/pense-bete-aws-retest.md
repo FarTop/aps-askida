@@ -23,14 +23,14 @@ arn:aws:iam::632075073384:role/APS-StepFunctions-Execution
 
 > Colle la **sonde**, pas `_journaux/asl-publish.json`. La sonde est déjà validée
 > en console : si ça rate, c'est l'IAM et rien d'autre. La définition complète
-> est en JSONata depuis le 14/08 et n'a jamais été soumise — un échec y serait
+> est en JSONata depuis ce matin et n'a jamais été soumise — un échec y serait
 > ambigu.
 
 > Le menu « choisir un rôle existant » reste **inerte** tant que `iam:ListRoles`
 > manque. C'est **« Saisir un ARN de rôle »**, la 3e entrée du menu.
 
 **Attendu** : création acceptée.
-**Si ça rate** : `iam:PassRole` → document 1 de `iam-politiques-a-appliquer-2026-08-14.md`.
+**Si ça rate** : `iam:PassRole` → document 1 de `iam-politiques-a-appliquer-2026-08-13.md`.
 
 ---
 
