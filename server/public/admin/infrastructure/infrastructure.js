@@ -695,10 +695,12 @@ function importerFichier() {
   if (!f) { message('Choisissez un fichier.', 'error'); return; }
   const lecteur = new FileReader();
   lecteur.onload = function () {
-    let contenu;
-    try { contenu = JSON.parse(lecteur.result); }
-    catch (e) { message('❌ Fichier illisible : JSON attendu', 'error'); return; }
-    envoyerImport({ content: contenu }, $('inf-btn-fichier'));
+    // ON ENVOIE LE TEXTE BRUT, sans le parser ici. Le navigateur n'a pas de
+    // parseur YAML — ce dépôt n'a pas d'étape de construction, donc pas de
+    // bibliothèque côté client — et surtout : deux endroits qui savent lire un
+    // format finissent toujours par ne plus être d'accord. Le serveur reconnaît
+    // JSON ou YAML tout seul (lireSpec, api-specs.js).
+    envoyerImport({ content: lecteur.result }, $('inf-btn-fichier'));
   };
   lecteur.readAsText(f);
 }

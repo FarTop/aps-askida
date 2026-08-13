@@ -26,6 +26,10 @@ const express = require('express');
 const router  = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg }     = require('@prisma/adapter-pg');
+// Seule dépendance ajoutée pour le YAML. Pas de parseur maison : les exemples
+// d'une spec réelle contiennent du JSON échappé sur plusieurs lignes, et c'est
+// exactement là qu'un parseur approximatif se casse en silence.
+const yaml = require('js-yaml');
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma  = new PrismaClient({ adapter });
@@ -112,6 +116,31 @@ async function accesDe(platformId) {
   return { nom: conn.name, ...calcul };
 }
 const TAILLE_MAX = 12 * 1024 * 1024;   // 12 Mo : la spec Make en fait 1,7
+
+// ── JSON OU YAML, SANS LE DEMANDER ──────────────────────────────
+// L'en-tête Accept réclamait déjà `application/yaml` ; seul le parseur
+// manquait, et une spec YAML repartait sur « Contenu illisible : JSON
+// attendu ». Or YAML est la sérialisation la plus répandue des OpenAPI —
+// celle de VOD Factory, reçue le 2026-08-14, en est une.
+//
+// On tente JSON d'abord : c'est plus strict, donc un document qui y passe est
+// bien du JSON, et l'ordre évite qu'un parseur YAML — permissif par nature —
+// accepte n'importe quel texte et rende une chaîne au lieu d'un objet. Le
+// contrôle sur le TYPE du résultat est ce qui ferme cette porte : YAML « load »
+// d'une page HTML rend volontiers une chaîne, et une chaîne n'est pas une spec.
+function lireSpec(texte) {
+  const t = String(texte || '');
+  try { return { doc: JSON.parse(t) }; } catch (_) { /* pas du JSON, on tente YAML */ }
+  try {
+    const doc = yaml.load(t);
+    if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
+      return { erreur: 'Le YAML est lisible mais ne décrit pas un objet' };
+    }
+    return { doc: doc, format: 'yaml' };
+  } catch (e) {
+    return { erreur: 'Ni JSON ni YAML — ' + String(e.message || e).split('\n')[0] };
+  }
+}
 
 // Reconnaît le format à la lecture plutôt que de le demander à l'utilisateur.
 function detecter(doc) {
@@ -666,14 +695,19 @@ router.post('/:id/specs', async (req, res) => {
       }
       const texte = await r.text();
       if (texte.length > TAILLE_MAX) return res.status(413).json({ error: 'Spécification trop volumineuse (> 12 Mo)' });
-      try {
-        contenu = JSON.parse(texte);
-      } catch (_) {
+      // JSON, puis YAML, et seulement ensuite la reconstitution depuis la
+      // documentation. L'ordre compte : beaucoup d'éditeurs servent leur spec
+      // en YAML à une URL — la traiter comme une page de doc à recoller
+      // produirait une spec partielle là où le fichier entier était servi.
+      const lu = lireSpec(texte);
+      if (lu.doc) {
+        contenu = lu.doc;
+      } else {
         // Repli : ce n'est pas une spec, c'est peut-être la documentation qui
         // en est rendue. On recolle les fragments OpenAPI qu'elle contient.
         const recolle = await specDepuisDoc(url, entetes);
         if (recolle.erreur) {
-          return res.status(415).json({ error: 'Le contenu n\'est pas du JSON, et la reconstitution depuis la documentation a échoué — ' + recolle.erreur });
+          return res.status(415).json({ error: 'Le contenu n\'est ni du JSON ni du YAML, et la reconstitution depuis la documentation a échoué — ' + recolle.erreur });
         }
         contenu = recolle.spec;
         reconstitue = { pagesLues: recolle.pagesLues, fragments: recolle.fragments,
@@ -683,8 +717,16 @@ router.post('/:id/specs', async (req, res) => {
     }
 
     if (typeof contenu === 'string') {
-      try { contenu = JSON.parse(contenu); }
-      catch (_) { return res.status(415).json({ error: 'Contenu illisible : JSON attendu' }); }
+      // Le fichier arrive maintenant en TEXTE BRUT depuis l'écran : le
+      // navigateur n'a pas de parseur YAML (pas d'étape de construction dans
+      // ce dépôt), donc c'est ici que se décide le format — un seul endroit
+      // qui sait lire, plutôt que deux qui doivent rester d'accord.
+      if (contenu.length > TAILLE_MAX) {
+        return res.status(413).json({ error: 'Spécification trop volumineuse (> 12 Mo)' });
+      }
+      const lu = lireSpec(contenu);
+      if (!lu.doc) return res.status(415).json({ error: 'Contenu illisible : ' + lu.erreur });
+      contenu = lu.doc;
     }
     if (!contenu || typeof contenu !== 'object') {
       return res.status(400).json({ error: 'Fournir soit `url`, soit `content`' });
