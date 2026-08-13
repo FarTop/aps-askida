@@ -47,8 +47,13 @@ Make scenarios.
 **Production runs elsewhere.** Bayard chose **Make**; colleagues rebuilt the workflows there from
 APS-produced documentation (near-functional, but 14 scenarios and a serious credit-consumption
 concern). A plan B on **AWS Step Functions** is in scope, with API-driven workflow creation on both.
-Note for design: **ASL has no global namespace** — a workflow relying on ambient variables is not
-translatable to it at all.
+Note for design, **corrected 2026-08-13**: this file used to state that *"ASL has no global namespace
+— a workflow relying on ambient variables is not translatable to it at all."* **That is false.** Step
+Functions has `Assign` / `$variable` and JSONata as a query language, and the docs are explicit that
+*"Parallel branches and Map iterations can access variable values from outer scopes"*. The emitter was
+converted to JSONata on 2026-08-13 and the whole of PUBLISH (65 states, nested Maps) validates in the
+console. Do not design around the old constraint: it cost a whole scaffold of hand-written Map input
+contracts, since removed. See `scripts/rendre-asl.js` for what is verified and how far.
 
 **Where it's heading.** APS today is strong at *reading and modelling*, thin at *emitting*: the
 pivot is mature but has one target (`pivot-to-wfd.js`), the `Ikon*` sync tables capture a whole
