@@ -199,3 +199,117 @@ Et `iam:PassRole` sur ces deux ARN, avec la même condition
 
 *Par ordre de préférence : A, puis B, puis C. Chacune débloque la totalité du
 chantier ; seules A et B évitent que la question revienne.*
+
+---
+---
+
+# ANNEXE — ce qui a été constaté en essayant (2026-08-14)
+
+*Écrite après une session passée dans la console à éprouver ce qui avait été
+accordé. La demande ci-dessus reste valable ; cette annexe dit où elle a visé
+juste, où elle a visé à côté, et ce qui manque encore.*
+
+## Ce qui a été accordé, et qui marche
+
+L'accès arrive par **IAM Identity Center** : le compte 632075073384 s'appelle
+« Plateforme de test Aski-da » au portail, le jeu d'autorisations se nomme
+`APS-permissions-test`. C'est le même compte qu'avant, vu par une autre porte.
+
+L'admin a retenu une forme proche de l'**option C** : le rôle
+`APS-StepFunctions-Execution` **existe**. Et une **frontière d'autorisations**
+est posée sur le jeu — l'ossature de l'option B est donc là aussi.
+
+Ce qui fonctionne : ouvrir Step Functions, coller une définition de 38 états,
+la voir acceptée et dessinée, désigner le rôle d'exécution par son ARN.
+
+## Les trois refus, dans l'ordre où ils sont tombés
+
+Ils ne sont pas de même nature, et le message d'erreur le dit à chaque fois —
+c'est le mot à lire en premier.
+
+| Action | Cause donnée par AWS | Ce que ça veut dire |
+|---|---|---|
+| `iam:CreateRole` | *no permissions boundary allows* | la frontière plafonne |
+| `iam:ListRoles` | *no permissions boundary allows* | idem — même une lecture |
+| `iam:PassRole` | *no identity-based policy allows* | le jeu d'autorisations, pas la frontière |
+| `events:CreateConnection` | *no permissions boundary allows* | la frontière, encore |
+
+**« no permissions boundary allows » et « no identity-based policy allows » ne
+demandent pas le même geste.** Le premier veut qu'on élargisse la frontière ;
+le second qu'on ajoute la ligne au jeu d'autorisations. Une frontière ne donne
+rien, elle plafonne : ajouter un droit au jeu sans élargir la frontière ne
+change rien. C'est ce qui fait qu'on y revient à plusieurs reprises.
+
+## L'erreur de rédaction de la demande initiale, et elle est instructive
+
+La demande listait `events:RetrieveConnectionCredentials` — ce dont le **rôle
+d'exécution** a besoin **pendant un run**. Elle n'a jamais demandé
+`events:CreateConnection` — ce dont **l'opérateur** a besoin **pour
+construire**.
+
+Le document raisonnait donc sur les besoins des rôles à l'exécution, alors
+qu'une frontière plafonne aussi l'humain qui monte les objets. **Elle doit
+couvrir l'union des deux.** C'est la leçon à emporter à la prochaine
+plateforme client : énumérer ce que le banc *fabrique*, pas seulement ce qu'il
+*exécute*.
+
+## Ce qui reste à obtenir
+
+Deux gestes au même endroit, pour ne pas y revenir une quatrième fois.
+
+**1. Au jeu d'autorisations `APS-permissions-test`** — le droit d'attacher les
+rôles existants :
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "AttacherLesRolesAPS",
+    "Effect": "Allow",
+    "Action": "iam:PassRole",
+    "Resource": [
+      "arn:aws:iam::632075073384:role/APS-StepFunctions-Execution",
+      "arn:aws:iam::632075073384:role/APS-Lambda-Execution"
+    ],
+    "Condition": {
+      "StringEquals": {
+        "iam:PassedToService": ["states.amazonaws.com", "lambda.amazonaws.com"]
+      }
+    }
+  }]
+}
+```
+
+**2. À la frontière d'autorisations** — de quoi *construire* le banc, en
+eu-west-3, en plus de ce qu'elle autorise déjà :
+
+```
+iam:PassRole          sur les deux rôles ci-dessus (sinon le point 1 est sans effet)
+iam:ListRoles         lecture — rend la console utilisable, confort et non blocage
+iam:GetRole
+
+events:CreateConnection      monter la connexion authentifiée vers Iconik,
+events:UpdateConnection      puis vers l'API de chaque partenaire
+events:DeleteConnection
+events:DescribeConnection
+events:ListConnections
+
+lambda:CreateFunction        déployer nos fonctions (aps-essences, aps-lookup,
+lambda:UpdateFunctionCode    aps-registry) — à confirmer, pas encore éprouvé
+lambda:UpdateFunctionConfiguration
+
+logs:GetLogEvents            relire un run
+logs:FilterLogEvents
+```
+
+Le second rôle, `APS-Lambda-Execution`, est nommé par anticipation : il servira
+au premier déploiement de Lambda. S'il n'existe pas encore, l'option C ci-dessus
+en donne la politique.
+
+## Les questions annexes, répondues
+
+1. **Oui**, une frontière d'autorisations est posée et elle annule effectivement
+   ce qui n'y figure pas. C'était la bonne question ; la réponse est arrivée par
+   l'échec.
+2. **eu-west-3** est bien la région utilisée. Le portail SSO n'affiche aucune
+   région — elle se choisit dans la console, une fois le compte ouvert.

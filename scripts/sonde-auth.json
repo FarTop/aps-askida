@@ -1,0 +1,40 @@
+{
+  "Comment": "APS — sonde d'authentification, 2026-08-14. UN SEUL appel, en lecture seule : /API/users/v1/users/current/ est le point d'Iconik qui répond qui vous êtes. Si elle passe, la connexion EventBridge porte bien App-ID + Auth-Token et http:invoke sait s'en servir. Aucune écriture, aucun effet de bord — c'est le premier run réel du chantier, il ne doit rien laisser derrière lui.",
+  "QueryLanguage": "JSONata",
+  "StartAt": "Qui suis-je",
+  "States": {
+    "Qui suis-je": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Arguments": {
+        "ApiEndpoint": "https://app.iconik.io/API/users/v1/users/current/",
+        "Method": "GET",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:eu-west-3:632075073384:connection/aps-iconik/435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf"
+        }
+      },
+      "Assign": { "moi": "{% $states.result %}" },
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Assign": { "pourquoi": "{% $states.errorOutput %}" },
+          "Next": "Echec"
+        }
+      ],
+      "Next": "Verdict"
+    },
+
+    "Verdict": {
+      "Type": "Succeed",
+      "Comment": "On rend la reponse ENTIERE, pas des champs choisis. En JSONata, lire un champ absent leve States.QueryEvaluationError : cueillir `email` ferait echouer la sonde si Iconik nommait ce champ autrement, et on conclurait a tort que l'authentification ne passe pas. Un premier run doit rater pour la raison qu'il teste, jamais pour une autre.",
+      "Output": "{% $moi %}"
+    },
+
+    "Echec": {
+      "Type": "Fail",
+      "Comment": "Le Cause portait un texte STATIQUE au premier run : le bandeau d'erreur de la console affichait mon explication generique a la place de l'erreur reelle, et il fallait aller deplier l'evenement TaskFailed pour savoir ce qui s'etait passe. Un etat d'echec qui n'apprend rien sur l'echec ne sert a rien.",
+      "Error": "APS.AuthIconik",
+      "Cause": "{% 'Iconik n a pas repondu comme attendu — ' & $string($pourquoi) %}"
+    }
+  }
+}
