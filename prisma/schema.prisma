@@ -26,7 +26,6 @@ model Organisation {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  users        User[]
   projects     Project[]
   environments Environment[]
   platforms    OrganisationPlatform[]
@@ -43,6 +42,7 @@ model Organisation {
   docKits        DocKit[]
   docTemplates   DocTemplate[]
   docOwners      DocOwner[]
+  groupes        GroupeOrganisation[]
   contactLists   ContactList[]
   connexions     Connexion[]
   apiCheckConfig ApiCheckConfig?
@@ -50,23 +50,106 @@ model Organisation {
   syncJobs       SyncJob[]
 }
 
+// UNE PERSONNE. Ce qu'elle a le droit de voir ne se lit PAS ici : ni `orgId`,
+// ni `role` (2026-08-13). Les deux ont disparu, et c'est la décision centrale du
+// modèle d'accès :
+//
+//   · `orgId` unique interdisait d'appartenir à plusieurs organisations, ce qui
+//     est le cas normal chez un prestataire ;
+//   · `role` sur la personne aurait vécu À CÔTÉ des groupes, qui portent déjà
+//     cette information. Deux sources pour une même question, c'est celle qu'on
+//     oublie de mettre à jour qui décide.
+//
+// Une personne appartient donc à des GROUPES, et hérite de leurs organisations
+// et de leurs outils. Un « superadmin » est quelqu'un du groupe SuperAdmin,
+// rien de plus.
+//
+// `passwordHash` est NULLABLE : un compte invité existe avant d'être activé.
+// C'est cet état — invité, pas encore de mot de passe — que le lien
+// d'activation vient clore.
 model User {
   id            String        @id @default(cuid())
-  orgId         String
-  organisation  Organisation  @relation(fields: [orgId], references: [id])
   name          String
   email         String        @unique
-  passwordHash  String
-  role          String        @default("editor") // 'superadmin' | 'admin' | 'editor' | 'viewer'
+  passwordHash  String?
   profile       String        @default("mixed")  // 'engineer' | 'pm' | 'mixed'
   lang          String        @default("fr")
+  actif         Boolean       @default(true)
+
+  // Invitation : un jeton à usage unique, et sa date limite. Sur la personne
+  // plutôt que dans une table dédiée — un compte n'a qu'une invitation en cours,
+  // et la réinviter, c'est en écrire une nouvelle par-dessus.
+  jetonActivation      String?   @unique
+  jetonActivationExpire DateTime?
+
+  derniereConnexion DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  groupes       GroupeUtilisateur[]
   permissions   Permission[]
   runs          Run[]
   lockedProjects Project[]    @relation("ProjectLockedBy")
   syncJobs       SyncJob[]
+}
+
+// LE GROUPE EST LE RÔLE (2026-08-13, décidé avec le mainteneur). Il n'y a pas
+// de notion de rôle à côté : « SuperAdmin », « Admin », « Support » sont des
+// groupes, au même titre que « Formation » ou « Broadcast ».
+//
+// Un groupe porte DEUX listes, et c'est tout ce qui définit un accès :
+//   · les ORGANISATIONS qu'il couvre  (relation GroupeOrganisation)
+//   · les OUTILS qu'il ouvre          (`outils`, clés du catalogue partagé)
+//
+// Conséquence voulue : « Support » et « Admin » n'ont pas à être tranchés
+// aujourd'hui. Ce sont deux groupes avec deux listes d'outils ; on les fusionne
+// le jour où l'on constate qu'elles sont identiques, sans toucher au modèle.
+//
+// GLOBAL, pas rattaché à une organisation : c'est le groupe qui désigne les
+// organisations, pas l'inverse. Un même « Formation » peut couvrir deux clients.
+//
+// `systeme` protège les groupes sans lesquels APS n'a plus d'administrateur :
+// ils ne se suppriment pas et leur clé ne se renomme pas — même garde que
+// « transverse » chez les propriétaires, qu'ils remplacent.
+model Groupe {
+  id            String       @id @default(cuid())
+  cle           String       @unique      // 'superadmin', 'admin', 'formation'…
+  nom           String
+  description   String?
+  outils        String[]     @default([]) // clés du catalogue (server/lib/aps-outils.js)
+  systeme       Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  organisations GroupeOrganisation[]
+  membres       GroupeUtilisateur[]
+}
+
+// Les organisations qu'un groupe couvre. Même forme qu'OrganisationPlatform :
+// une table de liaison nue, sans attribut — s'il fallait un jour qualifier le
+// lien, c'est ici qu'on ajouterait la colonne.
+model GroupeOrganisation {
+  id            String       @id @default(cuid())
+  groupeId      String
+  groupe        Groupe       @relation(fields: [groupeId], references: [id], onDelete: Cascade)
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+
+  @@unique([groupeId, orgId])
+}
+
+// L'appartenance. Aucun attribut non plus : le rôle est le groupe, il n'y a
+// rien à qualifier ici.
+model GroupeUtilisateur {
+  id            String   @id @default(cuid())
+  groupeId      String
+  groupe        Groupe   @relation(fields: [groupeId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+
+  @@unique([groupeId, userId])
 }
 
 // ─────────────────────────────────────────────
