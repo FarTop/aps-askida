@@ -1,0 +1,31 @@
+/* APS — admin/doc-templates/doc-templates.css — 2026-08-13
+   S'ajoute à doc-assets.css, chargé avant lui : les deux écrans sont le MÊME
+   écran de ressource (liste + éditeur), seule la nature des champs change.
+   Recopier 130 lignes de palette pour en changer quatre aurait garanti qu'elles
+   divergent — c'est déjà ce qui sépare mappings.css d'endpoints.css. */
+
+/* Portée du gabarit : partagé ou propre à une organisation. C'est la seule
+   décision de cet écran qui change qui VOIT la ressource, donc elle se voit. */
+.dt-portee {
+  margin-top: 16px; padding: 12px 14px;
+  background: var(--adm-surface2); border: 1px solid var(--adm-border);
+  border-radius: 8px;
+}
+.dt-bascule { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13.5px; }
+.dt-bascule input { width: 15px; height: 15px; accent-color: var(--adm-accent); cursor: pointer; }
+.dt-bascule strong { color: var(--adm-accent); font-weight: 600; }
+.dt-portee .da-note { margin-top: 8px; }
+
+/* Un gabarit partagé se repère dans la liste sans l'ouvrir : sa portée décide
+   si le corriger touche une organisation ou toutes. */
+.dt-marque-partage {
+  display: inline-block; border-radius: 4px; padding: 1px 6px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--adm-accent); border: 1px solid rgba(214,210,51,.4);
+}
+.dt-marque-org {
+  display: inline-block; border-radius: 4px; padding: 1px 6px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--adm-dim); border: 1px solid var(--adm-border);
+}
+.dt-liste-ligne { display: flex; align-items: center; gap: 6px; margin-top: 3px; flex-wrap: wrap; }

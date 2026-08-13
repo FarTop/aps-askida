@@ -1,0 +1,124 @@
+<!-- APS — admin/doc-templates/doc-templates.html — 2026-08-13 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gabarits de document — APS Administration</title>
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
+  <link rel="stylesheet" href="../doc-assets/doc-assets.css" />
+  <link rel="stylesheet" href="doc-templates.css" />
+</head>
+<body>
+
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="../../builders/doc/doc.html">Documentation Builder</a> › Gabarits</span>
+    </div>
+    <div class="aps-header-center">
+      <div data-role="org-context"></div>
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar">
+        <a class="aps-nav-link" href="../doc-assets/doc-assets.html">Ressources graphiques</a>
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="da-main">
+
+    <div class="da-toolbar">
+      <h1 class="da-title">Gabarits de document</h1>
+      <button id="da-nouveau" class="da-btn da-btn-accent" type="button">Nouveau gabarit</button>
+    </div>
+
+    <p class="da-intro">
+      Un gabarit dit ce qu'un document <strong>décrit</strong> et dans quel ordre.
+      Il décrit un produit, pas un client : la forme d'un runbook Iconik vaut pour
+      tous ceux qui utilisent Iconik. C'est pourquoi un gabarit peut être
+      <strong>partagé</strong> — visible de toutes les organisations — ou propre à
+      une seule quand elle a ses exigences.
+    </p>
+    <p class="da-intro">
+      La <strong>ressource graphique</strong> qu'il désigne décide de quoi il aura
+      l'air. C'est ce lien qui remplace les chartes écrites en dur dans les
+      exports de WFD.
+    </p>
+
+    <div class="da-layout">
+      <aside class="da-liste" aria-label="Liste des gabarits">
+        <div id="da-liste-items"></div>
+      </aside>
+
+      <section class="da-editeur" id="da-editeur" hidden>
+        <div class="da-grille">
+          <div class="da-champ-ligne">
+            <label class="da-label" for="dt-nom">Nom</label>
+            <input class="da-input" id="dt-nom" type="text" placeholder="ex. Runbook d'intégration Iconik" />
+          </div>
+
+          <div class="da-champ-ligne">
+            <label class="da-label" for="dt-renderer">Rendu</label>
+            <select class="da-input" id="dt-renderer">
+              <option value="docx">docx — Word</option>
+              <option value="pptx">pptx — PowerPoint</option>
+              <option value="xlsx">xlsx — Excel</option>
+              <option value="pdf">pdf</option>
+              <option value="html">html</option>
+              <option value="mermaid">mermaid — diagramme</option>
+            </select>
+          </div>
+
+          <div class="da-champ-ligne">
+            <label class="da-label" for="dt-platform">Plateforme décrite</label>
+            <select class="da-input" id="dt-platform"></select>
+          </div>
+
+          <div class="da-champ-ligne">
+            <label class="da-label" for="dt-brand">Ressource graphique</label>
+            <select class="da-input" id="dt-brand"></select>
+          </div>
+        </div>
+
+        <div class="dt-portee">
+          <label class="dt-bascule">
+            <input type="checkbox" id="dt-partage" />
+            <span>Gabarit <strong>partagé</strong> — visible de toutes les organisations</span>
+          </label>
+          <p class="da-note" id="dt-portee-note"></p>
+        </div>
+
+        <div class="da-rows-tete">
+          <h2 class="da-sous-titre">Contenu (JSON)</h2>
+          <span class="da-etat" id="dt-content-etat" aria-live="polite"></span>
+        </div>
+        <textarea class="da-textarea" id="dt-content" spellcheck="false"
+                  placeholder='{ "owners": ["broadcast"], "sections": [] }'></textarea>
+        <p class="da-note">
+          Forme libre : c'est le Documentation Builder qui l'interprète, et sa
+          conception n'est pas tranchée. <strong>owners</strong> est le seul
+          champ déjà lu — il décide quelles lignes de service voient le gabarit
+          (Transverse les voit toutes).
+        </p>
+
+        <div class="da-actions">
+          <button id="da-enregistrer" class="da-btn da-btn-accent" type="button">Enregistrer</button>
+          <button id="da-supprimer" class="da-btn da-btn-danger" type="button">Supprimer</button>
+          <span id="da-feedback" class="da-feedback" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section class="da-vide" id="da-vide">
+        <p>Sélectionnez un gabarit ou créez-en un nouveau.</p>
+      </section>
+    </div>
+
+  </main>
+
+  <script src="../../_shared/js/org-context-selector.js"></script>
+  <script src="doc-templates.js"></script>
+</body>
+</html>
