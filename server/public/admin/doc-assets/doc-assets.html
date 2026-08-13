@@ -1,0 +1,119 @@
+<!-- APS — admin/doc-assets/doc-assets.html — 2026-08-13 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ressources graphiques — APS Administration</title>
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
+  <link rel="stylesheet" href="doc-assets.css" />
+</head>
+<body>
+
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › <a href="../../builders/doc/doc.html">Documentation Builder</a> › Ressources graphiques</span>
+    </div>
+    <div class="aps-header-center">
+      <div data-role="org-context"></div>
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar">
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="da-main">
+
+    <div class="da-toolbar">
+      <h1 class="da-title">Ressources graphiques</h1>
+      <button id="da-nouveau" class="da-btn da-btn-accent" type="button">Nouvelle ressource</button>
+    </div>
+
+    <p class="da-intro">
+      Charte, logo, fontes, icônes — ce à quoi ressemblent les documents produits
+      par le <strong>Documentation Builder</strong>. Ressource d'organisation, au
+      même titre qu'une correspondance : deux clients n'ont pas la même identité
+      visuelle. Un gabarit désigne la sienne par <strong>brandAssetId</strong>.
+    </p>
+    <p class="da-intro">
+      Les exports de WFD portaient leur charte <em>en dur</em>, et la
+      représentation n'était pas fidèle : une charte écrite dans le code d'un
+      exporteur ne se corrige que par un commit. Elle se corrige ici.
+    </p>
+
+    <div class="da-layout">
+      <aside class="da-liste" aria-label="Liste des ressources">
+        <div id="da-liste-items"></div>
+      </aside>
+
+      <section class="da-editeur" id="da-editeur" hidden>
+        <div class="da-grille">
+          <div class="da-champ-ligne">
+            <label class="da-label" for="da-nom">Nom</label>
+            <input class="da-input" id="da-nom" type="text" placeholder="ex. Charte Askida 2026" />
+          </div>
+
+          <div class="da-champ-ligne">
+            <label class="da-label" for="da-type">Type</label>
+            <select class="da-input" id="da-type">
+              <option value="brand">brand — charte</option>
+              <option value="logo">logo</option>
+              <option value="font">font — fonte</option>
+              <option value="icon">icon — icône</option>
+              <option value="image">image</option>
+            </select>
+          </div>
+
+          <div class="da-champ-ligne">
+            <label class="da-label" for="da-mime">Type MIME</label>
+            <input class="da-input" id="da-mime" type="text" placeholder="ex. font/woff2" />
+          </div>
+
+          <div class="da-champ-ligne">
+            <label class="da-label" for="da-chemin">Chemin de stockage</label>
+            <input class="da-input" id="da-chemin" type="text" placeholder="ex. brand/askida/logo.svg" />
+          </div>
+        </div>
+
+        <p class="da-note" id="da-note-chemin">
+          Le chemin DÉSIGNE où le fichier vit ; cet écran ne transporte aucun
+          octet. Le dépôt des binaires est un chantier à part.
+        </p>
+
+        <div class="da-rows-tete">
+          <h2 class="da-sous-titre">Métadonnées (JSON)</h2>
+          <span class="da-etat" id="da-meta-etat" aria-live="polite"></span>
+        </div>
+        <textarea class="da-textarea" id="da-meta" spellcheck="false"
+                  placeholder='{ "couleurs": { "primaire": "#1B2A4A" }, "polices": { "titre": "Inter" } }'></textarea>
+        <p class="da-note">
+          Forme libre, et volontairement : l'éditeur structuré de charte
+          (couleurs, graisses, échelles) fait partie de la conception du
+          Documentation Builder, qui n'est pas tranchée. Cet écran rend la
+          ressource <strong>corrigeable</strong>, il ne décide pas de sa forme.
+        </p>
+
+        <div class="da-usage" id="da-usage" hidden></div>
+
+        <div class="da-actions">
+          <button id="da-enregistrer" class="da-btn da-btn-accent" type="button">Enregistrer</button>
+          <button id="da-supprimer" class="da-btn da-btn-danger" type="button">Supprimer</button>
+          <span id="da-feedback" class="da-feedback" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section class="da-vide" id="da-vide">
+        <p>Sélectionnez une ressource ou créez-en une nouvelle.</p>
+      </section>
+    </div>
+
+  </main>
+
+  <script src="../../_shared/js/org-context-selector.js"></script>
+  <script src="doc-assets.js"></script>
+</body>
+</html>
