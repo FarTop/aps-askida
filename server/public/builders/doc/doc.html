@@ -51,13 +51,16 @@
       </div>
 
       <div class="wfd-block">
-        <div class="wfd-block-title">Projet</div>
-        <div class="wfd-kv"><span>Plateforme</span><span id="ctx-platform">-</span></div>
+        <!-- L'organisation EN PREMIER : elle contient le reste. L'ordre
+             d'affichage est le seul endroit où un lecteur voit la hiérarchie,
+             et il annonçait l'inverse. -->
+        <div class="wfd-block-title">Contexte</div>
         <div class="wfd-kv"><span>Organisation</span><span id="ctx-org">-</span></div>
+        <div class="wfd-kv"><span>Plateforme</span><span id="ctx-platform">-</span></div>
         <div class="wfd-kv"><span>Domaine</span><span id="ctx-domain">-</span></div>
         <div class="wfd-kv"><span>Owner</span><span id="ctx-owner">-</span></div>
         <div class="wfd-kv"><span>Statut</span><span id="ctx-status">-</span></div>
-        <div class="wfd-kv"><span>Clé projet</span><span id="ctx-key">-</span></div>
+        <div class="wfd-kv"><span>Clé de contexte</span><span id="ctx-key">-</span></div>
         <div class="wfd-hint">Les actions de configuration sont dans le canvas.</div>
       </div>
     </aside>
@@ -110,7 +113,7 @@
               <select id="scope-domain"></select>
             </div>
 
-            <div class="wfd-hint">Changer le scope recharge le builder (kit par projet).</div>
+            <div class="wfd-hint">Changer le scope recharge le builder (un contexte par plateforme et domaine).</div>
           </div>
 
           <div class="wfd-block">
@@ -162,7 +165,7 @@
           </div>
 
           <div class="wfd-block">
-            <div class="wfd-block-title">Kit (par projet)</div>
+            <div class="wfd-block-title">Kit (par contexte)</div>
             <button id="btnResetKit" type="button" class="ghost">Réinitialiser kit</button>
             <div class="wfd-hint">Auto‑save à chaque changement (owner, données, template, statut).</div>
           </div>

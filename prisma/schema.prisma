@@ -483,9 +483,16 @@ model DocAsset {
 // propriété d'un outil. `mode: 'super'` voit tous les gabarits — c'est le rôle
 // de « transverse », que l'écran refuse de renommer ou de supprimer.
 //
-// Si « propriétaire » se révèle une notion plus large qu'APS (une équipe qui
-// possède aussi des workflows, des connexions…), cette table en est la graine
-// et se renomme sans douleur : six lignes.
+// TABLE DE TRANSITION, dit par le mainteneur le 2026-08-13 : le propriétaire
+// relèvera de l'interface Utilisateurs à venir (« Rôles et accès APS », carte
+// « BIENTÔT » de l'accueil). Une ligne de service qui possède des gabarits est
+// la même chose qu'un groupe qui possède des droits — deux modèles pour une
+// notion, c'est un de trop.
+//
+// Elle n'est donc pas un choix d'architecture mais un point d'arrêt : elle sort
+// les propriétaires du localStorage aujourd'hui, et se fondra dans le modèle
+// d'utilisateurs quand il existera. Six lignes à reprendre, et un seul champ
+// à suivre (`DocKitContext.ownerId`, une chaîne libre).
 model DocOwner {
   id            String       @id @default(cuid())
   orgId         String
