@@ -74,6 +74,39 @@ const UUID_CONNEXION = process.env.AWS_CONNEXION_ICONIK
                     || '435ccfa9-00d5-4e94-bc14-0ddcb35bcfaf';
 const ARN_CONNEXION = 'arn:aws:events:' + REGION + ':' + COMPTE
                     + ':connection/aps-iconik/' + UUID_CONNEXION;
+
+// ── UNE CONNEXION PAR ÉTAPE, PAS UNE POUR TOUTES ────────────────
+// Défaut trouvé le 2026-08-13 : tous les `http:invoke` portaient la connexion
+// Iconik. Or `Partner` et `Verify` appellent l'API du PARTENAIRE de diffusion,
+// avec un `connexionId` que le pivot porte depuis toujours — sur PUBLISH,
+// « VODFACTORY | PREPROD | API », en bearer. Ils seraient donc partis signés
+// avec le jeton d'Iconik : accepté par la console, dessiné, et refusé au run
+// par un 401 qu'on aurait mis un moment à attribuer à la bonne cause.
+//
+// L'UUID d'une EventBridge Connection est attribué par AWS à la création : il
+// ne se devine pas. Une connexion qu'on n'a pas encore créée sort donc avec un
+// UUID de zéros — et se compte, plutôt que d'emprunter celui d'une autre.
+const nomAws = function (nom) {
+  return 'aps-' + String(nom || 'inconnue').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+};
+let CONNEXIONS = new Map();               // id APS → { nom, authType }
+const connexionsManquantes = new Map();   // nom AWS → nom APS
+
+function arnDe(connexionId) {
+  if (!connexionId) return ARN_CONNEXION;            // Iconik, la plateforme du flux
+  const c = CONNEXIONS.get(connexionId);
+  if (!c) return ARN_CONNEXION;
+  const nom = nomAws(c.nom);
+  if (nom === 'aps-iconik') return ARN_CONNEXION;
+  // Surcharge par l'environnement, une variable par connexion :
+  // AWS_CONNEXION_VODFACTORY_PREPROD_API=<uuid>
+  const cle = 'AWS_CONNEXION_' + nom.replace(/^aps-/, '').replace(/-/g, '_').toUpperCase();
+  const uuid = process.env[cle];
+  if (!uuid) connexionsManquantes.set(nom, c.nom + ' (' + cle + ')');
+  return 'arn:aws:events:' + REGION + ':' + COMPTE + ':connection/' + nom + '/'
+       + (uuid || '00000000-0000-0000-0000-000000000000');
+}
 // Les endpoints du pivot sont des chemins relatifs (« /API/jobs/v1/… ») : le
 // moteur natif les colle à la connexion Iconik. ASL veut une URL entière.
 const BASE_ICONIK = process.env.ICONIK_BASE || 'https://app.iconik.io';
@@ -615,7 +648,7 @@ function etatsDe(etapes, nommer, contexte) {
       etat = { Type: 'Task', Resource: 'arn:aws:states:::http:invoke',
                Arguments: { ApiEndpoint: url.jsonata ? ASL.jsonata(url.jsonata) : url.valeur,
                             Method: 'GET',
-                            Authentication: { ConnectionArn: ARN_CONNEXION } },
+                            Authentication: { ConnectionArn: arnDe((e.params || {}).connexionId) } },
                Assign: { [vSonde]: '{% $states.result %}' },
                Next: nVerdict };
       // Surtout PAS d'entrée de portée ici : le Wait est un état du milieu du
@@ -753,7 +786,7 @@ function etatsDe(etapes, nommer, contexte) {
               ApiEndpoint: champ(cible.startsWith('/') ? BASE_ICONIK + cible : cible,
                                  adr, intraduisibles, noms[i]),
               Method: a.methode || 'GET',
-              Authentication: { ConnectionArn: ARN_CONNEXION },
+              Authentication: { ConnectionArn: arnDe((e.params || {}).connexionId) },
             };
             if (a.corps) {
               let corps = corpsResolu(a.corps, adr, intraduisibles, noms[i]);
@@ -804,7 +837,7 @@ function etatsDe(etapes, nommer, contexte) {
                    Comment: 'GABARIT GÉNÉRIQUE — l\'appel de « ' + (e.verbe || e.core)
                           + ' » n\'est pas encore déclaré dans le catalogue.',
                    Arguments: { ApiEndpoint: BASE_ICONIK + '/API/', Method: 'GET',
-                                Authentication: { ConnectionArn: ARN_CONNEXION } },
+                                Authentication: { ConnectionArn: arnDe((e.params || {}).connexionId) } },
                    Assign: { [variableDe(e)]: '{% $states.result %}' },
                    Next: nominal };
           generiques.push({ etat: nom, verbe: e.verbe || e.core });
@@ -883,6 +916,18 @@ async function main() {
           + '/api/builder-flows/' + ID + '/interpretation?cible=asl');
   const plan = await r.json();
   if (!r.ok) { console.log('❌ interprétation : ' + (plan.error || r.status)); return; }
+
+  // Les connexions, pour savoir À QUI chaque appel s'adresse. Le pivot ne porte
+  // qu'un identifiant ; le nom, lui, décide du nom de la connexion EventBridge.
+  // Silencieux si l'API ne répond pas : l'émetteur retombe alors sur la
+  // connexion Iconik, ce qui était le comportement d'avant.
+  try {
+    const rc = await fetch('http://localhost:' + port + '/api/connexions');
+    const lc = await rc.json();
+    (Array.isArray(lc) ? lc : (lc.items || [])).forEach(function (c) {
+      CONNEXIONS.set(c.id, { nom: c.name, authType: c.authType });
+    });
+  } catch (_) { /* on continue sans : voir arnDe */ }
 
   const nommer = nommeur();
   const racine = plan.groupes[0];
@@ -1153,6 +1198,15 @@ async function main() {
       .forEach(([v, n]) => console.log('   ' + String(n).padStart(2) + ' × ' + v));
   } else {
     console.log('\n✅ aucun gabarit générique : tous les appels sont déclarés.');
+  }
+
+  if (connexionsManquantes.size) {
+    console.log('\n⚠ ' + connexionsManquantes.size + ' connexion(s) EventBridge à CRÉER — l\'ARN');
+    console.log('  émis porte un UUID de zéros, la définition sera acceptée et le run');
+    console.log('  échouera à l\'appel. AWS attribue l\'UUID à la création :');
+    connexionsManquantes.forEach(function (apsNom, awsNom) {
+      console.log('   ' + awsNom.padEnd(30) + apsNom);
+    });
   }
 
   const nonTrad = (ctx.intraduisibles || []).concat(corpsIntraduisibles);
