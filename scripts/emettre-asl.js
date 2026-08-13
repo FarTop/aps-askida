@@ -852,6 +852,53 @@ function etatsDe(etapes, nommer, contexte) {
               Method: a.methode || 'GET',
               Authentication: { ConnectionArn: arnDe((e.params || {}).connexionId) },
             };
+            // ── UN JOURNAL, PAS UN CHAMP ──────────────────────────────
+            // La ligne s'ajoute à l'existant au lieu de le remplacer. Trois
+            // choses à composer, et JSONata les fait toutes en ligne :
+            //   — assembler les morceaux non vides ($join sur un tableau filtré,
+            //     ce qui reproduit le `if (x) parts.push(x)` du moteur, y
+            //     compris pour les morceaux qui ne sont vides QU'AU RUN) ;
+            //   — coller devant (ou derrière) la valeur déjà là ;
+            //   — recopier les autres champs SAUF les clés techniques ($sift).
+            if (a.journal) {
+              const j = a.journal;
+              const k = appels.findIndex(x => x.role === j.depuis);
+              const ancien = '$' + vars[k === -1 ? 0 : k] + '.ResponseBody.metadata_values';
+              const morceaux = j.parties.map(function (part) {
+                if (part && typeof part === 'object' && part.horodatage) {
+                  // L'horodatage du moteur est en heure LOCALE ; `$now()` est en
+                  // UTC. Deux heures d'écart l'été à Paris, dans une ligne que
+                  // des humains relisent. Pas corrigeable proprement : le décalage
+                  // dépend de la date, et JSONata n'a pas de fuseau nommé.
+                  // Écart assumé et écrit, plutôt qu'un « +0200 » faux six mois
+                  // sur douze.
+                  return "$substring($now(), 0, 10) & '_' & $substring($now(), 11, 5)";
+                }
+                const g = gabaritJsonata(String(part), adr, intraduisibles, noms[i]);
+                return g.jsonata ? g.jsonata : ASL.txt(g.valeur);
+              });
+              if (j.marque) morceaux.push("'[' & $states.context.Execution.Name & ']'");
+              const ligne = '$join($filter([' + morceaux.join(', ')
+                          + '], function($m) { $exists($m) and $m != \'\' }), '
+                          + ASL.txt(j.separateur || ' | ') + ')';
+              // Liaison de variables plutôt que répétition : sans elle, la
+              // ligne ET l'existant apparaissent DEUX fois chacun, une par
+              // branche du ternaire. L'expression fait alors le double et
+              // devient illisible dans la console — or c'est là qu'un collègue
+              // ira voir ce que le workflow écrit.
+              const existant = ancien + '.' + j.champ + '.field_values[0].value';
+              const suite = j.ordre === 'oldest' ? "$a & '\\n' & $l" : "$l & '\\n' & $a";
+              const colle = '($l := ' + ligne + '; $a := ' + existant + '; '
+                          + "$exists($a) and $a != '' ? " + suite + ' : $l)';
+              const conserves = j.saufPrefixe
+                ? '$sift(' + ancien + ', function($v, $k) { $not($contains($k, /^'
+                  + j.saufPrefixe + '/)) })'
+                : ancien;
+              args.RequestBody = {
+                metadata_values: ASL.jsonata('$merge([' + conserves + ', {'
+                  + ASL.txt(j.champ) + ': {\'field_values\': [{\'value\': ' + colle + '}]}}])'),
+              };
+            }
             if (a.corps) {
               let corps = corpsResolu(a.corps, adr, intraduisibles, noms[i]);
               // FUSIONNER AVEC CE QU'ON VIENT DE RELIRE. C'est ce qui empêche
@@ -1238,9 +1285,14 @@ async function main() {
         // compter comme lectures faisait crier le contrôle 21 fois sur le seul
         // `$v` du découpage de liste. Un faux positif use un contrôle aussi
         // sûrement qu'un faux négatif l'aveugle.
+        // Deux façons d'être local à l'expression, et les deux comptent :
+        // le paramètre d'une lambda `function($v)`, et la liaison `$l := …`.
         const locales = new Set();
         (m[1].match(/function\s*\(([^)]*)\)/g) || []).forEach(function (f) {
           (f.match(/\$[A-Za-z_]\w*/g) || []).forEach(x => locales.add(x.slice(1)));
+        });
+        (m[1].match(/\$([A-Za-z_]\w*)\s*:=/g) || []).forEach(function (b) {
+          locales.add(b.replace(/\s*:=$/, '').slice(1));
         });
         (m[1].match(/\$[A-Za-z_]\w*/g) || []).forEach(function (ref) {
           const nom = ref.slice(1);

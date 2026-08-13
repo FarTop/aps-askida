@@ -719,7 +719,80 @@ const PivotCatalogIconik = (() => {
       // explicitement vide pour que le sélecteur ne suggère jamais rien ici,
       // plutôt que de simplement l'omettre (qui laisserait planer un doute :
       // "pas encore vérifié" vs "vérifié, rien à offrir").
-      variables: function () { return []; }
+      variables: function () { return []; },
+
+      // ── ÉCRIRE DANS UN JOURNAL, PAS DANS UN CHAMP ────────────────────────
+      // C'est ce qui distingue `history` de `set_metadata` : la valeur ne
+      // remplace pas l'ancienne, elle s'y AJOUTE. Le champ contient un journal
+      // multi-lignes que chaque passage allonge. D'où un mécanisme nommé,
+      // `journal`, plutôt que quatre bricoles éparpillées — l'émetteur n'a
+      // qu'une chose à savoir rendre.
+      //
+      // CE QUI EST REFUSÉ, et pourquoi c'est la majorité des cas réels :
+      //
+      //   whMode 'update'  retrouve la ligne portant le Run ID de CE run et la
+      //                    remplace. C'est de la chirurgie sur un tableau de
+      //                    lignes ; exprimable en JSONata, mais assez subtile
+      //                    pour qu'une version approximative réécrive la
+      //                    mauvaise ligne — et une ligne d'historique écrasée
+      //                    ne se récupère pas.
+      //   manifestId       la case-à-cocher d'essences (« Cover ✅ Poster ❌ »)
+      //                    se compose au RUN, filtrée par le niveau courant.
+      //   whSummaryVar     parcourt un objet et n'en garde que les entrées dont
+      //                    le statut n'est pas « terminé ».
+      //
+      // Les deux « Notify » de PUBLISH passent ; les deux « History » non, et
+      // se comptent. Note pour qui reprendra : les Notify écrivent la marque
+      // [runId] que les History cherchent ensuite — traduire les uns sans les
+      // autres donne un journal qui s'allonge au lieu de se mettre à jour.
+      appel: function (etape) {
+        const p = etape.params || {};
+        if ((p.whMode || 'add') !== 'add') return null;
+        if (p.manifestId || (etape.essences && etape.essences.length)) return null;
+        if (p.whSummaryVar) return null;
+        const champ = p.mdField;
+        if (!champ) return null;
+
+        const collection = p.target === 'collection';
+        const objet = collection ? 'collections' : 'assets';
+        const id  = p.targetId || (collection ? '{collection.id}' : '{asset.id}');
+        const vue = p.mdViewId || '';
+        const url = '/API/metadata/v1/' + objet + '/' + id + '/'
+                  + (vue ? 'views/' + vue + '/' : '');
+
+        // Les morceaux de la ligne, dans l'ordre du moteur. Un morceau vide
+        // disparaît — à l'émission pour ce qui est statique, au run pour ce qui
+        // ne l'est pas.
+        const parties = [];
+        if (p.whShowDate !== false) parties.push({ horodatage: 'court' });
+        if (p.whShowWf   !== false && p.whWfName) parties.push(p.whWfName);
+        if (p.whShowUser !== false) parties.push('{_trigger.user}');
+        if (p.whStatut)  parties.push(p.whStatut);
+        if (p.whMessage) parties.push(p.whMessage);
+        if (!parties.length) return null;
+
+        return [
+          { role: 'relire', methode: 'GET', chemin: url, tolereAbsence: true },
+          { role: 'ecrire', methode: 'PUT', chemin: url,
+            journal: {
+              champ: champ,
+              depuis: 'relire',
+              parties: parties,
+              separateur: ' | ',
+              // 'newest' met la ligne EN TÊTE. C'est le défaut du moteur.
+              ordre: p.whOrder || 'newest',
+              // La marque que `whMode: update` cherchera plus tard pour
+              // retrouver sa ligne. Le moteur y met les 12 premiers caractères
+              // de son identifiant de run ; ASL n'a pas la même notion, d'où
+              // une SUBSTITUTION assumée — le nom de l'exécution joue le même
+              // rôle, ce n'est pas la même valeur.
+              marque: p.whShowRunId === true ? 'execution-visible' : 'execution',
+              // Iconik range des clés techniques (`__separator__`) parmi les
+              // métadonnées ; le moteur les écarte avant de réécrire.
+              saufPrefixe: '__',
+            } },
+        ];
+      }
     },
 
     'vodfactory.partner': {
