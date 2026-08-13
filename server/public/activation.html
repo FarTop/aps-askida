@@ -1,0 +1,67 @@
+<!-- APS — activation.html — 2026-08-13
+     La seule page PUBLIQUE d'APS : celle qu'ouvre une personne invitée, avec
+     un jeton dans l'URL et rien d'autre. Pas de navigation, pas de sélecteur
+     d'organisation, pas de lien vers le reste — elle n'a encore accès à rien,
+     et lui montrer des portes fermées ne l'aiderait pas. -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Activer votre compte — APS</title>
+  <link rel="stylesheet" href="activation.css" />
+</head>
+<body>
+
+  <main class="ac-carte">
+    <img src="_shared/assets/aps-logo.svg" alt="Askida" class="ac-logo" />
+
+    <div id="ac-chargement" class="ac-etat">Vérification du lien…</div>
+
+    <!-- Lien invalide ou expiré -->
+    <div id="ac-refus" hidden>
+      <h1 class="ac-titre">Ce lien ne fonctionne plus</h1>
+      <p class="ac-texte">
+        Il a peut-être expiré — une invitation vaut sept jours — ou il a déjà
+        servi : un lien d'activation ne s'utilise qu'une fois.
+      </p>
+      <p class="ac-texte ac-dim">
+        Demandez à la personne qui vous a invité d'en générer un nouveau.
+      </p>
+    </div>
+
+    <!-- Le formulaire -->
+    <form id="ac-formulaire" hidden autocomplete="on">
+      <h1 class="ac-titre">Choisissez votre mot de passe</h1>
+      <p class="ac-texte" id="ac-bienvenue"></p>
+
+      <label class="ac-label" for="ac-mdp">Mot de passe</label>
+      <input class="ac-input" id="ac-mdp" type="password" autocomplete="new-password"
+             minlength="12" required />
+
+      <label class="ac-label" for="ac-mdp2">Répétez-le</label>
+      <input class="ac-input" id="ac-mdp2" type="password" autocomplete="new-password"
+             minlength="12" required />
+
+      <p class="ac-aide" id="ac-aide">
+        Au moins 12 caractères. C'est la seule règle : une phrase dont vous vous
+        souvenez vaut mieux qu'un enchaînement de symboles que vous noterez.
+      </p>
+
+      <button class="ac-bouton" id="ac-valider" type="submit">Activer mon compte</button>
+      <p class="ac-message" id="ac-message" aria-live="polite"></p>
+    </form>
+
+    <!-- C'est fait -->
+    <div id="ac-fini" hidden>
+      <h1 class="ac-titre">Votre compte est actif</h1>
+      <p class="ac-texte">
+        Votre mot de passe est enregistré. Ce lien ne fonctionne plus.
+      </p>
+      <a class="ac-lien" href="index.html">Aller à Askida Platform Studio</a>
+    </div>
+  </main>
+
+  <script src="activation.js"></script>
+</body>
+</html>

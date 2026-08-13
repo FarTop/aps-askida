@@ -1,0 +1,173 @@
+<!-- APS — admin/utilisateurs/utilisateurs.html — 2026-08-13 -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Utilisateurs — APS Administration</title>
+  <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
+  <link rel="stylesheet" href="../doc-assets/doc-assets.css" />
+  <link rel="stylesheet" href="utilisateurs.css" />
+</head>
+<body>
+
+  <header class="aps-header">
+    <div class="aps-header-left">
+      <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
+      <span class="breadcrumb"><a href="../../index.html">APS</a> › Utilisateurs</span>
+    </div>
+    <div class="aps-header-center">
+      <div data-role="org-context"></div>
+    </div>
+    <div class="aps-header-right">
+      <nav class="aps-navbar">
+        <a class="aps-nav-link" href="../../index.html">Home</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="da-main">
+
+    <div class="da-toolbar">
+      <h1 class="da-title">Utilisateurs</h1>
+      <button id="ut-nouveau" class="da-btn da-btn-accent" type="button">Nouveau groupe</button>
+    </div>
+
+    <p class="da-intro">
+      <strong>Le groupe est le rôle.</strong> On lui glisse les
+      <strong>organisations</strong> qu'il couvre et les <strong>outils</strong>
+      qu'il ouvre ; une personne appartient à des groupes et hérite des deux
+      listes. Il n'y a rien d'autre à régler — ni niveaux, ni permissions par
+      ressource.
+    </p>
+    <p class="da-intro" id="ut-note-auth">
+      Aucune authentification n'est exigée pour l'instant : ces comptes se
+      préparent, APS s'ouvre comme avant. Fermer la porte sera un geste séparé.
+    </p>
+
+    <div class="ut-onglets" role="tablist">
+      <button class="ut-onglet ut-onglet-actif" id="ut-tab-groupes" type="button"
+              role="tab" aria-selected="true">Groupes</button>
+      <button class="ut-onglet" id="ut-tab-comptes" type="button"
+              role="tab" aria-selected="false">Comptes</button>
+    </div>
+
+    <div class="da-layout">
+      <aside class="da-liste" aria-label="Liste">
+        <div id="da-liste-items"></div>
+      </aside>
+
+      <!-- ── Éditeur de GROUPE ── -->
+      <section class="da-editeur" id="ut-editeur-groupe" hidden>
+        <div class="da-grille">
+          <div class="da-champ-ligne">
+            <label class="da-label" for="gr-nom">Nom</label>
+            <input class="da-input" id="gr-nom" type="text" placeholder="ex. Broadcast" />
+          </div>
+          <div class="da-champ-ligne">
+            <label class="da-label" for="gr-desc">Description</label>
+            <input class="da-input" id="gr-desc" type="text" placeholder="À quoi sert ce groupe" />
+          </div>
+        </div>
+        <p class="da-note" id="gr-systeme-note" hidden>
+          <strong>Groupe système.</strong> Il ne se supprime pas et sa clé ne
+          change pas — sans lui, APS n'aurait plus d'administrateur. Ses
+          organisations et ses outils restent modifiables.
+        </p>
+
+        <div class="da-rows-tete">
+          <h2 class="da-sous-titre">Organisations couvertes</h2>
+          <span class="da-etat" id="gr-orgs-etat" aria-live="polite"></span>
+        </div>
+        <div class="ut-cases" id="gr-orgs"></div>
+
+        <div class="da-rows-tete">
+          <h2 class="da-sous-titre">Outils ouverts</h2>
+          <span class="da-etat" id="gr-outils-etat" aria-live="polite"></span>
+        </div>
+        <div id="gr-outils"></div>
+
+        <div class="da-usage" id="gr-membres"></div>
+
+        <div class="da-actions">
+          <button id="gr-enregistrer" class="da-btn da-btn-accent" type="button">Enregistrer</button>
+          <button id="gr-supprimer" class="da-btn da-btn-danger" type="button">Supprimer</button>
+          <span id="da-feedback" class="da-feedback" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <!-- ── Éditeur de COMPTE ── -->
+      <section class="da-editeur" id="ut-editeur-compte" hidden>
+        <div class="da-grille">
+          <div class="da-champ-ligne">
+            <label class="da-label" for="cp-nom">Nom</label>
+            <input class="da-input" id="cp-nom" type="text" placeholder="ex. Camille Durand" />
+          </div>
+          <div class="da-champ-ligne">
+            <label class="da-label" for="cp-email">Adresse e-mail</label>
+            <input class="da-input" id="cp-email" type="email" placeholder="camille.durand@askida.fr" />
+          </div>
+          <div class="da-champ-ligne">
+            <label class="da-label" for="cp-profil">Profil</label>
+            <select class="da-input" id="cp-profil">
+              <option value="mixed">mixte</option>
+              <option value="engineer">ingénieur</option>
+              <option value="pm">chef de projet</option>
+            </select>
+          </div>
+          <div class="da-champ-ligne">
+            <label class="da-label" for="cp-langue">Langue</label>
+            <select class="da-input" id="cp-langue">
+              <option value="fr">français</option>
+              <option value="en">anglais</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="ut-bascule" id="cp-actif-ligne">
+          <input type="checkbox" id="cp-actif" checked />
+          <span>Compte actif</span>
+        </label>
+
+        <div class="da-rows-tete">
+          <h2 class="da-sous-titre">Groupes</h2>
+          <span class="da-etat" id="cp-groupes-etat" aria-live="polite"></span>
+        </div>
+        <div class="ut-cases" id="cp-groupes"></div>
+        <p class="da-note" id="cp-herite"></p>
+
+        <div class="ut-invitation" id="cp-invitation" hidden>
+          <div class="ut-invitation-tete">
+            <span class="ut-etat" id="cp-etat"></span>
+            <span class="da-etat" id="cp-expire"></span>
+          </div>
+          <div class="ut-lien-ligne" id="cp-lien-ligne" hidden>
+            <input class="da-input ut-lien" id="cp-lien" type="text" readonly />
+            <button id="cp-copier" class="da-btn" type="button">Copier</button>
+          </div>
+          <p class="da-note" id="cp-invitation-note"></p>
+          <div class="ut-invitation-actions">
+            <button id="cp-inviter" class="da-btn" type="button">Régénérer le lien</button>
+            <button id="cp-reinitialiser" class="da-btn" type="button">Réinitialiser le mot de passe</button>
+          </div>
+        </div>
+
+        <div class="da-actions">
+          <button id="cp-enregistrer" class="da-btn da-btn-accent" type="button">Enregistrer</button>
+          <button id="cp-supprimer" class="da-btn da-btn-danger" type="button">Supprimer</button>
+          <span id="cp-feedback" class="da-feedback" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section class="da-vide" id="da-vide">
+        <p>Sélectionnez un élément ou créez-en un nouveau.</p>
+      </section>
+    </div>
+
+  </main>
+
+  <script src="../../_shared/js/org-context-selector.js"></script>
+  <script src="utilisateurs.js"></script>
+</body>
+</html>

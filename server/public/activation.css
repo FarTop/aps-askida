@@ -1,0 +1,75 @@
+/* APS — activation.css — 2026-08-13
+   Page publique, autonome : elle ne charge ni navbar.css ni les tokens des
+   écrans d'administration. Une personne invitée n'a encore accès à rien, la
+   page ne doit donc dépendre de rien. */
+
+:root {
+  --ac-bg:      #0f1011;
+  --ac-surface: #151718;
+  --ac-border:  #262a2e;
+  --ac-text:    #eef0f1;
+  --ac-dim:     #a6b0b8;
+  --ac-accent:  #d6d233;
+  --ac-danger:  #e74c3c;
+  --ac-ok:      #6fc7a8;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--ac-bg); min-height: 100%; }
+body {
+  margin: 0; min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: var(--ac-bg); color: var(--ac-text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.ac-carte {
+  width: 100%; max-width: 420px;
+  background: var(--ac-surface); border: 1px solid var(--ac-border);
+  border-radius: 14px; padding: 32px 28px;
+}
+.ac-logo { max-height: 34px; display: block; margin-bottom: 26px; }
+
+.ac-titre { font-size: 19px; font-weight: 600; margin: 0 0 10px; }
+.ac-texte { font-size: 13.5px; line-height: 1.55; color: var(--ac-dim); margin: 0 0 10px; }
+.ac-dim   { font-size: 12.5px; }
+.ac-etat  { font-size: 13px; color: var(--ac-dim); }
+
+.ac-label {
+  display: block; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--ac-dim); margin: 16px 0 5px;
+}
+.ac-input {
+  width: 100%; background: #101213; color: var(--ac-text);
+  border: 1px solid var(--ac-border); border-radius: 8px;
+  padding: 10px 12px; font-size: 14px; font: inherit;
+}
+.ac-input:focus { outline: none; border-color: var(--ac-accent); }
+
+.ac-aide { font-size: 12px; line-height: 1.5; color: var(--ac-dim); margin: 12px 0 0; }
+
+.ac-bouton {
+  width: 100%; margin-top: 20px;
+  background: rgba(214,210,51,.16); color: var(--ac-accent);
+  border: 1px solid rgba(214,210,51,.42); border-radius: 9px;
+  padding: 11px 14px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.ac-bouton:hover { background: rgba(214,210,51,.24); }
+.ac-bouton:disabled { opacity: .5; cursor: not-allowed; }
+
+.ac-message { font-size: 12.5px; margin: 12px 0 0; min-height: 1.2em; color: var(--ac-dim); }
+.ac-message[data-ton="erreur"] { color: var(--ac-danger); }
+.ac-message[data-ton="ok"]     { color: var(--ac-ok); }
+
+.ac-lien {
+  display: inline-block; margin-top: 10px;
+  color: var(--ac-accent); font-size: 13.5px; text-decoration: none;
+}
+.ac-lien:hover { text-decoration: underline; }
+
+/* `display:none` du navigateur est écrasé par toute règle d'affichage posée
+   sur ces blocs — la faute relevée le même jour sur les écrans admin. Ici
+   aucune ne l'est, mais la garde reste : elle coûte une ligne et évite que la
+   prochaine mise en forme ne rouvre le trou. */
+[hidden] { display: none !important; }
