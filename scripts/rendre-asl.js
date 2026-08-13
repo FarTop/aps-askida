@@ -43,10 +43,16 @@
 //                        states.amazonaws.com à l'endosser. Le mécanisme, lui,
 //                        a fonctionné : TaskScheduled pointait bien sur la
 //                        connexion.
-//   PUBLISH complet      63 états en JSONata, 6 Map dont des Map IMBRIQUÉS
-//                        (les cinq boucles du Partner vivent dans le corps de
-//                        la boucle principale), 116 expressions. Accepté sans
-//                        une seule erreur.
+//   PUBLISH complet      65 états en JSONata, 122 expressions, accepté sans une
+//                        seule erreur. Trois choses s'y jouaient et tiennent :
+//                        les Map IMBRIQUÉS (les cinq boucles du Partner vivent
+//                        dans le corps de la boucle principale), les LIAISONS
+//                        `$l := … ;` de la syntaxe de bloc, et `$sift` avec une
+//                        lambda à deux paramètres.
+//                        Le dessin apprend aussi quelque chose : un `skipIfEmpty`
+//                        traduit devient un embranchement VISIBLE, là où le
+//                        moteur le cache dans une condition interne. La cible
+//                        rend parfois le workflow plus lisible que l'original.
 //
 // MAIS C'EST TOUJOURS UNE VALIDATION DE FORME. La leçon la plus chère du
 // chantier Make s'applique mot pour mot : « un blueprint ACCEPTÉ n'est pas un
@@ -280,8 +286,8 @@ module.exports = { COMPOSITIONS, FORMES, OPERATEURS, PORTS,
 
 if (require.main === module) {
   console.log('CE QU\'UN VERBE DEVIENT EN ASL\n');
-  console.log('Validé en console le 2026-08-13 : PUBLISH entier en JSONata, 63 états,');
-  console.log('6 Map dont des Map imbriqués, 116 expressions — aucune erreur. Plus tôt :');
+  console.log('Validé en console le 2026-08-13 : PUBLISH entier en JSONata, 65 états,');
+  console.log('6 Map dont des Map imbriqués, 122 expressions — aucune erreur. Plus tôt :');
   console.log('les cinq formes JSONata (sonde-jsonata.json) et la boucle de sondage.');
   console.log('VALIDATION DE FORME. Un seul run a été exécuté à ce jour : la sonde');
   console.log('d\'authentification, et elle a échoué sur la relation d\'approbation du');
