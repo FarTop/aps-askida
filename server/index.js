@@ -61,6 +61,12 @@ const hooksRouter          = require('./routes/hooks');
 const builderRunsRouter    = require('./routes/builder-runs');
 const builderScheduler     = require('./engine-builder/builder-scheduler.js');
 const apiSpecsRouter       = require('./routes/api-specs');
+// Doc Builder (2026-08-13) : ses ressources sortent du localStorage. Une route
+// par ressource, comme mapping.js et endpoints.js — pas de fourre-tout.
+const docAssetsRouter      = require('./routes/doc-assets');
+const docTemplatesRouter   = require('./routes/doc-templates');
+const docOwnersRouter      = require('./routes/doc-owners');
+const docContextRouter     = require('./routes/doc-context');
 
 app.use('/api/flows',      flowsRouter);
 app.use('/api/connexions', connexionsRouter);
@@ -74,6 +80,10 @@ app.use('/api/aps-search',   apsSearchRouter);
 app.use('/api/arbo-templates', arboTemplatesRouter);
 app.use('/api/mappings',    mappingRouter);
 app.use('/api/endpoints',   endpointsRouter);
+app.use('/api/doc-assets',    docAssetsRouter);
+app.use('/api/doc-templates', docTemplatesRouter);
+app.use('/api/doc-owners',    docOwnersRouter);
+app.use('/api/doc-context',   docContextRouter);
 app.use('/api/jobs',         syncJobsRouter);
 app.use('/api/iconik',       iconikProxy);
 app.use('/api/package',    packageRouter);

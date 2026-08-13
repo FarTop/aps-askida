@@ -40,6 +40,9 @@ model Organisation {
   scripts      Script[]
   managedApps  ManagedApp[]
   docAssets    DocAsset[]
+  docKits        DocKit[]
+  docTemplates   DocTemplate[]
+  docOwners      DocOwner[]
   contactLists   ContactList[]
   connexions     Connexion[]
   apiCheckConfig ApiCheckConfig?
@@ -85,7 +88,6 @@ model Project {
 
   permissions  Permission[]
   flows        Flow[]
-  docKits      DocKit[]
   apiSpecs     ApiSpec[]
 
   @@unique([orgId, name])
@@ -161,6 +163,8 @@ model Platform {
   nodeDefinitions NodeDefinition[]
   connexions      Connexion[]
   apiSpecs        ApiSpec[]
+  docKits         DocKit[]
+  docTemplates    DocTemplate[]
 }
 
 model OrganisationPlatform {
@@ -465,26 +469,92 @@ model DocAsset {
   meta          Json?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+
+  templates     DocTemplate[]
 }
 
-model DocTemplate {
+// Les lignes de service qui possèdent des gabarits et des kits — « Formation »,
+// « Broadcast », « Creative »… Le Doc Builder les tient en CRUD complet depuis
+// son écran (ajout, renommage, suppression) : ce sont des DONNÉES, et elles
+// vivaient dans le localStorage du navigateur, ce que le principe en tête de ce
+// fichier interdit.
+//
+// Rattachées à l'ORGANISATION : ce sont les équipes de la maison, pas une
+// propriété d'un outil. `mode: 'super'` voit tous les gabarits — c'est le rôle
+// de « transverse », que l'écran refuse de renommer ou de supprimer.
+//
+// Si « propriétaire » se révèle une notion plus large qu'APS (une équipe qui
+// possède aussi des workflows, des connexions…), cette table en est la graine
+// et se renomme sans douleur : six lignes.
+model DocOwner {
   id            String       @id @default(cuid())
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  key           String       // 'formation', 'broadcast', 'transverse'…
+  label         String
+  mode          String       @default("normal")  // 'normal' | 'super'
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([orgId, key])
+}
+
+// CE QU'UN DOCUMENT DÉCRIT — donc partagé, comme `ApiSpec` (2026-08-13).
+// Le partage arrêté le 2026-08-10 pour Administration s'applique tel quel :
+// « la description d'une API décrit un produit, pas un projet ». La forme d'un
+// runbook Iconik décrit Iconik — deux clients réutilisent le même gabarit,
+// seule la charte et le contenu changent.
+//
+// `orgId` reste NULLABLE et c'est délibéré : une bibliothèque partagée, plus
+// des variantes propres à une organisation quand il en faut — même forme que
+// `Platform` partagée / `Connexion` par organisation.
+//
+// `platformId` nullable aussi : un gabarit qui ne parle d'aucun outil (compte
+// rendu de réunion, note de cadrage) reste légitime. C'est la deuxième raison
+// d'exister d'APS — « ne plus jamais perdre de temps à reformater des
+// documents » — et elle ne suppose aucune plateforme.
+//
+// Les DEUX identifiants existaient déjà SANS relation déclarée : rien ne
+// garantissait qu'ils pointent quoi que ce soit. `brandAssetId` en
+// particulier — le lien gabarit → charte est précisément ce qui empêche de
+// refaire la faute des exports WFD, où la charte vivait dans le code de
+// l'exporteur et ne ressemblait pas à la vraie.
+model DocTemplate {
+  id            String        @id @default(cuid())
   orgId         String?
+  organisation  Organisation? @relation(fields: [orgId], references: [id])
+  platformId    String?
+  platform      Platform?     @relation(fields: [platformId], references: [id])
   name          String
   description   Json?        // {"fr": "...", "en": "..."}
   renderer      String       // 'docx' | 'html' | 'pptx' | 'xlsx' | 'pdf' | 'mermaid'
   content       Json
   brandAssetId  String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  brandAsset    DocAsset?     @relation(fields: [brandAssetId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   docKits       DocKitItem[]
+
+  @@index([orgId])
+  @@index([platformId])
 }
 
+// POUR QUI on assemble une livraison — donc rattaché à l'ORGANISATION
+// (2026-08-13). Pendait à `Project`, modèle mort (0 ligne) : exactement la
+// situation d'`ApiSpec` avant sa migration du 2026-08-10, et corrigée de la
+// même façon. Le kit livré à un client n'est pas celui d'un autre, même quand
+// les gabarits qui le composent sont les mêmes.
+//
+// `platformId` optionnel, sur le modèle d'`Environment` : un objet peut
+// appartenir à une organisation ET désigner une plateforme. Un kit
+// « intégration Iconik » le fait ; un kit de cadrage ne désigne rien.
 model DocKit {
   id            String       @id @default(cuid())
-  projectId     String
-  project       Project      @relation(fields: [projectId], references: [id])
+  orgId         String
+  organisation  Organisation @relation(fields: [orgId], references: [id])
+  platformId    String?
+  platform      Platform?    @relation(fields: [platformId], references: [id])
   name          String
   profile       String       // 'pm' | 'engineer' | 'mixed'
   description   String?
@@ -492,6 +562,8 @@ model DocKit {
   updatedAt     DateTime     @updatedAt
 
   items         DocKitItem[]
+
+  @@index([orgId])
 }
 
 model DocKitItem {

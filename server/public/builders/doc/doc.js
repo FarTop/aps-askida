@@ -1,9 +1,63 @@
 // builders/doc/doc.js — Canvas PREVIEW/CONFIG (A) + scope reload + kit par projet + statut projet
 // + datasets dynamiques (catalog) + masquage systèmes (toujours)
 
-const OWNERS_KEY = 'afs:doc:owners';
-const KITS_KEY   = 'afs:doc:kits';
-const TPL_KEY    = 'afs:doc:templates';
+// LES DONNÉES DU DOC BUILDER VIVENT EN BASE (2026-08-13). Les trois clés
+// `afs:doc:owners`, `afs:doc:kits` et `afs:doc:templates` ont disparu : c'était
+// de la donnée métier dans le navigateur, ce que le principe en tête de
+// schema.prisma interdit, et elle ne survivait ni à un autre poste, ni à un
+// autre profil, ni à un changement d'organisation.
+//
+// Restent ici les clés de SESSION partagées par tout APS (`aps:context`,
+// `organisationName`, `appTokensData`), lues plus bas par loadOrgList() et
+// discoverDomainsFromAppTokens() : elles appartiennent au contexte
+// d'organisation, pas au Doc Builder, et se traitent avec lui.
+
+async function api(chemin, options){
+  const r = await fetch('/api' + chemin, Object.assign(
+    { headers: { 'Content-Type': 'application/json' } }, options || {}));
+  if (!r.ok) {
+    let msg = r.status;
+    try { msg = (await r.json()).error || msg; } catch (_) {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+// Un échec d'enregistrement ne doit PAS passer inaperçu : avec le localStorage
+// l'écriture ne ratait jamais, l'écran n'avait donc aucun chemin d'erreur.
+function echecEnregistrement(e){
+  console.error('[doc] enregistrement', e);
+  alert('Enregistrement impossible : ' + (e && e.message ? e.message : e));
+}
+
+// LE MAGASIN — l'état de l'écran, chargé une fois puis tenu à jour.
+// Les lectures restent SYNCHRONES (`loadOwners()`, `loadTemplates()`,
+// `loadKit()` gardent leur signature) parce que l'écran les appelle depuis une
+// vingtaine d'endroits, souvent en plein rendu ; seules les écritures partent
+// vers l'API. Le chargement, lui, est attendu une fois au démarrage.
+const Magasin = {
+  envKey: '',
+  owners: {},
+  templates: [],
+  kit: null,
+
+  async charger(envKey){
+    this.envKey = envKey;
+    const [owners, templates, kit] = await Promise.all([
+      api('/doc-owners'),
+      api('/doc-templates'),
+      api('/doc-context?envKey=' + encodeURIComponent(envKey)),
+    ]);
+    this.owners = {};
+    owners.forEach(o => { this.owners[o.id] = { id: o.id, label: o.label, mode: o.mode }; });
+    // Forme attendue par l'écran : le JSON importé vit dans `content` côté base,
+    // dans `template` côté écran.
+    this.templates = templates.map(t => ({
+      id: t.id, name: t.name, createdAt: t.createdAt, template: t.content,
+    }));
+    this.kit = kit;
+  },
+};
 
 function safeParse(text){ try { return JSON.parse(text); } catch { return null; } }
 function readJSON(key, fallback){
@@ -22,35 +76,43 @@ function projectKey(ctx){
 }
 
 // -------- Owners
-function defaultOwners(){
-  return {
-    formation:        { id:'formation',        label:'Formation',        mode:'normal' },
-    broadcast:        { id:'broadcast',        label:'Broadcast',        mode:'normal' },
-    creative:         { id:'creative',         label:'Creative',         mode:'normal' },
-    managed_services: { id:'managed_services', label:'Managed Services', mode:'normal' },
-    synergies:        { id:'synergies',        label:'Synergies',        mode:'normal' },
-    transverse:       { id:'transverse',       label:'Transverse',       mode:'super'  }
-  };
-}
-function loadOwners(){
-  const o = readJSON(OWNERS_KEY, null);
-  if (!o || typeof o !== 'object'){
-    const def = defaultOwners();
-    writeJSON(OWNERS_KEY, def);
-    return def;
-  }
-  if (!o.transverse){
-    o.transverse = { id:'transverse', label:'Transverse', mode:'super' };
-    writeJSON(OWNERS_KEY, o);
-  }
+// Les six par défaut sont semés par la route à la première lecture d'une
+// organisation qui n'en a aucun (doc-owners.js) : le comportement que
+// `defaultOwners()` assurait ici, mais pour tout le monde et une seule fois.
+function loadOwners(){ return Magasin.owners; }
+
+async function ownerAjouter(label){
+  const o = await api('/doc-owners', { method: 'POST', body: JSON.stringify({ label }) });
+  Magasin.owners[o.id] = { id: o.id, label: o.label, mode: o.mode };
   return o;
+}
+async function ownerRenommer(id, label){
+  const o = await api('/doc-owners/' + encodeURIComponent(id),
+    { method: 'PUT', body: JSON.stringify({ label }) });
+  Magasin.owners[o.id] = { id: o.id, label: o.label, mode: o.mode };
+  return o;
+}
+async function ownerSupprimer(id){
+  await api('/doc-owners/' + encodeURIComponent(id), { method: 'DELETE' });
+  delete Magasin.owners[id];
 }
 
 // -------- Kits
-function loadKits(){ const k = readJSON(KITS_KEY, {}); return (k && typeof k === 'object') ? k : {}; }
-function saveKit(k, kit){ const all = loadKits(); all[k] = kit; writeJSON(KITS_KEY, all); }
-function loadKit(k){ const all = loadKits(); return all[k] || null; }
-function resetKit(k){ const all = loadKits(); delete all[k]; writeJSON(KITS_KEY, all); }
+// Un « kit » côté écran, c'est l'état de travail d'un contexte : le modèle
+// DocKitContext le porte champ pour champ, et la clé « plateforme|org|domaine »
+// que projectKey() fabrique EST son `envKey`.
+function loadKit(){ return Magasin.kit; }
+function saveKit(k, kit){
+  Magasin.kit = kit;
+  api('/doc-context', { method: 'PUT',
+    body: JSON.stringify(Object.assign({ envKey: Magasin.envKey }, kit)) })
+    .catch(echecEnregistrement);
+}
+function resetKit(){
+  Magasin.kit = null;
+  api('/doc-context?envKey=' + encodeURIComponent(Magasin.envKey), { method: 'DELETE' })
+    .catch(echecEnregistrement);
+}
 
 // -------- Statut projet
 function isProjectLocked(kit){ return kit.status === 'closed' || kit.locked === true; }
@@ -68,8 +130,24 @@ function unlockProject(kit){
 }
 
 // -------- Templates
-function loadTemplates(){ return readJSON(TPL_KEY, []); }
-function saveTemplates(list){ writeJSON(TPL_KEY, list); }
+function loadTemplates(){ return Magasin.templates; }
+
+// Un gabarit importé appartient à l'organisation du contexte, pas à la
+// bibliothèque partagée : on ne verse pas dans le commun sans le dire
+// (doc-templates.js, `partage`). `renderer` reprend ce que le JSON déclare —
+// l'export d'aujourd'hui est un aperçu texte, ce champ prendra son sens quand
+// le vrai rendu existera.
+async function templateImporter(nom, tpl){
+  const t = await api('/doc-templates', { method: 'POST', body: JSON.stringify({
+    name: nom, renderer: tpl.renderer || 'html', content: tpl,
+  }) });
+  Magasin.templates.unshift({ id: t.id, name: t.name, createdAt: t.createdAt, template: t.content });
+  return t;
+}
+async function templateSupprimer(id){
+  await api('/doc-templates/' + encodeURIComponent(id), { method: 'DELETE' });
+  Magasin.templates = Magasin.templates.filter(t => t.id !== id);
+}
 function renderSelectOptions(selectEl, items, activeId){
   selectEl.innerHTML = items.map(x => `<option value="${x.id}">${x.name}</option>`).join('');
   if (activeId) selectEl.value = activeId;
@@ -321,7 +399,7 @@ function buildEnrichedReport(model, activeTemplate, catalog){
 }
 
 // ===================== Main =====================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const provider = window.AFS_Providers?.iconik;
   if (!provider) { alert('Provider iconik introuvable'); return; }
 
@@ -383,6 +461,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const ctx = baseModel.context;
   const key = projectKey(ctx);
 
+  // TOUT vient de la base à partir d'ici. Une seule attente, avant que l'écran
+  // ne se construise : les lectures qui suivent restent synchrones.
+  try { await Magasin.charger(key); }
+  catch (e) {
+    console.error('[doc] chargement', e);
+    alert('Chargement impossible : ' + (e && e.message ? e.message : e));
+    return;
+  }
+
   const fullCatalog = provider.listDatasetCatalog();
   const catalog = filterNonSystemCatalog(fullCatalog); // systèmes masqués [1](https://askida-my.sharepoint.com/personal/farid_radi_askida_fr/Documents/Fichiers%20Microsoft%20Copilot%20Chat/doc.html)
 
@@ -405,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   for (const d of catalog) if (d.defaultChecked) defaultKit.datasets[d.key] = true;
 
-  let kit = loadKit(key) || defaultKit;
+  let kit = loadKit() || defaultKit;
   function saveCurrentKit(){ saveKit(key, kit); }
 
   // View mode
@@ -532,7 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Owners CRUD (CONFIG only)
-  btnOwnerAdd.addEventListener('click', () => {
+  btnOwnerAdd.addEventListener('click', async () => {
     if (isProjectLocked(kit)) return;
     const label = (ownerNewLabel.value || '').trim();
     if (!label) return;
@@ -540,13 +627,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const o = loadOwners();
     if (o[id]) { alert('Owner déjà existant'); return; }
     if (id === 'transverse') { alert('Nom réservé'); return; }
-    o[id] = { id, label, mode:'normal' };
-    writeJSON(OWNERS_KEY, o);
+    try { await ownerAjouter(label); } catch (e) { echecEnregistrement(e); return; }
     ownerNewLabel.value = '';
     refreshOwnersUI();
   });
 
-  btnOwnerRename.addEventListener('click', () => {
+  btnOwnerRename.addEventListener('click', async () => {
     if (isProjectLocked(kit)) return;
     const newLabel = (ownerRenameLabel.value || '').trim();
     const id = ownerSel.value;
@@ -554,20 +640,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (id === 'transverse') { alert('Transverse non renommable'); return; }
     const o = loadOwners();
     if (!o[id]) return;
-    o[id].label = newLabel;
-    writeJSON(OWNERS_KEY, o);
+    try { await ownerRenommer(id, newLabel); } catch (e) { echecEnregistrement(e); return; }
     ownerRenameLabel.value = '';
     refreshOwnersUI();
   });
 
-  btnOwnerDelete.addEventListener('click', () => {
+  btnOwnerDelete.addEventListener('click', async () => {
     if (isProjectLocked(kit)) return;
     const id = ownerSel.value;
     if (!id) return;
     if (id === 'transverse') { alert('Transverse non supprimable'); return; }
-    const o = loadOwners();
-    delete o[id];
-    writeJSON(OWNERS_KEY, o);
+    try { await ownerSupprimer(id); } catch (e) { echecEnregistrement(e); return; }
     if (kit.ownerId === id) { kit.ownerId = 'transverse'; saveCurrentKit(); }
     refreshOwnersUI();
     refreshTemplatesUI();
@@ -630,21 +713,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const text = await f.text();
     const tpl = safeParse(text);
     if (!tpl) { alert('JSON invalide'); return; }
-    const list = loadTemplates();
-    const id = tpl.id || `tpl-${Date.now()}`;
-    const name = tpl.name || f.name;
-    list.unshift({ id, name, createdAt: new Date().toISOString(), template: tpl });
-    saveTemplates(list);
+    // L'identifiant vient MAINTENANT de la base : un `tpl-<timestamp>` fabriqué
+    // dans le navigateur ne veut rien dire une fois la ressource partagée.
+    try { await templateImporter(tpl.name || f.name, tpl); }
+    catch (e) { echecEnregistrement(e); return; }
     refreshTemplatesUI();
     refreshCanvas();
   });
 
-  btnDelete.addEventListener('click', () => {
+  btnDelete.addEventListener('click', async () => {
     if (isProjectLocked(kit)) return;
     const id = tplSelect.value;
     if (!id) return;
-    const listAll = loadTemplates();
-    saveTemplates(listAll.filter(t => t.id !== id));
+    try { await templateSupprimer(id); } catch (e) { echecEnregistrement(e); return; }
     kit.templateId = '';
     saveCurrentKit();
     refreshTemplatesUI();
@@ -697,7 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Reset kit (CONFIG)
   btnResetKit.addEventListener('click', () => {
     if (isProjectLocked(kit)) return;
-    resetKit(key);
+    resetKit();
     kit = {
       ownerId: 'transverse',
       datasets: {},
