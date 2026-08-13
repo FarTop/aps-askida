@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../../_shared/css/base.css" />
   <link rel="stylesheet" href="../../_shared/css/theme.css" />
   <link rel="stylesheet" href="../../_shared/css/navbar.css" />
+  <link rel="stylesheet" href="../../_shared/css/org-context-selector.css" />
   <link rel="stylesheet" href="doc.css" />
 </head>
 
@@ -15,7 +16,15 @@
   <header class="aps-header">
     <div class="aps-header-left">
       <img src="../../_shared/assets/aps-logo.svg" alt="Askida" class="aps-logo" />
-      <span class="dbc-org-badge" id="orgBadge"></span>
+    </div>
+
+    <!-- Le sélecteur PARTAGÉ, au centre, comme le Workflow Builder. Il
+         remplace un badge maison qui affichait une organisation lue dans
+         le localStorage — un nom saisi à la main, sans rapport avec les
+         organisations de la base. Deux notions d'organisation dans le même
+         écran, il ne pouvait en rester qu'une. -->
+    <div class="aps-header-center">
+      <div data-role="org-context"></div>
     </div>
 
     <div class="aps-header-right">
@@ -89,16 +98,11 @@
           </div>
 
           <div class="wfd-block">
-            <div class="wfd-block-title">Plateforme / Organisation / Domaine</div>
+            <div class="wfd-block-title">Plateforme / Domaine</div>
 
             <div class="wfd-field">
               <label class="wfd-label" for="scope-platform">Plateforme</label>
               <select id="scope-platform"></select>
-            </div>
-
-            <div class="wfd-field">
-              <label class="wfd-label" for="scope-org">Organisation / Projet</label>
-              <select id="scope-org"></select>
             </div>
 
             <div class="wfd-field">
@@ -198,6 +202,7 @@
 
   </main>
 
+  <script src="../../_shared/js/org-context-selector.js"></script>
   <script src="../../_shared/js/providers/iconik.provider.js"></script>
   <script src="doc.js"></script>
 </body>

@@ -38,15 +38,19 @@ function echecEnregistrement(e){
 const Magasin = {
   envKey: '',
   owners: {},
+  org: null,
   templates: [],
   kit: null,
 
   async charger(envKey){
     this.envKey = envKey;
-    const [owners, templates, kit] = await Promise.all([
+    const [owners, templates, kit, contexte] = await Promise.all([
       api('/doc-owners'),
       api('/doc-templates'),
       api('/doc-context?envKey=' + encodeURIComponent(envKey)),
+      // QUI on est, au sens d'APS. Le seul endroit d'où l'organisation doit
+      // venir désormais — plus aucune lecture de `organisationName`.
+      api('/context'),
     ]);
     this.owners = {};
     owners.forEach(o => { this.owners[o.id] = { id: o.id, label: o.label, mode: o.mode }; });
@@ -56,23 +60,32 @@ const Magasin = {
       id: t.id, name: t.name, createdAt: t.createdAt, template: t.content,
     }));
     this.kit = kit;
+    // `null` est une réponse LÉGITIME : un rôle non filtré peut travailler
+    // « Toutes organisations ». On ne fabrique pas un nom dans ce cas.
+    this.org = (contexte && contexte.org) || null;
   },
 };
 
 function safeParse(text){ try { return JSON.parse(text); } catch { return null; } }
-function readJSON(key, fallback){
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch { return fallback; }
-}
-function writeJSON(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
+// `readJSON` / `writeJSON` retirés le 2026-08-13 : plus aucun appelant. Ils
+// étaient l'accès générique au localStorage de cet écran — il ne lui reste que
+// `aps:context` (plateforme et domaine) et les clés de session partagées, lues
+// et écrites directement, en trois endroits qu'on peut compter.
 
+// L'ORGANISATION NE FAIT PLUS PARTIE DE LA CLÉ (2026-08-13). Elle prime, donc
+// elle vit un cran au-dessus : `DocKitContext` est unique par (orgId, envKey),
+// et cet orgId vient du contexte serveur — le vrai, celui du cookie partagé par
+// tout APS. La porter AUSSI dans la clé, sous la forme d'un nom saisi à la main,
+// c'était scoper deux fois avec deux identités différentes : un même client
+// écrit « Bayard » ici et « Groupe Bayard » là, et se retrouvait avec deux
+// espaces de travail sans jamais comprendre pourquoi.
+//
+// Reste dans la clé ce qui distingue deux contextes DANS une organisation :
+// la plateforme et le domaine.
 function projectKey(ctx){
   const p = (ctx.platform || 'iconik').trim();
-  const o = (ctx.org || '').trim();
   const d = (ctx.domain || '').trim();
-  return `${p}|${o}|${d}`;
+  return `${p}|${d}`;
 }
 
 // -------- Owners
@@ -214,12 +227,10 @@ function exportTxt(text, name){
 }
 
 // -------- Scope (reload)
-function loadOrgList(){
-  const list = readJSON('askida:orgs:iconik', []);
-  const org = (localStorage.getItem('organisationName') || '').trim();
-  const merged = [...new Set([...(Array.isArray(list)?list:[]), ...(org ? [org] : [])])];
-  return merged.filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
-}
+// `loadOrgList()` retiré le 2026-08-13 : il fabriquait une liste
+// d'organisations en fusionnant `askida:orgs:iconik` et `organisationName` du
+// localStorage. Plus aucun appelant — les organisations viennent de la base,
+// par le sélecteur partagé du header.
 function discoverDomainsFromAppTokens(){
   const raw = localStorage.getItem('appTokensData');
   if (!raw) return [];
@@ -230,9 +241,12 @@ function discoverDomainsFromAppTokens(){
     return [...new Set(envs)];
   } catch { return []; }
 }
-function setApsContextAndReload(platform, org, domain){
-  const c = { platform, org, domain };
-  localStorage.setItem('organisationName', org);
+// N'écrit PLUS `organisationName` : cette clé sert encore aux anciens écrans
+// Iconik (dashboard, settings…), et le Doc Builder n'a plus à la remplir depuis
+// un choix qui n'existe plus chez lui. L'organisation se change dans le header,
+// et c'est le cookie `aps-org-id` qui la porte.
+function setApsContextAndReload(platform, domain){
+  const c = { platform, domain };
   localStorage.setItem('aps:context', JSON.stringify(c));
   location.reload();
 }
@@ -416,7 +430,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const elOwner = document.getElementById('ctx-owner');
   const elStatus = document.getElementById('ctx-status');
   const elKey = document.getElementById('ctx-key');
-  const badge = document.getElementById('orgBadge');
 
   const previewEl = document.getElementById('preview');
   const canvasSubtitle = document.getElementById('canvas-subtitle');
@@ -426,7 +439,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const ownerHint = document.getElementById('owner-hint');
 
   const scopePlatform = document.getElementById('scope-platform');
-  const scopeOrg = document.getElementById('scope-org');
   const scopeDomain = document.getElementById('scope-domain');
 
   const datasetsContainer = document.getElementById('datasets-list');
@@ -470,6 +482,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  // L'ORGANISATION PRIME : celle du contexte serveur écrase ce que le provider
+  // a lu dans `aps:context`. Un seul point de vérité, et il est en base. Tout le
+  // modèle en dépend — l'aperçu, le rapport et le nom de fichier lisent tous
+  // `model.context.org`, il suffit donc de le poser ici.
+  ctx.org = Magasin.org ? Magasin.org.name : '';
+
   const fullCatalog = provider.listDatasetCatalog();
   const catalog = filterNonSystemCatalog(fullCatalog); // systèmes masqués [1](https://askida-my.sharepoint.com/personal/farid_radi_askida_fr/Documents/Fichiers%20Microsoft%20Copilot%20Chat/doc.html)
 
@@ -478,7 +496,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   elOrg.textContent = ctx.org || '-';
   elDomain.textContent = ctx.domain || '-';
   elKey.textContent = key;
-  badge.textContent = ctx.org ? `ORG: ${ctx.org} (${ctx.domain || '-'})` : '';
 
   // Kit init
   const defaultKit = {
@@ -536,7 +553,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const locked = isProjectLocked(kit);
 
     const toDisable = [
-      ownerSel, scopePlatform, scopeOrg, scopeDomain,
+      ownerSel, scopePlatform, scopeDomain,
       dsAddSelect, btnDatasetAdd,
       btnResetKit,
       btnOwnerAdd, btnOwnerRename, btnOwnerDelete,
@@ -573,10 +590,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   scopePlatform.innerHTML = `<option value="iconik">iconik</option>`;
   scopePlatform.value = (ctx.platform || 'iconik').toLowerCase();
 
-  const orgs = loadOrgList();
-  scopeOrg.innerHTML = orgs.map(o => `<option value="${o}">${o}</option>`).join('');
-  if (ctx.org && orgs.includes(ctx.org)) scopeOrg.value = ctx.org;
-
   const baseDomains = ['PROD','QA','DEV','POC'];
   const discovered = discoverDomainsFromAppTokens();
   const domains = [...new Set([...baseDomains, ...discovered])];
@@ -587,13 +600,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   function scopeChanged(){
     if (isProjectLocked(kit)) return; // ne change pas de scope si projet clôturé (consultation)
     const p = (scopePlatform.value || 'iconik').trim();
-    const o = (scopeOrg.value || '').trim();
     const d = (scopeDomain.value || 'prod').trim();
-    if (!o) { alert('Organisation manquante'); return; }
-    setApsContextAndReload(p, o, d);
+    // Plus de garde « Organisation manquante » : elle ne se choisit plus ici,
+    // et un rôle non filtré a le droit de n'en avoir aucune.
+    setApsContextAndReload(p, d);
   }
   scopePlatform.addEventListener('change', scopeChanged);
-  scopeOrg.addEventListener('change', scopeChanged);
   scopeDomain.addEventListener('change', scopeChanged);
 
   // Owners UI
@@ -801,6 +813,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Canvas refresh & export
   function computeModel(){
     const m = provider.getDocModel();
+    // Le provider relit `aps:context` à CHAQUE appel : sans cette ligne, le
+    // modèle repart avec l'organisation du localStorage, et l'aperçu affichait
+    // « Organisation: - » pendant que le header et le panneau montraient la
+    // bonne. Poser la valeur une fois au démarrage ne suffit donc pas.
+    m.context.org = Magasin.org ? Magasin.org.name : '';
     m.kit = kit;
     return m;
   }
