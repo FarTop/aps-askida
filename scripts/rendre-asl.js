@@ -280,9 +280,12 @@ module.exports = { COMPOSITIONS, FORMES, OPERATEURS, PORTS,
 
 if (require.main === module) {
   console.log('CE QU\'UN VERBE DEVIENT EN ASL\n');
-  console.log('Formes validées en console le 2026-08-12 (sonde-asl.json) : http:invoke,');
-  console.log('Catch, la BOUCLE de sondage, Map + ItemSelector. Validation de FORME —');
-  console.log('rien n\'a encore tourné.\n');
+  console.log('Validé en console le 2026-08-13 : PUBLISH entier en JSONata, 63 états,');
+  console.log('6 Map dont des Map imbriqués, 116 expressions — aucune erreur. Plus tôt :');
+  console.log('les cinq formes JSONata (sonde-jsonata.json) et la boucle de sondage.');
+  console.log('VALIDATION DE FORME. Un seul run a été exécuté à ce jour : la sonde');
+  console.log('d\'authentification, et elle a échoué sur la relation d\'approbation du');
+  console.log('rôle, pas sur la définition.\n');
   Object.entries(COMPOSITIONS).forEach(function ([nom, c]) {
     const etats = c.etats({});
     console.log('  ' + nom.padEnd(14) + c.dit.padEnd(22) + etats.length + ' état(s)'
