@@ -62,15 +62,50 @@ const WfInterpreter = (() => {
     }
 
     bouton.addEventListener('click', async function () {
-      // PAS de compte d'états ici. Le plan en annonce 35 là où l'émission en
-      // produit 65 : il ne voit pas les Choice qu'ASL exige pour chaque port
-      // métier, un écart connu depuis le 2026-08-12. Annoncer un chiffre faux
-      // dans le dialogue qui sert à approuver vaut moins que de n'en annoncer
-      // aucun — le vrai compte s'affiche après le dépôt, et il est mesuré.
+      // ── ANNONCER CE QUI SERA CRÉÉ, PAS SEULEMENT CE QU'ON DÉPOSE ────
+      // Une machine d'états seule ne dit rien des fonctions et des tables
+      // qu'elle suppose. Découvrir après coup qu'on a créé une table chez un
+      // client n'est pas une bonne surprise — on demande donc le plan au
+      // serveur et on l'énumère dans la confirmation.
+      //
+      // PAS de compte d'états : le plan en annonce 35 là où l'émission en
+      // produit 65, faute de voir les Choice qu'ASL exige par port métier
+      // (écart connu depuis le 2026-08-12). Un chiffre faux dans le dialogue
+      // qui sert à approuver vaut moins que pas de chiffre du tout.
+      bouton.disabled = true;
+      dire('Lecture du plan…', 'attente');
+      let plan = null;
+      try {
+        const rp = await fetch('/api/builder-flows/' + encodeURIComponent(fluxId()) + '/soumission/plan?cible=asl');
+        plan = await rp.json();
+        if (!rp.ok) throw new Error(plan.error || ('HTTP ' + rp.status));
+      } catch (e) {
+        bouton.disabled = false;
+        dire('❌ ' + e.message, 'erreur');
+        return;
+      }
+      bouton.disabled = false;
+      dire('', '');
+
+      const lignes = [];
+      lignes.push((plan.machine.existe ? '· machine d\'états REMPLACÉE : ' : '· machine d\'états créée : ')
+                + plan.machine.nom);
+      (plan.fonctions || []).forEach(function (f) {
+        lignes.push('· fonction ' + (f.existe ? 'mise à jour' : 'CRÉÉE') + ' : ' + f.nom
+                  + (f.dit ? ' — ' + f.dit : ''));
+      });
+      (plan.tables || []).forEach(function (t) {
+        lignes.push('· table ' + (t.existe ? 'inchangée' : 'CRÉÉE') + ' : ' + t.nom);
+      });
+      if (plan.graine) {
+        lignes.push('· graine : ' + plan.graine.registre + ' identifiant(s) et '
+                  + plan.graine.compteurs + ' compteur(s) transmis (rien n\'est écrasé)');
+      }
+
       if (!window.confirm(
-          'Déposer « ' + (d.flux && d.flux.nom || 'ce workflow') + ' » chez AWS Step Functions ?\n\n'
-        + 'Une machine d\'états sera créée, ou remplacée si elle existe déjà.\n'
-        + 'Elle ne sera PAS lancée : aucun appel à Iconik ni au partenaire.')) return;
+          'Déposer « ' + (d.flux && d.flux.nom || 'ce workflow') + ' » chez AWS ?\n\n'
+        + lignes.join('\n')
+        + '\n\nRien ne sera LANCÉ : aucun appel à Iconik ni au partenaire.')) return;
 
       bouton.disabled = true;
       dire('Dépôt en cours…', 'attente');
@@ -93,7 +128,19 @@ const WfInterpreter = (() => {
           reserves.push(rep.sansPorteur.length + ' référence(s) sans porteur');
         }
         if (rep.generiques) reserves.push(rep.generiques + ' état(s) sur gabarit générique');
+        // Ce qui a été créé À CÔTÉ de la machine d'états. Compté, pas listé :
+        // le détail tient dans l'infobulle, le bandeau doit rester lisible.
+        const sup = rep.supports || {};
+        const nFn = (sup.fonctions || []).filter(function (x) { return x.cree; }).length;
+        const nTb = (sup.tables || []).filter(function (x) { return x.cree; }).length;
+        const aussi = [];
+        if (nFn) aussi.push(nFn + ' fonction(s)');
+        if (nTb) aussi.push(nTb + ' table(s)');
+        if (sup.graine && sup.graine.registre && sup.graine.registre.semees) {
+          aussi.push(sup.graine.registre.semees + ' identifiant(s) semé(s)');
+        }
         dire((rep.cree ? '✅ Créée' : '✅ Remplacée') + ' — ' + rep.nom + ', ' + rep.etats + ' états'
+           + (aussi.length ? '  ·  + ' + aussi.join(', ') : '')
            + (reserves.length ? '  ·  ⚠ ' + reserves.join(', ') : ''),
              reserves.length ? 'reserve' : 'ok');
         if ((rep.sansPorteur || []).length) etat.title = rep.sansPorteur.join('\n');

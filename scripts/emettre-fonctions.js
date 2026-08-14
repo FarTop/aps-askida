@@ -175,7 +175,7 @@ function fonctionsRequises(definition) {
   return Array.from(requises);
 }
 
-(async function () {
+async function principal() {
   if (!ID) {
     console.log('Usage : node scripts/emettre-fonctions.js <idFlux> [--ecrire <dossier>]');
     return;
@@ -248,7 +248,58 @@ function fonctionsRequises(definition) {
       console.log('     ↳', path.basename(rel), '— embarqué depuis', rel);
     });
   });
-})().catch(function (e) {
-  console.error('ERREUR — ' + (e && e.stack || e));
-  process.exit(1);
-});
+}
+
+// ── APPELABLE PAR LE SERVEUR ────────────────────────────────────
+// Le bouton « Soumettre » a besoin de la MÊME liste que la ligne de commande.
+// La redéduire côté serveur les ferait diverger au premier arbitrage — la leçon
+// coûte déjà cher dans ce dépôt.
+
+/** Ce qu'un flux réclame : { fonctions: [{nom, ...}], tables: [{nom, ...}] }. */
+async function inventaire(idFlux) {
+  const { construire } = require('./emettre-asl.js');
+  const emis = await construire(idFlux);
+  const requises = fonctionsRequises(emis.definition);
+  const tables = new Set();
+  const fonctions = requises.map(function (nom) {
+    const d = FONCTIONS[nom] || null;
+    (d && d.etat || []).forEach(function (x) { tables.add(x); });
+    return Object.assign({ nom: nom, connue: !!d }, d || {});
+  });
+  return {
+    fonctions: fonctions,
+    tables: Array.from(tables).map(function (n) {
+      return Object.assign({ nom: n }, TABLES[n] || {});
+    }),
+  };
+}
+
+/** Écrit les sources dans un dossier. Renvoie les noms écrits. */
+function ecrire(noms, dossier) {
+  fs.mkdirSync(dossier, { recursive: true });
+  const ecrits = [];
+  (noms || []).forEach(function (nom) {
+    const d = FONCTIONS[nom];
+    if (!d) return;
+    const src = path.join(__dirname, 'fonctions', d.source);
+    if (!fs.existsSync(src)) return;
+    const cible = path.join(dossier, nom);
+    fs.mkdirSync(cible, { recursive: true });
+    fs.copyFileSync(src, path.join(cible, 'index.js'));
+    (d.compagnons || []).forEach(function (rel) {
+      const depuis = path.join(__dirname, '..', rel);
+      if (fs.existsSync(depuis)) fs.copyFileSync(depuis, path.join(cible, path.basename(rel)));
+    });
+    ecrits.push(nom);
+  });
+  return ecrits;
+}
+
+module.exports = { inventaire, ecrire, FONCTIONS, TABLES, fonctionsRequises };
+
+if (require.main === module) {
+  principal().catch(function (e) {
+    console.error('ERREUR — ' + (e && e.stack || e));
+    process.exit(1);
+  });
+}

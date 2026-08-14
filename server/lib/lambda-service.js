@@ -134,6 +134,25 @@ async function assurerRole(conn, tables) {
 
 // ── Déposer ─────────────────────────────────────────────────────
 
+// Attendre qu'une fonction cesse d'être « en cours de mise à jour ». On lit son
+// état plutôt que d'attendre une durée fixe : une archive de dix kilo-octets se
+// stabilise en une seconde, et rien ne justifie d'en attendre dix.
+async function _attendreStable(client, nom, secondes) {
+  const fin = Date.now() + (secondes || 60) * 1000;
+  while (Date.now() < fin) {
+    try {
+      const res = await client.send(new GetFunctionCommand({ FunctionName: nom }));
+      const c = res.Configuration || {};
+      if (c.LastUpdateStatus !== 'InProgress' && c.State !== 'Pending') return;
+    } catch (e) {
+      if (e.name === 'ResourceNotFoundException') return;
+      throw e;
+    }
+    await new Promise(function (r) { setTimeout(r, 1000); });
+  }
+  throw new Error('aps : la fonction « ' + nom + ' » ne s\'est pas stabilisée à temps');
+}
+
 /** La fonction existe-t-elle ? Renvoie sa description ou null. */
 async function decrire(conn, nom) {
   const { region, credentials } = _identifiants(conn);
@@ -163,12 +182,20 @@ async function deployer(conn, nom, dossier, opts) {
 
   const existante = await decrire(conn, nom);
   if (existante) {
+    // AWS refuse deux mises à jour concurrentes sur une même fonction —
+    // ResourceConflictException, « an update is in progress ». Ce n'est pas une
+    // erreur mais un état transitoire : une fonction reste « en cours » quelques
+    // secondes après chaque dépôt. On attend qu'elle se stabilise entre les
+    // deux appels plutôt que de faire échouer toute la soumission.
+    await _attendreStable(client, nom);
     await client.send(new UpdateFunctionCodeCommand({ FunctionName: nom, ZipFile: code }));
     if (o.variables) {
+      await _attendreStable(client, nom);
       await client.send(new UpdateFunctionConfigurationCommand({
         FunctionName: nom, Environment: { Variables: o.variables },
       }));
     }
+    await _attendreStable(client, nom);
     return { arn: existante.arn, cree: false };
   }
 

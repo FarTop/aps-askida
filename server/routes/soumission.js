@@ -28,7 +28,13 @@ const { PrismaClient } = require('@prisma/client');
 const { PrismaPg }     = require('@prisma/adapter-pg');
 const { getOrgContext } = require('../lib/org-context');
 const SFN = require('../lib/sfn-service.js');
+const Lambda = require('../lib/lambda-service.js');
+const Dynamo = require('../lib/dynamodb-service.js');
+const Fonctions = require('../../scripts/emettre-fonctions.js');
 const { construire } = require('../../scripts/emettre-asl.js');
+const fs   = require('fs');
+const os   = require('os');
+const path = require('path');
 
 const router = express.Router();
 const prisma = new PrismaClient({
@@ -58,6 +64,58 @@ async function connexionAws(req) {
   return { connexion: liste[0] || null, plusieurs: liste.length > 1 };
 }
 
+// ── Le plan ─────────────────────────────────────────────────────
+// Ce que la soumission CRÉERA chez la cible, et ce qu'elle laissera tranquille.
+// Quatre natures d'objets, et l'écran doit pouvoir les annoncer avant qu'on
+// clique : une machine d'états seule ne dit rien des fonctions et des tables
+// qu'elle suppose, et découvrir qu'on a créé une table en production après coup
+// n'est pas une bonne surprise.
+
+router.get('/builder-flows/:id/soumission/plan', async (req, res) => {
+  try {
+    const flux = await prisma.builderFlow.findUnique({ where: { id: req.params.id } });
+    if (!flux) return res.status(404).json({ error: 'Workflow non trouvé' });
+
+    const { connexion } = await connexionAws(req);
+    if (!connexion) return res.status(400).json({ error: 'Aucune connexion AWS active' });
+
+    const inv = await Fonctions.inventaire(req.params.id);
+    const nom = nomDeMachine(flux.name);
+
+    // L'état RÉEL chez la cible : exister ou non change la décision, pas
+    // seulement le libellé.
+    const machine = await SFN.trouverParNom(connexion, nom);
+    const fonctions = [];
+    for (const f of inv.fonctions) {
+      const etat = await Lambda.decrire(connexion, f.nom).catch(function () { return null; });
+      fonctions.push({ nom: f.nom, dit: f.dit || null, connue: f.connue, existe: !!etat });
+    }
+    const tables = [];
+    for (const t of inv.tables) {
+      const etat = await Dynamo.decrire(connexion, t.nom).catch(function () { return null; });
+      tables.push({ nom: t.nom, dit: t.dit || null, existe: !!etat, elements: etat ? etat.elements : 0 });
+    }
+
+    // La graine, comptée avant d'être proposée : c'est le chiffre qui fait
+    // comprendre pourquoi une table vide n'est pas une table neutre.
+    let graine = null;
+    if (tables.length) {
+      const registre = await prisma.bayardRegistry.count();
+      let compteurs = 0;
+      try {
+        const r = await prisma.$queryRawUnsafe('SELECT COUNT(*)::int AS n FROM "ApsCounter"');
+        compteurs = (r && r[0] && r[0].n) || 0;
+      } catch (_) { /* la table peut ne pas exister */ }
+      graine = { registre, compteurs };
+    }
+
+    res.json({ ok: true, machine: { nom, existe: !!machine },
+               fonctions, tables, graine });
+  } catch (e) {
+    res.status(500).json({ error: (e && e.name ? e.name + ' — ' : '') + (e && e.message || String(e)) });
+  }
+});
+
 // ── Déposer ─────────────────────────────────────────────────────
 
 router.post('/builder-flows/:id/soumission', async (req, res) => {
@@ -82,6 +140,56 @@ router.post('/builder-flows/:id/soumission', async (req, res) => {
     const emis = await construire(req.params.id);
     const nom  = nomDeMachine(flux.name);
 
+    // ── CE QUE LA MACHINE SUPPOSE, DÉPOSÉ D'ABORD ─────────────
+    // Une définition qui appelle une fonction absente se dépose sans broncher
+    // et échoue au premier run. On crée donc ce qui manque AVANT — tables,
+    // graine, rôle, fonctions — puis la machine d'états.
+    //
+    // L'ordre entre les trois premières n'est pas libre : le rôle référence les
+    // ARN des tables, et une fonction ne se crée pas sans son rôle.
+    const supports = { tables: [], graine: null, fonctions: [] };
+    const inv = await Fonctions.inventaire(req.params.id);
+    if (inv.fonctions.length) {
+      const noms = inv.fonctions.filter(f => f.connue).map(f => f.nom);
+      const tables = inv.tables.map(t => t.nom);
+
+      for (const t of tables) {
+        const r = await Dynamo.assurerTable(connexion, t);
+        supports.tables.push({ nom: t, cree: r.creee });
+      }
+
+      // La graine juste après les tables : une table créée puis laissée vide,
+      // même quelques minutes, c'est une fenêtre pendant laquelle un run
+      // redistribuerait des identifiants que le client utilise déjà.
+      if (tables.length) {
+        const registre = await prisma.bayardRegistry.findMany();
+        let compteurs = [];
+        try {
+          compteurs = await prisma.$queryRawUnsafe('SELECT "scope","key","value","updatedAt" FROM "ApsCounter"');
+        } catch (_) { /* la table peut ne pas exister côté APS */ }
+        const a = await Dynamo.semerRegistre(connexion, registre);
+        const b = await Dynamo.semerCompteurs(connexion, compteurs);
+        supports.graine = { registre: a, compteurs: b };
+      }
+
+      const roleArn = await Lambda.assurerRole(connexion, tables);
+      const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'aps-fn-'));
+      try {
+        Fonctions.ecrire(noms, dossier);
+        for (const f of noms) {
+          const r = await Lambda.deployer(connexion, f, path.join(dossier, f), {
+            roleArn: roleArn,
+            variables: tables.length
+              ? { APS_TABLE_REGISTRY: Dynamo.REGISTRE, APS_TABLE_COUNTER: Dynamo.COMPTEUR }
+              : undefined,
+          });
+          supports.fonctions.push({ nom: f, cree: r.cree });
+        }
+      } finally {
+        fs.rmSync(dossier, { recursive: true, force: true });
+      }
+    }
+
     const depot = await SFN.deployer(connexion, nom, emis.definition);
 
     res.json({
@@ -95,6 +203,7 @@ router.post('/builder-flows/:id/soumission', async (req, res) => {
       sansPorteur: emis.sansPorteur || [],
       generiques: ((emis.ctx && emis.ctx.generiques) || []).length
                 + (emis.corpsGeneriques || []).length,
+      supports: supports,
       plusieursConnexions: plusieurs
     });
   } catch (e) {
