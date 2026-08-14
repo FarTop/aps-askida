@@ -180,6 +180,16 @@ const RACINES_CALCULEES = { now: '$now()' };
 // au lieu de se recopier. À déplacer dans le catalogue le jour où un second
 // émetteur en aura besoin ; ici c'est une convention du moteur, pas d'Iconik.
 const RACINES_TRADUITES = [
+  // `_trigger` AVEC le tiret bas est le nom que le moteur WFD donne à la charge
+  // utile (wfd-engine-context.js:38), et le pivot l'écrit tel quel —
+  // `{_trigger.content.external_id}` dans les contrôles de BAYARD | CALLBACK.
+  // AWS interdit ce tiret bas en tête d'un nom de variable : on l'assigne donc
+  // sous `trigger`, et il faut traduire les lectures aussi. Corrigé le
+  // 2026-08-14 en déclarant `verify` — la première fois qu'une de ces
+  // références atteignait vraiment l'émission, le gabarit générique les ayant
+  // toutes avalées jusque-là. L'Assign avait été renommé le matin même ; les
+  // lectures ne l'avaient pas été, et rien ne le disait.
+  { motif: /^_trigger(\.[A-Za-z0-9_.[\]]+)?$/, rendre: (m) => '$trigger' + (m[1] || '') },
   { motif: /^trigger\.([A-Za-z0-9_]+)$/,
     // `$trigger` et non `$_trigger` : le moteur WFD nomme la charge utile avec
     // un tiret bas, AWS l'interdit en tête de nom de variable. Le pivot garde

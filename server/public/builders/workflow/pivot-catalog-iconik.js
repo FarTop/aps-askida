@@ -144,6 +144,43 @@ const PivotCatalogIconik = (() => {
     // par les messages d'historique de STATUSES et du callback.
     verify:        { ports: ['ok', 'fail', 'error'],
       lectures: LIT_NIVEAU,
+
+      // ── LES REQUÊTES D'UN CONTRÔLE ───────────────────────────────────────
+      // Déclaré le 2026-08-14, premier `appel()` porté par un Core et non par
+      // une façade (voir `appelDe`). Les contrôles sont entièrement décrits
+      // dans les paramètres de l'étape : méthode, chemin, chemin de lecture,
+      // opérateur, valeur attendue.
+      //
+      // UNE REQUÊTE PAR POINT D'ENTRÉE DISTINCT, pas une par contrôle. Les huit
+      // contrôles de BAYARD | CALLBACK interrogent tous le MÊME
+      // `/api/contents/{…}/action-statuses` : les émettre un par un ferait huit
+      // appels réseau là où le moteur natif en fait un, et gonflerait le compte
+      // d'états d'un facteur huit. La déduplication conserve l'ordre de première
+      // apparition — l'ordre des contrôles reste celui que l'auteur a écrit.
+      //
+      // CE QUI EST REFUSÉ, et pourquoi : un contrôle adossé à un MANIFESTE
+      // (`verifyEndpoint`/`verifyPath` des essences) se compose au RUN, filtré
+      // par le niveau courant — même raison que la case-à-cocher d'essences de
+      // `iconik.history`. Le catalogue ne sait pas à l'avance quelles essences
+      // s'appliqueront, donc il ne prétend pas.
+      appel: function (etape) {
+        const p = etape.params || {};
+        if (p.manifestId || (etape.essences && etape.essences.length)) return null;
+        const controles = Array.isArray(p.checks) ? p.checks : [];
+        if (!controles.length) return null;
+        if (controles.some(function (c) { return !c || !c.endpoint; })) return null;
+
+        const vues = new Map();
+        controles.forEach(function (c) {
+          const cle = (c.method || 'GET') + ' ' + c.endpoint;
+          if (!vues.has(cle)) vues.set(cle, { methode: c.method || 'GET', chemin: c.endpoint });
+        });
+        const liste = Array.from(vues.values());
+        return liste.map(function (r, i) {
+          return { role: liste.length > 1 ? 'controle ' + (i + 1) : 'controler',
+                   methode: r.methode, chemin: r.chemin };
+        });
+      },
       variables: function () {
         return [
           { nom: 'checkerResult',  aide: 'verdict complet (failures[])' },
@@ -1025,11 +1062,21 @@ const PivotCatalogIconik = (() => {
   // à lui de le dire plutôt que d'émettre une URL générique en silence.
   // Le tableau vide vaut donc « rien à déclarer ici », et `appelDe` renvoie
   // null quand la façade est muette.
+  // Une façade d'abord — c'est elle qui porte le vocabulaire de la plateforme.
+  // À DÉFAUT LE CORE, depuis le 2026-08-14 : certaines étapes n'ont pas de
+  // façade du tout et n'en auront jamais. `verify` interroge l'API du
+  // partenaire, dont les contrôles sont écrits dans ses propres paramètres —
+  // il n'y a pas d'« Iconik » ni de « VOD Factory » à nommer au-dessus, la
+  // description est complète au niveau du Core. Réserver `appel()` aux façades
+  // rendait ces verbes indéclarables par construction, et l'émetteur les
+  // comptait en gabarits génériques faute de mieux.
   function appelDe(etape) {
-    if (!etape || !etape.facade || !FACADES[etape.facade]) return null;
-    const f = FACADES[etape.facade];
-    if (typeof f.appel !== 'function') return null;
-    return f.appel(etape) || null;
+    if (!etape) return null;
+    const f = etape.facade && FACADES[etape.facade];
+    if (f && typeof f.appel === 'function') return f.appel(etape) || null;
+    const c = etape.core && CORES[etape.core];
+    if (c && typeof c.appel === 'function') return c.appel(etape) || null;
+    return null;
   }
 
   // ── Pour le convertisseur pivot → WFD ─────────────────────────────────────
