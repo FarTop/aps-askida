@@ -62,10 +62,14 @@ const WfInterpreter = (() => {
     }
 
     bouton.addEventListener('click', async function () {
-      const nb = (d.verdict && d.verdict.modules) || '?';
+      // PAS de compte d'états ici. Le plan en annonce 35 là où l'émission en
+      // produit 65 : il ne voit pas les Choice qu'ASL exige pour chaque port
+      // métier, un écart connu depuis le 2026-08-12. Annoncer un chiffre faux
+      // dans le dialogue qui sert à approuver vaut moins que de n'en annoncer
+      // aucun — le vrai compte s'affiche après le dépôt, et il est mesuré.
       if (!window.confirm(
           'Déposer « ' + (d.flux && d.flux.nom || 'ce workflow') + ' » chez AWS Step Functions ?\n\n'
-        + 'Une machine d\'états sera créée ou remplacée (' + nb + ' états annoncés).\n'
+        + 'Une machine d\'états sera créée, ou remplacée si elle existe déjà.\n'
         + 'Elle ne sera PAS lancée : aucun appel à Iconik ni au partenaire.')) return;
 
       bouton.disabled = true;
