@@ -76,8 +76,15 @@ const FONCTIONS = {
     dit: 'liste le dépôt et reconnaît quel fichier est quelle essence',
     piloteePar: 'Manifeste (essences, motifs de nom, cardinalité)',
     etat: null,
-    rend: '{ nbObjets, urls{}, manquantes[] }',
+    rend: '{ nbObjets, variables{}, horsNiveau[], cardinalite[] }',
     source: 'fonction-essences.js',
+    // EMBARQUÉ DEPUIS LE DÉPÔT, pas recopié. Le module est pur et son en-tête
+    // annonce lui-même qu'il sert « deux moteurs : celui d'APS, et une Lambda
+    // AWS ». Le copier à l'émission garantit qu'il ne peut pas diverger : ces
+    // variables composent les URL livrées au partenaire, qu'APS ira ensuite
+    // vérifier — deux implémentations différentes livreraient à une adresse et
+    // contrôleraient l'autre.
+    compagnons: ['server/engine-builder/builder-essences.js'],
   },
   'aps-lookup': {
     verbe: 'lookup',
@@ -207,9 +214,19 @@ function fonctionsRequises(definition) {
       console.log('  ⚠️ ', nom, '— source pas encore écrite (' + f.source + ')');
       return;
     }
-    const dest = path.join(SORTIE, nom + '.js');
-    fs.copyFileSync(src, dest);
-    console.log('  ✅', dest);
+    // Un dossier par fonction : le déploiement en fera une archive, et les
+    // compagnons doivent voisiner le handler pour que `require('./…')` résolve.
+    const dossier = path.join(SORTIE, nom);
+    fs.mkdirSync(dossier, { recursive: true });
+    fs.copyFileSync(src, path.join(dossier, 'index.js'));
+    console.log('  ✅', path.join(dossier, 'index.js'));
+    (f.compagnons || []).forEach(function (rel) {
+      const depuis = path.join(__dirname, '..', rel);
+      if (!fs.existsSync(depuis)) { console.log('  ⛔ compagnon introuvable :', rel); return; }
+      const vers = path.join(dossier, path.basename(rel));
+      fs.copyFileSync(depuis, vers);
+      console.log('     ↳', path.basename(rel), '— embarqué depuis', rel);
+    });
   });
 })().catch(function (e) {
   console.error('ERREUR — ' + (e && e.stack || e));
