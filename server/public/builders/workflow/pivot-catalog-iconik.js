@@ -773,6 +773,16 @@ const PivotCatalogIconik = (() => {
       //                    pour qu'une version approximative réécrive la
       //                    mauvaise ligne — et une ligne d'historique écrasée
       //                    ne se récupère pas.
+      //
+      // CE QUI PASSE DEPUIS LE 2026-08-14 : whMode 'change', qui n'ajoute une
+      // ligne que si elle dit autre chose que la précédente — la comparaison
+      // ignorant l'horodatage et la marque de run, sans quoi la date suffirait
+      // à rendre « différente » une phrase identique. C'est le mode des trois
+      // étapes d'historique de BAYARD | CALLBACK et de CHECK | STATUSES. Le
+      // moteur du Builder l'implémente depuis le 2026-08-10
+      // (`server/engine-builder/builder-handler-history.js`, éprouvé hors ligne
+      // par `scripts/preuve-history-change.js`) ; on suit cette sémantique-là,
+      // on ne l'invente pas.
       //   manifestId       la case-à-cocher d'essences (« Cover ✅ Poster ❌ »)
       //                    se compose au RUN, filtrée par le niveau courant.
       //   whSummaryVar     parcourt un objet et n'en garde que les entrées dont
@@ -784,7 +794,8 @@ const PivotCatalogIconik = (() => {
       // autres donne un journal qui s'allonge au lieu de se mettre à jour.
       appel: function (etape) {
         const p = etape.params || {};
-        if ((p.whMode || 'add') !== 'add') return null;
+        const mode = p.whMode || 'add';
+        if (mode !== 'add' && mode !== 'change') return null;
         if (p.manifestId || (etape.essences && etape.essences.length)) return null;
         if (p.whSummaryVar) return null;
         const champ = p.mdField;
@@ -827,6 +838,12 @@ const PivotCatalogIconik = (() => {
               // Iconik range des clés techniques (`__separator__`) parmi les
               // métadonnées ; le moteur les écarte avant de réécrire.
               saufPrefixe: '__',
+              // `change` : l'écriture devient CONDITIONNELLE. À l'émetteur de
+              // poser l'aiguillage entre la relecture et l'écriture — se taire
+              // veut dire ne pas envoyer le PUT du tout, pas en envoyer un qui
+              // remet la même valeur (chez Iconik une écriture reste une
+              // écriture : date de modification, webhooks).
+              siDifferent: mode === 'change',
             } },
         ];
       }

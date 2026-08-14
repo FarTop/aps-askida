@@ -905,6 +905,11 @@ function etatsDe(etapes, nommer, contexte) {
           const noms = appels.map((a, i) => (appels.length > 1 ? base + ' - ' + a.role : base));
           const vars = appels.map((a, i) => variableDe(e) + (i === 0 ? '' : '_' + a.role));
 
+          // Rempli par le journal en mode « change » : l'écriture devient
+          // conditionnelle, et l'aiguillage se pose après coup — il lui faut la
+          // ligne d'avant ET la ligne qu'on s'apprête à écrire.
+          let ecritureConditionnelle = null;
+
           appels.forEach(function (a, i) {
             const dernier = i === appels.length - 1;
             const cible = String(a.chemin || '/');
@@ -939,10 +944,26 @@ function etatsDe(etapes, nommer, contexte) {
                 const g = gabaritJsonata(String(part), adr, intraduisibles, noms[i]);
                 return g.jsonata ? g.jsonata : ASL.txt(g.valeur);
               });
+              // ── LA SIGNATURE, POUR LE MODE « CHANGE » ─────────────────
+              // Calculée AVANT d'ajouter la marque d'exécution, et sans
+              // l'horodatage : ce sont précisément les deux morceaux qui
+              // changent à chaque passage sans rien dire de neuf. Les garder
+              // ferait qu'un contrôle nocturne se croirait différent chaque
+              // nuit — soit exactement le bavardage que ce mode existe pour
+              // arrêter. Même règle que le moteur du Builder.
+              const morceauxSignifiants = j.parties
+                .map(function (part, iPart) {
+                  return (part && typeof part === 'object' && part.horodatage) ? null : morceaux[iPart];
+                })
+                .filter(function (m) { return m !== null; });
+
               if (j.marque) morceaux.push("'[' & $states.context.Execution.Name & ']'");
-              const ligne = '$join($filter([' + morceaux.join(', ')
-                          + '], function($m) { $exists($m) and $m != \'\' }), '
-                          + ASL.txt(j.separateur || ' | ') + ')';
+              const assembler = function (liste) {
+                return '$join($filter([' + liste.join(', ')
+                     + '], function($m) { $exists($m) and $m != \'\' }), '
+                     + ASL.txt(j.separateur || ' | ') + ')';
+              };
+              const ligne = assembler(morceaux);
               // Liaison de variables plutôt que répétition : sans elle, la
               // ligne ET l'existant apparaissent DEUX fois chacun, une par
               // branche du ternaire. L'expression fait alors le double et
@@ -960,6 +981,29 @@ function etatsDe(etapes, nommer, contexte) {
                 metadata_values: ASL.jsonata('$merge([' + conserves + ', {'
                   + ASL.txt(j.champ) + ': {\'field_values\': [{\'value\': ' + colle + '}]}}])'),
               };
+
+              // Ce qu'il faut à l'aiguillage de « change », mémorisé ici parce
+              // que les morceaux de ligne ne vivent que dans cette portée.
+              if (j.siDifferent) {
+                // La ligne précédente : la première ou la dernière selon l'ordre
+                // d'insertion. `$split` sur une chaîne vide rend [''] — d'où le
+                // test d'existence dans la condition plutôt qu'ici.
+                const lignes = '$split($a, \'\\n\')';
+                const precedente = j.ordre === 'oldest'
+                  ? lignes + '[-1]'
+                  : lignes + '[0]';
+                // On retire de l'ANCIENNE ligne ce qu'on n'a pas mis dans la
+                // nouvelle : la marque d'exécution en fin, l'horodatage en tête.
+                const nettoyee = "$trim($replace($replace($p, /\\s*\\[[^\\]]*\\]\\s*$/, ''), "
+                               + "/^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}:[0-9]{2}\\s*(\\|\\s*)?/, ''))";
+                ecritureConditionnelle = {
+                  indice: i,
+                  condition: '($a := ' + existant + '; '
+                           + "$exists($a) and $a != '' ? "
+                           + '($p := ' + precedente + '; ' + nettoyee + ' = ' + assembler(morceauxSignifiants) + ')'
+                           + ' : false)',
+                };
+              }
             }
             if (a.corps) {
               let corps = corpsResolu(a.corps, adr, intraduisibles, noms[i]);
@@ -1083,6 +1127,39 @@ function etatsDe(etapes, nommer, contexte) {
             if (i === 0) etat = etatAppel;
             else States[noms[i]] = etatAppel;
           });
+
+          // ── « CHANGE » : ne pas écrire si rien n'a changé ───────────
+          // Même forme que la garde `skipIfEmpty` ci-dessus — un Choice qui
+          // enjambe l'écriture —, mais le test porte sur ce qu'on relit : la
+          // ligne d'avant dit-elle déjà la même chose ? Si oui, on saute le PUT
+          // et on sort par la sortie nominale. Se taire, c'est ne rien envoyer.
+          if (ecritureConditionnelle) {
+            const iEcr = ecritureConditionnelle.indice;
+            // Sans point d'interrogation : AWS refuse un nom d'état hors ASCII
+            // simple, et le contrôle local le dit avant elle.
+            const nGarde = libelleDe.get(e.id) + ' - deja dit';
+            States[nGarde] = {
+              Type: 'Choice',
+              Comment: 'Mode « change » : l\'écriture est sautée quand la ligne redirait '
+                     + 'exactement ce que dit déjà la précédente. L\'horodatage et la marque '
+                     + 'd\'exécution sont ignorés dans la comparaison — sinon la date suffirait '
+                     + 'à rendre différente une phrase identique.',
+              Choices: [{ Condition: ASL.jsonata(ecritureConditionnelle.condition), Next: nominal }],
+              Default: noms[iEcr],
+            };
+            if (iEcr === 0) { etat = States[nGarde]; delete States[nGarde]; }
+            else {
+              // LE PREMIER APPEL N'EST PAS DANS `States` : il est gardé dans
+              // `etat` et enregistré plus loin sous le nom de l'étape. Aller le
+              // chercher par `States[noms[0]]` rendait `undefined`, et le
+              // rebranchement ne se faisait pas — la garde restait injoignable,
+              // sans un mot. C'est le contrôle de connexité qui l'a dit.
+              const precedent = (iEcr - 1 === 0) ? etat : States[noms[iEcr - 1]];
+              if (!precedent) throw new Error('rebranchement impossible vers ' + nGarde);
+              precedent.Next = nGarde;
+            }
+          }
+
           if (appels.length > 1) porteur = noms[noms.length - 1];
         } else {
           // LE GABARIT GÉNÉRIQUE — une façade dont personne n'a encore déclaré
