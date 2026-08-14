@@ -16,6 +16,8 @@
 
 'use strict';
 
+const Textes = require('./builder-textes.js');
+
 function createContext(triggerPayload = {}) {
   return {
     asset      : {},
@@ -121,15 +123,16 @@ function resolve(template, ctx) {
       const raw = resolvePath(key, ctx);
       const val = raw !== undefined && raw !== null ? String(raw) : '';
       switch (fn) {
-        case 'slug':  return val.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                               .replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '').replace(/_+/g, '_').replace(/^_|_$/g, '');
+        // Une seule implémentation, partagée avec le handler resolve_ancestors
+        // et avec la Lambda aps-ancestors : ce slug compose des chemins S3 qu'APS
+        // ira ensuite VÉRIFIER, et deux versions qui divergent d'un caractère
+        // livreraient à une adresse en contrôlant l'autre.
+        case 'slug':  return Textes.slugChemin(val);
         case 'upper': return val.toUpperCase();
         case 'lower': return val.toLowerCase();
         case 'trim':  return val.trim();
         case 'filebase': {
-          const noExt = val.replace(/\.[a-zA-Z0-9]{1,6}$/, '');
-          return noExt.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                      .replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '').replace(/_+/g, '_').replace(/^_|_$/g, '');
+          return Textes.baseDeFichier(val);
         }
         default:      return val;
       }

@@ -552,7 +552,11 @@ const FONCTIONS = {
   // Retirer l'extension d'un nom de fichier. Surtout PAS `$substringBefore`,
   // qui s'arrête au PREMIER point : « saison.01.mp4 » y perdrait « 01.mp4 ».
   // Le moteur natif coupe au DERNIER point, ce que dit exactement ce motif.
-  filebase: (a) => '$replace(' + a + ", /\\.[^.]*$/, '')",
+  // Le moteur retire l'extension PUIS normalise — le point disparaît :
+  // « saison.01.mp4 » donne « saison01 », pas « saison.01 ». La version qui
+  // s'arrêtait au retrait d'extension composait un préfixe S3 que le listing
+  // ne trouvait pas. Trouvé le 2026-08-14 en comparant les deux moteurs.
+  filebase: (a) => slugCheminJsonata('$replace(' + a + ", /\\.[a-zA-Z0-9]{1,6}$/, '')"),
   lower:    (a) => '$lowercase(' + a + ')',
   upper:    (a) => '$uppercase(' + a + ')',
   trim:     (a) => '$trim(' + a + ')',
@@ -630,6 +634,29 @@ const SLUG_TABLE = [
   ['ĥȟ', 'h'], ['ĵǰ', 'j'], ['ķǩ', 'k'], ['ĺļľ', 'l'], ['ŕŗřȑȓ', 'r'],
   ['śŝşšș', 's'], ['ţťț', 't'], ['ŵ', 'w'], ['źżž', 'z'],
 ];
+
+
+// ── LE SLUG DE CHEMIN, EN JSONATA ───────────────────────────────
+// Pendant de `builder-textes.slugChemin` : casse PRÉSERVÉE, tirets bas. Il
+// compose les chemins S3, et la version de la correspondance
+// (`slugJsonata` ci-dessus, minuscules et tirets hauts) n'a rien à voir — les
+// intervertir ferait livrer à une adresse et contrôler l'autre.
+//
+// JSONata n'a pas de normalisation Unicode : on substitue les accents par
+// table, en DEUX passes puisque la casse est conservée. Ce que la table ne
+// couvre pas se fait écarter par le filtre final plutôt que translittéré —
+// écart assumé et borné, à la différence d'un chemin faux qui se tait.
+function slugCheminJsonata(e) {
+  let x = '$replace(' + e + ", /[\\u0300-\\u036f]/, '')";
+  SLUG_TABLE.forEach(function (p) {
+    x = '$replace(' + x + ', /[' + p[0] + ']/, ' + ASL.txt(p[1]) + ')';
+    x = '$replace(' + x + ', /[' + p[0].toUpperCase() + ']/, ' + ASL.txt(p[1].toUpperCase()) + ')';
+  });
+  x = '$replace(' + x + ", /\\s+/, '_')";
+  x = '$replace(' + x + ", /[^a-zA-Z0-9_-]/, '')";
+  x = '$replace(' + x + ", /_+/, '_')";
+  return '$replace(' + x + ", /^_|_$/, '')";
+}
 
 function slugJsonata(e) {
   // Minuscules, PUIS retrait des signes combinants — « İ » devient en minuscule
@@ -1044,7 +1071,17 @@ function etatsDe(etapes, nommer, contexte) {
           // elle-même. On ne fait JAMAIS transiter une clé par la définition —
           // une définition de machine d'états se lit en clair dans la console.
           payload.connexionId = (e.params && e.params.connexionId) || 'a-renseigner';
-          payload.objectKey   = (e.params && e.params.objectKey) || '';
+          // RÉSOLU, pas recopié. Le gabarit du pivot —
+          // « AmazonPrime/{ancestorPath}/{filebase(item.title)} » — partait tel
+          // quel vers la Lambda, qui n'a ni `ancestorPath` ni `item` pour le
+          // résoudre : elle aurait listé un préfixe contenant des accolades,
+          // donc trouvé zéro objet et déclaré tout manquant. Trouvé le
+          // 2026-08-14 en comparant les deux moteurs sur `filebase`.
+          {
+            const brut = (e.params && e.params.objectKey) || '';
+            const g = brut ? gabaritJsonata(brut, adresserChez(e), intraduisibles, nom) : null;
+            payload.objectKey = g ? (g.jsonata ? ASL.jsonata(g.jsonata) : g.valeur) : '';
+          }
           reconnaitre.Comment += ' Liste AUSSI le bucket (identifiants de la connexion APS) : '
             + 'l\'intégration S3 native signe avec le rôle d\'exécution, donc elle ne sait '
             + 'pas atteindre le bucket d\'un client.';

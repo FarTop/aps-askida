@@ -7,10 +7,9 @@ const BuilderContext = require('./builder-context.js');
 const { requireIconik } = require('./builder-iconik-shared.js');
 const { aplatirMetadonnees } = require('./builder-heritage.js');
 
-function _slug(v) {
-  return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '').replace(/_+/g, '_').replace(/^_|_$/g, '');
-}
+// `_slug` a déménagé dans builder-textes.js : il en existait deux copies
+// identiques, et la Lambda aps-ancestors en aurait fait une troisième.
+const _slug = require('./builder-textes.js').slugChemin;
 
 async function resolveAncestors(step, ctx, deps) {
   const iconikClient = deps && deps.iconikClient;
