@@ -353,7 +353,20 @@ async function sauvegarder() {
     type:        document.getElementById('f-type').value,
     direction:   document.getElementById('f-direction').value,
     endpoint:    document.getElementById('f-baseurl').value.trim(),
-    authType:    document.getElementById('f-authtype').value,
+    authType: (function () {
+      // Quand la plateforme déclare la NATURE de son authentification, elle
+      // fait foi. Le menu est masqué en mode plateforme : en lire la valeur
+      // revenait à réécrire ce que la page portait au chargement, si bien qu'un
+      // onglet resté ouvert ramenait une valeur périmée à chaque sauvegarde
+      // (constaté le 2026-08-14 — la fiche Step Functions repassait en aws_s3).
+      //
+      // Seuls les `kind` qui SONT des valeurs d'authType comptent : `headers`,
+      // déclaré par Make, Iconik et VOD Factory, décrit une mécanique d'en-têtes
+      // dont l'authType réel varie (iconik, bearer…) — on laisse le menu.
+      const kind = spec && spec.auth && spec.auth.kind;
+      if (['aws_sigv4', 'bearer', 'apikey_header', 'iconik'].indexOf(kind) !== -1) return kind;
+      return document.getElementById('f-authtype').value;
+    })(),
     authValue: (function() {
       // Un schéma déclaré l'emporte, TOUJOURS et en premier. L'ordre inverse a
       // coûté un piège le 2026-08-14 : sur une fiche à authSpec (Step Functions),
