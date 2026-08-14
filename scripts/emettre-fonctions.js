@@ -106,6 +106,17 @@ const FONCTIONS = {
                  'server/engine-builder/builder-heritage.js',
                  'server/engine-builder/builder-correspondance.js'],
   },
+  'aps-resolve-ancestors': {
+    verbe: 'iconik.resolve_ancestors',
+    dit: 'remonte la parente et compose le chemin de depot',
+    piloteePar: 'rien — la hierarchie se lit dans Iconik',
+    etat: null,
+    rend: '{ ancestorPath, ancetres[], complet, motif }',
+    source: 'fonction-resolve-ancestors.js',
+    compagnons: ['scripts/fonctions/commun-connexion.js',
+                 'server/engine-builder/builder-textes.js',
+                 'server/engine-builder/builder-heritage.js'],
+  },
   'aps-create-tree': {
     verbe: 'iconik.create_tree',
     dit: 'cree N collections en descendant un gabarit d arborescence',

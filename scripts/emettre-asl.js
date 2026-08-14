@@ -312,8 +312,24 @@ function chargeLambda(e, nomFn, adr, intraduisibles, ouNom) {
         // chose telle qu'elle est — l'héritage entre niveaux est inactif tant
         // que `resolve_ancestors` n'est pas déclaré, et le compte de gabarits
         // génériques le rappelle.
-        ancetres: [],
+        // POSÉS DÉSORMAIS par aps-resolve-ancestors : l'héritage entre niveaux
+        // redevient actif. `_hors_niveau` reste vide — deliver ne l'expose pas.
+        ancetres: ASL.jsonata('$ancetres'),
         horsNiveau: [],
+      };
+
+    case 'aps-resolve-ancestors':
+      return {
+        typeCollection: niveau(),
+        univers:  valeur('{Univers}'),
+        bayardId: valeur('{BayardID}'),
+        parentId: valeur('{ParentID}'),
+        // Le TITRE n'est pas une variable nue : le nœud Search ne l'expose que
+        // préfixé (« search_results.title »), seules les MÉTADONNÉES portent
+        // leur nom nu. Lire « title » seul rendait une chaîne vide et amputait
+        // le segment de chemin — constaté le 2026-08-06 sur une Saison.
+        title: valeur('{search_results.title}'),
+        connexion: cx(p.connexionId),
       };
 
     case 'aps-registry':

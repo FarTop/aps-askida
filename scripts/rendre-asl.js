@@ -185,6 +185,21 @@ const COMPOSITIONS = {
       return [{ etat: 'Task', role: 'Lambda — arborescence complète, identifiants et numéros compris' }];
     },
   },
+  // Déclaré le 2026-08-14, en dernier : c'est lui qui posait les quatre
+  // derniers avertissements d'AWS sur PUBLISH. Trois raisons d'être une Lambda,
+  // et la première suffit — le slug de chemin normalise en NFD pour retirer les
+  // accents, ce qu'aucune fonction JSONata ne sait faire.
+  'iconik.resolve_ancestors': {
+    dit: 'Lambda',
+    pourquoi: 'remonte la parenté par une boucle dont la profondeur depend du niveau, '
+            + 'et compose un chemin dont le slug demande une normalisation Unicode '
+            + 'qu ASL ne sait pas faire',
+    source: 'doc',
+    lambda: true,
+    etats: function () {
+      return [{ etat: 'Task', role: 'Lambda — chemin de depot et metadonnees des ancetres' }];
+    },
+  },
   'aps.registry': {
     dit: 'Lambda + stockage',
     pourquoi: 'le registre et le compteur vivent dans la base d\'APS. Aucune cible ne '
@@ -397,6 +412,20 @@ const POSEES = {
 
   // L'identifiant attribué. `aps-registry` rend { id, existait } ; le pivot le
   // lit sous le nom que l'étape déclare — `generated_id` par défaut.
+  // Deux sorties : le chemin, et les ancêtres que le Lookup consomme pour
+  // l'héritage entre niveaux. La seconde est gratuite — le handler lisait déjà
+  // ces métadonnées pour composer le chemin, et les jetait.
+  'iconik.resolve_ancestors': function (r, etape) {
+    const nom = ((etape && etape.params) || {}).varName || 'ancestorPath';
+    const out = {};
+    out[nom] = r + '.ancestorPath';
+    // SANS tiret bas : le préfixe `_` est une convention d'APS — « hors
+    // variables publiques » — et AWS refuse un nom de variable qui commence
+    // par là (INVALID_VARIABLE_NAME, comme `_trigger` ce matin même).
+    out.ancetres = r + '.ancetres';
+    return out;
+  },
+
   'aps.registry': function (r, etape) {
     const nom = ((etape && etape.params) || {}).varName || 'generated_id';
     const out = {};
