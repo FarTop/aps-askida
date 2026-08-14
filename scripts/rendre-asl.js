@@ -136,6 +136,35 @@ const COMPOSITIONS = {
       ];
     },
   },
+  // Déclaré le 2026-08-14. Il se comptait jusque-là en « gabarit générique »,
+  // c'est-à-dire « appel que le catalogue n'a pas encore décrit » — et c'était
+  // faux : ce n'est pas un appel qu'on n'a pas pris le temps d'écrire, c'est un
+  // verbe qu'ASL seul ne peut pas rendre. La distinction compte, parce que les
+  // deux compteurs ne mesurent pas le même travail : l'un du remplissage de
+  // catalogue, l'autre du code à écrire, déployer et maintenir.
+  //
+  // Trois raisons, dont deux rédhibitoires :
+  //   — c'est une RÉCURSION sur les nœuds d'un ArboTemplate : N collections
+  //     créées, pas une, et N inconnu à l'émission (le gabarit vit en base) ;
+  //   — `bayardIdFor` et `nextOrderNumber` lisent LA BASE D'APS (compteurs
+  //     maison, via Prisma). Aucune cible ne porte cet état ;
+  //   — la numérotation de fratrie interroge Iconik pour trouver le plus grand
+  //     numéro existant, puis incrémente — donc une lecture, un calcul, une
+  //     écriture, à chaque niveau.
+  // Même famille qu'`aps.registry`, et probablement la MÊME Lambda : les deux
+  // ont besoin du compteur.
+  'iconik.create_tree': {
+    dit: 'Lambda + stockage',
+    pourquoi: 'crée N collections en descendant un gabarit d\'arborescence, et tire '
+            + 'ses identifiants et ses numéros de fratrie des compteurs qui vivent '
+            + 'dans la base d\'APS. Ni la récursion sur un gabarit lu en base, ni '
+            + 'ces compteurs, ne se posent dans une définition ASL',
+    source: 'doc',
+    lambda: true,
+    etats: function () {
+      return [{ etat: 'Task', role: 'Lambda — arborescence complète, identifiants et numéros compris' }];
+    },
+  },
   'aps.registry': {
     dit: 'Lambda + stockage',
     pourquoi: 'le registre et le compteur vivent dans la base d\'APS. Aucune cible ne '
