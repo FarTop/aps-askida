@@ -113,6 +113,14 @@ under `npm run dev`; a manually-started `node server/index.js` will not pick up 
   - `wfd-engine-handlers.js` (~4300 lines) is the single dispatch table for every node `family`
     (conditions, transforms, id-generators, string ops, asset/collection CRUD, etc.) — grep `case '`
     to find a given family's behavior before assuming it doesn't exist.
+- `server/engine-builder/*.js` — **the Builder's own engine, and THERE ARE TWO ENGINES.** This is the
+  one that runs `BuilderFlow` documents; `server/engine/` above is the older WFD one. One handler per
+  verb (`builder-handler-*.js`) plus pure shared modules (`builder-essences.js`,
+  `builder-lookup-noyau.js`, `builder-identifiants.js`, `builder-textes.js`) that are **also embedded
+  verbatim into the Lambdas APS emits** — see `scripts/emettre-fonctions.js`. Never port that logic:
+  copy it, or the two implementations diverge and the native engine validates a workflow the target
+  executes differently. This omission cost a wrong diagnosis on 2026-08-14 (a mode was declared
+  "unimplemented" after reading the wrong engine) — **check which of the two before concluding.**
 - `server/lib/org-context.js` — resolves "which organisation is this request in" from
   `X-Org-Id` header / `?orgId=` / `aps-org-id` cookie, with a role-based filter (`superadmin`/`admin`
   see everything unfiltered; `editor`/`viewer` are scoped to their org). **There is no auth system yet**
