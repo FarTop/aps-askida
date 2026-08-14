@@ -10,7 +10,45 @@
   --border:#262a2e;
   --danger:#e74c3c;
   --success:#27ae60;
+  /* Barres de défilement — 2026-08-14 : elles sortaient de la charte, rendues
+     en clair et à flèches sur un fond sombre, deux à la fois dans le panneau
+     latéral (le corps du panneau et la zone Description). */
+  --scroll-pouce:#3a4147;
+  --scroll-pouce-actif:#4c545c;
 }
+
+/* `color-scheme` fait le gros du travail : il assombrit TOUS les widgets natifs
+   — barres, flèches, sélecteurs, curseurs de saisie — sans qu'on ait à les
+   redessiner un par un. Les règles qui suivent ne font que donner au pouce la
+   teinte de la charte, là où le navigateur l'accepte. */
+:root{ color-scheme:dark; }
+
+.side-panel-body,
+.field textarea,
+body{
+  scrollbar-width:thin;                                  /* Firefox */
+  scrollbar-color:var(--scroll-pouce) transparent;
+}
+.side-panel-body::-webkit-scrollbar,
+.field textarea::-webkit-scrollbar,
+body::-webkit-scrollbar{ width:10px; height:10px; }
+.side-panel-body::-webkit-scrollbar-track,
+.field textarea::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track{ background:transparent; }
+.side-panel-body::-webkit-scrollbar-thumb,
+.field textarea::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb{
+  background:var(--scroll-pouce);
+  border-radius:5px;
+  border:2px solid transparent;                          /* affine le pouce */
+  background-clip:content-box;
+}
+.side-panel-body::-webkit-scrollbar-thumb:hover,
+.field textarea::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover{ background:var(--scroll-pouce-actif); background-clip:content-box; }
+.side-panel-body::-webkit-scrollbar-corner,
+.field textarea::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner{ background:transparent; }
 
 *,*::before,*::after{ box-sizing:border-box; }
 html,body{ margin:0; background:var(--bg); color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,sans-serif; }
