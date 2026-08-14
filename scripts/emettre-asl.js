@@ -256,6 +256,31 @@ function adressesDe(etapes, chemin) {
   const mdParObjet = new Map();              // idEtape → { objet → { base, gabarit } }
   const mdToutes   = new Map();              // idEtape → dernier aplatisseur, tous objets
 
+  // ── LE GARDE-FOU DU REPLI « MÉTADONNÉE APLATIE » ──────────────
+  // Ajouté le 2026-08-14, après que la console AWS a signalé ce que nous
+  // n'avions pas vu : `Set Bayard ID` écrivait
+  //   $http_request_<Search>.ResponseBody.objects[0].metadata.generated_id
+  // c'est-à-dire `generated_id` lu comme une métadonnée Iconik aplatie d'un
+  // Search — alors que le plan la déclare PRODUITE par « Create ID Generator ».
+  // Le repli avait fabriqué un chemin plausible et faux, dans une réponse qui
+  // n'a rien à voir, et de surcroît posée par un état qui s'exécute APRÈS.
+  //
+  // On note donc les noms produits par une étape qui n'aplatit PAS de
+  // métadonnées. Ceux-là ne peuvent pas être des champs aplatis, par
+  // construction — et le repli n'a pas à les inventer.
+  //
+  // Nuance qui compte : les noms produits par un aplatisseur (`title`, `id`,
+  // `object_type`… qu'un Search expose nus) restent éligibles au repli, sans
+  // quoi on casserait la seule chose que ce repli sait bien faire.
+  const produitesHorsAplatissement = new Map();   // nom → libellé de l'étape
+  etapes.forEach(function (e) {
+    if (CAT.aplatitMetadonnees({ facade: e.verbe, core: e.core, params: e.params || {} })) return;
+    (e.produit || []).forEach(function (n) {
+      const racine = String(n).split('.')[0];
+      if (!produitesHorsAplatissement.has(racine)) produitesHorsAplatissement.set(racine, e.label || e.id);
+    });
+  });
+
   const courantParObjet = {};
   let courante = null;
   etapes.forEach(function (e) {
@@ -306,6 +331,20 @@ function adressesDe(etapes, chemin) {
         return r.base + '.' + reste.join('.');
       }
       const nom = parts[0];
+      // Produite ailleurs qu'ailleurs par un aplatisseur : le repli ne s'applique
+      // pas. On ne sait pas OÙ la valeur se trouve dans la réponse du
+      // producteur — le catalogue ne le déclare pas (`depuis` absent) — et
+      // inventer un chemin serait exactement la faute qu'on vient de corriger.
+      // On la rend en variable nue, ce qui la fait remonter dans « sans
+      // porteur » et lever States.QueryEvaluationError au run plutôt que de
+      // lire silencieusement dans la réponse d'un autre appel.
+      if (o.aplatie && produitesHorsAplatissement.has(nom)) {
+        if (besoins && !besoins.has(nom)) {
+          besoins.set(nom, { nom: nom, objet: o.objet || null, aplatie: true,
+                             produitePar: produitesHorsAplatissement.get(nom) });
+        }
+        return '$' + ref;
+      }
       if (o.aplatie) {
         const src = (o.objet && (mdParObjet.get(idEtape) || {})[o.objet]) || mdToutes.get(idEtape);
         if (src) return src.base + '.ResponseBody.' + applique(src.gabarit, ref);
@@ -1294,13 +1333,82 @@ async function construire(ID) {
   // RUN, et sur PUBLISH le run coûte des appels réels à Iconik. Le dire avant
   // de coller reste moins cher.
   const sansPorteur = [];
-  (function verifier(states, porteurs, ou) {
-    const dispo = new Set(porteurs);
-    Object.values(states).forEach(function (s) {
-      Object.keys(s.Assign || {}).forEach(n => dispo.add(n));
-      (s.Catch || []).forEach(c => Object.keys(c.Assign || {}).forEach(n => dispo.add(n)));
-      (s.Choices || []).forEach(c => Object.keys(c.Assign || {}).forEach(n => dispo.add(n)));
+  (function verifier(states, depart, porteurs, ou) {
+    // ── SENSIBLE À L'ORDRE, depuis le 2026-08-14 ─────────────────
+    // La version d'avant demandait « un état QUELQUE PART pose-t-il ce nom ? ».
+    // La réponse était oui pour `generated_id`, donc elle se taisait — pendant
+    // que l'état lisait le résultat d'un appel situé PLUS LOIN dans le graphe.
+    // C'est la console AWS qui l'a dit, avec une question plus forte : « sur
+    // TOUS les chemins qui mènent ici, ce nom est-il déjà posé ? ».
+    //
+    // On calcule donc, pour chaque état, l'ensemble des variables qu'AU MOINS UN
+    // chemin y ayant mené a posées : union sur les prédécesseurs, jusqu'au point
+    // fixe.
+    //
+    // UNION ET NON INTERSECTION, et c'est mesuré, pas supposé. L'intersection
+    // (« posé à coup sûr ») a d'abord été écrite : elle rendait 34 alertes là où
+    // la console AWS, sur la même définition, en rendait deux. Le surplus venait
+    // des Catch, qui sautent par-dessus l'état qui pose la variable — un chemin
+    // d'échec réel, mais qu'AWS ne compte pas. Un contrôle plus sévère que la
+    // cible n'est pas plus sûr : il devient du bruit qu'on apprend à ignorer,
+    // et c'est ainsi qu'on rate la vraie alerte.
+    //
+    // Ce que l'union attrape, et qui est tout ce qu'on cherchait : un nom que
+    // personne ne pose, et un nom posé UNIQUEMENT plus loin dans le graphe —
+    // le défaut de `generated_id`.
+    const assigneDe = {};
+    Object.entries(states).forEach(function ([n, s]) {
+      const a = new Set(Object.keys(s.Assign || {}));
+      // L'Assign d'un Choice appartient à la branche choisie. L'attribuer à
+      // toutes les sorties est une approximation OPTIMISTE assumée : elle peut
+      // laisser passer un cas, jamais en inventer un.
+      (s.Choices || []).forEach(c => Object.keys(c.Assign || {}).forEach(x => a.add(x)));
+      assigneDe[n] = a;
     });
+
+    // Les arêtes, avec ce que CHACUNE apporte. Une arête de Catch n'apporte que
+    // l'Assign du Catch : quand l'état échoue, son propre Assign n'a pas eu
+    // lieu. Confondre les deux ferait croire la branche d'erreur mieux servie
+    // qu'elle ne l'est.
+    const aretes = [];
+    Object.entries(states).forEach(function ([n, s]) {
+      const suite = [];
+      if (s.Next) suite.push(s.Next);
+      if (s.Default) suite.push(s.Default);
+      (s.Choices || []).forEach(c => c.Next && suite.push(c.Next));
+      suite.forEach(v => aretes.push({ de: n, vers: v, apporte: assigneDe[n] }));
+      (s.Catch || []).forEach(function (c) {
+        if (c.Next) aretes.push({ de: n, vers: c.Next, apporte: new Set(Object.keys(c.Assign || {})) });
+      });
+    });
+
+    // Atteignables : le reste est déjà signalé par le contrôle de connexité, et
+    // le compter ici doublerait le bruit sur un même défaut.
+    const atteints = new Set();
+    (function marcher(n) {
+      if (!n || atteints.has(n) || !states[n]) return;
+      atteints.add(n);
+      aretes.filter(a => a.de === n).forEach(a => marcher(a.vers));
+    })(depart);
+
+    // Vide au départ, l'union ne fait que croître : le calcul converge, et le
+    // nombre de tours est borné par le nombre de noms.
+    const avant = {};
+    Object.keys(states).forEach(n => { avant[n] = new Set(); });
+    avant[depart] = new Set(porteurs);
+
+    for (let tour = 0, bouge = true; bouge && tour < 500; tour++) {
+      bouge = false;
+      aretes.forEach(function (a) {
+        if (!atteints.has(a.de)) return;
+        const cible = avant[a.vers];
+        if (!cible) return;
+        const ajouter = function (x) { if (!cible.has(x)) { cible.add(x); bouge = true; } };
+        avant[a.de].forEach(ajouter);
+        a.apporte.forEach(ajouter);
+      });
+    }
+
     // Toute chaîne `{% … %}` est une expression : on y relève les `$nom`.
     // `$states` est réservé et toujours disponible ; `$` seul est le contexte
     // courant, pas une variable. Les fonctions (`$count(`, `$exists(`) se
@@ -1340,16 +1448,38 @@ async function construire(ID) {
         });
       }
     };
-    Object.values(states).forEach(parcourir);
-    lues.forEach(function (l) {
-      if (dispo.has(l.nom) || RACINE.test(l.nom)) return;
-      sansPorteur.push(ou + ' : « $' + l.nom + ' » — rien ne pose « ' + l.nom + ' »');
+    // État par état, et non plus portée par portée : c'est ce qui permet de
+    // confronter chaque lecture à ce qui est posé À CET ENDROIT du graphe.
+    const jamaisPosees = new Set();
+    Object.values(assigneDe).forEach(s => s.forEach(x => jamaisPosees.add(x)));
+    aretes.forEach(a => a.apporte.forEach(x => jamaisPosees.add(x)));
+    porteurs.forEach(x => jamaisPosees.add(x));
+
+    Object.entries(states).forEach(function ([n, s]) {
+      if (!atteints.has(n)) return;
+      lues.length = 0;
+      parcourir(s);
+      lues.forEach(function (l) {
+        if (RACINE.test(l.nom) || avant[n].has(l.nom)) return;
+        // Deux diagnostics, pas un : « personne ne le pose nulle part » est un
+        // trou du modèle ; « posé, mais pas encore ici » est une erreur de
+        // chaînage. Les confondre ferait chercher au mauvais endroit.
+        sansPorteur.push(jamaisPosees.has(l.nom)
+          ? ou + ' : « $' + l.nom + ' » — posé ailleurs, mais par AUCUN chemin menant à « ' + n
+            + ' » (lecture avant écriture)'
+          : ou + ' : « $' + l.nom + ' » — rien ne pose « ' + l.nom + ' »');
+      });
     });
-    Object.values(states).forEach(function (s) {
-      if (!s.ItemProcessor) return;
-      verifier(s.ItemProcessor.States, Array.from(dispo), 'corps de boucle');
+
+    // La portée fille hérite de ce qui est acquis À L'ENTRÉE du Map, plus ce
+    // que le Map lui-même assigne — pas de l'union de toute la portée mère.
+    Object.entries(states).forEach(function ([n, s]) {
+      if (!s.ItemProcessor || !atteints.has(n)) return;
+      const herite = new Set(avant[n]);
+      assigneDe[n].forEach(x => herite.add(x));
+      verifier(s.ItemProcessor.States, s.ItemProcessor.StartAt, Array.from(herite), 'corps de boucle');
     });
-  })(definition.States, [], 'racine');
+  })(definition.States, definition.StartAt, [], 'racine');
 
   // Un nom hors ASCII simple est refusé par la console AWS — mesuré le
   // 2026-08-12. On le signale AVANT de faire coller quoi que ce soit.
