@@ -129,7 +129,15 @@ const BASE_ICONIK = process.env.ICONIK_BASE || 'https://app.iconik.io';
 // Les ports qui ne sont NI le passage nominal NI une erreur. Chacun devient une
 // branche de Choice après l'état — c'est là que le compte d'états gonfle.
 const PORT_NOMINAL = /^(out|found|ok)$/;
-const PORT_ERREUR  = /^(error|err|erreur|fail|timeout)$/;
+// `fail` N'EST PAS UNE ERREUR — retiré le 2026-08-14. Seul `verify` porte ce
+// port (3 arêtes dans les sept flux), et il déclare `error` À CÔTÉ : `fail` est
+// un VERDICT — le partenaire a répondu, et il dit non —, `error` est l'appel
+// qui n'aboutit pas. Les confondre les envoyait tous deux dans `suivantDe(…,
+// PORT_ERREUR)`, qui ne rend que le premier : le Catch partait vers la branche
+// d'erreur et la branche de verdict devenait injoignable, sans un mot. C'est
+// l'origine des « états jamais atteints » de CALLBACK et de CHECK STATUSES,
+// que j'avais pris pour un défaut de câblage du pivot — le pivot était juste.
+const PORT_ERREUR  = /^(error|err|erreur|timeout)$/;
 
 // Un nom d'état ASL doit être unique dans sa portée. On part du libellé, qui
 // est ce que l'opérateur lit, et on ne retombe sur l'identifiant que s'il se
@@ -1221,7 +1229,7 @@ function etatsDe(etapes, nommer, contexte) {
       const sortie = sortieDe.get(e.id) || '$states.input';
       const Choices = [];
       autres.forEach(function (x) {
-        const regle = ASL.reglePort(e.verbe, e.core, x.port, sortie, LISTING);
+        const regle = ASL.reglePort(e.verbe, e.core, x.port, sortie, LISTING, e);
         if (!regle) {
           intraduisibles.push({ etat: nom, port: x.port, op: 'port de ' + (e.verbe || e.core) });
           return;

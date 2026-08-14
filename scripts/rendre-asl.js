@@ -289,6 +289,35 @@ const PORTS = {
   http_sequence: {
     err: (r) => '$not($exists(' + r + '.ResponseBody))',
   },
+  // ── LE VERDICT D'UN CONTRÔLE ─────────────────────────────────────────────
+  // Déclaré le 2026-08-14, en même temps que l'appel de `verify` (premier
+  // `appel()` porté par un Core). Sans règle de port, l'appel partait et le
+  // verdict n'était pas jugé : l'aiguillage se comptait en intraduisible, et le
+  // workflow prenait toujours la sortie nominale — il aurait dit « tout va
+  // bien » quoi que réponde le partenaire.
+  //
+  // `fail` = AU MOINS UN contrôle ne passe pas. On nie la conjonction plutôt
+  // que d'assembler une disjonction de négations : c'est la même chose, et ça
+  // se relit dans l'ordre où l'auteur a écrit ses contrôles.
+  //
+  // Première règle de port à avoir besoin de l'ÉTAPE et pas seulement de son
+  // résultat — les contrôles vivent dans ses paramètres. D'où l'argument
+  // ajouté à `reglePort`.
+  verify: {
+    fail: (r, variante, etape) => {
+      const controles = ((etape && etape.params) || {}).checks || [];
+      if (!controles.length) return null;
+      const conditions = controles.map(function (c) {
+        const f = c && OPERATEURS[c.op];
+        return f ? f(r + '.ResponseBody.' + c.path, c.value) : null;
+      });
+      // Un opérateur inconnu et c'est tout le verdict qui saute : juger la
+      // moitié des contrôles laisserait passer ce que l'autre moitié refuse,
+      // en donnant l'apparence d'une vérification complète.
+      if (conditions.some(function (c) { return !c; })) return null;
+      return '$not(' + conditions.map(function (c) { return '(' + c + ')'; }).join(' and ') + ')';
+    },
+  },
 };
 
 // Rend le texte d'une condition, ou null si l'opérateur n'a pas d'équivalent.
@@ -305,9 +334,9 @@ function jsonata(expr) { return '{% ' + expr + ' %}'; }
 // Cherche par FAÇADE puis par CORE : une étape porte « aws_s3.deliver », la
 // table connaît « deliver ». Les deux entrées sont légitimes — une façade peut
 // vouloir sa propre règle, sinon celle du core suffit.
-function reglePort(verbe, core, port, resultat, variante) {
+function reglePort(verbe, core, port, resultat, variante, etape) {
   const t = PORTS[verbe] || PORTS[core];
-  return t && t[port] ? t[port](resultat, variante) : null;
+  return t && t[port] ? t[port](resultat, variante, etape) : null;
 }
 
 module.exports = { COMPOSITIONS, FORMES, OPERATEURS, PORTS,
