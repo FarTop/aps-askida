@@ -215,6 +215,21 @@ const RACINES_TRADUITES = [
 // identifiants d'étape du pivot étant uniques par construction, la règle est
 // tenue sans effort — mais elle est la raison pour laquelle on ne nomme PAS
 // d'après le libellé, qui se répète (« Set Metadata » trois fois sur PUBLISH).
+// Le nom de la fonction qu'une étape réclame chez la cible. DU VERBE, PAS DU
+// CORE — corrigé le 2026-08-14, l'inventaire des fonctions l'a montré du
+// premier coup : `iconik.create_tree` et `aps.registry` s'appuient tous deux sur
+// le core `http_request`, et sortaient donc tous deux en `aps-http_request`.
+// Deux verbes sans rapport réclamant la même fonction, nommée d'après une
+// mécanique interne plutôt que d'après ce qu'elle fait.
+//
+// Le préfixe de plateforme tombe : une fonction qui traduit une correspondance
+// n'appartient pas à Iconik, elle appartient à APS.
+function nomDeFonction(e) {
+  const brut = String((e && (e.verbe || e.core)) || 'logique');
+  const sansPlateforme = brut.indexOf('.') === -1 ? brut : brut.slice(brut.indexOf('.') + 1);
+  return 'aps-' + sansPlateforme.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+}
+
 function variableDe(e) {
   const brut = String((e && e.id) || 'r').replace(/[^A-Za-z0-9_]/g, '_');
   return /^[A-Za-z_]/.test(brut) ? brut : 'v' + brut;
@@ -815,7 +830,7 @@ function etatsDe(etapes, nommer, contexte) {
           });
         }
         etat = { Type: 'Task',
-                 Resource: 'arn:aws:lambda:' + REGION + ':' + COMPTE + ':function:aps-' + (e.core || 'logique'),
+                 Resource: 'arn:aws:lambda:' + REGION + ':' + COMPTE + ':function:' + nomDeFonction(e),
                  Comment: 'FONCTION À ÉCRIRE — ' + compo.pourquoi,
                  Assign: assignLambda, Next: nominal };
       } else if (e.core === 'deliver') {
