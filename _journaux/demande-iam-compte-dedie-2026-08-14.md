@@ -2,6 +2,24 @@
 
 *2026-08-14. Fait suite à `demande-iam-aws-2026-08-13.md` et à son complément.*
 
+> **RÉPONDU LE JOUR MÊME — ce document est conservé pour la trace, ses deux
+> questions sont closes.**
+>
+> **Point 2** : c'était une bévue, reconnue — « je me suis emmêlé les pinceaux
+> et créé l'user aps-iam dans le mauvais account, je refais ». Il n'y a donc PAS
+> de compte dédié à ce stade, et j'avais conclu trop vite en lisant « on va
+> tenter la version A » : la phrase parlait des DROITS, pas du compte. La clé
+> livrée a été supprimée dans la foulée — d'où un `InvalidClientTokenId` surgi
+> quinze minutes après un test vert, sans que rien ne bouge côté APS.
+>
+> **Point 1** : accordé pour le test. Sa remarque était fondée — nous avions
+> fourni une policy précise la veille avant de réclamer le full admin le
+> lendemain. La réponse : ce sont deux options distinctes du même document, pas
+> une surenchère. L'**option B** (policy précise) vise un compte PARTAGÉ, où le
+> moindre privilège protège les voisins ; l'**option A** (`AdministratorAccess`)
+> vise un compte DÉDIÉ. Dans un compte dédié vide, le moindre privilège ne
+> protège plus grand-chose et coûte un aller-retour par capacité manquante.
+
 Merci pour l'utilisateur `aps-iam` et la clé — elle fonctionne, elle est en
 place dans APS, et APS parle à Step Functions.
 
