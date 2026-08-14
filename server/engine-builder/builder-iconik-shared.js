@@ -182,43 +182,10 @@ async function nextOrderNumber(prisma, scope, key, seed) {
 // YYMMDDHHMMSS + 2 chiffres d'aléa = 14 chiffres exactement — l'année sur 2
 // chiffres libère la place de l'aléa, et le tout reste très en deçà de la
 // limite de précision entière de JavaScript.
-function genererIdentifiant(type, length, prefix) {
-  const l = Math.max(1, Math.min(64, parseInt(length) || 8));
-  const pad = n => String(n).padStart(2, '0');
-  switch (type) {
-    case 'uuid':
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const rnd = Math.random() * 16 | 0;
-        return (c === 'x' ? rnd : (rnd & 0x3 | 0x8)).toString(16);
-      });
-    case 'hex':
-      return new Array(l).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
-    case 'alphanumeric':
-    case 'prefixed': {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      const body = new Array(l).fill(0).map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
-      return (type === 'prefixed' ? (prefix || '') : '') + body;
-    }
-    case 'timestamp': {
-      const now = new Date();
-      const ts = now.getFullYear().toString() + pad(now.getMonth() + 1) + pad(now.getDate())
-               + '-' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
-      return ts + '-' + Math.floor(Math.random() * 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-    }
-    case 'timestamp_numeric': {
-      const now = new Date();
-      return String(now.getFullYear() % 100).padStart(2, '0')
-           + pad(now.getMonth() + 1) + pad(now.getDate())
-           + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds())
-           + pad(Math.floor(Math.random() * 100));
-    }
-    default: {
-      const min = Math.pow(10, l - 1);
-      const max = Math.pow(10, l) - 1;
-      return String(Math.floor(min + Math.random() * (max - min + 1)));
-    }
-  }
-}
+// La fabrique a déménagé dans builder-identifiants.js (pur, embarquable dans
+// une Lambda). Ré-exportée ici pour que les appelants n'aient pas à changer.
+const { genererIdentifiant } = require('./builder-identifiants.js');
+
 
 // Port de _bayardIdFor(), wfd-engine-handlers.js:210-244 — réutilise un
 // BayardID existant pour cet objet (BayardRegistry.assetId) ou en génère un

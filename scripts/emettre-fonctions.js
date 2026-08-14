@@ -115,6 +115,10 @@ const FONCTIONS = {
     etat: ['aps-registry', 'aps-counter'],
     rend: '{ id, existait }',
     source: 'fonction-registry.js',
+    // Le FORMAT doit etre identique des deux cotes : le handler d'origine
+    // signale avoir deja produit des formats etrangers entre create_tree et
+    // aps.registry sur le MEME champ Iconik. Extrait le 2026-08-14.
+    compagnons: ['server/engine-builder/builder-identifiants.js'],
   },
 };
 
