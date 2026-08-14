@@ -45,6 +45,136 @@ const WfInterpreter = (() => {
     return e.natif ? 'outil natif' : 'aucun module';
   }
 
+  // ── Soumettre, puis lancer ─────────────────────────────────────────────
+  // Deux actes, jamais un. Déposer une définition ne touche personne ; la
+  // LANCER appelle Iconik et le partenaire pour de vrai — sur PUBLISH, elle
+  // écrit. Les mettre derrière le même « oui » serait un piège.
+  function construireSoumission(d) {
+    const zone = el('div', 'itp-soumission');
+    const bouton = el('button', 'itp-soumettre', 'Soumettre');
+    bouton.type = 'button';
+    const etat = el('span', 'itp-resultat');
+    let arnMachine = null;
+
+    function dire(texte, genre) {
+      etat.textContent = texte;
+      etat.dataset.genre = genre || '';
+    }
+
+    bouton.addEventListener('click', async function () {
+      const nb = (d.verdict && d.verdict.modules) || '?';
+      if (!window.confirm(
+          'Déposer « ' + (d.flux && d.flux.nom || 'ce workflow') + ' » chez AWS Step Functions ?\n\n'
+        + 'Une machine d\'états sera créée ou remplacée (' + nb + ' états annoncés).\n'
+        + 'Elle ne sera PAS lancée : aucun appel à Iconik ni au partenaire.')) return;
+
+      bouton.disabled = true;
+      dire('Dépôt en cours…', 'attente');
+      try {
+        const r = await fetch('/api/builder-flows/' + encodeURIComponent(fluxId()) + '/soumission', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cible: 'asl' })
+        });
+        const rep = await r.json();
+        if (!r.ok) throw new Error(rep.error || ('HTTP ' + r.status));
+
+        arnMachine = rep.arn;
+        // ACCEPTÉ N'EST PAS VALIDE : AWS a dit oui, ce qui ne veut pas dire que
+        // le workflow marche. Les contrôles de l'émetteur passent DEVANT le
+        // succès quand il y en a — c'est précisément le moment où l'écran
+        // rassurerait à tort.
+        const reserves = [];
+        if ((rep.sansPorteur || []).length) {
+          reserves.push(rep.sansPorteur.length + ' référence(s) sans porteur');
+        }
+        if (rep.generiques) reserves.push(rep.generiques + ' état(s) sur gabarit générique');
+        dire((rep.cree ? '✅ Créée' : '✅ Remplacée') + ' — ' + rep.nom + ', ' + rep.etats + ' états'
+           + (reserves.length ? '  ·  ⚠ ' + reserves.join(', ') : ''),
+             reserves.length ? 'reserve' : 'ok');
+        if ((rep.sansPorteur || []).length) etat.title = rep.sansPorteur.join('\n');
+
+        zone.appendChild(construireLancement(d, arnMachine));
+        bouton.textContent = 'Redéposer';
+      } catch (e) {
+        dire('❌ ' + e.message, 'erreur');
+      } finally {
+        bouton.disabled = false;
+      }
+    });
+
+    zone.appendChild(bouton);
+    zone.appendChild(etat);
+    return zone;
+  }
+
+  // Le lancement n'apparaît qu'APRÈS un dépôt réussi, et dans la même session :
+  // proposer de lancer une machine d'états dont on ne sait pas si elle est à
+  // jour reviendrait à essayer autre chose que ce qu'on regarde.
+  function construireLancement(d, arn) {
+    const zone = el('span', 'itp-lancement');
+    const bouton = el('button', 'itp-lancer', 'Lancer');
+    bouton.type = 'button';
+    const etat = el('span', 'itp-resultat');
+    let minuteur = null;
+
+    function dire(texte, genre) { etat.textContent = texte; etat.dataset.genre = genre || ''; }
+
+    async function suivre(arnExec) {
+      try {
+        const r = await fetch('/api/executions?arn=' + encodeURIComponent(arnExec));
+        const rep = await r.json();
+        if (!r.ok) throw new Error(rep.error || ('HTTP ' + r.status));
+        if (rep.statut === 'RUNNING') { dire('⏳ en cours…', 'attente'); return; }
+
+        clearInterval(minuteur); minuteur = null;
+        bouton.disabled = false;
+        if (rep.statut === 'SUCCEEDED') { dire('✅ SUCCEEDED', 'ok'); return; }
+        dire('❌ ' + rep.statut + (rep.erreur ? ' — ' + rep.erreur : ''), 'erreur');
+        // La cause complète au survol : elle tient rarement sur une ligne, et
+        // la tronquer dans le bandeau ferait retourner à la console AWS.
+        const detail = (rep.echecs || [])
+          .map(function (e) { return e.type + (e.etat ? ' [' + e.etat + ']' : '')
+                                   + (e.cause ? '\n  ' + e.cause : ''); }).join('\n');
+        etat.title = rep.cause ? rep.cause + (detail ? '\n\n' + detail : '') : detail;
+      } catch (e) {
+        clearInterval(minuteur); minuteur = null;
+        bouton.disabled = false;
+        dire('❌ ' + e.message, 'erreur');
+      }
+    }
+
+    bouton.addEventListener('click', async function () {
+      if (!window.confirm(
+          'Lancer une exécution RÉELLE de « ' + (d.flux && d.flux.nom || 'ce workflow') + ' » ?\n\n'
+        + 'Les appels partent pour de vrai : Iconik et le partenaire répondront, et ce '
+        + 'workflow ÉCRIT chez eux. Ce n\'est pas une simulation.')) return;
+
+      bouton.disabled = true;
+      dire('Lancement…', 'attente');
+      try {
+        const r = await fetch('/api/builder-flows/' + encodeURIComponent(fluxId()) + '/execution', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ arn: arn })
+        });
+        const rep = await r.json();
+        if (!r.ok) throw new Error(rep.error || ('HTTP ' + r.status));
+        dire('⏳ en cours…', 'attente');
+        // Interrogé, pas poussé : ASL n'a pas l'équivalent du flux d'événements
+        // du moteur natif.
+        minuteur = setInterval(function () { suivre(rep.arn); }, 2000);
+      } catch (e) {
+        bouton.disabled = false;
+        dire('❌ ' + e.message, 'erreur');
+      }
+    });
+
+    zone.appendChild(bouton);
+    zone.appendChild(etat);
+    return zone;
+  }
+
   // ── Bandeau ────────────────────────────────────────────────────────────
   function rendreBarre(hote, d) {
     const barre = el('div', 'itp-barre');
@@ -73,6 +203,15 @@ const WfInterpreter = (() => {
       setTimeout(function () { copier.textContent = 'Copier le plan'; }, 1800);
     });
     gauche.appendChild(copier);
+
+    // ── LE SECOND GESTE ──────────────────────────────────────────────────
+    // L'en-tête de ce fichier promet « lire et approuver d'abord, soumettre
+    // ensuite » depuis le 2026-08-11. Le bouton manquait, et il fallait passer
+    // par la console AWS. Il n'apparaît que pour les cibles qui savent recevoir
+    // une soumission — en montrer un inerte vaudrait moins que rien.
+    if (d.cible && d.cible.cle === 'asl') {
+      gauche.appendChild(construireSoumission(d));
+    }
 
     // Porter les post-its : une case, rien de plus. Make sait les recevoir —
     // `POST /scenarios/{id}/notes` accepte une note accrochée à des modules —

@@ -43,6 +43,7 @@ const flowsRouter      = require('./routes/flows');
 const connexionsRouter = require('./routes/connexions');
 const wfdDataRouter    = require('./routes/wfd-data');
 const interpretationRouter = require('./routes/interpretation.js');
+const soumissionRouter     = require('./routes/soumission.js');
 const statusRouter       = require('./routes/status');
 const environmentsRouter  = require('./routes/environments');
 const platformsRouter     = require('./routes/platforms');
@@ -104,6 +105,9 @@ app.use('/api',            contextRouter);
 // L'interprétation partage le préfixe /api/builder-flows avec wfdDataRouter :
 // elle passe AVANT, sinon `/:id` y capturerait « interpretation ».
 app.use('/api',            interpretationRouter);
+// Le SECOND geste, même contrainte d'ordre que l'interprétation : « soumission »
+// et « execution » seraient sinon avalés par le `/:id` de wfdDataRouter.
+app.use('/api',            soumissionRouter);
 app.use('/api',            wfdDataRouter);
 app.use('/wfd',            wfdEngineRouter.router);
 

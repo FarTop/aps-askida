@@ -181,7 +181,10 @@ const RACINES_CALCULEES = { now: '$now()' };
 // émetteur en aura besoin ; ici c'est une convention du moteur, pas d'Iconik.
 const RACINES_TRADUITES = [
   { motif: /^trigger\.([A-Za-z0-9_]+)$/,
-    rendre: (m) => '$_trigger._metadata.' + m[1] + '.field_values[0].value' },
+    // `$trigger` et non `$_trigger` : le moteur WFD nomme la charge utile avec
+    // un tiret bas, AWS l'interdit en tête de nom de variable. Le pivot garde
+    // son vocabulaire, l'émission adopte celui de la cible.
+    rendre: (m) => '$trigger._metadata.' + m[1] + '.field_values[0].value' },
 ];
 
 // Le nom de VARIABLE sous lequel une étape range sa réponse. Remplace le
@@ -505,6 +508,9 @@ function etatsDe(etapes, nommer, contexte) {
   // que l'appelant doit projeter dans l'ItemSelector du Map — sans quoi le
   // corps de boucle lit dans le vide, ce qu'il faisait pour `TypeCollection`.
   const besoins = contexte.besoins || (contexte.besoins = new Map());
+  // Le nom sous lequel un Catch range la cause de l'échec. Propre à la portée :
+  // voir le commentaire au site de l'Assign.
+  const varErreur = contexte.varErreur || 'erreur';
   // La variable d'une étape, calculable AVANT que son état soit bâti : une
   // référence peut viser une étape que la boucle d'émission n'a pas encore vue.
   const chemin = function (e) { return '$' + variableDe(e); };
@@ -821,10 +827,17 @@ function etatsDe(etapes, nommer, contexte) {
                  Assign: { collection: '{% $states.input.collection %}',
                            asset:      '{% $states.input.asset %}',
                            user:       '{% $states.input.user %}',
-                           // `_trigger` est la charge utile du webhook elle-même,
-                           // pas un champ de celle-ci — c'est ce que pose
-                           // wfd-engine-context.js:38.
-                           _trigger:   '{% $states.input %}' },
+                           // La charge utile du webhook elle-même, pas un champ
+                           // de celle-ci — c'est ce que pose
+                           // wfd-engine-context.js:38, sous le nom `_trigger`.
+                           //
+                           // ÉMISE SANS LE TIRET BAS : AWS exige qu'un nom de
+                           // variable commence par une lettre, et refuse la
+                           // définition entière avec INVALID_VARIABLE_NAME.
+                           // Trouvé le 2026-08-14 à la première soumission
+                           // réelle — la console ne l'avait jamais dit, parce
+                           // qu'on n'avait jamais soumis PUBLISH.
+                           trigger:    '{% $states.input %}' },
                  Next: nominal };
       } else {
         // ── L'APPEL DÉCLARÉ PAR LE CATALOGUE ──────────────────────
@@ -1063,8 +1076,14 @@ function etatsDe(etapes, nommer, contexte) {
         // `$states.errorOutput` remplace le ResultPath du Catch, et l'Assign
         // d'un Catch écrit dans la portée EXTÉRIEURE : la branche d'erreur sait
         // ce qui a échoué, y compris depuis le corps d'une boucle.
-        s.Catch = [{ ErrorEquals: ['States.ALL'],
-                     Assign: { erreur: '{% $states.errorOutput %}' }, Next: erreur }];
+        // LE NOM DÉPEND DE LA PORTÉE. AWS refuse qu'une portée fille redéclare
+        // une variable du parent (DUPLICATE_VARIABLE_NAME) — c'est la
+        // contrepartie de l'héritage JSONata adopté le 2026-08-13 : puisque le
+        // corps de boucle VOIT les variables du dehors, il ne peut plus se
+        // servir des mêmes noms. Trouvé à la première soumission réelle.
+        const assign = {};
+        assign[varErreur] = '{% $states.errorOutput %}';
+        s.Catch = [{ ErrorEquals: ['States.ALL'], Assign: assign, Next: erreur }];
       });
     }
 
@@ -1102,8 +1121,16 @@ function etatsDe(etapes, nommer, contexte) {
   return { States: States, nomDe: nomDe };
 }
 
-async function main() {
-  if (!ID) { console.log('Usage : node scripts/emettre-asl.js <idFlux> [--sortie fichier]'); return; }
+// ── CONSTRUIRE, PUIS RACONTER ───────────────────────────────────
+// Séparés le 2026-08-14 pour que le serveur puisse émettre lui-même — le bouton
+// « Soumettre » de l'Interpréteur a besoin de la définition, pas d'un fichier et
+// d'une sortie console. `construire()` ne touche NI au disque NI à la sortie
+// standard ; `main()` garde tout ce qui écrit et tout ce qui raconte.
+//
+// Le paramètre s'appelle `ID` à dessein : il masque la constante de même nom
+// lue dans argv, et le corps n'a pas eu à changer d'une ligne. Une réécriture
+// de 240 lignes pour changer d'appelant aurait été une occasion de tout casser.
+async function construire(ID) {
   const port = process.env.APS_PORT || 3000;
   const r = await fetch('http://localhost:' + port
           + '/api/builder-flows/' + ID + '/interpretation?cible=asl');
@@ -1148,7 +1175,10 @@ async function main() {
   if (portees.length) {
     const p = portees[0];
     traversantes = (p.entrees && p.entrees.traversantes) || [];
-    const ctxCorps = { fin: nommer('Fin du corps'), traversantes: traversantes };
+    const ctxCorps = { fin: nommer('Fin du corps'), traversantes: traversantes,
+                       // Le corps hérite des variables de la racine : il lui
+                       // faut donc ses propres noms là où il assigne.
+                       varErreur: 'erreurCorps' };
     const bati = etatsDe(p.etapes, nommer, ctxCorps);
     p._intraduisibles = ctxCorps.intraduisibles || [];
     p._generiques     = ctxCorps.generiques || [];
@@ -1338,6 +1368,15 @@ async function main() {
     }, 0);
   };
 
+  return { plan, definition, ctx, compte, problemes, sansPorteur,
+           traversantes, besoinsDuCorps, corpsIntraduisibles, corpsGeneriques };
+}
+
+async function main() {
+  if (!ID) { console.log('Usage : node scripts/emettre-asl.js <idFlux> [--sortie fichier]'); return; }
+  const { plan, definition, ctx, compte, problemes, sansPorteur,
+          traversantes, besoinsDuCorps, corpsIntraduisibles, corpsGeneriques } = await construire(ID);
+
   fs.writeFileSync(SORTIE, JSON.stringify(definition, null, 2) + '\n', 'utf8');
 
   console.log('Workflow  : ' + plan.flux.nom);
@@ -1456,4 +1495,10 @@ async function main() {
   }
 }
 
-main().catch(e => { console.error('ERREUR — ' + (e && e.stack || e)); process.exit(1); });
+// Requis comme bibliothèque, ce fichier ne doit RIEN faire — sinon le serveur
+// émettrait une définition au démarrage, à chaque démarrage.
+if (require.main === module) {
+  main().catch(e => { console.error('ERREUR — ' + (e && e.stack || e)); process.exit(1); });
+}
+
+module.exports = { construire };
