@@ -91,6 +91,8 @@ const nomAws = function (nom) {
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 };
 let CONNEXIONS = new Map();               // id APS → { nom, authType }
+let REGLES     = new Map();               // id Correspondance → lignes
+let GABARITS   = new Map();               // id ArboTemplate → configuration
 let SEQUENCES  = new Map();               // id Endpoint → steps[]
 const connexionsManquantes = new Map();   // nom AWS → nom APS
 
@@ -228,6 +230,127 @@ function nomDeFonction(e) {
   const brut = String((e && (e.verbe || e.core)) || 'logique');
   const sansPlateforme = brut.indexOf('.') === -1 ? brut : brut.slice(brut.indexOf('.') + 1);
   return 'aps-' + sansPlateforme.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+}
+
+// ── LA CHARGE UTILE D'UNE FONCTION ──────────────────────────────
+// Une par fonction, et le contrat est celui écrit dans l'en-tête de chacune —
+// scripts/fonctions/fonction-*.js. Le déclarer à deux endroits serait la faute
+// habituelle ; ici l'émetteur COMPOSE, la fonction DOCUMENTE, et un écart se
+// voit au premier run.
+//
+// Ce qui ne se résout pas est laissé VIDE plutôt que deviné : une fonction qui
+// reçoit zéro ligne de correspondance rend un objet vide, ce qui se lit dans le
+// résultat. Une fonction qui recevrait des lignes inventées livrerait chez le
+// partenaire.
+function chargeLambda(e, nomFn, adr, intraduisibles, ouNom) {
+  const p = e.params || {};
+  const cx = function (id) {
+    return { baseUrl: baseDe(id), connectionArn: arnDe(id) };
+  };
+  // Le niveau courant : le catalogue déclare CETTE lecture et de quel objet
+  // elle se lit — jamais le dernier Search venu, qui sur PUBLISH cherche des
+  // assets et non la collection publiée.
+  const niveau = function () {
+    const lu = CAT.lecturesDe({ facade: e.verbe, core: e.core, params: p })
+      .find(function (x) { return x && x.nom === 'TypeCollection'; });
+    return ASL.jsonata(adr('TypeCollection', { aplatie: true, objet: lu ? lu.objet : null }));
+  };
+
+  // UN UUID N'EST PAS UNE RÉFÉRENCE. `parentId` vaut souvent un identifiant
+  // Iconik littéral ; le passer à `expr()` en faisait la variable
+  // `$2fbde40e_7ed1_…`, que rien ne pose. On ne résout que ce qui porte des
+  // accolades.
+  const valeur = function (v, defaut) {
+    const s = String(v === undefined || v === null || v === '' ? (defaut || '') : v);
+    if (!s) return '';
+    return s.indexOf('{') === -1 ? s : ASL.jsonata(expr(s, adr, true));
+  };
+
+  // LES VARIABLES DONT UN GABARIT A BESOIN. Un gabarit d'arborescence écrit ses
+  // titres avec des références du pivot — « {trigger.Univers} ». La fonction les
+  // substitue depuis le sac qu'on lui donne ; sans ce sac, elle créerait des
+  // collections littéralement nommées « {trigger.Univers} ». On relève donc les
+  // références du gabarit et on émet, pour chacune, l'expression qui la résout.
+  const variablesDuGabarit = function (gabarit) {
+    const noms = new Set();
+    (function parcourir(v) {
+      if (typeof v === 'string') {
+        (v.match(/\{([^{}]+)\}/g) || []).forEach(function (m) { noms.add(m.slice(1, -1).trim()); });
+        return;
+      }
+      if (Array.isArray(v)) return v.forEach(parcourir);
+      if (v && typeof v === 'object') Object.values(v).forEach(parcourir);
+    })(gabarit);
+    const sac = {};
+    noms.forEach(function (n) { sac[n] = ASL.jsonata(expr('{' + n + '}', adr, true)); });
+    return sac;
+  };
+
+  switch (nomFn) {
+    case 'aps-verify':
+      return {
+        checks: p.checks || [],
+        typeCollection: niveau(),
+        connexion: cx(p.connexionId),
+      };
+
+    case 'aps-lookup':
+      return {
+        rows: REGLES.get(p.mappingId) || p.lkRows || [],
+        entree: ASL.jsonata(expr(p.lkInputVar || '', adr, true)),
+        niveau: niveau(),
+        // `_ancetres` et `_hors_niveau` sont posés par resolve_ancestors et par
+        // deliver. Émis en variables nues : si le nœud n'a pas tourné, le
+        // contrôle « sans porteur » le dira avant la soumission.
+        ancetres: ASL.jsonata('$exists($_ancetres) ? $_ancetres : []'),
+        horsNiveau: ASL.jsonata('$exists($_hors_niveau) ? $_hors_niveau : []'),
+      };
+
+    case 'aps-registry':
+      return {
+        objectId: valeur('{collection.id}'),
+        objectType: 'collection',
+        idType: p.idType || 'numeric',
+        idLength: p.idLength || 8,
+        idPrefix: p.idPrefix || '',
+        outputType: p.outputType || 'string',
+      };
+
+    case 'aps-create-tree': {
+      const gabarit = GABARITS.get(p.templateId) || null;
+      if (!gabarit) {
+        intraduisibles.push({ etat: ouNom, port: '—',
+          op: 'gabarit d\'arborescence non résolu (' + (p.templateId || 'sans id') + ')' });
+      }
+      return {
+        gabarit: gabarit,
+        variables: variablesDuGabarit(gabarit),
+        parentId: valeur(p.parentId, '{collection.id}'),
+        connexion: cx(p.connexionId),
+        idType: p.idType || 'numeric',
+        idLength: p.idLength || 8,
+        idFieldName: p.idFieldName || 'BayardID',
+        parentFieldName: p.parentFieldName || 'ParentID',
+        typeFieldName: p.typeFieldName || 'TypeCollection',
+        metadataViewId: p.metadataViewId || '',
+        parentBayardId: valeur(p.parentBayardId),
+        orderFieldName: p.orderFieldName || '',
+        orderPad: p.orderPad || 0,
+        orderSeed: p.orderSeed ? valeur(p.orderSeed) : 0,
+        extraFields: (p.extraFields || []).map(function (f) {
+          const g = gabaritJsonata(String(f.value || ''), adr, intraduisibles, ouNom);
+          return { key: f.key, value: g.jsonata ? ASL.jsonata(g.jsonata) : g.valeur };
+        }),
+      };
+    }
+
+    default:
+      // Une fonction qu'on ne sait pas alimenter : mieux vaut ne rien envoyer
+      // et le dire que d'envoyer l'état courant en espérant qu'elle s'y
+      // retrouve.
+      intraduisibles.push({ etat: ouNom, port: '—', op: 'charge utile de ' + nomFn });
+      return {};
+  }
 }
 
 function variableDe(e) {
@@ -818,6 +941,19 @@ function etatsDe(etapes, nommer, contexte) {
         // `aps.registry` dans une même portée se seraient marché dessus. La
         // variable étant nommée d'après l'ÉTAPE, la collision n'est plus
         // possible.
+        // ── CE QU'ON DONNE À LA FONCTION ──────────────────────────
+        // Sans charge utile, la Lambda reçoit l'état courant et ne trouve ni
+        // ses essences ni ses lignes de correspondance. Chaque fonction déclare
+        // son entrée dans son propre en-tête ; c'est ici qu'on la compose, avec
+        // le seul endroit du code qui sait résoudre une référence du pivot.
+        //
+        // Les données de configuration — lignes, gabarit, contrôles — sont
+        // RÉSOLUES en amont (voir REGLES et GABARITS) : le pivot ne porte que
+        // des identifiants, et une fonction qui recevrait un identifiant sans
+        // les données qui vont avec ne pourrait rien en faire. C'est le même
+        // contrat que `options.resolutions` de pivot-to-wfd.js.
+        const args = chargeLambda(e, nomDeFonction(e), adresserChez(e), intraduisibles, nom);
+
         const assignLambda = { [variableDe(e)]: '{% $states.result %}' };
         // Les variables que le verbe fabrique valent aussi pour sa version
         // Lambda — c'est la fonction qui les rend, l'émetteur ne fait que les
@@ -831,7 +967,8 @@ function etatsDe(etapes, nommer, contexte) {
         }
         etat = { Type: 'Task',
                  Resource: 'arn:aws:lambda:' + REGION + ':' + COMPTE + ':function:' + nomDeFonction(e),
-                 Comment: 'FONCTION À ÉCRIRE — ' + compo.pourquoi,
+                 Comment: compo.pourquoi,
+                 Arguments: args,
                  Assign: assignLambda, Next: nominal };
       } else if (e.core === 'deliver') {
         // ASL sait LISTER un bucket (intégration native) mais pas RECONNAÎTRE
@@ -1358,6 +1495,38 @@ async function construire(ID) {
       if (e && e.id && Array.isArray(e.steps)) SEQUENCES.set(e.id, e.steps);
     });
   } catch (_) { /* sans elles, l'étape retombe sur le gabarit générique */ }
+
+  // Les CORRESPONDANCES et les GABARITS D'ARBORESCENCE, désignés par
+  // `mappingId` et `templateId`. Même raison que les séquences : le pivot ne
+  // porte que l'identifiant, le catalogue ne fait pas de réseau, et une Lambda
+  // qui reçoit un identifiant sans les données qui vont avec ne peut rien en
+  // faire. On résout ici, une fois.
+  try {
+    const rm = await fetch('http://localhost:' + port + '/api/mappings');
+    const lm = await rm.json();
+    (Array.isArray(lm) ? lm : (lm.items || [])).forEach(function (m) {
+      if (m && m.id && Array.isArray(m.rows)) REGLES.set(m.id, m.rows);
+    });
+  } catch (_) { /* la charge utile du Lookup partira vide, et se verra */ }
+
+  // Le gabarit ne vit PAS dans la liste : il faut le demander un par un. On ne
+  // charge donc que ceux qui sont référencés.
+  try {
+    const idsGabarits = new Set();
+    (function relever(doc) {
+      (doc && doc.steps || []).forEach(function (s) {
+        const id = s && s.params && s.params.templateId;
+        if (id) idsGabarits.add(id);
+        if (s && s.body) relever(Array.isArray(s.body) ? { steps: s.body } : s.body);
+      });
+    })({ steps: plan.groupes.flatMap(function (g) { return g.etapes.map(function (x) { return x.etape || x; }); }) });
+    for (const id of idsGabarits) {
+      const rg = await fetch('http://localhost:' + port + '/api/arbo-templates/' + id);
+      if (!rg.ok) continue;
+      const g = await rg.json();
+      if (g && g.config) GABARITS.set(id, g.config);
+    }
+  } catch (_) { /* la charge utile de create_tree partira sans gabarit */ }
 
   const nommer = nommeur();
   const racine = plan.groupes[0];
