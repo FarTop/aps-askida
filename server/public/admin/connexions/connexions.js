@@ -355,6 +355,13 @@ async function sauvegarder() {
     endpoint:    document.getElementById('f-baseurl').value.trim(),
     authType:    document.getElementById('f-authtype').value,
     authValue: (function() {
+      // Un schéma déclaré l'emporte, TOUJOURS et en premier. L'ordre inverse a
+      // coûté un piège le 2026-08-14 : sur une fiche à authSpec (Step Functions),
+      // passer le Type sur « AWS S3 » faisait lire les champs S3 hérités, vides
+      // et masqués dans ce mode — le secret saisi partait à la poubelle, et
+      // comme '' vaut « ne touche à rien » côté serveur, l'ancien restait. Le
+      // champ ne se modifiait plus, sans un mot d'explication.
+      if (saisi && saisi.secret !== null) return saisi.secret;
       const type = document.getElementById('f-type').value;
       if (type === 'aws_s3') {
         const key    = document.getElementById('f-aws-key').value.trim();
@@ -364,8 +371,6 @@ async function sauvegarder() {
         if (key || secret) return JSON.stringify({ key, secret, region, bucket });
         return '';
       }
-      // Un schéma déclaré fournit le secret ; sinon, le champ historique.
-      if (saisi && saisi.secret !== null) return saisi.secret;
       return document.getElementById('f-authvalue').value;
     })(),
     description: document.getElementById('f-description').value,

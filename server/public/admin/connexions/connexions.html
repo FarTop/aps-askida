@@ -109,7 +109,12 @@
           <option value="">Aucune</option>
           <option value="bearer">Bearer Token</option>
           <option value="apikey_header">API Key (header)</option>
-          <option value="aws_s3">AWS Signature V4</option>
+          <!-- Deux notions distinctes, confondues jusqu'au 2026-08-14 : l'unique
+               option « AWS Signature V4 » stockait aws_s3, si bien qu'une
+               connexion Step Functions se déclarait connexion S3 — et se
+               retrouvait éligible aux sélecteurs de bucket. -->
+          <option value="aws_s3">AWS S3 (clé, secret, bucket)</option>
+          <option value="aws_sigv4">AWS Signature V4 (service signé)</option>
           <option value="iconik">Iconik App Token</option>
         </select>
       </div>

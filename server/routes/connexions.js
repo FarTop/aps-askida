@@ -189,6 +189,46 @@ router.post('/:id/test', async (req, res) => {
       return res.json({ ok: null, state: 'untestable', message: 'Type S3 : test non couvert par le handshake HTTP' });
     }
 
+    // AWS SigV4 (Step Functions, et tout service AWS signé) — ajouté le
+    // 2026-08-14. Aucun en-tête statique ne peut authentifier ici : la
+    // signature se calcule PAR REQUÊTE à partir de la clé secrète. Le handshake
+    // HTTP générique ne dirait donc jamais la vérité, ni en vert ni en rouge.
+    //
+    // La poignée de main qui a du sens est `sts:GetCallerIdentity` : elle est
+    // gratuite, en lecture seule, autorisée à toute identité valide — et elle
+    // répond QUEL COMPTE la clé ouvre. C'est exactement la question qui a coûté
+    // la matinée du 2026-08-14 (la clé livrée ouvrait un autre compte que celui
+    // annoncé sur la fiche), d'où le rapprochement affiché plus bas.
+    if (c.authType === 'aws_sigv4') {
+      const champs = (c.extraConfig && c.extraConfig.champs) || {};
+      const region = champs.region || '';
+      const cle    = champs.accessKeyId || '';
+      const secret = c.authValueEnc ? decrypt(c.authValueEnc) : '';
+      if (!region || !cle || !secret) {
+        return res.json({ ok: false, state: 'error',
+          message: 'Région, Access Key ID ou Secret Access Key manquant' });
+      }
+      try {
+        const { STSClient, GetCallerIdentityCommand } = require('@aws-sdk/client-sts');
+        const sts = new STSClient({ region, credentials: { accessKeyId: cle, secretAccessKey: secret } });
+        const id  = await sts.send(new GetCallerIdentityCommand({}));
+        const attendu = champs.compte || '';
+        if (attendu && id.Account !== attendu) {
+          return res.json({ ok: false, state: 'error',
+            message: 'Clé valide, mais elle ouvre le compte ' + id.Account +
+                     ' — la fiche annonce ' + attendu, compte: id.Account, arn: id.Arn });
+        }
+        return res.json({ ok: true, state: 'ok',
+          message: 'Identité reconnue par AWS — compte ' + id.Account,
+          compte: id.Account, arn: id.Arn });
+      } catch (e) {
+        // Une clé révoquée ou fautive donne InvalidClientTokenId /
+        // SignatureDoesNotMatch : c'est un vrai rouge, pas une injoignabilité.
+        return res.json({ ok: false, state: 'error',
+          message: 'AWS refuse la clé — ' + (e.name || 'erreur') + ' : ' + e.message });
+      }
+    }
+
     // Depuis le 2026-08-10 : quand la connexion pointe vers une plateforme qui
     // déclare un schéma (Platform.authSpec), l'URL et les en-têtes en découlent.
     // Sinon, repli exact sur l'ancien comportement — aucune connexion existante
