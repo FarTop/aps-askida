@@ -803,10 +803,21 @@ function etatsDe(etapes, nommer, contexte) {
         // `aps.registry` dans une même portée se seraient marché dessus. La
         // variable étant nommée d'après l'ÉTAPE, la collision n'est plus
         // possible.
+        const assignLambda = { [variableDe(e)]: '{% $states.result %}' };
+        // Les variables que le verbe fabrique valent aussi pour sa version
+        // Lambda — c'est la fonction qui les rend, l'émetteur ne fait que les
+        // nommer. Sans ça, `checkerSummary` restait sans porteur sur PUBLISH
+        // alors que la Lambda le fournit.
+        const poseesLambda = ASL.variablesPosees(e.verbe, e.core, '$states.result', e);
+        if (poseesLambda) {
+          Object.keys(poseesLambda).forEach(function (n) {
+            assignLambda[n] = ASL.jsonata(poseesLambda[n]);
+          });
+        }
         etat = { Type: 'Task',
                  Resource: 'arn:aws:lambda:' + REGION + ':' + COMPTE + ':function:aps-' + (e.core || 'logique'),
                  Comment: 'FONCTION À ÉCRIRE — ' + compo.pourquoi,
-                 Assign: { [variableDe(e)]: '{% $states.result %}' }, Next: nominal };
+                 Assign: assignLambda, Next: nominal };
       } else if (e.core === 'deliver') {
         // ASL sait LISTER un bucket (intégration native) mais pas RECONNAÎTRE
         // ce qu'il contient : associer « friday_s01_season.png » à l'essence

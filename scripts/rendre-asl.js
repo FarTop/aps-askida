@@ -123,12 +123,32 @@ const COMPOSITIONS = {
       return [{ etat: 'Task', role: 'Lambda — correspondance + héritage (code à écrire)' }];
     },
   },
+  // ── DEUX VERIFY, ET LE PARAMÈTRE DÉCIDE ──────────────────────────────────
+  // Arbitrage du 2026-08-14. Un `verify` dont les contrôles sont écrits dans
+  // ses paramètres est un appel HTTP et rien de plus : le catalogue le déclare
+  // (`CORES.verify.appel`), l'émetteur en fait un Task, et la règle du port
+  // `fail` juge la réponse. C'est le cas de CALLBACK et de CHECK STATUSES.
+  //
+  // Un `verify` adossé à un MANIFESTE est autre chose : ses contrôles se
+  // composent AU RUN, filtrés par le niveau courant (`appliesTo` contre
+  // `TypeCollection`). Le catalogue ne sait pas quelles essences s'appliqueront,
+  // donc aucune définition ASL ne peut poser la question. C'est de la logique —
+  // donc une Lambda, au même titre que `lookup` et `deliver`.
+  //
+  // Le drapeau dépend donc des PARAMÈTRES, ce qui est nouveau : jusqu'ici un
+  // verbe était Lambda ou ne l'était pas. Il l'est ici pour une moitié de ses
+  // usages, et le plan doit le dire — sans quoi PUBLISH annoncerait un coût
+  // qu'il n'a pas, et les CREER un coût qu'ils ont.
   verify: {
     dit: 'Map sur les essences',
     pourquoi: 'chaque essence se vérifie par son propre appel ; ASL itère nativement '
             + 'et recompose le tableau des résultats sans agrégateur explicite',
     source: 'doc',
-    etats: function () {
+    lambda: function (params) { return !!(params && params.manifestId); },
+    etats: function (params) {
+      if (params && params.manifestId) {
+        return [{ etat: 'Task', role: 'Lambda — filtrer les essences par niveau, puis vérifier chacune' }];
+      }
       return [
         { etat: 'Map',  role: 'parcourir les essences du manifeste' },
         { etat: 'Task', role: 'interroger verifyEndpoint (dans l\'ItemProcessor)' },
@@ -203,9 +223,12 @@ function compositionDe(famille, params) {
   const c = COMPOSITIONS[famille];
   if (!c) return null;
   const etats = c.etats(params || {});
+  // `lambda` peut dépendre des paramètres — voir `verify`, Lambda seulement
+  // quand ses contrôles viennent d'un manifeste.
+  const estLambda = typeof c.lambda === 'function' ? !!c.lambda(params || {}) : !!c.lambda;
   return { dit: c.dit, pourquoi: c.pourquoi,
            mesure: c.source || 'déduit de la spécification ASL',
-           lambda: !!c.lambda,
+           lambda: estLambda,
            modules: etats.map(e => ({ module: e.etat, role: e.role })),
            nombre: etats.length };
 }
@@ -318,7 +341,16 @@ const PORTS = {
   // ajouté à `reglePort`.
   verify: {
     fail: (r, variante, etape) => {
-      const controles = ((etape && etape.params) || {}).checks || [];
+      const p = (etape && etape.params) || {};
+      // Adossé à un manifeste : c'est une Lambda (voir COMPOSITIONS.verify), et
+      // son verdict se lit sur ce qu'elle rend. LE CONTRAT DE LA FONCTION EST
+      // ICI, et il est court exprès : `{ total, passed, failures[],
+      // checkerSummary }` — la forme exacte que pose déjà le moteur du Builder
+      // (builder-handler-verify.js:146-147), pour qu'une même Lambda serve les
+      // deux et qu'un lecteur n'ait pas deux modèles à tenir.
+      if (p.manifestId) return '$count(' + r + '.failures) > 0';
+
+      const controles = p.checks || [];
       if (!controles.length) return null;
       const conditions = controles.map(function (c) {
         const f = c && OPERATEURS[c.op];
@@ -345,7 +377,11 @@ const PORTS = {
 // pas de raison qu'il vive à deux endroits.
 const POSEES = {
   verify: function (r, etape) {
-    const controles = ((etape && etape.params) || {}).checks || [];
+    const p = (etape && etape.params) || {};
+    // Version Lambda : la fonction rend le résumé, on ne le recompose pas.
+    if (p.manifestId) return { checkerSummary: r + '.checkerSummary' };
+
+    const controles = p.checks || [];
     if (!controles.length) return null;
 
     // Une entrée par contrôle : vide s'il passe, « libellé: valeur lue » sinon.
