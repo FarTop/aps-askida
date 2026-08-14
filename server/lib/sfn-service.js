@@ -39,7 +39,8 @@ const {
   DescribeStateMachineCommand,
   StartExecutionCommand,
   DescribeExecutionCommand,
-  GetExecutionHistoryCommand
+  GetExecutionHistoryCommand,
+  ValidateStateMachineDefinitionCommand
 } = require('@aws-sdk/client-sfn');
 const { decrypt } = require('./crypto');
 
@@ -125,6 +126,36 @@ async function decrire(conn, arn) {
 }
 
 // ── Écriture ────────────────────────────────────────────────────
+
+/**
+ * CE QU'AWS PENSE DE LA DÉFINITION, avant de la déposer.
+ *
+ * Ajouté le 2026-08-14. La console affiche des avertissements — « Variable X is
+ * possibly not defined » — que l'API de création ne renvoie pas : un dépôt
+ * réussi peut donc cacher douze remarques que seul un humain ouvrant la console
+ * verra. Or ce sont exactement celles qui comptent : elles ne bloquent rien et
+ * font échouer le run.
+ *
+ * Cette API-là les rend. Elle ne remplace pas nos propres contrôles — les
+ * nôtres tournent sans réseau et disent des choses qu'AWS ignore, comme un
+ * gabarit d'appel non déclaré — mais elle ferme le dernier écart entre ce qu'on
+ * croit avoir émis et ce que la cible en pense.
+ *
+ * @returns {Promise<{ resultat, diagnostics: [{ severite, code, message, chemin }] }>}
+ */
+async function valider(conn, definition) {
+  const { client } = _clientDepuisConnexion(conn);
+  const texte = typeof definition === 'string' ? definition : JSON.stringify(definition);
+  const res = await client.send(new ValidateStateMachineDefinitionCommand({
+    definition: texte, type: 'STANDARD', severity: 'WARNING',
+  }));
+  return {
+    resultat: res.result,
+    diagnostics: (res.diagnostics || []).map(function (d) {
+      return { severite: d.severity, code: d.code, message: d.message, chemin: d.location };
+    }),
+  };
+}
 
 /**
  * Dépose une définition sous un nom : crée si elle n'existe pas, remplace
@@ -219,6 +250,6 @@ async function historique(conn, arnExecution, options) {
 }
 
 module.exports = {
-  diagnostic, trouverParNom, lister, decrire,
+  diagnostic, trouverParNom, lister, decrire, valider,
   deployer, lancer, etat, historique
 };

@@ -190,6 +190,13 @@ router.post('/builder-flows/:id/soumission', async (req, res) => {
       }
     }
 
+    // CE QU'AWS EN PENSE, avant de déposer. Ses avertissements ne bloquent rien
+    // et ne remontent PAS de l'API de création : sans cet appel, ils n'existent
+    // que pour qui ouvre la console — or ce sont exactement ceux qui comptent,
+    // puisqu'ils laissent passer le dépôt et font échouer le run.
+    let avis = { diagnostics: [] };
+    try { avis = await SFN.valider(connexion, emis.definition); } catch (_) { /* non bloquant */ }
+
     const depot = await SFN.deployer(connexion, nom, emis.definition);
 
     res.json({
@@ -204,6 +211,7 @@ router.post('/builder-flows/:id/soumission', async (req, res) => {
       generiques: ((emis.ctx && emis.ctx.generiques) || []).length
                 + (emis.corpsGeneriques || []).length,
       supports: supports,
+      avisAws: avis.diagnostics,
       plusieursConnexions: plusieurs
     });
   } catch (e) {

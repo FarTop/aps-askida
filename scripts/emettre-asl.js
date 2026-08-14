@@ -299,11 +299,21 @@ function chargeLambda(e, nomFn, adr, intraduisibles, ouNom) {
         rows: REGLES.get(p.mappingId) || p.lkRows || [],
         entree: ASL.jsonata(expr(p.lkInputVar || '', adr, true)),
         niveau: niveau(),
-        // `_ancetres` et `_hors_niveau` sont posés par resolve_ancestors et par
-        // deliver. Émis en variables nues : si le nœud n'a pas tourné, le
-        // contrôle « sans porteur » le dira avant la soumission.
-        ancetres: ASL.jsonata('$exists($_ancetres) ? $_ancetres : []'),
-        horsNiveau: ASL.jsonata('$exists($_hors_niveau) ? $_hors_niveau : []'),
+        // ── VIDES, ET C'EST LA VÉRITÉ ─────────────────────────────
+        // `_ancetres` est posé par `resolve_ancestors`, `_hors_niveau` par
+        // `deliver` — deux valeurs qu'aucun état n'assigne aujourd'hui : le
+        // premier verbe n'est pas déclaré au catalogue (il sort en gabarit
+        // générique, donc il ne fait rien), et le second ne les expose pas.
+        //
+        // Une première version émettait `$exists($_ancetres) ? $_ancetres : []`.
+        // Deux fautes en une ligne : le garde LIT lui-même une variable que rien
+        // ne pose, ce qui lève au run ; et il donnait à croire que l'héritage
+        // fonctionnerait dès que la variable existerait. Un tableau vide dit la
+        // chose telle qu'elle est — l'héritage entre niveaux est inactif tant
+        // que `resolve_ancestors` n'est pas déclaré, et le compte de gabarits
+        // génériques le rappelle.
+        ancetres: [],
+        horsNiveau: [],
       };
 
     case 'aps-registry':
@@ -1014,7 +1024,18 @@ function etatsDe(etapes, nommer, contexte) {
           // Le ResultSelector n'existe plus : Assign fait le tri directement,
           // et l'on garde le dépaquetage de `Payload` que l'invocation Lambda
           // impose.
-          Assign: { [variableDe(e)]: '{% $states.result.Payload %}' },
+          //
+          // ET CHAQUE ESSENCE EST NOMMÉE. La fonction rend `{variables: {...}}` ;
+          // ranger la réponse entière ne suffit pas, puisque les étapes
+          // suivantes lisent `$s3_cover_url` directement. Sans ces noms, huit
+          // variables restaient sans porteur — la console les a signalées, et le
+          // run aurait levé.
+          Assign: (function () {
+            const a = { [variableDe(e)]: '{% $states.result.Payload %}' };
+            const posees = ASL.variablesPosees(e.verbe, e.core, '$states.result', e);
+            if (posees) Object.keys(posees).forEach(function (n) { a[n] = ASL.jsonata(posees[n]); });
+            return a;
+          })(),
           Next: nominal,
         };
 

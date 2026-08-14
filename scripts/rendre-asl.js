@@ -376,6 +376,34 @@ const PORTS = {
 // même savoir que les règles de port — comment lire un résultat —, et il n'y a
 // pas de raison qu'il vive à deux endroits.
 const POSEES = {
+  // ── LES ESSENCES RECONNUES ───────────────────────────────────────────────
+  // Ajouté le 2026-08-14, après que la console a signalé huit variables « possibly
+  // not defined » sur PUBLISH. `aps-essences` REND les URL — {variables: {...}} —
+  // mais l'état ne rangeait que la réponse entière : les étapes suivantes lisaient
+  // `$s3_cover_url`, que rien ne posait. Elles auraient levé au run.
+  //
+  // On nomme donc chaque essence déclarée. Le nom vient du manifeste, jamais
+  // d'une liste figée ici : ce sont les mêmes noms que le moteur natif expose,
+  // et une liste en dur diverge au premier manifeste qui en ajoute une.
+  deliver: function (r, etape) {
+    const p = (etape && etape.params) || {};
+    const essences = (etape && etape.essences) || p.s3Mappings || [];
+    const out = {};
+    essences.forEach(function (x) {
+      if (x && x.variable) out[x.variable] = r + '.Payload.variables.' + x.variable;
+    });
+    return Object.keys(out).length ? out : null;
+  },
+
+  // L'identifiant attribué. `aps-registry` rend { id, existait } ; le pivot le
+  // lit sous le nom que l'étape déclare — `generated_id` par défaut.
+  'aps.registry': function (r, etape) {
+    const nom = ((etape && etape.params) || {}).varName || 'generated_id';
+    const out = {};
+    out[nom] = r + '.id';
+    return out;
+  },
+
   verify: function (r, etape) {
     const p = (etape && etape.params) || {};
     // Version Lambda : la fonction rend le résumé, on ne le recompose pas.
