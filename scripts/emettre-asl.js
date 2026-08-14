@@ -246,7 +246,7 @@ function expr(gabarit, adresser, aplatie) {
   }
   // Ce que le déclencheur pose : il l'assigne en variables à la racine, donc
   // ces noms se lisent directement, sans passer par le résolveur.
-  if (RACINE.test(propre)) return '$' + propre;
+  if (RACINE.test(propre)) return '$' + enChemin(propre);
   return adresser(propre, { aplatie: aplatie !== false });
 }
 
@@ -268,6 +268,19 @@ function expr(gabarit, adresser, aplatie) {
 // pas. D'où les GABARITS, que le catalogue déclare et qu'on applique ici — un
 // émetteur n'a pas à savoir comment Iconik range ses métadonnées.
 function applique(gabarit, nom) { return String(gabarit).replace('{}', nom); }
+
+// Un chemin du pivot en chemin JSONata. Le pivot écrit les indices comme des
+// segments — `{item.metadata.BayardID.0}` —, ce qui se recopiait tel quel :
+// `$item.metadata.BayardID.0`. AWS refuse — « The literal value 0 cannot be
+// used as a step within a path expression » — et il a raison, un indice n'est
+// pas un nom de champ. Trouvé le 2026-08-14 à la soumission de CHECK STATUSES,
+// dans le corps de boucle où l'étape lit l'identifiant de l'élément courant.
+function enChemin(ref) {
+  return String(ref == null ? '' : ref).split('.').reduce(function (acc, seg) {
+    if (!acc) return seg;
+    return /^\d+$/.test(seg) ? acc + '[' + seg + ']' : acc + '.' + seg;
+  }, '');
+}
 
 function adressesDe(etapes, chemin) {
   const rangees   = new Map();               // nom → { base, gabaritSous }
@@ -344,9 +357,9 @@ function adressesDe(etapes, chemin) {
         // le reste se recopie.
         if (r.gabaritSous) {
           return r.base + '.' + applique(r.gabaritSous, reste[0])
-               + (reste.length > 1 ? '.' + reste.slice(1).join('.') : '');
+               + (reste.length > 1 ? '.' + enChemin(reste.slice(1).join('.')) : '');
         }
-        return r.base + '.' + reste.join('.');
+        return r.base + '.' + enChemin(reste.join('.'));
       }
       const nom = parts[0];
       // Produite ailleurs qu'ailleurs par un aplatisseur : le repli ne s'applique
@@ -361,7 +374,7 @@ function adressesDe(etapes, chemin) {
           besoins.set(nom, { nom: nom, objet: o.objet || null, aplatie: true,
                              produitePar: produitesHorsAplatissement.get(nom) });
         }
-        return '$' + ref;
+        return '$' + enChemin(ref);
       }
       if (o.aplatie) {
         const src = (o.objet && (mdParObjet.get(idEtape) || {})[o.objet]) || mdToutes.get(idEtape);
@@ -373,7 +386,7 @@ function adressesDe(etapes, chemin) {
       // absent rendait du vide sans broncher. Le contrôle « sans porteur »
       // reste utile pour le dire AVANT, mais le langage ne ment plus.
       if (besoins && !besoins.has(nom)) besoins.set(nom, { nom: nom, objet: o.objet || null, aplatie: !!o.aplatie });
-      return '$' + ref;
+      return '$' + enChemin(ref);
     };
   };
 }
@@ -978,7 +991,12 @@ function etatsDe(etapes, nommer, contexte) {
               // devient illisible dans la console — or c'est là qu'un collègue
               // ira voir ce que le workflow écrit.
               const existant = ancien + '.' + j.champ + '.field_values[0].value';
-              const suite = j.ordre === 'oldest' ? "$a & '\\n' & $l" : "$l & '\\n' & $a";
+              // GUILLEMETS et non apostrophes autour du saut de ligne : AWS
+              // refuse  dans une chaîne JSONata à apostrophes
+              // (INVALID_JSONATA_EXPRESSION: Unsupported escape sequence),
+              // et l'accepte entre guillemets. Trouvé le 2026-08-14 à la
+              // première soumission de CALLBACK.
+              const suite = j.ordre === 'oldest' ? "$a & \"\\n\" & $l" : "$l & \"\\n\" & $a";
               const colle = '($l := ' + ligne + '; $a := ' + existant + '; '
                           + "$exists($a) and $a != '' ? " + suite + ' : $l)';
               const conserves = j.saufPrefixe
@@ -996,10 +1014,12 @@ function etatsDe(etapes, nommer, contexte) {
                 // La ligne précédente : la première ou la dernière selon l'ordre
                 // d'insertion. `$split` sur une chaîne vide rend [''] — d'où le
                 // test d'existence dans la condition plutôt qu'ici.
-                const lignes = '$split($a, \'\\n\')';
-                const precedente = j.ordre === 'oldest'
-                  ? lignes + '[-1]'
-                  : lignes + '[0]';
+                // PAR UNE LIAISON, pas en indexant l'appel directement : AWS
+                // refuse `$split(…)[0]` — « The literal value 0 cannot be used
+                // as a step within a path expression ». Après un appel de
+                // fonction, un indice se lit comme un pas de chemin et non
+                // comme un accès de tableau. Trouvé à la soumission de STATUSES.
+                const precedente = j.ordre === 'oldest' ? '$s[-1]' : '$s[0]';
                 // On retire de l'ANCIENNE ligne ce qu'on n'a pas mis dans la
                 // nouvelle : la marque d'exécution en fin, l'horodatage en tête.
                 const nettoyee = "$trim($replace($replace($p, /\\s*\\[[^\\]]*\\]\\s*$/, ''), "
@@ -1008,7 +1028,8 @@ function etatsDe(etapes, nommer, contexte) {
                   indice: i,
                   condition: '($a := ' + existant + '; '
                            + "$exists($a) and $a != '' ? "
-                           + '($p := ' + precedente + '; ' + nettoyee + ' = ' + assembler(morceauxSignifiants) + ')'
+                           + '($s := $split($a, "\\n"); $p := ' + precedente + '; '
+                           + nettoyee + ' = ' + assembler(morceauxSignifiants) + ')'
                            + ' : false)',
                 };
               }
@@ -1033,10 +1054,26 @@ function etatsDe(etapes, nommer, contexte) {
               }
               args.RequestBody = corps;
             }
+            const assignations = { [vars[i]]: '{% $states.result %}' };
+            // Les variables que le VERBE fabrique, en plus de sa réponse brute.
+            // Posées sur le dernier état de l'étape : c'est là que le résultat
+            // est disponible, et c'est ce que fait le handler du moteur.
+            if (dernier) {
+              // `$states.result`, PAS la variable que ce même Assign est en
+              // train de poser : un bloc Assign ne se lit pas lui-même. Écrit
+              // ainsi d'abord, et c'est le contrôle « lecture avant écriture »
+              // ajouté ce matin qui l'a dit — avant AWS.
+              const posees = ASL.variablesPosees(e.verbe, e.core, '$states.result', e);
+              if (posees) {
+                Object.keys(posees).forEach(function (n) {
+                  assignations[n] = ASL.jsonata(posees[n]);
+                });
+              }
+            }
             let etatAppel = {
               Type: 'Task', Resource: 'arn:aws:states:::http:invoke',
               Arguments: args,
-              Assign: { [vars[i]]: '{% $states.result %}' },
+              Assign: assignations,
               Next: dernier ? nominal : noms[i + 1],
             };
 
@@ -1316,8 +1353,24 @@ async function construire(ID) {
     const bati = etatsDe(p.etapes, nommer, ctxCorps);
     p._intraduisibles = ctxCorps.intraduisibles || [];
     p._generiques     = ctxCorps.generiques || [];
+    // CE QUE LE CORPS POSE LUI-MÊME N'EST PAS UN BESOIN. Ajouté le 2026-08-14 :
+    // depuis que `verify` pose `checkerSummary` dans le corps, la racine le
+    // projetait quand même — et AWS refusait la définition entière
+    // (DUPLICATE_VARIABLE_NAME : une portée fille ne peut pas redéclarer un nom
+    // du parent). Le recensement des besoins avait été fait à une époque où
+    // rien ne posait cette variable ; il ne s'était pas mis à jour tout seul.
+    const posesDuCorps = new Set();
+    (function relever(states) {
+      Object.values(states || {}).forEach(function (s) {
+        Object.keys(s.Assign || {}).forEach(n => posesDuCorps.add(n));
+        (s.Catch || []).forEach(c => Object.keys(c.Assign || {}).forEach(n => posesDuCorps.add(n)));
+        if (s.ItemProcessor) relever(s.ItemProcessor.States);
+      });
+    })(bati.States);
+
     besoinsDuCorps = Array.from((ctxCorps.besoins || new Map()).values())
-      .filter(b => traversantes.indexOf(b.nom) === -1);
+      .filter(b => traversantes.indexOf(b.nom) === -1)
+      .filter(b => !posesDuCorps.has(b.nom));
     // L'ÉLÉMENT COURANT, que l'ItemSelector fournissait sous `item`. En le
     // supprimant on a emporté ça avec : le pivot écrit `{item.id}` partout dans
     // un corps de boucle, et plus rien ne le posait. Le défaut est LATENT

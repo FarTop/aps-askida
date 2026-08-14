@@ -215,8 +215,21 @@ function compositionDe(famille, params) {
 // peut en contenir (« L'Épisode ») : sans échappement, la condition casse à la
 // validation — et une définition refusée pour une apostrophe est le genre de
 // perte de temps qui ne s'explique pas deux fois.
+// Un littéral de chaîne JSONata. Corrigé le 2026-08-14 : AWS refuse `\'` —
+// « INVALID_JSONATA_EXPRESSION: Unsupported escape sequence » —, alors que
+// l'échappement d'une apostrophe dans une chaîne à apostrophes est la première
+// chose qu'on écrit. JSONata accepte les deux délimiteurs : on choisit celui
+// que le texte ne contient pas, et on n'échappe rien.
+//
+// Le défaut est resté invisible tant que la branche « reporté » de CALLBACK
+// était injoignable — c'est le seul texte du dépôt à porter une apostrophe.
+// Deux bugs qui se cachaient l'un l'autre.
 function txt(x) {
-  return "'" + String(x == null ? '' : x).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+  const s = String(x == null ? '' : x).replace(/\\/g, '\\\\');
+  if (s.indexOf("'") === -1) return "'" + s + "'";
+  if (s.indexOf('"') === -1) return '"' + s + '"';
+  // Les deux à la fois : il faut bien échapper, et c'est la double qui passe.
+  return '"' + s.replace(/"/g, '\\"') + '"';
 }
 // Une expression régulière du pivot devient un littéral regex JSONata (`/…/`).
 // On ne touche pas au motif : le traduire serait deviner.
@@ -320,6 +333,54 @@ const PORTS = {
   },
 };
 
+// ── LES VARIABLES QU'UN VERBE CALCULE ──────────────────────────────────────
+// Un handler du moteur ne range pas seulement la réponse d'un appel : il pose
+// parfois des valeurs qu'il FABRIQUE. `verify` en pose deux, et les étapes
+// suivantes les lisent — les messages d'historique de CALLBACK et de STATUSES
+// citent `{checkerSummary}` six fois. Sans elles, l'émission produit six
+// références sans porteur, et le run lève States.QueryEvaluationError.
+//
+// Mécanisme déclaré ici plutôt qu'au cas par cas dans l'émetteur : c'est le
+// même savoir que les règles de port — comment lire un résultat —, et il n'y a
+// pas de raison qu'il vive à deux endroits.
+const POSEES = {
+  verify: function (r, etape) {
+    const controles = ((etape && etape.params) || {}).checks || [];
+    if (!controles.length) return null;
+
+    // Une entrée par contrôle : vide s'il passe, « libellé: valeur lue » sinon.
+    // Fidèle au handler (builder-handler-verify.js:147), y compris le repli sur
+    // « échec » quand la valeur lue est absente — et le « OK » quand tout passe.
+    const entrees = controles.map(function (c) {
+      const f = c && OPERATEURS[c.op];
+      if (!f) return null;
+      const lu = r + '.ResponseBody.' + c.path;
+      const passe = f(lu, c.value);
+      return '(' + passe + ") ? '' : ($a := " + lu + '; ' + txt(c.label || c.path)
+           + " & ': ' & ($exists($a) and $a != '' ? $string($a) : 'échec'))";
+    });
+    if (entrees.some(function (x) { return !x; })) return null;
+
+    return {
+      checkerSummary: '($e := [' + entrees.join(', ') + ']; '
+                    + "$f := $filter($e, function($m) { $exists($m) and $m != '' }); "
+                    + "$count($f) = 0 ? 'OK' : $join($f, ', '))",
+    };
+    // `checkerResult` n'est PAS posé : c'est un objet {total, passed,
+    // failures[]} dont personne ne lit le détail aujourd'hui. Le composer « au
+    // cas où » ferait une expression illisible dans la console pour une valeur
+    // que rien ne consomme. S'il est lu un jour, le contrôle « sans porteur »
+    // le dira.
+  },
+};
+
+// Les variables calculées d'une étape, ou null. Même appariement que
+// `reglePort` : le verbe d'abord, le core à défaut.
+function variablesPosees(verbe, core, resultat, etape) {
+  const f = POSEES[verbe] || POSEES[core];
+  return f ? f(resultat, etape) : null;
+}
+
 // Rend le texte d'une condition, ou null si l'opérateur n'a pas d'équivalent.
 function conditionDe(op, variable, valeur) {
   const f = OPERATEURS[op];
@@ -339,8 +400,8 @@ function reglePort(verbe, core, port, resultat, variante, etape) {
   return t && t[port] ? t[port](resultat, variante, etape) : null;
 }
 
-module.exports = { COMPOSITIONS, FORMES, OPERATEURS, PORTS,
-                   compositionDe, conditionDe, reglePort, jsonata, txt };
+module.exports = { COMPOSITIONS, FORMES, OPERATEURS, PORTS, POSEES,
+                   compositionDe, conditionDe, reglePort, variablesPosees, jsonata, txt };
 
 if (require.main === module) {
   console.log('CE QU\'UN VERBE DEVIENT EN ASL\n');
