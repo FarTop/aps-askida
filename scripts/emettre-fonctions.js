@@ -93,6 +93,12 @@ const FONCTIONS = {
     etat: null,
     rend: 'l\'objet traduit',
     source: 'fonction-lookup.js',
+    // Le noyau a ete EXTRAIT du handler le 2026-08-14 pour cet usage, et le
+    // handler d'APS appelle desormais le meme code — verifie par
+    // scripts/preuve-heritage.js. Les trois modules voyagent ensemble.
+    compagnons: ['server/engine-builder/builder-lookup-noyau.js',
+                 'server/engine-builder/builder-heritage.js',
+                 'server/engine-builder/builder-correspondance.js'],
   },
   'aps-create-tree': {
     verbe: 'iconik.create_tree',
