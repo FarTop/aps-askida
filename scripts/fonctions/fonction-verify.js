@@ -38,41 +38,10 @@
 // ================================================================
 'use strict';
 
-const { EventBridgeClient, DescribeConnectionCommand } = require('@aws-sdk/client-eventbridge');
-const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
-
-// Le secret d'une connexion ne change pas d'une invocation à l'autre : on le
-// garde entre deux appels à chaud. Une Lambda tiède qui relit Secrets Manager à
-// chaque essence paierait un aller-retour par contrôle.
-const cacheSecrets = new Map();
-
-async function entetesDeConnexion(connectionArn) {
-  if (!connectionArn) return {};
-  if (cacheSecrets.has(connectionArn)) return cacheSecrets.get(connectionArn);
-
-  const region = connectionArn.split(':')[3];
-  const nom    = connectionArn.split('/')[1];
-  const eb  = new EventBridgeClient({ region });
-  const sm  = new SecretsManagerClient({ region });
-
-  const conn = await eb.send(new DescribeConnectionCommand({ Name: nom }));
-  const brut = await sm.send(new GetSecretValueCommand({ SecretId: conn.SecretArn }));
-  const val  = JSON.parse(brut.SecretString || '{}');
-
-  // La forme qu'EventBridge donne à ses secrets : la clé d'API sous
-  // `api_key_auth_parameters`, les en-têtes d'invocation sous
-  // `invocation_http_parameters.header_parameters`.
-  const entetes = {};
-  const api = val.api_key_auth_parameters;
-  if (api && api.api_key_name) entetes[api.api_key_name] = api.api_key_value;
-  const inv = val.invocation_http_parameters;
-  ((inv && inv.header_parameters) || []).forEach(function (h) {
-    if (h && h.key) entetes[h.key] = h.value;
-  });
-
-  cacheSecrets.set(connectionArn, entetes);
-  return entetes;
-}
+// Les en-têtes viennent de commun-connexion.js : le même code sert à
+// aps-create-tree, et un secret lu de deux façons différentes serait le
+// genre d'écart qui ne se voit qu'en production.
+const { entetesDe } = require('./commun-connexion.js');
 
 // Lire un chemin pointé, indices entre crochets compris. Identique au moteur :
 // un chemin qui ne résout pas rend `undefined`, jamais une erreur — c'est le
@@ -111,7 +80,7 @@ exports.handler = async function (evenement) {
   const base = String(cx.baseUrl || '').replace(/\/$/, '');
   const entetes = Object.assign(
     { 'Content-Type': 'application/json', Accept: 'application/json' },
-    await entetesDeConnexion(cx.connectionArn)
+    await entetesDe(cx.connectionArn)
   );
 
   // UNE RÉPONSE PAR POINT D'ENTRÉE, pas une par contrôle. Le manifeste VOD

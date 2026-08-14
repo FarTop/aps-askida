@@ -46,6 +46,11 @@
 // Les deux partent en DynamoDB, et les deux DOIVENT ÊTRE SEMÉS avec ce qu'APS
 // détient : une table qui repart de zéro redistribuerait des identifiants que
 // le client utilise déjà. C'est le dernier service qu'APS rend avant de sortir.
+// ── AUCUN PAQUET À EMBARQUER ────────────────────────────────────
+// Le runtime Lambda nodejs20.x fournit le SDK AWS v3 : les fonctions le
+// requièrent sans que rien ne soit à installer ni à empaqueter. Une archive ne
+// contient donc que du code d'APS — ce qui la rend relisible par le client,
+// point qui compte quand la livraison doit lui survivre.
 // ================================================================
 'use strict';
 require('dotenv').config();
@@ -70,6 +75,7 @@ const FONCTIONS = {
     // Le contrat est celui du moteur du Builder (builder-handler-verify.js) —
     // même forme des deux côtés, un seul modèle à tenir en tête.
     source: 'fonction-verify.js',
+    compagnons: ['scripts/fonctions/commun-connexion.js'],
   },
   'aps-essences': {
     verbe: 'deliver',
@@ -105,8 +111,11 @@ const FONCTIONS = {
     dit: 'cree N collections en descendant un gabarit d arborescence',
     piloteePar: 'ArboTemplate (les niveaux), plus les compteurs pour numeroter',
     etat: ['aps-registry', 'aps-counter'],
-    rend: '{ racine, creees[] }',
+    rend: '{ rootId, created[], count, rootBayardId, lastBayardId }',
     source: 'fonction-create-tree.js',
+    compagnons: ['server/engine-builder/builder-identifiants.js',
+                 'scripts/fonctions/commun-connexion.js',
+                 'scripts/fonctions/commun-etat.js'],
   },
   'aps-registry': {
     verbe: 'registry',
@@ -118,7 +127,8 @@ const FONCTIONS = {
     // Le FORMAT doit etre identique des deux cotes : le handler d'origine
     // signale avoir deja produit des formats etrangers entre create_tree et
     // aps.registry sur le MEME champ Iconik. Extrait le 2026-08-14.
-    compagnons: ['server/engine-builder/builder-identifiants.js'],
+    compagnons: ['server/engine-builder/builder-identifiants.js',
+                 'scripts/fonctions/commun-etat.js'],
   },
 };
 

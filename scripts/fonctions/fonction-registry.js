@@ -38,59 +38,25 @@
 // ================================================================
 'use strict';
 
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, QueryCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { attribuerIdentifiant } = require('./commun-etat.js');
 const { genererIdentifiant } = require('./builder-identifiants.js');
-
-const TABLE = process.env.APS_TABLE_REGISTRY || 'aps-registry';
-const INDEX = 'assetId-index';
-
-const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 exports.handler = async function (evenement) {
   const e = evenement || {};
-  const type    = e.idType || 'numeric';
-  const length  = Math.max(1, Math.min(64, parseInt(e.idLength, 10) || 8));
-  const prefix  = e.idPrefix || '';
-  const orgId   = e.orgId || 'default';
-  const objectId   = e.objectId || '';
-  const objectType = e.objectType || (objectId ? 'collection' : 'asset');
+  const length = Math.max(1, Math.min(64, parseInt(e.idLength, 10) || 8));
+  const type   = e.idType || 'numeric';
+  const prefix = e.idPrefix || '';
+  const objectId = e.objectId || '';
 
-  // 1. L'objet a-t-il déjà son identifiant ? C'est la question qui rend
-  //    l'attribution rejouable — et la seule raison d'être de l'index.
-  if (objectId) {
-    const deja = await doc.send(new QueryCommand({
-      TableName: TABLE, IndexName: INDEX,
-      KeyConditionExpression: 'assetId = :a',
-      ExpressionAttributeValues: { ':a': objectId },
-      Limit: 1,
-    }));
-    if (deja.Items && deja.Items.length) {
-      const id = deja.Items[0].bayardId;
-      return { id: e.outputType === 'integer' ? parseInt(id, 10) : id, existait: true };
-    }
-  }
+  const attribue = await attribuerIdentifiant({
+    objectId  : objectId,
+    objectType: e.objectType || (objectId ? 'collection' : 'asset'),
+    orgId     : e.orgId || 'default',
+    fabriquer : function () { return genererIdentifiant(type, length, prefix); },
+  });
 
-  // 2. Sinon on en fabrique un, et on l'inscrit SOUS CONDITION. Dix tentatives,
-  //    comme le moteur — au-delà, ce n'est plus une collision malchanceuse mais
-  //    un format trop étroit pour le volume, et il vaut mieux le dire.
-  let id = genererIdentifiant(type, length, prefix);
-  for (let essai = 0; essai < 10; essai++) {
-    try {
-      await doc.send(new PutCommand({
-        TableName: TABLE,
-        Item: {
-          bayardId: String(id), assetId: objectId, assetType: objectType,
-          orgId: orgId, createdAt: new Date().toISOString(),
-        },
-        ConditionExpression: 'attribute_not_exists(bayardId)',
-      }));
-      return { id: e.outputType === 'integer' ? parseInt(id, 10) : id, existait: false };
-    } catch (err) {
-      if (err.name !== 'ConditionalCheckFailedException') throw err;
-      id = genererIdentifiant(type, length, prefix);
-    }
-  }
-  throw new Error('aps-registry : dix collisions d\'affilée sur un identifiant de '
-                + length + ' caractères — le format est trop étroit pour le volume');
+  return {
+    id: e.outputType === 'integer' ? parseInt(attribue.id, 10) : attribue.id,
+    existait: attribue.existait,
+  };
 };
